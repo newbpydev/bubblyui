@@ -14,7 +14,7 @@ BubblyUI is an open-source Go framework for building declarative, component-base
 ## Project Structure
 
 ```
-termidom/                   # repository root
+bubblyui/                   # repository root
 ├── cmd/                    # example CLI applications
 ├── internal/               # private implementation
 │   ├── dom/                # virtual DOM engine & diff logic
@@ -60,7 +60,7 @@ BubblyUI wraps the Elm-style `Init/Update/View` cycle of Bubble Tea into declara
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/your-org/bubblyui.git
+   git clone https://github.com/newbpydev/bubblyui.git
    cd bubblyui
    ```
 2. **Install dependencies**
