@@ -1,0 +1,13 @@
+root = "."
+tmp_dir = "tmp"
+[build]
+    cmd = "go build -o ./tmp/bubblyui ."
+
+[color]
+    main = "cyan"
+    error = "red"
+    success = "green"
+    info = "blue"
+[watch]
+dir = ["cmd", "internal", "pkg", "components"]
+extension = ["go", "toml"]
