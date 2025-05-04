@@ -1,0 +1,36 @@
+# BubblyUI Git Ignore Rules
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary and coverage output
+*.test
+*.out
+coverage.out
+
+# Build output directory (Air)
+tmp/
+
+# Go workspace files
+*.mod
+*.sum
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs and environment files
+*.log
+.env
