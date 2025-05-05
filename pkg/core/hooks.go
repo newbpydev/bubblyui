@@ -1,9 +1,9 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -45,12 +45,16 @@ type OnUnmountHook struct {
 
 // HookManager manages the lifecycle hooks for a component
 type HookManager struct {
-	mountHooks    map[HookID]*OnMountHook
-	updateHooks   map[HookID]*OnUpdateHook
-	unmountHooks  map[HookID]*OnUnmountHook
-	nextHookID    int
-	componentName string
-	mutex         sync.RWMutex
+	mountHooks   map[HookID]*OnMountHook
+	updateHooks  map[HookID]*OnUpdateHook
+	unmountHooks map[HookID]*OnUnmountHook
+	// Lists to preserve insertion order
+	mountHookOrder   []HookID
+	updateHookOrder  []HookID
+	unmountHookOrder []HookID
+	nextHookID       int
+	componentName    string
+	mutex            sync.RWMutex
 
 	// Extension for advanced features like context, error boundaries, etc.
 	extension *HookManagerExtension
@@ -59,11 +63,14 @@ type HookManager struct {
 // NewHookManager creates a new hook manager for a component
 func NewHookManager(componentName string) *HookManager {
 	return &HookManager{
-		mountHooks:    make(map[HookID]*OnMountHook),
-		updateHooks:   make(map[HookID]*OnUpdateHook),
-		unmountHooks:  make(map[HookID]*OnUnmountHook),
-		nextHookID:    0,
-		componentName: componentName,
+		mountHooks:       make(map[HookID]*OnMountHook),
+		updateHooks:      make(map[HookID]*OnUpdateHook),
+		unmountHooks:     make(map[HookID]*OnUnmountHook),
+		mountHookOrder:   make([]HookID, 0),
+		updateHookOrder:  make([]HookID, 0),
+		unmountHookOrder: make([]HookID, 0),
+		nextHookID:       0,
+		componentName:    componentName,
 	}
 }
 
@@ -72,7 +79,7 @@ func (hm *HookManager) OnMount(callback func() error) HookID {
 	hm.mutex.Lock()
 	defer hm.mutex.Unlock()
 
-	id := HookID(fmt.Sprintf("%s_mount_%d", hm.componentName, hm.nextHookID))
+	id := HookID(fmt.Sprintf("%s-mount-%d", hm.componentName, hm.nextHookID))
 	hm.nextHookID++
 
 	hook := &OnMountHook{
@@ -82,6 +89,7 @@ func (hm *HookManager) OnMount(callback func() error) HookID {
 	}
 
 	hm.mountHooks[id] = hook
+	hm.mountHookOrder = append(hm.mountHookOrder, id)
 	return id
 }
 
@@ -90,7 +98,7 @@ func (hm *HookManager) OnUpdate(callback func(prevDeps []interface{}) error, dep
 	hm.mutex.Lock()
 	defer hm.mutex.Unlock()
 
-	id := HookID(fmt.Sprintf("%s_update_%d", hm.componentName, hm.nextHookID))
+	id := HookID(fmt.Sprintf("%s-update-%d", hm.componentName, hm.nextHookID))
 	hm.nextHookID++
 
 	// Make a copy of deps to prevent external modification
@@ -109,6 +117,7 @@ func (hm *HookManager) OnUpdate(callback func(prevDeps []interface{}) error, dep
 	}
 
 	hm.updateHooks[id] = hook
+	hm.updateHookOrder = append(hm.updateHookOrder, id)
 	return id
 }
 
@@ -121,7 +130,7 @@ func (hm *HookManager) OnUpdateWithEquals(
 	hm.mutex.Lock()
 	defer hm.mutex.Unlock()
 
-	id := HookID(fmt.Sprintf("%s_update_%d", hm.componentName, hm.nextHookID))
+	id := HookID(fmt.Sprintf("%s-update-%d", hm.componentName, hm.nextHookID))
 	hm.nextHookID++
 
 	// Make a copy of deps to prevent external modification
@@ -138,6 +147,7 @@ func (hm *HookManager) OnUpdateWithEquals(
 	}
 
 	hm.updateHooks[id] = hook
+	hm.updateHookOrder = append(hm.updateHookOrder, id)
 	return id
 }
 
@@ -146,7 +156,7 @@ func (hm *HookManager) OnUnmount(callback func() error) HookID {
 	hm.mutex.Lock()
 	defer hm.mutex.Unlock()
 
-	id := HookID(fmt.Sprintf("%s_unmount_%d", hm.componentName, hm.nextHookID))
+	id := HookID(fmt.Sprintf("%s-unmount-%d", hm.componentName, hm.nextHookID))
 	hm.nextHookID++
 
 	hook := &OnUnmountHook{
@@ -155,51 +165,60 @@ func (hm *HookManager) OnUnmount(callback func() error) HookID {
 	}
 
 	hm.unmountHooks[id] = hook
+	hm.unmountHookOrder = append(hm.unmountHookOrder, id)
 	return id
 }
 
-// ExecuteMountHooks executes all mount hooks
+// ExecuteMountHooks executes all mount hooks that haven't been executed yet
 func (hm *HookManager) ExecuteMountHooks() error {
 	hm.mutex.RLock()
 	defer hm.mutex.RUnlock()
 
 	var lastErr error
-	for _, hook := range hm.mountHooks {
+	// Execute hooks in the order they were registered
+	for _, id := range hm.mountHookOrder {
+		hook, exists := hm.mountHooks[id]
+		if !exists {
+			continue // Skip if hook was removed
+		}
 		hook.mutex.Lock()
 		if !hook.executed {
 			if err := hook.callback(); err != nil {
-				lastErr = fmt.Errorf("error in mount hook %s: %w", hook.id, err)
+				lastErr = err
 			}
 			hook.executed = true
 		}
 		hook.mutex.Unlock()
 	}
-
 	return lastErr
 }
 
-// ExecuteUpdateHooks executes all update hooks that have changed dependencies
+// ExecuteUpdateHooks executes all update hooks and checks if dependencies have changed
 func (hm *HookManager) ExecuteUpdateHooks() error {
 	hm.mutex.RLock()
 	defer hm.mutex.RUnlock()
 
 	var allErrs []error
-	for _, hook := range hm.updateHooks {
+	// Execute hooks in the order they were registered
+	for _, id := range hm.updateHookOrder {
+		hook, exists := hm.updateHooks[id]
+		if !exists {
+			continue // Skip if hook was removed
+		}
 		hook.mutex.Lock()
 
-		// If first execution, always run and store deps
+		// If the hook has never been executed, run it and save deps as prevDeps
 		if !hook.executed {
+			hook.prevDeps = hook.deps
 			if err := hook.callback(nil); err != nil {
 				allErrs = append(allErrs, fmt.Errorf("error in update hook %s: %w", hook.id, err))
 			}
 			hook.executed = true
-			hook.prevDeps = make([]interface{}, len(hook.deps))
-			copy(hook.prevDeps, hook.deps)
 			hook.mutex.Unlock()
 			continue
 		}
 
-		// Check if dependencies have changed
+		// Check if any dependencies have changed
 		depsChanged := false
 		if len(hook.deps) != len(hook.prevDeps) {
 			depsChanged = true
@@ -212,29 +231,22 @@ func (hm *HookManager) ExecuteUpdateHooks() error {
 			}
 		}
 
-		// Execute if dependencies changed
+		// If dependencies have changed, run the callback and update prevDeps
 		if depsChanged {
-			prevDeps := hook.prevDeps
-			if err := hook.callback(prevDeps); err != nil {
+			prevDepsCopy := make([]interface{}, len(hook.prevDeps))
+			copy(prevDepsCopy, hook.prevDeps)
+
+			hook.prevDeps = hook.deps
+			if err := hook.callback(prevDepsCopy); err != nil {
 				allErrs = append(allErrs, fmt.Errorf("error in update hook %s: %w", hook.id, err))
 			}
-			// Update previous deps
-			hook.prevDeps = make([]interface{}, len(hook.deps))
-			copy(hook.prevDeps, hook.deps)
 		}
+
 		hook.mutex.Unlock()
 	}
 
 	if len(allErrs) > 0 {
-		// Combine all errors
-		errMsg := "hook errors: "
-		for i, err := range allErrs {
-			if i > 0 {
-				errMsg += "; "
-			}
-			errMsg += err.Error()
-		}
-		return errors.New(errMsg)
+		return fmt.Errorf("multiple errors in update hooks: %v", allErrs)
 	}
 
 	return nil
@@ -245,25 +257,22 @@ func (hm *HookManager) ExecuteUnmountHooks() error {
 	hm.mutex.RLock()
 	defer hm.mutex.RUnlock()
 
-	var allErrs []error
-	for _, hook := range hm.unmountHooks {
+	var allErrs []string
+	// Execute hooks in the order they were registered
+	for _, id := range hm.unmountHookOrder {
+		hook, exists := hm.unmountHooks[id]
+		if !exists {
+			continue // Skip if hook was removed
+		}
 		hook.mutex.Lock()
 		if err := hook.callback(); err != nil {
-			allErrs = append(allErrs, fmt.Errorf("error in unmount hook %s: %w", hook.id, err))
+			allErrs = append(allErrs, err.Error())
 		}
 		hook.mutex.Unlock()
 	}
 
 	if len(allErrs) > 0 {
-		// Combine all errors
-		errMsg := "unmount hook errors: "
-		for i, err := range allErrs {
-			if i > 0 {
-				errMsg += "; "
-			}
-			errMsg += err.Error()
-		}
-		return errors.New(errMsg)
+		return fmt.Errorf("errors in unmount hooks: %s", strings.Join(allErrs, "; "))
 	}
 
 	return nil
@@ -290,28 +299,50 @@ func (hm *HookManager) UpdateHookDependencies(id HookID, deps []interface{}) err
 	return nil
 }
 
-// RemoveHook removes a hook
+// RemoveHook removes a hook by ID
 func (hm *HookManager) RemoveHook(id HookID) error {
 	hm.mutex.Lock()
 	defer hm.mutex.Unlock()
 
-	// Try to remove from all hook types
-	if _, ok := hm.mountHooks[id]; ok {
+	// Helper function to remove an ID from a slice
+	removeID := func(slice []HookID, id HookID) []HookID {
+		for i, hookID := range slice {
+			if hookID == id {
+				return append(slice[:i], slice[i+1:]...)
+			}
+		}
+		return slice
+	}
+
+	// Check if the hook exists in any of the hook maps
+	found := false
+
+	// Remove from mount hooks if present
+	if _, exists := hm.mountHooks[id]; exists {
 		delete(hm.mountHooks, id)
-		return nil
+		hm.mountHookOrder = removeID(hm.mountHookOrder, id)
+		found = true
 	}
 
-	if _, ok := hm.updateHooks[id]; ok {
+	// Remove from update hooks if present
+	if _, exists := hm.updateHooks[id]; exists {
 		delete(hm.updateHooks, id)
-		return nil
+		hm.updateHookOrder = removeID(hm.updateHookOrder, id)
+		found = true
 	}
 
-	if _, ok := hm.unmountHooks[id]; ok {
+	// Remove from unmount hooks if present
+	if _, exists := hm.unmountHooks[id]; exists {
 		delete(hm.unmountHooks, id)
-		return nil
+		hm.unmountHookOrder = removeID(hm.unmountHookOrder, id)
+		found = true
 	}
 
-	return fmt.Errorf("hook with ID %s not found", id)
+	if !found {
+		return fmt.Errorf("hook %s not found", id)
+	}
+
+	return nil
 }
 
 // ID implements the Hook interface

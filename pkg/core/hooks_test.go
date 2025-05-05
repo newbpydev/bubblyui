@@ -195,14 +195,18 @@ func TestRemoveHook(t *testing.T) {
 	err := hm.RemoveHook(mountID)
 	assert.NoError(t, err)
 	assert.NotContains(t, hm.mountHooks, mountID)
+	// Also check that the ID was removed from the order slice
+	assert.NotContains(t, hm.mountHookOrder, mountID)
 
 	err = hm.RemoveHook(updateID)
 	assert.NoError(t, err)
 	assert.NotContains(t, hm.updateHooks, updateID)
+	assert.NotContains(t, hm.updateHookOrder, updateID)
 
 	err = hm.RemoveHook(unmountID)
 	assert.NoError(t, err)
 	assert.NotContains(t, hm.unmountHooks, unmountID)
+	assert.NotContains(t, hm.unmountHookOrder, unmountID)
 
 	// Try to remove non-existent hook
 	err = hm.RemoveHook("non-existent")
