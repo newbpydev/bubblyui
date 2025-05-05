@@ -1,6 +1,6 @@
 # BubblyUI
 
-BubblyUI is an open-source Go framework for building declarative, component-based terminal UIs on top of Bubble Tea and Lip Gloss. It provides a virtual DOM diffing layer, a fluent builder API, lifecycle hooks, and hot-reload support to streamline TUI development.
+BubblyUI is an open-source Go framework for building reactive, component-based terminal UIs on top of Bubble Tea and Lip Gloss. It transforms Bubble Tea's Elm-inspired architecture into a React/Solid-like component system with fine-grained reactivity, independent component state, and elegant composition patterns.
 
 ## Technology Stack
 
@@ -8,8 +8,9 @@ BubblyUI is an open-source Go framework for building declarative, component-base
 * **TUI Core:** [Bubble Tea](https://github.com/charmbracelet/bubble-tea)
 * **Styling:** [Lip Gloss](https://github.com/charmbracelet/lipgloss)
 * **Hot-Reload:** [Air](https://github.com/cosmtrek/air) (or similar file-watcher)
-* **Testing:** Go’s built-in `testing` package
-* **CI/CD:** GitHub Actions
+* **Testing:** Go's built-in `testing` package with comprehensive edge case coverage
+* **Benchmarking:** Go's `testing/benchmark` for performance testing
+* **CI/CD:** GitHub Actions with test quality gates
 
 ## Project Structure
 
@@ -31,109 +32,163 @@ bubblyui/                   # repository root
 
 ## Project Details
 
-BubblyUI wraps the Elm-style `Init/Update/View` cycle of Bubble Tea into declarative, stateful components. It introduces:
+BubblyUI addresses the limitations of Bubble Tea's monolithic architecture (where all state is centralized) by providing a component-based system inspired by modern frontend frameworks. It introduces:
 
-* A **virtual DOM** (`VNode`, `Element`) for diff-and-patch updates.
-* A **fluent builder API** powered by Go generics for defining components.
-* **Lifecycle hooks** (`OnMount`, `OnUpdate`, `OnUnmount`) as simple callbacks.
-* **Per-component styling** props using Lip Gloss.
+* A **component-based architecture** where each UI element is an independent, reusable piece with its own state.
+* A **reactive state model** using signals and hooks to enable fine-grained updates without re-rendering the entire UI.
+* **Parent-child data flow** with props flowing down and events/callbacks flowing up.
+* **Lifecycle hooks** (`OnMount`, `OnUpdate`, `OnUnmount`) to manage component lifecycles.
+* **Per-component styling** with Lip Gloss for beautiful, consistent UIs.
 * **Hot-reload** support for rapid iteration.
 * Core components: `Box`, `Text`, `List`, `Button`, and theming support.
 
 ## Architecture
 
-BubblyUI reimagines React's architecture for terminal UIs, implementing key React concepts:
+BubblyUI combines React's component model with Solid.js's reactivity system, adapting both for terminal UIs:
 
-### Virtual DOM
+### Component-Based Architecture
 
-At the core of BubblyUI is a lightweight virtual DOM implementation optimized for terminal rendering:
+Instead of Bubble Tea's single global model, BubblyUI uses independent components with their own state:
 
 ```go
-// Simplified VNode structure
-type VNode struct {
-    Type      string
-    Props     map[string]interface{}
-    Children  []*VNode
-    Component Component
-    Key       string
+// Simplified Component structure
+type Component struct {
+    Props     Props
+    State     State
+    Children  []Component
+    Lifecycle Lifecycle
+    Render    func() string
 }
 ```
 
-The virtual DOM allows BubblyUI to:
+This approach allows:
 
-1. **Declaratively define UI**: Create nested component trees that describe what the UI should look like
-2. **Efficiently update**: Only re-render components that actually changed
-3. **Abstract the terminal**: Work with components instead of directly manipulating terminal output
+1. **Modular UI development**: Build complex UIs from simple, reusable components
+2. **Isolated state management**: Each component manages its own concerns
+3. **Better maintainability**: Changes to one component don't affect others
+4. **Easier testing**: Components can be tested in isolation
 
-### Component System
+### Reactive State Model
 
-Components in BubblyUI follow the React pattern but are adapted for Go:
+BubblyUI implements a reactive state system inspired by Solid.js's signals:
 
 ```go
-// Example component definition (simplified)
-func Counter() *Element {
-    count, setCount := useState(0)
+// Example signal usage (simplified)
+type Counter struct {
+    Count *Signal[int]
+}
+
+func NewCounter() *Counter {
+    count, setCount := CreateSignal(0)
     
-    return Box().Padding(1).Border(lipgloss.RoundedBorder()).Children(
-        Text(fmt.Sprintf("Count: %d", count)),
-        Button("Increment").OnClick(func() { setCount(count + 1) }),
+    // Only components that use count.Get() will update when count changes
+    return &Counter{
+        Count: count,
+    }
+}
+
+func (c *Counter) View() string {
+    // This component only re-renders when c.Count.Get() changes
+    return fmt.Sprintf("Count: %d", c.Count.Get())
+}
+```
+
+This fine-grained reactivity ensures:
+
+1. **Minimal redraws**: Only affected components update when state changes
+2. **Predictable data flow**: State changes trigger automatic UI updates
+3. **Better performance**: Terminal doesn't flicker with unnecessary redraws
+
+### Parent-Child Data Flow
+
+BubblyUI implements a clean, predictable data flow pattern:
+
+```go
+// Parent component passing props down and handling events up
+func Dashboard() *Element {
+    notifications, setNotifications := CreateSignal(0)
+    
+    return Box().Children(
+        Header().Title("Dashboard").Notifications(notifications.Get()),
+        Sidebar().OnNotification(func(count int) {
+            setNotifications(count)
+        }),
     )
 }
 ```
 
-Components become reusable, composable building blocks with isolated state and behavior.
+This pattern ensures:
 
-### Reconciliation
+1. **Props flow down**: Parents pass data to children via constructor parameters or fields
+2. **Events flow up**: Children communicate with parents via callbacks or event systems
+3. **Clean separation of concerns**: Components only know about their direct dependencies
 
-When state changes, BubblyUI:
+### Lip Gloss Integration
 
-1. Creates a new virtual DOM tree
-2. Diffs it against the previous tree
-3. Generates minimal update instructions
-4. Applies these updates to the Bubble Tea model
-5. Renders only what changed
-
-This approach provides React-like performance with minimal terminal redrawing.
-
-### Hooks and State
-
-BubblyUI implements React-like hooks for state management and side effects:
+BubblyUI leverages Lip Gloss for beautiful, consistent styling:
 
 ```go
-// Example hooks (simplified API)
-count, setCount := useState(0)
-onMount(func() { /* component mounted */ })
-onUpdate(func() { /* component updated */ })
+// Example styling with Lip Gloss
+func StyledBox(title, content string) *Element {
+    titleStyle := lipgloss.NewStyle().
+        Bold(true).
+        Border(lipgloss.RoundedBorder()).
+        Padding(0, 1)
+    
+    bodyStyle := lipgloss.NewStyle().
+        Foreground(lipgloss.Color("#00ffff"))
+    
+    return Box().Children(
+        Text(title).WithStyle(titleStyle),
+        Text(content).WithStyle(bodyStyle),
+    )
+}
 ```
 
-These allow for functional, stateful components without class-based inheritance.
+This integration provides:
 
-## Detailed Roadmap
+1. **Declarative styling**: Define how components look with a fluent API
+2. **Consistent design**: Apply themes and style rules across components
+3. **Layout composition**: Easily stack, align, and arrange components with Lip Gloss utilities
 
-| Phase | Objectives | Deliverables | Challenges | Status |
-| ----- | ---------- | ------------ | ---------- | ------ |
-| 1 | **Foundation & Requirements** | README, module initialization, project structure | Managing project scope, defining clear architecture vision | ✅ Completed |
-| 2 | **Virtual DOM Architecture** <br>- Define core type interfaces<br>- Design component contract<br>- Create VNode structure with props | - `internal/dom/types.go`<br>- `pkg/termidom/element.go`<br>- `pkg/termidom/component.go` | - Designing a Go-idiomatic component API<br>- Balancing flexibility with type safety | 🔲 Pending |
-| 3 | **Virtual DOM Implementation** <br>- Create node creation functions<br>- Implement reconciliation algorithm<br>- Design efficient property diffing | - `internal/dom/vnode.go`<br>- `internal/dom/reconciler.go`<br>- `internal/dom/diff.go` | - Adapting React's reconciliation for terminal UI<br>- Handling terminal-specific constraints<br>- Optimizing for minimal redraws | 🔲 Pending |
-| 4 | **Bubble Tea Integration** <br>- Create wrapper for Bubble Tea program<br>- Design message passing system<br>- Implement render cycle | - `internal/core/program.go`<br>- `internal/core/messages.go`<br>- `internal/core/render.go` | - Converting VDOM patches to Bubble Tea model updates<br>- Managing state consistently across updates<br>- Ensuring performant rendering | 🔲 Pending |
-| 5 | **Component System** <br>- Create builder API with fluent interface<br>- Implement key primitive components<br>- Design props system | - `pkg/termidom/builder.go`<br>- Core components (`Box`, `Text`, etc.)<br>- Props interfaces | - Creating an ergonomic builder API with generics<br>- Balancing component complexity<br>- Making components composable | 🔲 Pending |
-| 6 | **State Management & Hooks** <br>- Implement component lifecycle hooks<br>- Create useState-like functionality<br>- Design context system | - Hook implementations<br>- State management utilities<br>- Context provider/consumer | - Managing state scopes in Go<br>- Designing lifecycles without closures<br>- Implementing React-like hooks in Go | 🔲 Pending |
-| 7 | **Styling & Theming** <br>- Design theme context system<br>- Implement style inheritance<br>- Create responsive layouts | - Theme provider<br>- Style system<br>- Layout components | - Creating a consistent styling API<br>- Handling terminal size constraints<br>- Managing style inheritance | 🔲 Pending |
-| 8 | **Developer Experience** <br>- Implement hot-reload<br>- Create debugging tools<br>- Design error boundaries | - Air configuration<br>- Debug utilities<br>- Hot-reload examples | - Implementing hot-reload for stateful apps<br>- Preserving state across reloads<br>- Creating useful error information | 🔲 Pending |
-| 9 | **Testing & Quality** <br>- Implement unit tests for core logic<br>- Create component testing utilities<br>- Set up CI/CD pipeline | - Test suite<br>- Testing utilities<br>- GitHub Actions workflow | - Testing terminal UI components<br>- Simulating user interactions<br>- Creating reproducible tests | 🔲 Pending |
-| 10 | **Documentation & Release** <br>- Create comprehensive docs<br>- Build example applications<br>- Package for distribution | - API documentation<br>- Example applications<br>- v0.1 release | - Creating clear, concise documentation<br>- Designing example apps that showcase capabilities<br>- Ensuring backward compatibility | 🔲 Pending |
+## Key Features
+
+BubblyUI's key features include:
+
+1. **Independent Component Architecture**: Each UI element is a self-contained unit with its own state and rendering logic, breaking free from Bubble Tea's monolithic model structure.
+
+2. **Reactive Signals**: Inspired by Solid.js, BubblyUI uses signals to create fine-grained reactivity, ensuring only components that depend on changed data re-render.
+
+3. **Predictable Data Flow**: Props flow down from parents to children, while events flow up through callbacks, creating a clean, maintainable architecture.
+
+4. **Lifecycle Hooks**: Components can respond to mounting, updating, and unmounting events with simple callback functions.
+
+5. **Elegant Styling**: Deep integration with Lip Gloss for beautiful, consistent styling with a fluent API.
+
+6. **Optimized Performance**: Minimal terminal redraws through intelligent tracking of component dependencies.
+
+7. **Developer Experience**: Hot reload support, helpful error messages, and a familiar component model for developers coming from web frameworks.
+
+8. **Comprehensive Testing**: Every component includes thorough tests for functionality, edge cases, and performance benchmarks.
+
+9. **Test-Driven Development**: We follow a strict test-first approach where all components are tested before implementation is complete.
+
+See the [ROADMAP.md](./ROADMAP.md) for our detailed implementation plan and current progress.
 
 ## Philosophy
 
-BubblyUI was created with several guiding principles:
+BubblyUI was created to solve the limitations of traditional TUI frameworks, with these guiding principles:
 
-- **Declarative over imperative**: Define what your UI should look like, not how to update it.
-- **Component-based**: Build UIs from small, reusable pieces that manage their own state.
-- **Learn once, write anywhere**: Leverage familiar React concepts in terminal applications.
-- **Developer experience**: Provide helpful error messages, hot-reloading, and a cohesive API.
-- **Performance-minded**: Minimize terminal redraws and optimize rendering for resource efficiency.
+- **Component-based architecture**: Replace monolithic models with independent, reusable components.
+- **Fine-grained reactivity**: Update only what changed, not the entire screen.
+- **Predictable data flow**: Props down, events up - creating clean, maintainable code.
+- **Familiar mental model**: Apply React and Solid.js concepts to terminal UIs.
+- **Developer experience**: Focus on writing business logic, not wrangling with layout or state management.
+- **Performance-minded**: Optimize for minimal terminal redraws and efficient resource usage.
+- **Test-driven development**: Every component is tested thoroughly with edge cases before implementation.
+- **Quality first**: Comprehensive testing for functionality, edge cases, and performance benchmarks.
 
-BubblyUI aims to bring modern frontend development patterns to the terminal, making TUI development more accessible and maintainable.
+BubblyUI aims to bring the best of modern frontend development patterns to the terminal, making TUI development more accessible, maintainable, and enjoyable.
 
 ## Getting Started
 
@@ -148,13 +203,18 @@ BubblyUI aims to bring modern frontend development patterns to the terminal, mak
    ```bash
    go mod download
    ```
-3. **Run an example**
+3. **Run tests**
+
+   ```bash
+   go test ./...
+   ```
+4. **Run an example**
 
    ```bash
    cd cmd/counter
    go run .
    ```
-4. **Start with hot-reload**
+5. **Start with hot-reload**
 
    ```bash
    # Install Air if not already:
