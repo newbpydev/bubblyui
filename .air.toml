@@ -1,13 +1,26 @@
 root = "."
 tmp_dir = "tmp"
 [build]
-    cmd = "go build -o ./tmp/bubblyui ."
+    cmd = "go build -o ./tmp/main.exe ."
+    bin = "./tmp/main.exe"
+    delay = 1000
+    exclude_dir = ["tmp", "vendor"]
+    include_ext = ["go", "toml"]
+    exclude_regex = ["_test\\.go"]
 
 [color]
     main = "cyan"
     error = "red"
     success = "green"
     info = "blue"
+
+[log]
+    time = true
+
+[screen]
+    clear_on_rebuild = true
+
 [watch]
-dir = ["cmd", "internal", "pkg", "components"]
-extension = ["go", "toml"]
+    dir = ["cmd", "internal", "pkg", "components"]
+    extension = ["go", "toml"]
+    delay = 1000

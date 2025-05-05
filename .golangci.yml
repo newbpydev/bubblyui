@@ -1,0 +1,41 @@
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unparam
+    - misspell
+    - unused
+    - typecheck
+    - errcheck
+    - revive
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/newbpydev/bubblyui
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+        arguments:
+          - checkPrivateReceivers
+          - disableStutteringCheck
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - tmp
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
