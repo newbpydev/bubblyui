@@ -39,8 +39,9 @@ type Dependency interface {
 
 // Effect represents a function that will be called when its dependencies change
 type Effect struct {
-	fn   func()
-	deps []string
+	fn        func()
+	deps      []string
+	debugInfo string // Additional debugging information
 }
 
 // AsyncEffect represents an effect that handles asynchronous operations
