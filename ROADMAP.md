@@ -35,26 +35,26 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
      - [x] _Test:_ Review documentation for clarity and completeness
 
 2. **Architecture Design**
-   - [ ] Define component model and interfaces
-     - [ ] Research React/Solid.js component patterns
-     - [ ] Adapt patterns for Go and terminal environment
-     - [ ] Document component lifecycle requirements
-     - [ ] _Test:_ Create simple proof-of-concept sketches
-   - [ ] Design reactive state system
-     - [ ] Research signal patterns in reactive frameworks
-     - [ ] Define signal propagation model
-     - [ ] Design dependency tracking mechanism
-     - [ ] _Test:_ Create pseudocode for reactivity model
-   - [ ] Plan parent-child communication patterns
-     - [ ] Define prop drilling methodology
-     - [ ] Design event bubbling mechanism
-     - [ ] Plan context-like state sharing
-     - [ ] _Test:_ Create diagrams of communication flows
-   - [ ] Document architecture decisions
-     - [ ] Create architecture decision records (ADRs)
-     - [ ] Document tradeoffs and alternatives considered
-     - [ ] Define performance expectations
-     - [ ] _Test:_ Review ADRs for completeness
+   - [x] Define component model and interfaces
+     - [x] Research React/Solid.js component patterns
+     - [x] Adapt patterns for Go and terminal environment
+     - [x] Document component lifecycle requirements
+     - [x] _Test:_ Create simple proof-of-concept sketches
+   - [x] Design reactive state system
+     - [x] Research signal patterns in reactive frameworks
+     - [x] Define signal propagation model
+     - [x] Design dependency tracking mechanism
+     - [x] _Test:_ Create pseudocode for reactivity model
+   - [x] Plan parent-child communication patterns
+     - [x] Define prop drilling methodology
+     - [x] Design event bubbling mechanism
+     - [x] Plan context-like state sharing
+     - [x] _Test:_ Create diagrams of communication flows
+   - [x] Document architecture decisions
+     - [x] Create architecture decision records (ADRs)
+     - [x] Document tradeoffs and alternatives considered
+     - [x] Define performance expectations
+     - [x] _Test:_ Review ADRs for completeness
 
 3. **Core Interfaces**
    - [ ] Define `Component` interface
