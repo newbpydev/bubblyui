@@ -236,20 +236,19 @@ func TestStateNotifications(t *testing.T) {
 			newValue = new
 			notificationCount++
 		}
-		removed := state.RemoveOnChange(callback)
+		state.RemoveOnChange(callback)
 
-		// This is a simplistic comparison and might not always work
-		// due to how function values are compared in Go
-		if removed {
-			// Update again
-			state.Set(TestState{
-				Counter: 20,
-				Name:    "Second Update",
-			})
+		// Reset notification count to verify callback is no longer called
+		notificationCount = 0
 
-			// Notification count should not increase
-			assert.Equal(t, 1, notificationCount)
-		}
+		// Update again
+		state.Set(TestState{
+			Counter: 20,
+			Name:    "Changed again",
+		})
+
+		// Verify callback was not called after removal
+		assert.Equal(t, 0, notificationCount, "Callback should not be called after removal")
 	})
 }
 
