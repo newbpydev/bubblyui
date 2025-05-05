@@ -10,29 +10,29 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
 
 ### Tasks:
 1. **Project Setup**
-   - [ ] Initialize Go module and directory structure
-     - [ ] Create module with appropriate Go version in go.mod
-     - [ ] Setup .gitignore for Go projects
-     - [ ] Define initial folder structure
-     - [ ] Create project-specific linter configuration
-     - [ ] _Test:_ Verify module initialization with `go mod verify`
-   - [ ] Set up development tools 
-     - [ ] Configure Air for hot-reload
-     - [ ] Setup golangci-lint with project rules
-     - [ ] Add git hooks for pre-commit checks
-     - [ ] _Test:_ Verify Air functionality with simple app
-   - [ ] Configure CI/CD pipeline with GitHub Actions
-     - [ ] Create build workflow
-     - [ ] Set up test automation
-     - [ ] Configure linting checks
-     - [ ] Add coverage reporting
-     - [ ] _Test:_ Verify GitHub Actions configuration with test PR
-   - [ ] Create initial documentation
-     - [ ] Write comprehensive README.md
-     - [ ] Create CONTRIBUTING.md guidelines
-     - [ ] Add CODE_OF_CONDUCT.md
-     - [ ] Create detailed ROADMAP.md
-     - [ ] _Test:_ Review documentation for clarity and completeness
+   - [x] Initialize Go module and directory structure
+     - [x] Create module with appropriate Go version in go.mod
+     - [x] Setup .gitignore for Go projects
+     - [x] Define initial folder structure
+     - [x] Create project-specific linter configuration
+     - [x] _Test:_ Verify module initialization with `go mod verify`
+   - [x] Set up development tools 
+     - [x] Configure Air for hot-reload
+     - [x] Setup golangci-lint with project rules
+     - [x] Add git hooks for pre-commit checks
+     - [x] _Test:_ Verify Air functionality with simple app
+   - [x] Configure CI/CD pipeline with GitHub Actions
+     - [x] Create build workflow
+     - [x] Set up test automation
+     - [x] Configure linting checks
+     - [x] Add coverage reporting
+     - [x] _Test:_ Verify GitHub Actions configuration with test PR
+   - [x] Create initial documentation
+     - [x] Write comprehensive README.md
+     - [x] Create CONTRIBUTING.md guidelines
+     - [x] Add CODE_OF_CONDUCT.md
+     - [x] Create detailed ROADMAP.md
+     - [x] _Test:_ Review documentation for clarity and completeness
 
 2. **Architecture Design**
    - [ ] Define component model and interfaces
