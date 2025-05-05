@@ -365,13 +365,13 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
      - [x] Add caching with dependency invalidation
      - [x] _Test:_ Test computed values with changing dependencies
      - [x] _Test:_ Verify computed values only recalculate when needed
-     - [ ] Handle cleanup errors gracefully
-     - [ ] _Test:_ Test cleanup execution timing
-     - [ ] _Test:_ Verify resource cleanup in various scenarios
-   - [ ] Implement dependency tracking for effects
-     - [ ] Create automatic dependency detection
-     - [ ] Add explicit dependency list option
-     - [ ] Implement deep dependency tracking
+     - [x] Handle cleanup errors gracefully
+     - [x] _Test:_ Test cleanup execution timing
+     - [x] _Test:_ Verify resource cleanup in various scenarios
+   - [x] Implement dependency tracking for effects
+     - [x] Create automatic dependency detection
+     - [x] Add explicit dependency list option
+     - [x] Implement deep dependency tracking
      - [ ] Add dependency change detection
      - [ ] _Test:_ Test effect rerun with various dependency patterns
      - [ ] _Test:_ Verify skipped execution when dependencies don't change
