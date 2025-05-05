@@ -132,32 +132,32 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Verify state updates correctly trigger renders
        - [x] Test complex nested state objects
        - [x] Benchmark props/state performance
-   - [ ] Outline lifecycle hook patterns
-     - [ ] Design OnMount hook implementation
-       - [ ] Create hook registration mechanism
-       - [ ] Implement mount timing guarantees
-       - [ ] Design mount hook error handling
-       - [ ] Add initialization pattern support
-     - [ ] Create OnUpdate hook with dependencies
-       - [ ] Implement dependency tracking for updates
-       - [ ] Design dependency comparison mechanism
-       - [ ] Create previous values access
-       - [ ] Add conditional update execution
-     - [ ] Implement OnUnmount cleanup hook
-       - [ ] Design resource cleanup pattern
-       - [ ] Create guaranteed execution mechanism
-       - [ ] Implement cleanup timeout safety
-       - [ ] Add cleanup error handling
-     - [ ] Design effect dependency tracking
-       - [ ] Create automatic dependency detection
-       - [ ] Implement explicit dependency list option
-       - [ ] Design dependency change detection
-       - [ ] Add dependency debugging tools
-     - [ ] _Test:_ Create tests for hook execution order
-       - [ ] Test hooks execute in expected sequence
-       - [ ] Verify cleanup occurs at right time
-       - [ ] Test dependency tracking accuracy
-       - [ ] Benchmark hook performance impact
+   - [x] Outline lifecycle hook patterns
+     - [x] Design OnMount hook implementation
+       - [x] Create hook registration mechanism
+       - [x] Implement mount timing guarantees
+       - [x] Design mount hook error handling
+       - [x] Add initialization pattern support
+     - [x] Create OnUpdate hook with dependencies
+       - [x] Implement dependency tracking for updates
+       - [x] Design dependency comparison mechanism
+       - [x] Create previous values access
+       - [x] Add conditional update execution
+     - [x] Implement OnUnmount cleanup hook
+       - [x] Design resource cleanup pattern
+       - [x] Create guaranteed execution mechanism
+       - [x] Implement cleanup timeout safety
+       - [x] Add cleanup error handling
+     - [x] Design effect dependency tracking
+       - [x] Create automatic dependency detection
+       - [x] Implement explicit dependency list option
+       - [x] Design dependency change detection
+       - [x] Add dependency debugging tools
+     - [x] _Test:_ Create tests for hook execution order
+       - [x] Test hooks execute in expected sequence
+       - [x] Verify cleanup occurs at right time
+       - [x] Test dependency tracking accuracy
+       - [x] Benchmark hook performance impact
 
 ### Deliverables:
 - Project repository with proper structure following Go best practices
