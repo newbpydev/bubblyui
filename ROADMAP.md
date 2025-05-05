@@ -180,135 +180,135 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
 
 ### Tasks:
 1. **Signal Implementation**
-   - [ ] Create generic `Signal[T]` type
-     - [ ] Define Signal struct with generic type parameter
-       - [ ] Create generic type constraints for value types
-       - [ ] Design Signal struct fields and data model
-       - [ ] Add metadata for signal tracking and debugging
-       - [ ] Implement constructor with initial value
-     - [ ] Implement thread-safe value storage
-       - [ ] Create mutex-protected value container
-       - [ ] Implement atomic operations where appropriate
-       - [ ] Design lock strategies for concurrent access
-       - [ ] Add deadlock prevention mechanisms
-     - [ ] Create getter method that records dependencies
-       - [ ] Implement value access method
-       - [ ] Create dependency tracking during reads
-       - [ ] Design dependency recording context
-       - [ ] Add performance optimizations for frequent reads
-     - [ ] Implement setter method that triggers updates
-       - [ ] Create value update method
-       - [ ] Implement value equality comparison
-       - [ ] Add notification for subscribers
-       - [ ] Design change batching mechanism
-     - [ ] _Test:_ Unit test Signal creation and basic functionality
-       - [ ] Test Signal with various primitive types
-       - [ ] Test Signal with complex structs
-       - [ ] Verify value persistence across reads/writes
-       - [ ] Test edge cases (nil values, zero values)
-       - [ ] Verify thread safety with concurrent access
-     - [ ] _Test:_ Benchmark Signal operations for performance
-       - [ ] Measure read performance under different loads
-       - [ ] Benchmark write operations with subscribers
-       - [ ] Test memory usage patterns
-       - [ ] Compare performance with different implementations
-   - [ ] Implement signal creation functions
-     - [ ] Create CreateSignal factory function
-       - [ ] Design function signature with generics
-       - [ ] Implement initialization with default options
-       - [ ] Add configuration options parameter
-       - [ ] Create factory for derived signals
-     - [ ] Implement getter/setter tuple return pattern
-       - [ ] Create closure-based getter function
-       - [ ] Design setter function with value parameter
-       - [ ] Add function types for getter/setter
-       - [ ] Implement functional update pattern (prev => new)
-     - [ ] Add options for equality comparison functions
-       - [ ] Create default equality functions for primitives
-       - [ ] Implement custom equality comparison hooks
-       - [ ] Add deep equality options for structs
-       - [ ] Design performance optimizations for comparisons
-     - [ ] Design debug/tracing capabilities
-       - [ ] Add signal creation location tracking
-       - [ ] Implement value change logging
-       - [ ] Create dependency graph visualization
-       - [ ] Design performance monitoring hooks
-     - [ ] _Test:_ Test signal creation with various types
-       - [ ] Test with primitive types (int, string, bool)
-       - [ ] Verify behavior with struct types
-       - [ ] Test with nested complex types
-       - [ ] Check nil/zero value handling
-     - [ ] _Test:_ Verify correct behavior with custom equality functions
-       - [ ] Test with custom struct equality
-       - [ ] Verify performance with various comparison functions
-       - [ ] Test edge cases in equality comparison
-       - [ ] Benchmark equality function performance
-   - [ ] Design dependency tracking system
-     - [ ] Implement central dependency tracker
-       - [ ] Create global tracking context
-       - [ ] Design tracking stack for nested tracking
-       - [ ] Implement thread-safe tracking mechanism
-       - [ ] Add tracking scope lifecycle management
-     - [ ] Create subscription mechanism for signals
-       - [ ] Design observer pattern implementation
-       - [ ] Create subscription registration interface
-       - [ ] Implement subscription cleanup
-       - [ ] Add weak reference support to avoid memory leaks
-     - [ ] Develop efficient dependency graph
-       - [ ] Design directed graph data structure
-       - [ ] Implement efficient node traversal
-       - [ ] Create graph pruning for unused dependencies
-       - [ ] Optimize graph updates for minimal recomputation
-     - [ ] Implement cycle detection
-       - [ ] Create cycle detection algorithm
-       - [ ] Design error reporting for cycles
-       - [ ] Implement automatic cycle breaking strategies
-       - [ ] Add debugging tools for cycle visualization
-     - [ ] _Test:_ Test dependency tracking with complex relationships
-       - [ ] Test simple dependency chains
-       - [ ] Verify complex dependency networks
-       - [ ] Test dynamic dependency changes
-       - [ ] Check concurrent dependency tracking
-       - [ ] Verify selective recomputation
-     - [ ] _Test:_ Verify cycle detection and handling
-       - [ ] Test direct cycles (A → B → A)
-       - [ ] Verify detection of complex cycles
-       - [ ] Test cycle breaking mechanisms
-       - [ ] Verify error reporting for cycles
-       - [ ] Benchmark cycle detection performance
-   - [ ] Add batched updates to minimize renders
-     - [ ] Create update batching mechanism
-       - [ ] Design transaction-based batch grouping
-       - [ ] Implement automatic batch scheduling
-       - [ ] Create manual batch API for explicit control
-       - [ ] Add batch lifecycle hooks (before/after batch)
-     - [ ] Implement update queue and processing
-       - [ ] Design efficient update queue data structure
-       - [ ] Create task scheduler for updates
-       - [ ] Implement update deduplication
-       - [ ] Add update throttling for high-frequency changes
-     - [ ] Add priority levels for updates
-       - [ ] Create priority queue implementation
-       - [ ] Design priority inheritance for dependent updates
-       - [ ] Implement update starvation prevention
-       - [ ] Add emergency high-priority channel
-     - [ ] Create mechanism to flush updates
-       - [ ] Implement immediate flush API
-       - [ ] Design automatic flush triggers
-       - [ ] Create flush completion callbacks
-       - [ ] Add timeout-based safety flush
-     - [ ] _Test:_ Test batched updates with timing verification
-       - [ ] Test update coalescing for same signal
-       - [ ] Verify batching across multiple signals
-       - [ ] Measure performance improvement with batching
-       - [ ] Test batching with nested component updates
-       - [ ] Verify timing of batch processing
-     - [ ] _Test:_ Verify correct update order with priorities
-       - [ ] Test priority ordering with mixed priorities
-       - [ ] Verify urgent updates process first
-       - [ ] Test starvation prevention with low-priority updates
-       - [ ] Check priority inheritance works correctly
-       - [ ] Benchmark priority queue performance
+   - [x] Create generic `Signal[T]` type
+     - [x] Define Signal struct with generic type parameter
+       - [x] Create generic type constraints for value types
+       - [x] Design Signal struct fields and data model
+       - [x] Add metadata for signal tracking and debugging
+       - [x] Implement constructor with initial value
+     - [x] Implement thread-safe value storage
+       - [x] Create mutex-protected value container
+       - [x] Implement atomic operations where appropriate
+       - [x] Design lock strategies for concurrent access
+       - [x] Add deadlock prevention mechanisms
+     - [x] Create getter method that records dependencies
+       - [x] Implement value access method
+       - [x] Create dependency tracking during reads
+       - [x] Design dependency recording context
+       - [x] Add performance optimizations for frequent reads
+     - [x] Implement setter method that triggers updates
+       - [x] Create value update method
+       - [x] Implement value equality comparison
+       - [x] Add notification for subscribers
+       - [x] Design change batching mechanism
+     - [x] _Test:_ Unit test Signal creation and basic functionality
+       - [x] Test Signal with various primitive types
+       - [x] Test Signal with complex structs
+       - [x] Verify value persistence across reads/writes
+       - [x] Test edge cases (nil values, zero values)
+       - [x] Verify thread safety with concurrent access
+     - [x] _Test:_ Benchmark Signal operations for performance
+       - [x] Measure read performance under different loads
+       - [x] Benchmark write operations with subscribers
+       - [x] Test memory usage patterns
+       - [x] Compare performance with different implementations
+   - [x] Implement signal creation functions
+     - [x] Create CreateSignal factory function
+       - [x] Design function signature with generics
+       - [x] Implement initialization with default options
+       - [x] Add configuration options parameter
+       - [x] Create factory for derived signals
+     - [x] Implement getter/setter tuple return pattern
+       - [x] Create closure-based getter function
+       - [x] Design setter function with value parameter
+       - [x] Add function types for getter/setter
+       - [x] Implement functional update pattern (prev => new)
+     - [x] Add options for equality comparison functions
+       - [x] Create default equality functions for primitives
+       - [x] Implement custom equality comparison hooks
+       - [x] Add deep equality options for structs
+       - [x] Design performance optimizations for comparisons
+     - [x] Design debug/tracing capabilities
+       - [x] Add signal creation location tracking
+       - [x] Implement value change logging
+       - [x] Create dependency graph visualization
+       - [x] Design performance monitoring hooks
+     - [x] _Test:_ Test signal creation with various types
+       - [x] Test with primitive types (int, string, bool)
+       - [x] Verify behavior with struct types
+       - [x] Test with nested complex types
+       - [x] Check nil/zero value handling
+     - [x] _Test:_ Verify correct behavior with custom equality functions
+       - [x] Test with custom struct equality
+       - [x] Verify performance with various comparison functions
+       - [x] Test edge cases in equality comparison
+       - [x] Benchmark equality function performance
+   - [x] Design dependency tracking system
+     - [x] Implement central dependency tracker
+       - [x] Create global tracking context
+       - [x] Design tracking stack for nested tracking
+       - [x] Implement thread-safe tracking mechanism
+       - [x] Add tracking scope lifecycle management
+     - [x] Create subscription mechanism for signals
+       - [x] Design observer pattern implementation
+       - [x] Create subscription registration interface
+       - [x] Implement subscription cleanup
+       - [x] Add weak reference support to avoid memory leaks
+     - [x] Develop efficient dependency graph
+       - [x] Design directed graph data structure
+       - [x] Implement efficient node traversal
+       - [x] Create graph pruning for unused dependencies
+       - [x] Optimize graph updates for minimal recomputation
+     - [x] Implement cycle detection
+       - [x] Create cycle detection algorithm
+       - [x] Design error reporting for cycles
+       - [x] Implement automatic cycle breaking strategies
+       - [x] Add debugging tools for cycle visualization
+     - [x] _Test:_ Test dependency tracking with complex relationships
+       - [x] Test simple dependency chains
+       - [x] Verify complex dependency networks
+       - [x] Test dynamic dependency changes
+       - [x] Check concurrent dependency tracking
+       - [x] Verify selective recomputation
+     - [x] _Test:_ Verify cycle detection and handling
+       - [x] Test direct cycles (A → B → A)
+       - [x] Verify detection of complex cycles
+       - [x] Test cycle breaking mechanisms
+       - [x] Verify error reporting for cycles
+       - [x] Benchmark cycle detection performance
+   - [x] Add batched updates to minimize renders
+     - [x] Create update batching mechanism
+       - [x] Design transaction-based batch grouping
+       - [x] Implement automatic batch scheduling
+       - [x] Create manual batch API for explicit control
+       - [x] Add batch lifecycle hooks (before/after batch)
+     - [x] Implement update queue and processing
+       - [x] Design efficient update queue data structure
+       - [x] Create task scheduler for updates
+       - [x] Implement update deduplication
+       - [x] Add update throttling for high-frequency changes
+     - [x] Add priority levels for updates
+       - [x] Create priority queue implementation
+       - [x] Design priority inheritance for dependent updates
+       - [x] Implement update starvation prevention
+       - [x] Add emergency high-priority channel
+     - [x] Create mechanism to flush updates
+       - [x] Implement immediate flush API
+       - [x] Design automatic flush triggers
+       - [x] Create flush completion callbacks
+       - [x] Add timeout-based safety flush
+     - [x] _Test:_ Test batched updates with timing verification
+       - [x] Test update coalescing for same signal
+       - [x] Verify batching across multiple signals
+       - [x] Measure performance improvement with batching
+       - [x] Test batching with nested component updates
+       - [x] Verify timing of batch processing
+     - [x] _Test:_ Verify correct update order with priorities
+       - [x] Test priority ordering with mixed priorities
+       - [x] Verify urgent updates process first
+       - [x] Test starvation prevention with low-priority updates
+       - [x] Check priority inheritance works correctly
+       - [x] Benchmark priority queue performance
 
 2. **Component State Management**
    - [ ] Implement component-local state
