@@ -50,6 +50,25 @@ type AsyncEffect struct {
 	deps []string
 }
 
+// EffectPriority represents the priority level of an effect
+type EffectPriority int
+
+// Priority constants for effect scheduling
+const (
+	PriorityLow    EffectPriority = 0
+	PriorityNormal EffectPriority = 50
+	PriorityHigh   EffectPriority = 100
+)
+
+// EffectInfo contains metadata about an effect
+type EffectInfo struct {
+	Priority    EffectPriority
+	IsCancelled bool
+	IsDeferred  bool
+	BatchID     string      // Used to group related effects
+	Metadata    interface{} // Any additional metadata
+}
+
 var (
 	// Global tracking context
 	trackingStack   = []map[string]bool{}
@@ -59,6 +78,10 @@ var (
 	batchMode       bool
 	batchedSignals  = make(map[string]any)
 	pendingEffects  = make(map[string]bool)
+	// Effect scheduling information
+	effectInfos     = make(map[string]EffectInfo)
+	effectQueue     = make([]string, 0)
+	processingQueue bool
 	idCounter       uint64
 	errorHandler    func(error)
 	globalMutex     sync.RWMutex

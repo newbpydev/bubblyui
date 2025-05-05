@@ -301,23 +301,117 @@ func safelyExecuteCleanup(cleanupFn func() error) (err error) {
 // The effect function will run immediately and then again whenever
 // any signal accessed during its execution changes.
 func CreateEffect(effectFn func()) string {
+	// Store previous values of dependencies to check for actual changes
+	depValues := make(map[string]uint64)
+
 	// Create a wrapper function that will track dependencies each time
 	// the effect runs, ensuring we always have the most up-to-date dependencies
 	dynamicTrackingFn := func() {
+		// Get previous version numbers of known dependencies
+		valuesChanged := false
+
+		// Check if any dependency values have actually changed
+		if len(depValues) > 0 {
+			for depID, prevVersion := range depValues {
+				// Find the signal by ID
+				globalMutex.RLock()
+				signal, exists := signalRegistry[depID]
+				globalMutex.RUnlock()
+
+				if exists {
+					// Check if version has changed
+					// Use type assertion to get the underlying signal
+					sig, ok := signal.(*Signal[any])
+					if !ok {
+						// If the type assertion fails, try to use reflection to get the version
+						// This handles the case where the signal is of a different generic type
+						val := reflect.ValueOf(signal).Elem()
+						if val.Kind() == reflect.Struct {
+							verField := val.FieldByName("version")
+							if verField.IsValid() && verField.CanUint() {
+								currentVersion := verField.Uint()
+								if uint64(currentVersion) != prevVersion {
+									valuesChanged = true
+									break
+								}
+							}
+						}
+						continue
+					}
+
+					// We have a valid signal, check its version
+					sig.mutex.RLock()
+					currentVersion := sig.version
+					sig.mutex.RUnlock()
+
+					if currentVersion != prevVersion {
+						valuesChanged = true
+						break
+					}
+				}
+			}
+
+			// If no values changed, we can skip this execution
+			if !valuesChanged && len(depValues) > 0 {
+				if debugMode {
+					fmt.Println("[DEBUG] Skipping effect execution - no dependency changes detected")
+				}
+				return
+			}
+		}
+
 		// Start tracking dependencies
 		StartTracking()
 
 		// Run the effect function, which will access signals and register dependencies
 		effectFn()
 
-		// Get the dependencies that were accessed
-		_ = StopTracking() // We don't use these deps directly, they're tracked during access
+		// Get the dependencies that were accessed and update their version numbers
+		deps := StopTracking()
+
+		// Update our stored dependency versions for the next run
+		depValues = make(map[string]uint64, len(deps))
+		for _, depID := range deps {
+			globalMutex.RLock()
+			signal, exists := signalRegistry[depID]
+			globalMutex.RUnlock()
+
+			if exists {
+				// Use reflection to safely get the version field regardless of generic type
+				val := reflect.ValueOf(signal).Elem()
+				if val.Kind() == reflect.Struct {
+					verField := val.FieldByName("version")
+					if verField.IsValid() && verField.CanUint() {
+						depValues[depID] = uint64(verField.Uint())
+					}
+				}
+			}
+		}
 	}
 
 	// First execution with dependency tracking to establish initial dependencies
 	StartTracking()
 	effectFn() // Execute once to gather initial dependencies
 	deps := StopTracking()
+
+	// Initialize dependency version tracking
+	depValues = make(map[string]uint64, len(deps))
+	for _, depID := range deps {
+		globalMutex.RLock()
+		signal, exists := signalRegistry[depID]
+		globalMutex.RUnlock()
+
+		if exists {
+			// Use reflection to safely get the version field regardless of generic type
+			val := reflect.ValueOf(signal).Elem()
+			if val.Kind() == reflect.Struct {
+				verField := val.FieldByName("version")
+				if verField.IsValid() && verField.CanUint() {
+					depValues[depID] = uint64(verField.Uint())
+				}
+			}
+		}
+	}
 
 	// Register the effect with dependencies - but we want the wrapper to be called
 	// each time, so it can dynamically track dependencies
@@ -344,17 +438,7 @@ func CreateEffect(effectFn func()) string {
 // CreateEffectWithDeps creates an effect with an explicit dependency list.
 // The effect will only re-run when signals with IDs in the explicit deps list change.
 func CreateEffectWithDeps(effectFn func(), explicitDepIDs []string) string {
-	// First, map the explicit dependency IDs to actual signal IDs
-	// For our current test case, we need to handle the fact that the test is passing
-	// string names like "count" and "multiplier" rather than actual signal IDs
-
-	// Since our SignalStruct contains IDs, and the input for this function is just
-	// string identifiers, we need to make them actual signal IDs
-
-	// Execute once immediately
-	effectFn()
-
-	// For the tests to work, we'll leave as is for now and fix later with a more robust approach
+	// Register the effect with the explicit dependencies
 	effectID := RegisterEffect(effectFn, explicitDepIDs)
 
 	// Use debug info for naming
@@ -363,14 +447,10 @@ func CreateEffectWithDeps(effectFn func(), explicitDepIDs []string) string {
 
 	// Store in global registry with debug info
 	globalMutex.Lock()
-	defer globalMutex.Unlock()
-
-	// If we have an existing effect in the registry, add debug info
-	if effect, ok := effectsRegistry[effectID]; ok {
-		if e, ok := effect.(*Effect); ok {
-			e.debugInfo = effectDebugInfo
-		}
+	if effect, ok := effectsRegistry[effectID].(*Effect); ok {
+		effect.debugInfo = effectDebugInfo
 	}
+	globalMutex.Unlock()
 
 	return effectID
 }
