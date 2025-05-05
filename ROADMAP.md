@@ -405,34 +405,34 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
 
 ### Tasks:
 1. **Component Base**
-   - [ ] Create basic component structs/interfaces
-     - [ ] Define core Component interface
-     - [ ] Implement base Component struct
-     - [ ] Create component factory functions
-     - [ ] Design component configuration options
-     - [ ] _Test:_ Test component creation and basic rendering
-     - [ ] _Test:_ Verify component with various config options
-   - [ ] Implement lifecycle methods (Init, Update, View)
-     - [ ] Create Init method with initial state setup
-     - [ ] Implement Update method for handling messages
-     - [ ] Design View method for rendering
-     - [ ] Add consistency checks between lifecycle methods
-     - [ ] _Test:_ Test correct lifecycle method execution order
-     - [ ] _Test:_ Verify state consistency between method calls
-   - [ ] Add component tree construction
-     - [ ] Implement component tree structure
-     - [ ] Create child component registration
-     - [ ] Design tree traversal algorithms
-     - [ ] Add tree manipulation methods
-     - [ ] _Test:_ Test component tree with various depths
-     - [ ] _Test:_ Verify tree operations performance
-   - [ ] Design component identity/keys
-     - [ ] Implement unique component identification
-     - [ ] Create key-based component reconciliation
-     - [ ] Add stable identity across renders
-     - [ ] Design debug identifiers
-     - [ ] _Test:_ Test component reuse with keys
-     - [ ] _Test:_ Verify identity stability during updates
+   - [x] Create basic component structs/interfaces
+     - [x] Define core Component interface
+     - [x] Implement base Component struct
+     - [x] Create component factory functions
+     - [x] Design component configuration options
+     - [x] _Test:_ Test component creation and basic rendering
+     - [x] _Test:_ Verify component with various config options
+   - [x] Implement lifecycle methods (Init, Update, View)
+     - [x] Create Init method with initial state setup
+     - [x] Implement Update method for handling messages
+     - [x] Design View method for rendering
+     - [x] Add consistency checks between lifecycle methods
+     - [x] _Test:_ Test correct lifecycle method execution order
+     - [x] _Test:_ Verify state consistency between method calls
+   - [x] Add component tree construction
+     - [x] Implement component tree structure
+     - [x] Create child component registration
+     - [x] Design tree traversal algorithms
+     - [x] Add tree manipulation methods
+     - [x] _Test:_ Test component tree with various depths
+     - [x] _Test:_ Verify tree operations performance
+   - [x] Design component identity/keys
+     - [x] Implement unique component identification
+     - [x] Create key-based component reconciliation
+     - [x] Add stable identity across renders
+     - [x] Design debug identifiers
+     - [x] _Test:_ Test component reuse with keys
+     - [x] _Test:_ Verify identity stability during updates
 
 2. **Lifecycle Hooks**
    - [ ] Implement OnMount hook
