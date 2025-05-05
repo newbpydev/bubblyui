@@ -4,6 +4,17 @@ import (
 	"sync"
 )
 
+// SlotCondition is a function that determines if a slot should be rendered
+type SlotCondition func() bool
+
+// Slot represents a named location in a component where content can be injected
+type Slot struct {
+	name           string
+	content        *ComponentManager
+	defaultContent *ComponentManager
+	condition      SlotCondition
+}
+
 // ComponentManager handles the lifecycle and relationships of a UI component
 type ComponentManager struct {
 	// Component identification
@@ -23,6 +34,9 @@ type ComponentManager struct {
 
 	// Event handling
 	eventHandlers map[string][]EventHandler
+
+	// Slot management
+	slots map[string]*Slot
 }
 
 // EventHandler is a function that handles events
@@ -38,6 +52,7 @@ func NewComponentManager(name string) *ComponentManager {
 		mounted:       false,
 		props:         make(map[string]interface{}),
 		eventHandlers: make(map[string][]EventHandler),
+		slots:         make(map[string]*Slot),
 	}
 	return cm
 }
@@ -143,17 +158,33 @@ func (cm *ComponentManager) Mount() error {
 	}
 
 	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	// Skip if already mounted
+	if cm.mounted {
+		return nil
+	}
+
+	// Mark as mounted
 	cm.mounted = true
 
 	// Mount all children
 	for _, child := range cm.children {
 		err := child.Mount()
 		if err != nil {
-			cm.mutex.Unlock()
 			return err
 		}
 	}
-	cm.mutex.Unlock()
+
+	// Mount slot content if present
+	for _, slot := range cm.slots {
+		if slot.content != nil {
+			err := slot.content.Mount()
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
@@ -162,12 +193,29 @@ func (cm *ComponentManager) Mount() error {
 func (cm *ComponentManager) Unmount() error {
 	cm.mutex.Lock()
 
+	// Skip if not mounted
+	if !cm.mounted {
+		cm.mutex.Unlock()
+		return nil
+	}
+
 	// Unmount all children first
 	for _, child := range cm.children {
 		err := child.Unmount()
 		if err != nil {
 			cm.mutex.Unlock()
 			return err
+		}
+	}
+
+	// Unmount slot content if present
+	for _, slot := range cm.slots {
+		if slot.content != nil {
+			err := slot.content.Unmount()
+			if err != nil {
+				cm.mutex.Unlock()
+				return err
+			}
 		}
 	}
 
