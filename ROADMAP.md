@@ -435,34 +435,34 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
      - [x] _Test:_ Verify identity stability during updates
 
 2. **Lifecycle Hooks**
-   - [ ] Implement OnMount hook
-     - [ ] Create hook registration mechanism
-     - [ ] Implement hook execution timing
-     - [ ] Add error handling for mount hooks
-     - [ ] Design initialization patterns
-     - [ ] _Test:_ Test hook execution on component mount
-     - [ ] _Test:_ Verify error handling in mount hooks
-   - [ ] Add OnUpdate hook with dependency tracking
-     - [ ] Create update hook with dependencies
-     - [ ] Implement selective hook execution
-     - [ ] Add previous/current props comparison
-     - [ ] Design update batching
-     - [ ] _Test:_ Test update hooks with various dependencies
-     - [ ] _Test:_ Verify hooks only execute when dependencies change
-   - [ ] Create OnUnmount for cleanup
-     - [ ] Implement resource cleanup hooks
-     - [ ] Design guaranteed execution mechanism
-     - [ ] Add error handling for cleanup
-     - [ ] Create cleanup timeout safety
-     - [ ] _Test:_ Test cleanup hook execution
-     - [ ] _Test:_ Verify resources are properly released
-   - [ ] Design context for hook execution
-     - [ ] Create hook execution context
-     - [ ] Implement context propagation
-     - [ ] Add context-aware hooks
-     - [ ] Design error boundaries
-     - [ ] _Test:_ Test hook context with nested components
-     - [ ] _Test:_ Verify error boundary behavior
+   - [x] Implement OnMount hook
+     - [x] Create hook registration mechanism
+     - [x] Implement hook execution timing
+     - [x] Add error handling for mount hooks
+     - [x] Design initialization patterns
+     - [x] _Test:_ Test hook execution on component mount
+     - [x] _Test:_ Verify error handling in mount hooks
+   - [x] Add OnUpdate hook with dependency tracking
+     - [x] Create update hook with dependencies
+     - [x] Implement selective hook execution
+     - [x] Add previous/current props comparison
+     - [x] Design update batching
+     - [x] _Test:_ Test update hooks with various dependencies
+     - [x] _Test:_ Verify hooks only execute when dependencies change
+   - [x] Create OnUnmount for cleanup
+     - [x] Implement resource cleanup hooks
+     - [x] Design guaranteed execution mechanism
+     - [x] Add error handling for cleanup
+     - [x] Create cleanup timeout safety
+     - [x] _Test:_ Test cleanup hook execution
+     - [x] _Test:_ Verify resources are properly released
+   - [x] Design context for hook execution
+     - [x] Create hook execution context
+     - [x] Implement context propagation
+     - [x] Add context-aware hooks
+     - [x] Design error boundaries
+     - [x] _Test:_ Test hook context with nested components
+     - [x] _Test:_ Verify error boundary behavior
 
 3. **Component Composition**
    - [ ] Create child component management

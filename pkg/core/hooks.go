@@ -51,6 +51,9 @@ type HookManager struct {
 	nextHookID    int
 	componentName string
 	mutex         sync.RWMutex
+
+	// Extension for advanced features like context, error boundaries, etc.
+	extension *HookManagerExtension
 }
 
 // NewHookManager creates a new hook manager for a component
