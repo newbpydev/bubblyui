@@ -57,81 +57,81 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
      - [x] _Test:_ Review ADRs for completeness
 
 3. **Core Interfaces**
-   - [ ] Define `Component` interface
-     - [ ] Define core component lifecycle methods
-       - [ ] Create `Initialize` method for setup
-       - [ ] Design `Update` method for state changes
-       - [ ] Implement `Render` method for view generation
-       - [ ] Add `Dispose` method for cleanup
-     - [ ] Create component identity mechanism
-       - [ ] Implement unique ID generation
-       - [ ] Design keying system for reconciliation
-       - [ ] Create debugging identifiers
-     - [ ] Define child component management
-       - [ ] Design child registration methods
-       - [ ] Create child access methods
-       - [ ] Implement child update propagation
-       - [ ] Add child removal handling
-     - [ ] Document interface usage patterns
-       - [ ] Create interface documentation
-       - [ ] Write usage examples
-       - [ ] Document best practices
-     - [ ] _Test:_ Write interface tests with mocks
-       - [ ] Test lifecycle method execution
-       - [ ] Verify identity mechanism
-       - [ ] Test child component operations
-   - [ ] Design `Signal` type for reactive state
-     - [ ] Create generic Signal[T] type
-       - [ ] Define generic type constraints
-       - [ ] Implement thread-safe value container
-       - [ ] Create initialization options
-       - [ ] Design signal metadata structure
-     - [ ] Implement value accessor methods
-       - [ ] Create value getter with dependency tracking
-       - [ ] Design value setter with change detection
-       - [ ] Add comparison options for equality checking
-       - [ ] Implement transaction support for batched updates
-     - [ ] Design dependency tracking
-       - [ ] Create tracking context during reads
-       - [ ] Implement dependency graph structure
-       - [ ] Design efficient dependency invalidation
-       - [ ] Add cycle detection in dependency graph
-     - [ ] Create signal propagation mechanism
-       - [ ] Implement subscriber notification system
-       - [ ] Create prioritized update queue
-       - [ ] Design batching for related signal updates
-       - [ ] Add propagation debugging tools
-     - [ ] _Test:_ Write comprehensive signal unit tests
-       - [ ] Test signal creation with various types
-       - [ ] Verify dependency tracking correctness
-       - [ ] Test update propagation scenarios
-       - [ ] Benchmark signal performance
-   - [ ] Create `Props` and `State` interfaces
-     - [ ] Define immutable Props interface
-       - [ ] Design generic Props[T] container
-       - [ ] Implement read-only access methods
-       - [ ] Create default props mechanism
-       - [ ] Add props validation system
-     - [ ] Design mutable State interface
-       - [ ] Implement generic State[T] container
-       - [ ] Create state initialization methods
-       - [ ] Design state change notifications
-       - [ ] Add derived state calculations
-     - [ ] Create prop setting/getting mechanisms
-       - [ ] Implement prop passing from parent to child
-       - [ ] Design prop change detection
-       - [ ] Create typed prop accessors
-       - [ ] Add default prop fallbacks
-     - [ ] Implement state update mechanism
-       - [ ] Create functional update pattern (prev => new)
-       - [ ] Implement batched state updates
-       - [ ] Design state update notifications
-       - [ ] Add state change history
-     - [ ] _Test:_ Test props and state with various data types
-       - [ ] Test props immutability
-       - [ ] Verify state updates correctly trigger renders
-       - [ ] Test complex nested state objects
-       - [ ] Benchmark props/state performance
+   - [x] Define `Component` interface
+     - [x] Define core component lifecycle methods
+       - [x] Create `Initialize` method for setup
+       - [x] Design `Update` method for state changes
+       - [x] Implement `Render` method for view generation
+       - [x] Add `Dispose` method for cleanup
+     - [x] Create component identity mechanism
+       - [x] Implement unique ID generation
+       - [x] Design keying system for reconciliation
+       - [x] Create debugging identifiers
+     - [x] Define child component management
+       - [x] Design child registration methods
+       - [x] Create child access methods
+       - [x] Implement child update propagation
+       - [x] Add child removal handling
+     - [x] Document interface usage patterns
+       - [x] Create interface documentation
+       - [x] Write usage examples
+       - [x] Document best practices
+     - [x] _Test:_ Write interface tests with mocks
+       - [x] Test lifecycle method execution
+       - [x] Verify identity mechanism
+       - [x] Test child component operations
+   - [x] Design `Signal` type for reactive state
+     - [x] Create generic Signal[T] type
+       - [x] Define generic type constraints
+       - [x] Implement thread-safe value container
+       - [x] Create initialization options
+       - [x] Design signal metadata structure
+     - [x] Implement value accessor methods
+       - [x] Create value getter with dependency tracking
+       - [x] Design value setter with change detection
+       - [x] Add comparison options for equality checking
+       - [x] Implement transaction support for batched updates
+     - [x] Design dependency tracking
+       - [x] Create tracking context during reads
+       - [x] Implement dependency graph structure
+       - [x] Design efficient dependency invalidation
+       - [x] Add cycle detection in dependency graph
+     - [x] Create signal propagation mechanism
+       - [x] Implement subscriber notification system
+       - [x] Create prioritized update queue
+       - [x] Design batching for related signal updates
+       - [x] Add propagation debugging tools
+     - [x] _Test:_ Write comprehensive signal unit tests
+       - [x] Test signal creation with various types
+       - [x] Verify dependency tracking correctness
+       - [x] Test update propagation scenarios
+       - [x] Benchmark signal performance
+   - [x] Create `Props` and `State` interfaces
+     - [x] Define immutable Props interface
+       - [x] Design generic Props[T] container
+       - [x] Implement read-only access methods
+       - [x] Create default props mechanism
+       - [x] Add props validation system
+     - [x] Design mutable State interface
+       - [x] Implement generic State[T] container
+       - [x] Create state initialization methods
+       - [x] Design state change notifications
+       - [x] Add derived state calculations
+     - [x] Create prop setting/getting mechanisms
+       - [x] Implement prop passing from parent to child
+       - [x] Design prop change detection
+       - [x] Create typed prop accessors
+       - [x] Add default prop fallbacks
+     - [x] Implement state update mechanism
+       - [x] Create functional update pattern (prev => new)
+       - [x] Implement batched state updates
+       - [x] Design state update notifications
+       - [x] Add state change history
+     - [x] _Test:_ Test props and state with various data types
+       - [x] Test props immutability
+       - [x] Verify state updates correctly trigger renders
+       - [x] Test complex nested state objects
+       - [x] Benchmark props/state performance
    - [ ] Outline lifecycle hook patterns
      - [ ] Design OnMount hook implementation
        - [ ] Create hook registration mechanism
