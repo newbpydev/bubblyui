@@ -372,16 +372,16 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
      - [x] Create automatic dependency detection
      - [x] Add explicit dependency list option
      - [x] Implement deep dependency tracking
-     - [ ] Add dependency change detection
-     - [ ] _Test:_ Test effect rerun with various dependency patterns
-     - [ ] _Test:_ Verify skipped execution when dependencies don't change
-   - [ ] Handle effect scheduling
-     - [ ] Implement priority-based effect scheduling
-     - [ ] Create batching for related effects
-     - [ ] Add mechanism for deferred effects
-     - [ ] Implement effect cancellation
-     - [ ] _Test:_ Test effect execution order
-     - [ ] _Test:_ Verify cancellation behavior
+     - [x] Add dependency change detection
+     - [x] _Test:_ Test effect rerun with various dependency patterns
+     - [x] _Test:_ Verify skipped execution when dependencies don't change
+   - [x] Handle effect scheduling
+     - [x] Implement priority-based effect scheduling
+     - [x] Create batching for related effects
+     - [x] Add mechanism for deferred effects
+     - [x] Implement effect cancellation
+     - [x] _Test:_ Test effect execution order
+     - [x] _Test:_ Verify cancellation behavior
 
 ### Deliverables:
 - Complete reactive state management system with signals, state, and effects
