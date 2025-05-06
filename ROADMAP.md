@@ -652,12 +652,12 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
 
 2. **Event Handling**
    - [ ] Map Bubble Tea messages to component events
-     - [ ] Create event type system
-       - [ ] Design generic Event interface
-       - [ ] Implement standard event types (click, key, etc.)
-       - [ ] Create custom event type factory
-       - [ ] Add event metadata structure
-       - [ ] Design event type hierarchy/categorization
+     - [x] Create event type system
+       - [x] Design generic Event interface
+       - [x] Implement standard event types (click, key, etc.)
+       - [x] Create custom event type factory
+       - [x] Add event metadata structure
+       - [x] Design event type hierarchy/categorization
      - [ ] Implement event translator/mapper
        - [ ] Create message-to-event conversion system
        - [ ] Design bidirectional mapping for event/message
