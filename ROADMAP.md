@@ -603,18 +603,18 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
          - [x] Implement message priority system
          - [x] Add message combining for related events
          - [x] Design message logging and debugging
-     - [ ] _Test:_ Test message routing between components
-       - [ ] Test message flow through component hierarchy
-       - [ ] Verify event bubbling works correctly
-       - [ ] Test complex routing scenarios
-       - [ ] Check message transformation accuracy
-       - [ ] Verify middleware processing order
-     - [ ] _Test:_ Verify correct delivery to target components
-       - [ ] Test direct message targeting
-       - [ ] Verify messages reach correct component instances
-       - [ ] Test delivery to dynamically created components
-       - [ ] Check message delivery timing
-       - [ ] Verify message delivery under heavy load
+     - [x] _Test:_ Test message routing between components
+       - [x] Test message flow through component hierarchy
+       - [x] Verify event bubbling works correctly
+       - [x] Test complex routing scenarios
+       - [x] Check message transformation accuracy
+       - [x] Verify middleware processing order
+     - [x] _Test:_ Verify correct delivery to target components
+       - [x] Test direct message targeting
+       - [x] Verify messages reach correct component instances
+       - [x] Test delivery to dynamically created components
+       - [x] Check message delivery timing
+       - [x] Verify message delivery under heavy load
    - [ ] Add state synchronization
      - [ ] Implement state sharing between components and model
        - [ ] Design shared state container
