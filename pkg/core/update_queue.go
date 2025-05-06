@@ -8,10 +8,10 @@ import (
 
 // Update priority constants
 const (
-	UpdatePriorityLow    = 1
-	UpdatePriorityMedium = 5
-	UpdatePriorityHigh   = 10
-	UpdatePriorityUrgent = 15
+	UpdatePriorityLow    = 10
+	UpdatePriorityMedium = 50
+	UpdatePriorityHigh   = 100
+	UpdatePriorityUrgent = 150
 )
 
 // Update strategy constants
