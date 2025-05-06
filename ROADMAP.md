@@ -516,39 +516,39 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
 
 ### Tasks:
 1. **Model Integration**
-   - [ ] Create Bubble Tea model wrapper
-     - [ ] Implement root component model
-       - [ ] Design root model struct with component container
-       - [ ] Create initialization with component tree
-       - [ ] Implement model lifecycle methods (Init, Update, View)
-       - [ ] Add component context propagation
-     - [ ] Create component-to-model bridge
-       - [ ] Design adapter pattern for component/model communication
-       - [ ] Implement message translation mechanisms
-       - [ ] Create component event bubbling to model
-       - [ ] Add model state propagation to components
-     - [ ] Design model configuration options
-       - [ ] Create configuration struct with options
-       - [ ] Implement sensible defaults for quick setup
-       - [ ] Add advanced configuration for customization
-       - [ ] Design runtime configuration changes
-     - [ ] Add program lifecycle hooks
-       - [ ] Create initialization hooks for setup
-       - [ ] Implement teardown hooks for cleanup
-       - [ ] Add pause/resume hooks for program state changes
-       - [ ] Design error handling hooks
-     - [ ] _Test:_ Test model integration with simple components
-       - [ ] Test basic component rendering through model
-       - [ ] Verify component events propagate to model
-       - [ ] Test model state changes reflect in components
-       - [ ] Verify lifecycle hooks execute correctly
-       - [ ] Check error handling and recovery
-     - [ ] _Test:_ Benchmark model operations for performance
-       - [ ] Measure rendering performance with different component trees
-       - [ ] Benchmark message handling throughput
-       - [ ] Test memory usage patterns during operation
-       - [ ] Compare performance with native Bubble Tea models
-       - [ ] Identify and optimize performance bottlenecks
+   - [x] Create Bubble Tea model wrapper
+     - [x] Implement root component model
+       - [x] Design root model struct with component container
+       - [x] Create initialization with component tree
+       - [x] Implement model lifecycle methods (Init, Update, View)
+       - [x] Add component context propagation
+     - [x] Create component-to-model bridge
+       - [x] Design adapter pattern for component/model communication
+       - [x] Implement message translation mechanisms
+       - [x] Create component event bubbling to model
+       - [x] Add model state propagation to components
+     - [x] Design model configuration options
+       - [x] Create configuration struct with options
+       - [x] Implement sensible defaults for quick setup
+       - [x] Add advanced configuration for customization
+       - [x] Design runtime configuration changes
+     - [x] Add program lifecycle hooks
+       - [x] Create initialization hooks for setup
+       - [x] Implement teardown hooks for cleanup
+       - [x] Add pause/resume hooks for program state changes
+       - [x] Design error handling hooks
+     - [x] _Test:_ Test model integration with simple components
+       - [x] Test basic component rendering through model
+       - [x] Verify component events propagate to model
+       - [x] Test model state changes reflect in components
+       - [x] Verify lifecycle hooks execute correctly
+       - [x] Check error handling and recovery
+     - [x] _Test:_ Benchmark model operations for performance
+       - [x] Measure rendering performance with different component trees
+       - [x] Benchmark message handling throughput
+       - [x] Test memory usage patterns during operation
+       - [x] Compare performance with native Bubble Tea models
+       - [x] Identify and optimize performance bottlenecks
    - [ ] Implement component-aware update cycle
      - [ ] Design component update scheduling
        - [ ] Create update priority queue for components
@@ -582,11 +582,11 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [ ] Test update isolation with complex state changes
        - [ ] Measure render counts for components
        - [ ] Benchmark performance improvements from selective updates
-   - [ ] Design message routing system
-     - [ ] Create message type system
-       - [ ] Design message interface with type identification
-       - [ ] Implement common message types (keyboard, mouse, etc.)
-       - [ ] Create custom message type registration
+   - [x] Design message routing system
+     - [x] Create message type system
+       - [x] Design message interface with type identification
+       - [x] Implement common message types (keyboard, mouse, etc.)
+       - [x] Create custom message type registration
        - [ ] Add message metadata and context
      - [ ] Implement message dispatch mechanism
        - [ ] Create central message dispatcher
