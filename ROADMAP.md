@@ -207,6 +207,7 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Verify value persistence across reads/writes
        - [x] Test edge cases (nil values, zero values)
        - [x] Verify thread safety with concurrent access
+       - [x] Implement comprehensive stress tests for extreme conditions
      - [x] _Test:_ Benchmark Signal operations for performance
        - [x] Measure read performance under different loads
        - [x] Benchmark write operations with subscribers
