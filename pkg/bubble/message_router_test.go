@@ -8,6 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// ButtonClickEvent represents a test event for component event bubbling tests
+type ButtonClickEvent struct {
+	ComponentName string
+	Value         string
+}
+
+// SetComponentName implements the component name setter interface
+func (e *ButtonClickEvent) SetComponentName(name string) {
+	e.ComponentName = name
+}
+
 // TestMessageRouting validates that messages can be properly routed between
 // Bubble Tea and BubblyUI components.
 func TestMessageRouting(t *testing.T) {
@@ -59,16 +70,9 @@ func TestMessageRouting(t *testing.T) {
 		// Mount components
 		parent.Mount()
 
-		// Define a custom component event
-		type ButtonClickEvent struct {
-			ComponentName string
-			Value         string
-		}
-
 		// Trigger an event from the child component
-		clickEvent := ButtonClickEvent{
-			ComponentName: child.GetName(),
-			Value:         "clicked",
+		clickEvent := &ButtonClickEvent{
+			Value: "clicked",
 		}
 
 		// Send the event through the router
@@ -77,7 +81,7 @@ func TestMessageRouting(t *testing.T) {
 
 		// Verify the event was bubbled up to the handler
 		assert.NotNil(t, receivedMsg, "Event should be bubbled up to handler")
-		if bubbledEvent, ok := receivedMsg.(ButtonClickEvent); ok {
+		if bubbledEvent, ok := receivedMsg.(*ButtonClickEvent); ok {
 			assert.Equal(t, child.GetName(), bubbledEvent.ComponentName)
 			assert.Equal(t, "clicked", bubbledEvent.Value)
 		} else {
@@ -163,15 +167,43 @@ func TestCustomMessageHandling(t *testing.T) {
 		handlerCalled := false
 		handlerValue := 0
 
-		// Register a custom handler
-		router.RegisterHandler(func(msg tea.Msg) bool {
-			_, ok := msg.(CustomMsg)
-			return ok
-		}, func(msg tea.Msg) tea.Cmd {
-			handlerCalled = true
-			handlerValue = msg.(CustomMsg).Value
-			return nil
-		})
+		// Register message handlers
+		router.RegisterMessageHandler(
+			func(msg tea.Msg) bool {
+				// Check for raw CustomMsg type
+				if _, ok := msg.(CustomMsg); ok {
+					return true
+				}
+				// Check for CustomMsg wrapped in MessageWithContext
+				if withCtx, ok := msg.(*MessageWithContext); ok {
+					if _, ok := withCtx.OriginalMsg.(CustomMsg); ok {
+						return true
+					}
+				}
+				return false
+			},
+			func(msg tea.Msg) tea.Cmd {
+				// Extract the CustomMsg, handling both raw and wrapped types
+				var customMsg CustomMsg
+				var ok bool
+
+				if customMsg, ok = msg.(CustomMsg); !ok {
+					if withCtx, ok := msg.(*MessageWithContext); ok {
+						customMsg, ok = withCtx.OriginalMsg.(CustomMsg)
+						if !ok {
+							return nil
+						}
+					} else {
+						return nil
+					}
+				}
+
+				handlerCalled = true
+				handlerValue = customMsg.Value
+				return nil
+			},
+			10, // High priority
+		)
 
 		// Send a custom message
 		router.RouteMessage(CustomMsg{Value: 42})
