@@ -676,12 +676,12 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Design priority inheritance for related events
        - [x] Add priority boost for user-initiated events
        - [x] Create throttling for low-priority events
-     - [ ] _Test:_ Test event mapping for various message types
-       - [ ] Test keyboard message mapping
-       - [ ] Verify mouse event translations
-       - [ ] Test window resize event mapping
-       - [ ] Check custom message mapping
-       - [ ] Verify handling of unknown message types
+     - [x] _Test:_ Test event mapping for various message types
+       - [x] Test keyboard message mapping
+       - [x] Verify mouse event translations
+       - [x] Test window resize event mapping
+       - [x] Check custom message mapping
+       - [x] Verify handling of unknown message types
      - [ ] _Test:_ Verify correct context propagation
        - [ ] Test event source is correctly identified
        - [ ] Verify timestamp accuracy in events
