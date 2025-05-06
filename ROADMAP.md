@@ -682,12 +682,12 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Test window resize event mapping
        - [x] Check custom message mapping
        - [x] Verify handling of unknown message types
-     - [ ] _Test:_ Verify correct context propagation
-       - [ ] Test event source is correctly identified
-       - [ ] Verify timestamp accuracy in events
-       - [ ] Test component path is properly included
-       - [ ] Check context data completeness
-       - [ ] Benchmark context enrichment performance
+      - [x] _Test:_ Verify correct context propagation
+        - [x] Test event source is correctly identified
+        - [x] Verify timestamp accuracy in events
+        - [x] Test component path is properly included
+        - [x] Check context data completeness
+        - [x] Benchmark context enrichment performance
    - [ ] Implement event bubbling
      - [ ] Create event propagation mechanism
        - [ ] Design tree traversal for event propagation
