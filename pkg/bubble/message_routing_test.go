@@ -94,14 +94,16 @@ func TestMessageFlowThroughComponentHierarchy(t *testing.T) {
 
 		if name == "Level3A" {
 			// Level3A should come after Level2A
-			for j, prev := range messageSequence[:i] {
+			foundLevel2A := false
+			for _, prev := range messageSequence[:i] {
 				if prev == "Level2A" {
-					// good, Level2A comes before Level3A
+					// Found Level2A before Level3A
+					foundLevel2A = true
 					break
 				}
-				if j == i-1 {
-					t.Errorf("Level2A should be processed before Level3A")
-				}
+			}
+			if !foundLevel2A {
+				t.Errorf("Level2A should be processed before Level3A but wasn't found in sequence %v", messageSequence)
 			}
 		}
 	}
