@@ -32,6 +32,30 @@ func (s *Signal[T]) AddDependency(id string, dep Dependency) {
 	s.deps[id] = dep
 }
 
+// AddDependent adds an effect or other dependency to this signal
+// This will be called by the dependency tracking system when an effect
+// accesses this signal's value
+func (s *Signal[T]) AddDependent(dep Dependency) {
+	// Generate a unique ID for this dependency
+	id := fmt.Sprintf("dep_%p", dep)
+
+	// Add the dependency to our map
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Initialize deps map if it's nil
+	if s.deps == nil {
+		s.deps = make(map[string]Dependency)
+	}
+
+	// Register the dependency
+	s.deps[id] = dep
+
+	if debugMode {
+		fmt.Printf("[DEBUG] Signal %s added dependent %s\n", s.id, id)
+	}
+}
+
 // Dependency represents an entity that depends on a signal
 type Dependency interface {
 	Notify()
@@ -42,6 +66,11 @@ type Effect struct {
 	fn        func()
 	deps      []string
 	debugInfo string //nolint:unused // Additional debugging information - will be used in future development
+}
+
+// debugInfo exposes the debug information for this effect
+func (e *Effect) DebugInfo() string {
+	return e.debugInfo
 }
 
 // AsyncEffect represents an effect that handles asynchronous operations
@@ -117,14 +146,18 @@ func NewSignalWithEquals[T any](initialValue T, equalsFn func(a, b T) bool) *Sig
 	return signal
 }
 
-// Value gets the current value of the signal and records the dependency
+// Value returns the current value of the signal and registers it as a dependency
 // in the current tracking context if one exists
 func (s *Signal[T]) Value() T {
 	// Update access statistics with atomic operations
 	atomic.AddUint64(&s.accessCount, 1)
 	atomic.StoreInt64(&s.lastAccess, time.Now().UnixNano())
 
-	// Fast path: If no active tracking context, we can do a simple read
+	// Register this signal as a dependency if we're in a tracking context
+	// This uses the AddSignalDependency function from signal_factory.go
+	AddSignalDependency(s.id)
+
+	// Fast path: If no tracking stack, we can do a simple read
 	if len(trackingStack) == 0 {
 		s.mutex.RLock()
 		value := s.value
@@ -132,11 +165,11 @@ func (s *Signal[T]) Value() T {
 		return value
 	}
 
-	// When tracking dependencies, we need to register this signal
+	// When tracking dependencies with the global stack, we need to register this signal
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	// Record dependency if we're currently tracking
+	// Record dependency if we're currently tracking with global stack
 	globalMutex.Lock()
 	if len(trackingStack) > 0 { // Double-check under lock
 		trackingContext := trackingStack[len(trackingStack)-1]
@@ -231,24 +264,96 @@ func (s *Signal[T]) Set(newValue T) {
 	// Release the lock before notifying dependencies to prevent potential deadlocks
 	s.mutex.Unlock()
 
-	// If in batch mode, queue for later processing
+	// Handle dependency notifications based on batching state
 	if inBatch {
+		// In batch mode, we need to:
+		// 1. Record this signal as batched
+		// 2. Queue batched effects for later processing
+		// 3. Immediately notify non-batched effects
 		globalMutex.Lock()
+		// Record the signal as batched for later processing
 		batchedSignals[s.id] = s
+
+		// Split dependencies into batched and non-batched
+		batchedDeps := make([]Dependency, 0, len(deps))
+		nonBatchedDeps := make([]Dependency, 0, len(deps))
+
+		// Process each dependency to identify which are batched vs non-batched
 		for _, dep := range deps {
 			if effect, ok := dep.(*Effect); ok {
-				// Find the effect ID
+				// Try to find the effect's ID in the registry
+				effectFound := false
+
 				for id, registered := range effectsRegistry {
 					if registered == effect {
-						pendingEffects[id] = true
+						effectFound = true
+
+						// Get effect info to check if it's part of a batch
+						effectInfo, hasInfo := effectInfos[id]
+
+						if hasInfo && effectInfo.BatchID != "" {
+							// This is a batched effect, queue it for later
+							pendingEffects[id] = true
+							batchedDeps = append(batchedDeps, dep)
+
+							// Debug logging
+							if debugMode {
+								fmt.Printf("[DEBUG] Queueing batched effect %s with batch ID %s\n",
+									id, effectInfo.BatchID)
+							}
+						} else {
+							// This is a non-batched effect, mark for immediate notification
+							nonBatchedDeps = append(nonBatchedDeps, dep)
+
+							// Debug logging
+							if debugMode {
+								fmt.Printf("[DEBUG] Adding non-batched effect %s for immediate notification\n", id)
+							}
+						}
 						break
 					}
 				}
+
+				// If effect wasn't found in registry, default to immediate notification
+				if !effectFound {
+					nonBatchedDeps = append(nonBatchedDeps, dep)
+					if debugMode {
+						fmt.Printf("[DEBUG] Unregistered effect added for immediate notification\n")
+					}
+				}
+			} else {
+				// Non-effect dependencies always get immediate notification
+				nonBatchedDeps = append(nonBatchedDeps, dep)
+				if debugMode {
+					fmt.Printf("[DEBUG] Non-effect dependency added for immediate notification\n")
+				}
 			}
 		}
+
+		// Log summary of what we found
+		if debugMode {
+			fmt.Printf("[DEBUG] Signal %s has %d batched and %d non-batched dependencies\n",
+				s.id, len(batchedDeps), len(nonBatchedDeps))
+		}
+
 		globalMutex.Unlock()
+
+		// Notify non-batched dependencies immediately
+		if len(nonBatchedDeps) > 0 {
+			if debugMode {
+				fmt.Printf("[DEBUG] Notifying %d non-batched dependencies immediately\n", len(nonBatchedDeps))
+			}
+
+			for _, dep := range nonBatchedDeps {
+				dep.Notify()
+			}
+		}
 	} else {
-		// Otherwise notify immediately
+		// Not in batch mode, notify all dependencies immediately
+		if debugMode {
+			fmt.Printf("[DEBUG] Not in batch mode, notifying all %d dependencies immediately\n", len(deps))
+		}
+
 		for _, dep := range deps {
 			dep.Notify()
 		}
@@ -518,6 +623,9 @@ func SetErrorHandler(handler func(error)) {
 
 // Notify implements the Dependency interface for Effect
 func (e *Effect) Notify() {
+	if debugMode {
+		fmt.Printf("[DEBUG] Effect %s notified to run\n", e.debugInfo)
+	}
 	safelyRunEffect(e.fn)
 }
 
