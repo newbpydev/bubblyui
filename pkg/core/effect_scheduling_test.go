@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -166,83 +165,162 @@ func TestEffectScheduling(t *testing.T) {
 	})
 
 	t.Run("Effect Batching", func(t *testing.T) {
-		// Create signals
-		trigger1 := CreateSignal(0)
-		trigger2 := CreateSignal("hello")
+		// Enable debug to see what's happening
+		EnableDebugMode()
+		defer DisableDebugMode()
 
-		// Track batch execution
-		batchExecuted := make(map[string]bool)
-		executionOrder := []string{}
-		orderMutex := sync.Mutex{}
+		// Create a timeout for the test
+		testTimeout := time.After(2 * time.Second)
 
-		// Create effects with different batch IDs
-		effect1ID := CreateEffect(func() {
-			_ = trigger1.Value()
-			orderMutex.Lock()
-			executionOrder = append(executionOrder, "batch1_effect1")
-			batchExecuted["batch1"] = true
-			orderMutex.Unlock()
-		})
+		// Create channels for thread-safe communication between effects and test
+		// Use larger buffer sizes to prevent deadlocks
+		batch1Channel := make(chan string, 10)
+		noBatchChannel := make(chan string, 10)
+		batch2Channel := make(chan string, 10)
 
-		effect2ID := CreateEffect(func() {
-			_ = trigger1.Value()
-			orderMutex.Lock()
-			executionOrder = append(executionOrder, "batch1_effect2")
-			batchExecuted["batch1"] = true
-			orderMutex.Unlock()
-		})
+		// Create signals - use constants for initial values to avoid confusion
+		trigger1 := CreateSignal(42)
+		trigger2 := CreateSignal("test")
 
-		effect3ID := CreateEffect(func() {
-			_ = trigger2.Value()
-			orderMutex.Lock()
-			executionOrder = append(executionOrder, "batch2_effect")
-			batchExecuted["batch2"] = true
-			orderMutex.Unlock()
-		})
-
-		noBatchEffectID := CreateEffect(func() {
-			_ = trigger1.Value()
-			orderMutex.Lock()
-			executionOrder = append(executionOrder, "no_batch_effect")
-			batchExecuted["no_batch"] = true
-			orderMutex.Unlock()
-		})
-
-		// Assign effects to batches
-		AddToEffectBatch(effect1ID, "batch1")
-		AddToEffectBatch(effect2ID, "batch1")
-		AddToEffectBatch(effect3ID, "batch2")
-
-		// Clear tracking
-		orderMutex.Lock()
-		executionOrder = []string{}
-		batchExecuted = make(map[string]bool)
-		orderMutex.Unlock()
-
-		// Trigger batch1 effects
-		trigger1.Set(1)
-		time.Sleep(20 * time.Millisecond) // Give time for effects to run
-
-		// Verify batch execution
-		orderMutex.Lock()
-		assert.True(t, batchExecuted["batch1"], "Batch 1 should be executed")
-		assert.True(t, batchExecuted["no_batch"], "Non-batched effect should be executed")
-		assert.False(t, batchExecuted["batch2"], "Batch 2 should not be executed")
-
-		// Check that batch1 effects ran together
-		batch1StartIdx := -1
-		for i, name := range executionOrder {
-			if name == "batch1_effect1" || name == "batch1_effect2" {
-				if batch1StartIdx == -1 {
-					batch1StartIdx = i
+		// Create a function to drain channels before the real test
+		drainChannels := func() {
+			fmt.Println("Draining channels from initial effects...")
+			// Drain with timeout to prevent hanging
+			drainTimeout := time.After(100 * time.Millisecond)
+			draining := true
+			for draining {
+				select {
+				case msg := <-batch1Channel:
+					fmt.Printf("Drained from batch1: %s\n", msg)
+				case msg := <-noBatchChannel:
+					fmt.Printf("Drained from noBatch: %s\n", msg)
+				case msg := <-batch2Channel:
+					fmt.Printf("Drained from batch2: %s\n", msg)
+				case <-drainTimeout:
+					fmt.Println("Drain timeout reached")
+					draining = false
+				default:
+					// All channels empty
+					draining = false
 				}
 			}
 		}
 
-		assert.True(t, batch1StartIdx >= 0, "Batch 1 effects should have executed")
-		orderMutex.Unlock()
+		// Create helper for effect creation with debug info
+		createTestEffect := func(name string, ch chan string, triggerSignal interface{}) string {
+			return CreateEffect(func() {
+				// Access the signal to create a dependency
+				// The Value will be accessed differently based on the signal type
+				var signalValue interface{}
+
+				// Type switch to handle different signal types
+				switch s := triggerSignal.(type) {
+				case *Signal[int]:
+					signalValue = s.Value()
+				case *Signal[string]:
+					signalValue = s.Value()
+				default:
+					fmt.Printf("Unexpected signal type: %T\n", triggerSignal)
+				}
+
+				msg := fmt.Sprintf("%s executed with triggerSignal value: %v", name, signalValue)
+				fmt.Println(msg)
+
+				// Send to channel without blocking
+				select {
+				case ch <- msg:
+					// Successfully sent
+				default:
+					// Channel full or closed
+					fmt.Printf("Warning: Could not send to channel for %s\n", name)
+				}
+			})
+		}
+
+		// Reset global state for clean test
+		fmt.Println("Resetting global state...")
+		globalMutex.Lock()
+		processingQueue = false
+		batchMode = false
+		effectQueue = []string{}
+		batchedSignals = make(map[string]any)
+		pendingEffects = make(map[string]bool)
+		globalMutex.Unlock()
+
+		// Create effects with different batch IDs
+		fmt.Println("Creating test effects...")
+		effect1ID := createTestEffect("batch1_effect1", batch1Channel, trigger1)
+		effect2ID := createTestEffect("batch1_effect2", batch1Channel, trigger1)
+		effect3ID := createTestEffect("batch2_effect", batch2Channel, trigger2)
+		noBatchEffectID := createTestEffect("no_batch_effect", noBatchChannel, trigger1)
+
+		// Register effects with batches
+		fmt.Println("Assigning effects to batches...")
+		AddToEffectBatch(effect1ID, "batch1")
+		AddToEffectBatch(effect2ID, "batch1")
+		AddToEffectBatch(effect3ID, "batch2")
+		// noBatchEffectID is intentionally not added to any batch
+
+		// Initial effects execution will have triggered the channels, drain them
+		drainChannels()
+
+		// Update trigger1 in batch mode - this should affect batch1 and noBatch effects only
+		fmt.Println("==== TEST STARTS HERE ====")
+		fmt.Println("Triggering batch operation on trigger1...")
+		Batch(func() {
+			trigger1.Set(100) // Set to new value
+		})
+
+		// Wait and collect results with timeout
+		batch1Count := 0
+		noBatchRan := false
+		batch2Ran := false
+
+		fmt.Println("Waiting for effect execution results...")
+		// Use timeout for test safety
+		waitTimeout := time.After(500 * time.Millisecond)
+		checkingResults := true
+
+		for checkingResults {
+			select {
+			case msg := <-batch1Channel:
+				batch1Count++
+				fmt.Printf("Batch1 effect executed: %s\n", msg)
+
+			case msg := <-noBatchChannel:
+				noBatchRan = true
+				fmt.Printf("Non-batch effect executed: %s\n", msg)
+
+			case msg := <-batch2Channel:
+				batch2Ran = true
+				fmt.Printf("Batch2 effect executed (unexpected): %s\n", msg)
+
+			case <-waitTimeout:
+				fmt.Println("Test wait timeout reached")
+				checkingResults = false
+
+			case <-testTimeout:
+				// Safety timeout for the entire test
+				fmt.Println("Overall test timeout reached")
+				checkingResults = false
+			}
+		}
+
+		// Assert results
+		fmt.Printf("\nTest Results: batch1Count=%d, noBatchRan=%v, batch2Ran=%v\n",
+			batch1Count, noBatchRan, batch2Ran)
+
+		// For full batching to work, batch1 effects must run
+		assert.True(t, batch1Count > 0, "Batch1 effects should have executed")
+
+		// Non-batched effects should also run even in batch mode
+		assert.True(t, noBatchRan, "Non-batched effect should have executed")
+
+		// Batch2 effects should NOT run since trigger2 wasn't updated
+		assert.False(t, batch2Ran, "Batch2 effect should NOT have executed")
 
 		// Cleanup
+		fmt.Println("Cleaning up effects...")
 		RemoveEffect(effect1ID)
 		RemoveEffect(effect2ID)
 		RemoveEffect(effect3ID)
