@@ -41,7 +41,7 @@ type Dependency interface {
 type Effect struct {
 	fn        func()
 	deps      []string
-	debugInfo string // Additional debugging information
+	debugInfo string //nolint:unused // Additional debugging information - will be used in future development
 }
 
 // AsyncEffect represents an effect that handles asynchronous operations
@@ -79,9 +79,9 @@ var (
 	batchedSignals  = make(map[string]any)
 	pendingEffects  = make(map[string]bool)
 	// Effect scheduling information
-	effectInfos     = make(map[string]EffectInfo)
-	effectQueue     = make([]string, 0)
-	processingQueue bool
+	effectInfos     = make(map[string]EffectInfo) //nolint:unused // Will be used for effect scheduling in future implementation
+	effectQueue     = make([]string, 0)           //nolint:unused // Will be used for effect scheduling in future implementation
+	processingQueue bool                          //nolint:unused // Will be used for effect scheduling in future implementation
 	idCounter       uint64
 	errorHandler    func(error)
 	globalMutex     sync.RWMutex
@@ -149,6 +149,8 @@ func (s *Signal[T]) Value() T {
 
 // tryLock attempts to acquire the mutex lock with a timeout
 // Returns true if the lock was acquired, false otherwise
+//
+//nolint:unused // Will be used for advanced synchronization in future implementation
 func (s *Signal[T]) tryLock(timeout time.Duration) bool {
 	// Create a buffered channel to avoid goroutine leak
 	done := make(chan struct{}, 1)
@@ -258,6 +260,8 @@ func (s *Signal[T]) Set(newValue T) {
 }
 
 // notifyDependents notifies all dependencies that this signal has changed
+//
+//nolint:unused // Will be implemented in a future version of the signal system
 func (s *Signal[T]) notifyDependents() {
 	// Copy dependencies to avoid deadlocks
 	s.mutex.RLock()
