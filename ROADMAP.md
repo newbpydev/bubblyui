@@ -583,26 +583,26 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [ ] Measure render counts for components
        - [ ] Benchmark performance improvements from selective updates
    - [x] Design message routing system
-     - [x] Create message type system
-       - [x] Design message interface with type identification
-       - [x] Implement common message types (keyboard, mouse, etc.)
-       - [x] Create custom message type registration
-       - [ ] Add message metadata and context
-     - [ ] Implement message dispatch mechanism
-       - [ ] Create central message dispatcher
-       - [ ] Design dispatcher middleware pattern
-       - [ ] Implement message queuing and processing
-       - [ ] Add asynchronous message handling
-     - [ ] Add targeted message routing
-       - [ ] Create component addressing system
-       - [ ] Implement direct component targeting
-       - [ ] Design message routing rules
-       - [ ] Add routing based on component type or state
-     - [ ] Design message filtering and transformation
-       - [ ] Create message interceptors and transformers
-       - [ ] Implement message priority system
-       - [ ] Add message combining for related events
-       - [ ] Design message logging and debugging
+       - [x] Create message type system
+         - [x] Design message interface with type identification
+         - [x] Implement common message types (keyboard, mouse, etc.)
+         - [x] Create custom message type registration
+         - [x] Add message metadata and context
+       - [x] Implement message dispatch mechanism
+         - [x] Create central message dispatcher
+         - [x] Design dispatcher middleware pattern
+         - [x] Implement message queuing and processing
+         - [x] Add asynchronous message handling
+       - [x] Add targeted message routing
+         - [x] Create component addressing system
+         - [x] Implement direct component targeting
+         - [x] Design message routing rules
+         - [x] Add routing based on component type or state
+       - [x] Design message filtering and transformation
+         - [x] Create message interceptors and transformers
+         - [x] Implement message priority system
+         - [x] Add message combining for related events
+         - [x] Design message logging and debugging
      - [ ] _Test:_ Test message routing between components
        - [ ] Test message flow through component hierarchy
        - [ ] Verify event bubbling works correctly
