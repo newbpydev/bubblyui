@@ -95,6 +95,7 @@ type BaseEvent struct {
 	componentPath         []core.Component
 	category              EventType
 	originalMessage       tea.Msg
+	eventContext          *EventContext  // Added field for event context information
 }
 
 // NewBaseEvent creates a new base event with common properties.
