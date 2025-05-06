@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 )
 
@@ -104,32 +105,45 @@ func ProvideContextState[T any](component StatefulComponent, context *StateConte
 
 // UseContext returns the current value of the context
 func UseContext[T any](component StatefulComponent, context *StateContext[T]) *Signal[T] {
-	// Create a computed signal that always returns the current context value
-	signal := CreateComputed(func() T {
-		return context.state.Get()
+	// Create a state to hold the returned value
+	resultState := NewState(context.state.Get())
+
+	// Subscribe to context state changes
+	context.state.OnChange(func(oldVal, newVal T) {
+		// When context value changes, update the result state
+		resultState.Set(newVal)
 	})
 
-	// Return the signal
-	return signal
+	// Return signal from the state
+	return resultState.GetSignal()
 }
 
 // UseContextWithDefault returns the value of the context or a default value if not provided
 func UseContextWithDefault[T any](component StatefulComponent, context *StateContext[T], defaultValue T) *Signal[T] {
-	// Create a computed signal that returns the current context value or default
-	signal := CreateComputed(func() T {
-		value := context.state.Get()
+	// Create a state to hold the computed value
+	resultState := NewState(defaultValue)
 
-		// Check if the value is the context's default value
-		// If so, return the component-specific default value
-		if fmt.Sprintf("%v", value) == fmt.Sprintf("%v", context.defaultValue) {
-			return defaultValue
+	// Subscribe to context state changes
+	context.state.OnChange(func(oldVal, newVal T) {
+		// When context value changes, check if we should use the provided value or default
+		if !reflect.DeepEqual(newVal, context.defaultValue) {
+			// Context has a non-default value, use it
+			resultState.Set(newVal)
+		} else {
+			// Context has the default value, use component's local default
+			resultState.Set(defaultValue)
 		}
-
-		return value
 	})
 
-	// Return the signal
-	return signal
+	// Check initial value
+	initialValue := context.state.Get()
+	if !reflect.DeepEqual(initialValue, context.defaultValue) {
+		// Context already has a non-default value, use it
+		resultState.Set(initialValue)
+	}
+
+	// Return signal from the state
+	return resultState.GetSignal()
 }
 
 // UseContextState returns a state that reflects the context value

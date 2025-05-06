@@ -98,12 +98,20 @@ func TestUseContextWithDefault(t *testing.T) {
 	// Use the context with a local default
 	signal := UseContextWithDefault(consumer, context, "local default")
 
+	// Print initial values for debugging
+	t.Logf("Initial context default value: %v", context.defaultValue)
+	t.Logf("Initial signal value: %v", signal.Value())
+
 	// Since no provider exists, the consumer should get the local default
 	assert.Equal(t, "local default", signal.Value(), "Should use local default when no provider exists")
 
 	// Add a provider
 	provider := NewMockStatefulComponent("provider", "Provider")
 	ProvideContext(provider, context, "provided value")
+
+	// Print updated values for debugging
+	t.Logf("Context value after provider: %v", context.state.Get())
+	t.Logf("Signal value after provider: %v", signal.Value())
 
 	// Consumer should now get the provided value
 	assert.Equal(t, "provided value", signal.Value(), "Should use provided value when available")
