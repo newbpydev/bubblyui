@@ -560,16 +560,16 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Design efficient tree comparison strategy
        - [x] Create patch generation for minimal updates
        - [x] Add reconciliation for keyed components
-     - [ ] Implement selective component updates
-       - [ ] Create dirty-checking mechanism for state changes
-       - [ ] Design dependency tracking for targeted updates
-       - [ ] Implement update propagation control
-       - [ ] Add manual update triggering capability
-     - [ ] Add update optimization strategies
-       - [ ] Implement shouldUpdate lifecycle method
-       - [ ] Create memoization for expensive renders
-       - [ ] Design render skipping for unchanged components
-       - [ ] Add render throttling for rapid updates
+     - [x] Implement selective component updates
+       - [x] Create dirty-checking mechanism for state changes
+       - [x] Design dependency tracking for targeted updates
+       - [x] Implement update propagation control
+       - [x] Add manual update triggering capability
+     - [x] Add update optimization strategies
+       - [x] Implement shouldUpdate lifecycle method
+       - [x] Create memoization for expensive renders
+       - [x] Design render skipping for unchanged components
+       - [x] Add render throttling for rapid updates
      - [x] _Test:_ Test update cycle with component hierarchy
        - [x] Test updates propagate correctly through component tree
        - [x] Verify parent updates trigger child updates when needed
