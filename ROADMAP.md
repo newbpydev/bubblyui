@@ -658,18 +658,18 @@ This roadmap outlines our detailed implementation plan for BubblyUI, a component
        - [x] Create custom event type factory
        - [x] Add event metadata structure
        - [x] Design event type hierarchy/categorization
-     - [ ] Implement event translator/mapper
-       - [ ] Create message-to-event conversion system
-       - [ ] Design bidirectional mapping for event/message
-       - [ ] Implement event normalization
-       - [ ] Add custom mapping registration
-       - [ ] Create default mappings for common messages
-     - [ ] Design event context enrichment
-       - [ ] Implement event source identification
-       - [ ] Create event timestamp and sequence tracking
-       - [ ] Add component path in event data
-       - [ ] Design user interaction context
-       - [ ] Implement application state context
+      - [x] Implement event translator/mapper
+        - [x] Create message-to-event conversion system
+        - [x] Design bidirectional mapping for event/message
+        - [x] Implement event normalization
+        - [x] Add custom mapping registration
+        - [x] Create default mappings for common messages
+      - [x] Design event context enrichment
+        - [x] Implement event source identification
+        - [x] Create event timestamp and sequence tracking
+        - [x] Add component path in event data
+        - [x] Design user interaction context
+        - [x] Implement application state context
      - [ ] Add event priority system
        - [ ] Create priority levels for events
        - [ ] Implement priority-based event queue

@@ -15,6 +15,7 @@ type MockComponent struct {
 	mock.Mock
 	id string
 	children []core.Component
+	parent core.Component
 }
 
 // NewMockComponent creates a new mock component with a given ID
@@ -89,6 +90,18 @@ func (m *MockComponent) RemoveChild(id string) bool {
 func (m *MockComponent) Children() []core.Component {
 	m.Called()
 	return m.children
+}
+
+// Parent implements core.Component
+func (m *MockComponent) Parent() core.Component {
+	m.Called()
+	return m.parent
+}
+
+// SetParent implements core.Component
+func (m *MockComponent) SetParent(parent core.Component) {
+	m.Called(parent)
+	m.parent = parent
 }
 
 // TestEventInterface validates that the Event interface provides the required functionality
