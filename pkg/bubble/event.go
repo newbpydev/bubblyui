@@ -80,6 +80,12 @@ type Event interface {
 	
 	// RawMessage returns the original Bubble Tea message.
 	RawMessage() tea.Msg
+	
+	// Priority returns the priority of the event.
+	Priority() EventPriority
+	
+	// SetPriority sets the priority of the event.
+	SetPriority(priority EventPriority)
 }
 
 // BaseEvent provides a base implementation of the Event interface.
@@ -95,6 +101,7 @@ type BaseEvent struct {
 	componentPath         []core.Component
 	category              EventType
 	originalMessage       tea.Msg
+	eventPriority         EventPriority
 	eventContext          *EventContext  // Added field for event context information
 }
 
@@ -105,6 +112,19 @@ func NewBaseEvent(
 	category EventType,
 	msg tea.Msg,
 ) *BaseEvent {
+	// Determine default priority based on event type
+	defaultPriority := PriorityNormal
+	
+	// Assign higher priority to mouse events
+	if eventType == EventTypeMouse {
+		defaultPriority = PriorityHigh
+	}
+	
+	// Assign lower priority to window size events
+	if eventType == EventTypeWindowSize {
+		defaultPriority = PriorityLow
+	}
+	
 	return &BaseEvent{
 		eventType:          eventType,
 		sourceComponent:    source,
@@ -116,6 +136,7 @@ func NewBaseEvent(
 		componentPath:      []core.Component{source},
 		category:           category,
 		originalMessage:    msg,
+		eventPriority:      defaultPriority,
 	}
 }
 
