@@ -113,10 +113,16 @@ func TestCreateComputed(t *testing.T) {
 		// Counter to track how many times the compute function runs
 		computeCounter := 0
 
+		// Debug: Store current counter at key test points to see when it increments
+		var beforeCreate, afterCreate, afterSetSame, afterAccessValue, afterSetDifferent int
+		beforeCreate = computeCounter
+		t.Logf("Before create: computeCounter = %d", beforeCreate)
+
 		// Create a computed signal that checks if values are equal
 		// but only considers the result significant if it changes from true to false or vice versa
 		computed := CreateComputed(
 			func() bool {
+				t.Logf("** Running compute function, counter=%d **", computeCounter)
 				computeCounter++
 				return a.Value() == b.Value()
 			},
@@ -130,6 +136,8 @@ func TestCreateComputed(t *testing.T) {
 		)
 
 		// Initial compute ran once during creation
+		afterCreate = computeCounter
+		t.Logf("After create: computeCounter = %d (incremented by %d)", computeCounter, afterCreate-beforeCreate)
 		assert.Equal(t, 1, computeCounter, "Compute function should run once during creation")
 		assert.Equal(t, true, computed.Value(), "Initial computed value should be true (5==5)")
 
@@ -137,15 +145,18 @@ func TestCreateComputed(t *testing.T) {
 		// The Set method of Signal correctly optimizes by not notifying dependents when value doesn't change
 		t.Logf("Before first set: computeCounter = %d", computeCounter)
 		a.Set(5) // Setting to same value, should be optimized away
-		t.Logf("After setting a to 5 (same value): computeCounter = %d", computeCounter)
+		afterSetSame = computeCounter
+		t.Logf("After setting a to 5 (same value): computeCounter = %d (change: %d)", computeCounter, afterSetSame-afterCreate)
 		// Still 1 since setting the same value doesn't notify dependents
 		assert.Equal(t, 1, computeCounter, "Compute function should not run when setting the same value")
 		assert.Equal(t, true, computed.Value(), "Computed value should still be true (5==5)")
-		t.Logf("After accessing computed.Value(): computeCounter = %d", computeCounter)
+		afterAccessValue = computeCounter
+		t.Logf("After accessing computed.Value(): computeCounter = %d (change: %d)", computeCounter, afterAccessValue-afterSetSame)
 
 		// Now update a to a value that is actually different
 		a.Set(10) // Setting to different value
-		t.Logf("After setting a to 10: computeCounter = %d", computeCounter)
+		afterSetDifferent = computeCounter
+		t.Logf("After setting a to 10: computeCounter = %d (change: %d)", computeCounter, afterSetDifferent-afterAccessValue)
 		assert.Equal(t, 2, computeCounter, "Compute function should run when dependency actually changes")
 		assert.Equal(t, false, computed.Value(), "Computed value should now be false (10!=5)")
 		t.Logf("Final computeCounter = %d", computeCounter)
