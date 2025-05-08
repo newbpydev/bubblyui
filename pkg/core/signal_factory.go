@@ -47,6 +47,10 @@ func CreateSignal[T any](initialValue T, options ...SignalOptions) *Signal[T] {
 
 	// Create the signal with the appropriate config
 	signal := NewSignalWithEquals(initialValue, equalsFn)
+	// Register the signal in the global registry with its id
+	globalMutex.Lock()
+	signalRegistry[signal.id] = signal
+	globalMutex.Unlock()
 
 	// Store debug information
 	setSignalMetadata(signal, map[string]interface{}{
@@ -84,12 +88,16 @@ func CreateComputed[T any](computeFn func() T, options ...SignalOptions) *Signal
 
 	// Track dependencies during the initial computation
 	// Use the proper tracking mechanisms provided by the signal system
-	StartTracking()
+	startTrackingLocal()
 	initialValue := computeFn() // Only run the compute function once initially
-	deps := StopTracking()
+	deps := stopTrackingLocal()
 
 	// Create the signal with the initial value and equality function
 	signal := NewSignalWithEquals(initialValue, equalsFn)
+	// Register the signal in the global registry with its id
+	globalMutex.Lock()
+	signalRegistry[signal.id] = signal
+	globalMutex.Unlock()
 
 	// Store debug information
 	setSignalMetadata(signal, map[string]interface{}{
@@ -107,8 +115,13 @@ func CreateComputed[T any](computeFn func() T, options ...SignalOptions) *Signal
 		// We use the fixed dependency list from the initial computation
 		newValue := computeFn()
 
-		// Get the current value for comparison
-		currentValue := signal.Value()
+		// Get the current value for comparison without holding the mutex
+		var currentValue T
+		{
+			signal.mutex.Lock()
+			currentValue = signal.value
+			signal.mutex.Unlock()
+		}
 
 		// Determine if we should update based on equality function
 		shouldUpdate := true
@@ -125,63 +138,23 @@ func CreateComputed[T any](computeFn func() T, options ...SignalOptions) *Signal
 			shouldUpdate = (valueStr != newValueStr)
 		}
 
-		// Only update if the value actually changed according to our equality check
 		if shouldUpdate {
+			// Update the signal value
+			signal.mutex.Lock()
+			signal.value = newValue
+			signal.mutex.Unlock()
 			signal.Set(newValue)
 		}
 	}
 
 	// Register the effect to run when dependencies change
 	// We use RegisterEffectWithoutInitialRun because we've already computed the initial value
-	effectID := RegisterEffectWithoutInitialRun(effectFn, deps)
+	effectID := RegisterEffectWithoutInitialRun(effectFn, deps, fmt.Sprintf("computed_%p", signal))
 
 	// Store the effect ID for cleanup
 	signal.SetMetadata("effectID", effectID)
 
-	// Get the signal's ID - we need to use the metadata since id is private
-	signalID, _ := signal.GetMetadata("id")
-	if id, ok := signalID.(string); ok {
-		// Add any initial dependencies to our tracking map for debugging
-		initialDeps[id] = deps
-	}
-
-	// Return the signal
 	return signal
-}
-
-// depsEqual compares two string slices for equality, ignoring order
-func depsEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	// Create maps for O(1) lookup
-	aMap := make(map[string]bool, len(a))
-	bMap := make(map[string]bool, len(b))
-
-	// Fill maps
-	for _, v := range a {
-		aMap[v] = true
-	}
-	for _, v := range b {
-		bMap[v] = true
-	}
-
-	// Check if all items in a exist in b
-	for k := range aMap {
-		if !bMap[k] {
-			return false
-		}
-	}
-
-	// Check if all items in b exist in a
-	for k := range bMap {
-		if !aMap[k] {
-			return false
-		}
-	}
-
-	return true
 }
 
 // CreateComputedWithCleanup creates a computed signal with a cleanup function
@@ -218,12 +191,7 @@ func CreateComputedWithCleanup[T any](
 		// Track dependencies during the initial computation
 		startTrackingLocal()
 		initialValue := computeFn() // Initial computation
-		deps := stopTrackingLocal()
-
-		// Store the deps for creating our effect after signal initialization
-		globalMutex.Lock()
-		initialDeps[opts.DebugName] = deps
-		globalMutex.Unlock()
+		_ = stopTrackingLocal()
 
 		return initialValue
 	}())
@@ -249,11 +217,6 @@ func CreateComputedWithCleanup[T any](
 		"hasCleanup": cleanupFn != nil,
 	})
 
-	// Get the initial dependencies we collected
-	globalMutex.RLock()
-	deps := initialDeps[opts.DebugName]
-	globalMutex.RUnlock()
-
 	// We need a variable to store the effect ID that can be accessed from inner closures
 	var effectIDVar string
 
@@ -265,7 +228,7 @@ func CreateComputedWithCleanup[T any](
 		newDeps := stopTrackingLocal()
 
 		// Update dependencies if they've changed
-		if !depsEqual(deps, newDeps) && len(newDeps) > 0 {
+		if !depsEqual(effectDeps[effectIDVar], newDeps) && len(newDeps) > 0 {
 			// Re-register the effect with the new dependencies
 			oldEffectID := effectIDVar
 			RemoveEffect(oldEffectID)
@@ -278,7 +241,7 @@ func CreateComputedWithCleanup[T any](
 			}, newDeps)
 
 			// Update deps
-			deps = newDeps
+			effectDeps[effectIDVar] = newDeps
 		}
 
 		// Update the signal value
@@ -286,15 +249,23 @@ func CreateComputedWithCleanup[T any](
 	}
 
 	// Register the effect
-	effectIDVar = RegisterEffectWithoutInitialRun(effectHandler, deps)
+	effectIDVar = RegisterEffectWithoutInitialRun(effectHandler, effectDeps[effectIDVar], fmt.Sprintf("computed_cleanup_%p", signal))
 
-	// If a cleanup function was provided, register it in our cleanup tracking system
+	// Register the cleanup function for this effect
 	if cleanupFn != nil {
 		registerCleanupForEffect(effectIDVar, cleanupFn)
 	}
 
 	// Store the effect ID for cleanup
 	signal.SetMetadata("effectID", effectIDVar)
+
+	// Also store in debug metadata if present
+	metadata, _ := signal.GetMetadata("debug")
+	if metadata != nil {
+		metadataMap := metadata.(map[string]interface{})
+		metadataMap["effect_id"] = effectIDVar
+		signal.SetMetadata("debug", metadataMap)
+	}
 
 	return signal
 }
@@ -423,39 +394,6 @@ var (
 	localDebugMode bool
 )
 
-// RemoveEffect removes an effect and executes its cleanup function if provided
-func RemoveEffect(effectID string) {
-	// First check if there's a cleanup function for this effect
-	var cleanupFn func() error
-
-	// Get the cleanup function if it exists
-	cleanupRegistryMutex.RLock()
-	cleanupFn = cleanupRegistry[effectID]
-	cleanupRegistryMutex.RUnlock()
-
-	// Remove the effect from the global registry
-	// This will be fully implemented in the future when the effect registry system is completed
-	// For now, we'll just comment this out to fix linting errors
-	// signalFactoryMutex.Lock()
-	// Effect registry cleanup will be implemented in a future version
-	// signalFactoryMutex.Unlock()
-
-	// Execute the cleanup function if it exists
-	if cleanupFn != nil {
-		// Remove from registry first to prevent multiple executions
-		cleanupRegistryMutex.Lock()
-		delete(cleanupRegistry, effectID)
-		cleanupRegistryMutex.Unlock()
-
-		// Execute the cleanup with error handling
-		err := safelyExecuteCleanup(cleanupFn)
-		if err != nil {
-			// Use our local error handler
-			localErrorHandler(err)
-		}
-	}
-}
-
 // registerCleanupForEffect registers a cleanup function for an effect ID
 func registerCleanupForEffect(effectID string, cleanupFn func() error) {
 	cleanupRegistryMutex.Lock()
@@ -483,38 +421,86 @@ func safelyExecuteCleanup(cleanupFn func() error) (err error) {
 	return cleanupFn()
 }
 
-// Register an effect with its dependencies and add it to the effect registry
-func registerEffectLocal(fn func(), deps []string) string {
-	// Generate a unique ID
-	id := fmt.Sprintf("effect_%d", time.Now().UnixNano())
+// RegisterEffect registers an effect with its dependencies (exported for tests)
+func RegisterEffect(fn func(), deps []string) string {
+	return registerEffectLocal(fn, deps)
+}
 
+// registerEffectWithID registers an effect with a stable ID, removing any previous effect with that ID
+func registerEffectWithID(fn func(), deps []string, effectID string) string {
+	// Remove old effect with this ID if it exists
+	globalMutex.Lock()
+	if _, exists := effectsRegistry[effectID]; exists {
+		globalMutex.Unlock()
+		RemoveEffect(effectID)
+		globalMutex.Lock()
+	}
 	// Create the effect object with correct fields
 	effect := &Effect{
 		fn:        fn,
 		deps:      deps,
-		debugInfo: fmt.Sprintf("effect_%p", fn),
+		debugInfo: effectID,
 	}
-
 	// Add to global registry
-	globalMutex.Lock()
-	effectsRegistry[id] = effect
+	effectsRegistry[effectID] = effect
+	effectDeps[effectID] = deps
 	globalMutex.Unlock()
-
 	// Register this effect as a dependency of each signal it depends on
 	for _, depID := range deps {
-		// Find the signal by ID and add the effect as a dependent
 		addEffectToSignal(depID, effect)
 	}
-
-	// Store initial dependencies for potential future use
-	initialDeps[id] = deps
-
-	// Log if debug is enabled
 	if debugMode {
-		fmt.Printf("[DEBUG] Registered effect %s with %d dependencies\n", id, len(deps))
+		fmt.Printf("[DEBUG] Registered effect %s with %d dependencies\n", effectID, len(deps))
 	}
+	return effectID
+}
 
-	return id
+// Register an effect with its dependencies and add it to the effect registry
+func registerEffectLocal(fn func(), deps []string) string {
+	id := fmt.Sprintf("effect_%d", time.Now().UnixNano())
+	return registerEffectWithID(fn, deps, id)
+}
+
+// RegisterEffectWithoutInitialRun registers an effect with its dependencies without running it initially
+func RegisterEffectWithoutInitialRun(fn func(), deps []string, effectID ...string) string {
+	// Debug logging
+	if debugMode {
+		fmt.Printf("[DEBUG] RegisterEffectWithoutInitialRun: deps = %v\n", deps)
+		fmt.Printf("[DEBUG] signalRegistry keys at effect registration: ")
+		for k, v := range signalRegistry {
+			fmt.Printf("%s(%p) ", k, v)
+		}
+		fmt.Println()
+	}
+	globalMutex.Lock()
+	if len(effectID) > 0 {
+		if _, exists := effectsRegistry[effectID[0]]; exists {
+			globalMutex.Unlock()
+			RemoveEffect(effectID[0])
+			globalMutex.Lock()
+		}
+	} else {
+		id := fmt.Sprintf("effect_%d", time.Now().UnixNano())
+		effectID = append(effectID, id)
+	}
+	// Create the effect object with correct fields
+	effect := &Effect{
+		fn:        fn,
+		deps:      deps,
+		debugInfo: effectID[0],
+	}
+	// Add to global registry
+	effectsRegistry[effectID[0]] = effect
+	effectDeps[effectID[0]] = deps
+	globalMutex.Unlock()
+	// Register this effect as a dependency of each signal it depends on
+	for _, depID := range deps {
+		addEffectToSignal(depID, effect)
+	}
+	if debugMode {
+		fmt.Printf("[DEBUG] Registered effect %s with %d dependencies\n", effectID[0], len(deps))
+	}
+	return effectID[0]
 }
 
 // Simplified implementations of tracking functions for linting purposes
@@ -526,6 +512,11 @@ var (
 	trackingActive       bool
 	trackingDependencies = make(map[string]bool)
 )
+
+// StartTracking begins tracking signal dependencies (exported for tests)
+func StartTracking() {
+	startTrackingLocal()
+}
 
 // startTrackingLocal begins tracking signal dependencies locally
 func startTrackingLocal() {
@@ -541,6 +532,33 @@ func startTrackingLocal() {
 	if debugMode {
 		fmt.Println("[DEBUG] Started tracking signal dependencies")
 	}
+}
+
+// StopTracking stops tracking signal dependencies and returns the collected dependencies (exported for tests)
+func StopTracking() []string {
+	return stopTrackingLocal()
+}
+
+// depsEqual compares two slices of strings for set equality (order-insensitive, nil/empty safe)
+func depsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	// Use a map to count occurrences
+	count := make(map[string]int, len(a))
+	for _, v := range a {
+		count[v]++
+	}
+	for _, v := range b {
+		if count[v] == 0 {
+			return false
+		}
+		count[v]--
+	}
+	return true
 }
 
 // stopTrackingLocal stops tracking signal dependencies and returns the collected dependencies
@@ -597,44 +615,39 @@ func AddSignalDependency(signalID string) {
 
 // addEffectToSignal finds a signal by ID and adds the effect as a dependent
 func addEffectToSignal(signalID string, effect *Effect) {
-	// Lock to prevent concurrent modification
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
 
-	// Find all signals in the registry
-	for id, signal := range signalRegistry {
-		// If we found the signal with the matching ID
-		if id == signalID {
-			// Add the effect as a dependency to the signal
-			// This uses the type assertion hack since we can't use a generic method directly
-			switch s := signal.(type) {
-			case interface{ AddDependent(Dependency) }:
-				// Call the AddDependent method to register the effect
-				s.AddDependent(effect)
-
-				if debugMode {
-					fmt.Printf("[DEBUG] Added effect as dependent to signal %s\n", signalID)
-				}
-				return
-			default:
-				if debugMode {
-					fmt.Printf("[DEBUG] Could not add effect to signal %s: unsupported type %T\n", signalID, signal)
-				}
-			}
+	if debugMode {
+		fmt.Printf("[DEBUG] addEffectToSignal: searching for signalID=%s in keys: ", signalID)
+		for k, v := range signalRegistry {
+			fmt.Printf("%s(%p) ", k, v)
 		}
+		fmt.Printf(" | effect addr: %p\n", effect)
 	}
 
-	// If we got here, we couldn't find the signal
-	if debugMode {
+	if signal, found := signalRegistry[signalID]; found {
+		effectID := effect.debugInfo
+		switch s := signal.(type) {
+		case interface{ AddDependent(string, Dependency) }:
+			s.AddDependent(effectID, effect)
+			if debugMode {
+				fmt.Printf("[DEBUG] Added effect as dependent to signal %s with effectID %s\n", signalID, effectID)
+			}
+			return
+		default:
+			if debugMode {
+				fmt.Printf("[DEBUG] Could not add effect to signal %s: unsupported type %T\n", signalID, signal)
+			}
+		}
+	} else if debugMode {
 		fmt.Printf("[DEBUG] Signal with ID %s not found in registry\n", signalID)
 	}
 }
 
-// Global maps for dependency tracking and debugging
+// Debug flag to help with testing
 var (
-	initialDeps = make(map[string][]string)
-	// Debug flag to help with testing
-	debugComputedSignals = false
+	debugFlag = false
 )
 
 // CreateEffect creates an effect with automatic dependency detection.
@@ -647,54 +660,36 @@ func CreateEffect(effectFn func()) string {
 	// Execute the effect to capture dependencies during first run
 	// This both initializes the effect and collects its dependencies
 	func() {
-		// Use defer to recover from any panics during execution
 		defer func() {
 			if r := recover(); r != nil {
-				// In the full implementation, this would use proper error handling
-				// For now, we'll just recover and continue
 			}
 		}()
-
-		// Run the effect function
 		effectFn()
 	}()
 
 	// Get the tracked dependencies
 	deps := stopTrackingLocal()
 
-	// Use our local implementation for effect registration
-	// In the future, this will integrate with the full reactive system
-	return registerEffectLocal(effectFn, deps)
+	// Use stable effect ID for registration
+	effectID := fmt.Sprintf("effect_%p", effectFn)
+	return RegisterEffectWithoutInitialRun(effectFn, deps, effectID)
 }
 
 // CreateEffectWithDeps creates an effect with an explicit dependency list.
 // The effect will only re-run when signals with IDs in the explicit deps list change.
 func CreateEffectWithDeps(effectFn func(), explicitDepIDs []string) string {
-	// Use our local implementation for effect registration
-	effectID := registerEffectLocal(effectFn, explicitDepIDs)
-
-	// Use debug info for naming
-	_, file, line, _ := runtime.Caller(1)
-	effectDebugInfo := fmt.Sprintf("effect_explicit_%s:%d", file, line)
-
-	// This is a simplified implementation of effect registration
-	// The full implementation will be completed in the reactive state system development
-	_ = effectDebugInfo // Will be used for debugging in the future
+	// Use stable effect ID for registration
+	effectID := fmt.Sprintf("effect_explicit_%p", effectFn)
+	id := RegisterEffectWithoutInitialRun(effectFn, explicitDepIDs, effectID)
 
 	// Run the effect once to initialize
-	// This is a simplified version of the effect execution
 	func() {
-		// Use defer/recover to handle any panics during effect execution
 		defer func() {
 			if r := recover(); r != nil {
-				// In the future, this will use proper error handling
-				// For now, we just silently recover from panics
 			}
 		}()
-
-		// Run the effect function
 		effectFn()
 	}()
 
-	return effectID
+	return id
 }

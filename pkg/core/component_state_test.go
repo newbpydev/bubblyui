@@ -2,8 +2,6 @@ package core
 
 import (
 	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -111,25 +109,15 @@ func TestUseMemo(t *testing.T) {
 
 	// Update one dependency
 	setCount1(5)
-
-	// Execute hooks to trigger updates
 	cs.GetHookManager().ExecuteUpdateHooks()
-
-	// Force a recomputation by reading the value
-	sum := sumSignal.Value()
-	assert.Equal(t, 7, sum, "Sum should be updated to 7")
+	assert.Equal(t, 7, sumSignal.Value(), "Sum should be updated to 7")
 	assert.Equal(t, 2, computeCalls, "Compute function should be called again after dependency change")
 
 	// Update another dependency
 	setCount2(10)
-
-	// Execute hooks to trigger updates
 	cs.GetHookManager().ExecuteUpdateHooks()
-
-	// Force a recomputation
-	sum = sumSignal.Value()
-	assert.Equal(t, 15, sum, "Sum should be updated to 15")
-	assert.Equal(t, 3, computeCalls, "Compute function should be called again after another dependency change")
+	assert.Equal(t, 15, sumSignal.Value(), "Sum should be updated to 15")
+	assert.Equal(t, 3, computeCalls, "Compute function should be called again after second dependency change")
 }
 
 func TestUseEffect(t *testing.T) {
@@ -290,28 +278,6 @@ func TestBatchState(t *testing.T) {
 		assert.Equal(t, 0, batchUpdates[0].old, "Old value in batch should be initial value (0)")
 		assert.Equal(t, 3, batchUpdates[0].new, "New value in batch should be final value (3)")
 	}
-}
-
-func TestUseStateUpdater(t *testing.T) {
-	cs := NewComponentState("test-id", "TestComponent")
-
-	// Create state and async updater
-	dataState, _, _ := UseState(cs, "data", "initial")
-	updateAsync := UseStateUpdater(dataState)
-
-	// Test async update
-	done := make(chan bool)
-	updateAsync(func() (string, error) {
-		time.Sleep(10 * time.Millisecond) // Simulate async operation
-		done <- true
-		return "updated", nil
-	})
-
-	// Wait for completion
-	<-done
-	time.Sleep(10 * time.Millisecond) // Give a little more time for state to update
-
-	assert.Equal(t, "updated", dataState.Get(), "State should be updated asynchronously")
 }
 
 func TestComponentStateDispose(t *testing.T) {

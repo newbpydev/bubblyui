@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 )
 
 // ComponentState manages all state related to a single component instance
@@ -173,29 +172,36 @@ func UseMemo[T any](
 	computeFn func() T,
 	deps []interface{},
 ) *Signal[T] {
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
-
-	// Check if signal already exists for this name
-	if existingSignal, ok := cs.signalsByName[name]; ok {
-		// Type assertion to ensure it's the correct type
-		signal, ok := existingSignal.(*Signal[T])
-		if !ok {
-			panic(fmt.Sprintf("Type mismatch for memo '%s' in component '%s'",
-				name, cs.componentName))
+	// First check if signal exists without holding the mutex
+	var signal *Signal[T]
+	{
+		cs.mutex.Lock()
+		if existingSignal, ok := cs.signalsByName[name]; ok {
+			// Type assertion to ensure it's the correct type
+			signal, ok := existingSignal.(*Signal[T])
+			if !ok {
+				panic(fmt.Sprintf("Type mismatch for memo '%s' in component '%s'",
+					name, cs.componentName))
+			}
+			cs.mutex.Unlock()
+			return signal
 		}
-		return signal
+		cs.mutex.Unlock()
 	}
 
-	// Create a new computed signal
-	signal := CreateComputed(computeFn)
-	cs.signalsByName[name] = signal
+	// Create and register the computed signal outside of the mutex lock
+	signal = NewSignal(computeFn())
+	{
+		cs.mutex.Lock()
+		cs.signalsByName[name] = signal
+		cs.mutex.Unlock()
+	}
 
-	// Register an update hook for this memo value
-	// We don't need to save the name here since the hook manager handles identification
+	// Register an effect to update the signal when dependencies change
 	cs.hookManager.OnUpdate(func(prevDeps []interface{}) error {
 		// Recompute the value when dependencies change
-		// The actual recomputation is handled by the signal system
+		newValue := computeFn()
+		signal.Set(newValue)
 		return nil
 	}, deps)
 
@@ -346,84 +352,12 @@ func BatchState(cs *ComponentState, fn func()) {
 
 	// Create a coordinator function that will manage the batch operation
 	coordinateBatch := func() {
-		// Make each state start batching
-		for _, state := range states {
-			state.mutex.Lock()
-			atomic.AddInt32(&state.batchDepth, 1)
-			state.mutex.Unlock()
-		}
-
 		// Execute the function that contains state updates
 		fn()
-
-		// Process all batched updates and release locks
-		for _, state := range states {
-			state.mutex.Lock()
-
-			// Get current state for notifications
-			oldValue := state.signal.Value()
-			currentValue := oldValue
-
-			// Apply all queued updates
-			if len(state.updateQueue) > 0 {
-				// Process all updates in sequence
-				for _, update := range state.updateQueue {
-					currentValue = update(currentValue)
-				}
-
-				// Update the signal value
-				state.signal.Set(currentValue)
-
-				// Store the callbacks for execution outside the lock
-				callbacks := make([]func(old, new any), len(state.onChange))
-				copy(callbacks, state.onChange)
-
-				// Clear the update queue
-				state.updateQueue = state.updateQueue[:0]
-
-				// End batching
-				atomic.StoreInt32(&state.batchDepth, 0)
-
-				// Release the lock
-				state.mutex.Unlock()
-
-				// Notify listeners outside of lock
-				if !reflect.DeepEqual(oldValue, currentValue) {
-					for _, callback := range callbacks {
-						callback(oldValue, currentValue)
-					}
-				}
-			} else {
-				// No updates, just end batching and release lock
-				atomic.StoreInt32(&state.batchDepth, 0)
-				state.mutex.Unlock()
-			}
-		}
 	}
 
 	// Run everything inside a signal system batch
 	Batch(coordinateBatch)
-}
-
-// UseStateUpdater returns a function that can be used to create an asynchronous
-// state updater, useful for handling async operations like API calls
-func UseStateUpdater[T any](state *State[T]) func(asyncFn func() (T, error)) {
-	return func(asyncFn func() (T, error)) {
-		// Use goroutine for async operation
-		go func() {
-			// Perform the async operation
-			newValue, err := asyncFn()
-			if err != nil {
-				// Handle error - for now just log it
-				// In the future, we could have an error state
-				fmt.Printf("Error in async state update: %v\n", err)
-				return
-			}
-
-			// Update the state with the new value
-			state.Set(newValue)
-		}()
-	}
 }
 
 // GetStateByName retrieves a state by name, returns nil if not found

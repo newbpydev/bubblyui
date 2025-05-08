@@ -11,8 +11,6 @@ import (
 type State[T any] struct {
 	signal        *Signal[T]
 	mutex         sync.RWMutex
-	updateQueue   []StateUpdate[T]
-	batchDepth    int32
 	changeHistory []T
 	historySize   int
 	onChange      []func(old, new T)
@@ -25,7 +23,6 @@ type StateUpdate[T any] func(current T) T
 func NewState[T any](initialValue T) *State[T] {
 	return &State[T]{
 		signal:        NewSignal(initialValue),
-		updateQueue:   make([]StateUpdate[T], 0),
 		changeHistory: make([]T, 0),
 		historySize:   10, // Default history size
 		onChange:      make([]func(old, new T), 0),
@@ -36,7 +33,6 @@ func NewState[T any](initialValue T) *State[T] {
 func NewStateWithHistory[T any](initialValue T, historySize int) *State[T] {
 	return &State[T]{
 		signal:        NewSignal(initialValue),
-		updateQueue:   make([]StateUpdate[T], 0),
 		changeHistory: make([]T, 0, historySize),
 		historySize:   historySize,
 		onChange:      make([]func(old, new T), 0),
@@ -47,7 +43,6 @@ func NewStateWithHistory[T any](initialValue T, historySize int) *State[T] {
 func NewStateWithEquals[T any](initialValue T, equals func(a, b T) bool) *State[T] {
 	return &State[T]{
 		signal:        NewSignalWithEquals(initialValue, equals),
-		updateQueue:   make([]StateUpdate[T], 0),
 		changeHistory: make([]T, 0),
 		historySize:   10, // Default history size
 		onChange:      make([]func(old, new T), 0),
@@ -59,25 +54,39 @@ func (s *State[T]) Get() T {
 	return s.signal.Value()
 }
 
+var (
+	batchedStateChangesMu sync.Mutex
+	batchedStateChanges = make(map[any]struct{
+		old any
+		new any
+	})
+)
+
+func isBatching() bool {
+	return atomic.LoadInt32(&batchDepth) > 0
+}
+
+func recordStateChange[T any](s *State[T], oldValue, newValue T) {
+	batchedStateChangesMu.Lock()
+	defer batchedStateChangesMu.Unlock()
+	batchedStateChanges[s] = struct{ old, new any }{old: oldValue, new: newValue}
+}
+
 // Set updates the state with a new value.
 func (s *State[T]) Set(newValue T) {
 	s.mutex.Lock()
 	oldValue := s.signal.Value()
 
 	// Check if the value is actually changing using the signal's equality function
-	// This respects custom equality functions passed to NewStateWithEquals
 	equals := false
 	if s.signal.equalsFn != nil {
-		// Use the custom equality function
 		equals = s.signal.equalsFn(oldValue, newValue)
 	} else {
-		// Use the default string representation comparison from the signal
 		oldStr := fmt.Sprintf("%v", oldValue)
 		newStr := fmt.Sprintf("%v", newValue)
 		equals = (oldStr == newStr)
 	}
 
-	// If values are equal according to the equality function, skip update
 	if equals {
 		s.mutex.Unlock()
 		return
@@ -85,29 +94,26 @@ func (s *State[T]) Set(newValue T) {
 
 	// Record in history if needed
 	if s.historySize > 0 {
-		if len(s.changeHistory) >= s.historySize {
-			// Remove oldest entry if we've reached capacity
+		s.changeHistory = append(s.changeHistory, oldValue)
+		if len(s.changeHistory) > s.historySize {
 			s.changeHistory = s.changeHistory[1:]
 		}
-		s.changeHistory = append(s.changeHistory, oldValue)
 	}
 
-	// If we're batching updates, queue this update
-	if atomic.LoadInt32(&s.batchDepth) > 0 {
-		s.updateQueue = append(s.updateQueue, func(current T) T {
-			return newValue
-		})
+	// Batching logic: if in batch, record for notification after batch
+	if isBatching() {
+		recordStateChange(s, oldValue, newValue)
+		s.signal.Set(newValue)
 		s.mutex.Unlock()
 		return
 	}
 
-	// Apply the update immediately
 	s.signal.Set(newValue)
+	callbacks := make([]func(old, new T), len(s.onChange))
+	copy(callbacks, s.onChange)
 	s.mutex.Unlock()
-
-	// Notify listeners
-	for _, fn := range s.onChange {
-		fn(oldValue, newValue)
+	for _, callback := range callbacks {
+		callback(oldValue, newValue)
 	}
 }
 
@@ -115,86 +121,16 @@ func (s *State[T]) Set(newValue T) {
 func (s *State[T]) Update(updateFn StateUpdate[T]) {
 	s.mutex.Lock()
 	oldValue := s.signal.Value()
-
-	// Record in history if needed
-	if s.historySize > 0 {
-		if len(s.changeHistory) >= s.historySize {
-			// Remove oldest entry if we've reached capacity
-			s.changeHistory = s.changeHistory[1:]
-		}
-		s.changeHistory = append(s.changeHistory, oldValue)
-	}
-
-	// If we're batching updates, queue this update
-	if atomic.LoadInt32(&s.batchDepth) > 0 {
-		s.updateQueue = append(s.updateQueue, updateFn)
-		s.mutex.Unlock()
-		return
-	}
-
-	// Apply the update immediately
 	newValue := updateFn(oldValue)
-	s.signal.Set(newValue)
 	s.mutex.Unlock()
-
-	// Notify listeners
-	for _, fn := range s.onChange {
-		fn(oldValue, newValue)
-	}
+	
+	s.Set(newValue)
 }
 
 // Batch applies multiple state updates as a single operation.
 func (s *State[T]) Batch(fn func()) {
-	// Start batching
-	wasBatching := atomic.LoadInt32(&s.batchDepth) > 0
-	atomic.AddInt32(&s.batchDepth, 1)
-
-	// Run the batched operations
-	fn()
-
-	// End batching
-	newDepth := atomic.AddInt32(&s.batchDepth, -1)
-
-	// If this was the outermost batch, apply all queued updates
-	if newDepth == 0 && !wasBatching {
-		s.mutex.Lock()
-		if len(s.updateQueue) > 0 {
-			// Get the current value
-			oldValue := s.signal.Value()
-			currentValue := oldValue
-
-			// Record in history if needed
-			if s.historySize > 0 {
-				if len(s.changeHistory) >= s.historySize {
-					// Remove oldest entry if we've reached capacity
-					s.changeHistory = s.changeHistory[1:]
-				}
-				s.changeHistory = append(s.changeHistory, oldValue)
-			}
-
-			// Apply all updates sequentially
-			for _, update := range s.updateQueue {
-				currentValue = update(currentValue)
-			}
-
-			// Set the final value
-			s.signal.Set(currentValue)
-
-			// Clear the queue
-			s.updateQueue = s.updateQueue[:0]
-
-			// Store final value for callbacks
-			newValue := currentValue
-			s.mutex.Unlock()
-
-			// Notify listeners
-			for _, fn := range s.onChange {
-				fn(oldValue, newValue)
-			}
-		} else {
-			s.mutex.Unlock()
-		}
-	}
+	// Use global Batch for correct batching semantics
+	Batch(fn)
 }
 
 // OnChange registers a callback that will be called whenever the state changes.

@@ -473,6 +473,7 @@ func testDynamicDependencyChanges(t *testing.T) {
 
 	// Create a function to re-register the effect with updated dependencies
 	var registerComputedEffect func()
+	var lastEffectID string
 	registerComputedEffect = func() {
 		// Start tracking for current selector value
 		StartTracking()
@@ -487,7 +488,13 @@ func testDynamicDependencyChanges(t *testing.T) {
 
 		deps := StopTracking()
 
-		RegisterEffect(func() {
+		// Remove previous effect
+		if lastEffectID != "" {
+			RemoveEffect(lastEffectID)
+		}
+
+		// Register the new effect
+		lastEffectID = RegisterEffectWithoutInitialRun(func() {
 			// Get new selector value
 			newSelector := sourceSelector.Value()
 
@@ -508,7 +515,7 @@ func testDynamicDependencyChanges(t *testing.T) {
 			if selectorOld != newSelector {
 				registerComputedEffect()
 			}
-		}, deps)
+		}, deps, "dynamic_computed_effect")
 	}
 
 	// Initial registration

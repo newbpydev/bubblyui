@@ -36,8 +36,15 @@ func TestComputedCleanup(t *testing.T) {
 		assert.Equal(t, int32(0), cleanupExecuted.Load(), "Cleanup should not run until signal is disposed")
 
 		// Simulate signal disposal by removing the effect
-		effectID, _ := computed.GetMetadata("effectID")
-		RemoveEffect(effectID.(string))
+		effectID, ok := computed.GetMetadata("effectID")
+		if !ok || effectID == nil {
+			t.Fatalf("effectID metadata not set on computed signal: got %#v", effectID)
+		}
+		idStr, ok := effectID.(string)
+		if !ok || idStr == "" {
+			t.Fatalf("effectID is not a valid string: %#v", effectID)
+		}
+		RemoveEffect(idStr)
 
 		// Give async operations time to complete
 		time.Sleep(10 * time.Millisecond)
@@ -81,8 +88,15 @@ func TestComputedCleanup(t *testing.T) {
 		assert.False(t, errorHandled.Load(), "Error handler should not be triggered before cleanup")
 
 		// Simulate signal disposal
-		effectID, _ := computed.GetMetadata("effectID")
-		RemoveEffect(effectID.(string))
+		effectID, ok := computed.GetMetadata("effectID")
+		if !ok || effectID == nil {
+			t.Fatalf("effectID metadata not set on computed signal: got %#v", effectID)
+		}
+		idStr, ok := effectID.(string)
+		if !ok || idStr == "" {
+			t.Fatalf("effectID is not a valid string: %#v", effectID)
+		}
+		RemoveEffect(idStr)
 
 		// Give time for async operations
 		time.Sleep(10 * time.Millisecond)
@@ -146,8 +160,15 @@ func TestComputedCleanup(t *testing.T) {
 		assert.Equal(t, int32(0), parentCleanupCount.Load(), "Parent cleanup should not run on updates")
 
 		// Dispose the parent effect first
-		parentEffectID, _ := parent.GetMetadata("effectID")
-		RemoveEffect(parentEffectID.(string))
+		parentEffectID, ok := parent.GetMetadata("effectID")
+		if !ok || parentEffectID == nil {
+			t.Fatalf("parent effectID metadata not set on computed signal: got %#v", parentEffectID)
+		}
+		parentIDStr, ok := parentEffectID.(string)
+		if !ok || parentIDStr == "" {
+			t.Fatalf("parent effectID is not a valid string: %#v", parentEffectID)
+		}
+		RemoveEffect(parentIDStr)
 
 		// Give time for async operations
 		time.Sleep(10 * time.Millisecond)
@@ -157,8 +178,15 @@ func TestComputedCleanup(t *testing.T) {
 		assert.Equal(t, int32(1), parentCleanupCount.Load(), "Parent cleanup should run when parent is disposed")
 
 		// Dispose the child effect
-		childEffectID, _ := child.GetMetadata("effectID")
-		RemoveEffect(childEffectID.(string))
+		childEffectID, ok := child.GetMetadata("effectID")
+		if !ok || childEffectID == nil {
+			t.Fatalf("child effectID metadata not set on computed signal: got %#v", childEffectID)
+		}
+		childIDStr, ok := childEffectID.(string)
+		if !ok || childIDStr == "" {
+			t.Fatalf("child effectID is not a valid string: %#v", childEffectID)
+		}
+		RemoveEffect(childIDStr)
 
 		// Give time for async operations
 		time.Sleep(10 * time.Millisecond)

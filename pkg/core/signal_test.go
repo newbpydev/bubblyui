@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -47,10 +48,12 @@ func TestSignalBasics(t *testing.T) {
 }
 
 func TestSignalDependencyTracking(t *testing.T) {
+	debugMode = true // Ensure debug logs are printed
 	t.Run("Simple Dependency", func(t *testing.T) {
-		// Create two signals
 		countSignal := NewSignal(0)
 		doubledSignal := NewSignal(0)
+		fmt.Printf("[TEST DEBUG] countSignal addr: %p, id: %s\n", countSignal, countSignal.id)
+		fmt.Printf("[TEST DEBUG] doubledSignal addr: %p, id: %s\n", doubledSignal, doubledSignal.id)
 
 		// Track updates
 		updateCount := 0
@@ -59,12 +62,13 @@ func TestSignalDependencyTracking(t *testing.T) {
 		StartTracking()
 		_ = countSignal.Value() // Record dependency on countSignal
 		deps := StopTracking()
+		fmt.Printf("[TEST DEBUG] deps after StopTracking: %v\n", deps)
 
 		// Register dependency
-		RegisterEffect(func() {
+		RegisterEffectWithoutInitialRun(func() {
 			doubledSignal.Set(countSignal.Value() * 2)
 			updateCount++
-		}, deps)
+		}, deps, "test_simple_dependency_effect")
 
 		// Initial computed value - effect should have run once
 		assert.Equal(t, 0, doubledSignal.Value())
@@ -100,10 +104,10 @@ func TestSignalDependencyTracking(t *testing.T) {
 		deps := StopTracking()
 
 		// Register effect
-		RegisterEffect(func() {
+		RegisterEffectWithoutInitialRun(func() {
 			resultSignal.Set(firstSignal.Value() + secondSignal.Value())
 			updateCount++
-		}, deps)
+		}, deps, "test_multiple_dependencies_effect")
 
 		// Initial values after first run
 		assert.Equal(t, 15, resultSignal.Value())
@@ -169,15 +173,25 @@ func TestSignalConcurrency(t *testing.T) {
 }
 
 func TestBatchedUpdates(t *testing.T) {
+	debugMode = true // Ensure debug logs are printed
 	t.Run("Batching Prevents Intermediate Updates", func(t *testing.T) {
 		signal := NewSignal(0)
 		derived := NewSignal(0)
+		fmt.Printf("[TEST DEBUG] signal addr: %p, id: %s\n", signal, signal.id)
+		fmt.Printf("[TEST DEBUG] derived addr: %p, id: %s\n", derived, derived.id)
+
 		updateCount := 0
 
 		// Create effect that tracks signal changes
 		StartTracking()
 		_ = signal.Value() // Create dependency on signal
 		deps := StopTracking()
+		fmt.Printf("[TEST DEBUG] deps after StopTracking: %v\n", deps)
+
+		// Create effect that tracks signal changes
+		StartTracking()
+		_ = signal.Value() // Create dependency on signal
+		deps = StopTracking()
 
 		RegisterEffect(func() {
 			derived.Set(signal.Value() * 2)

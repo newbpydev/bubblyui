@@ -13,15 +13,50 @@ import (
 type Signal[T any] struct {
 	value       T                      // The current value of the signal
 	version     uint64                 // Version counter for tracking updates
-	mutex       sync.RWMutex           // Mutex for thread-safe access
+	mutex       sync.Mutex            // Mutex for thread-safe access
 	deps        map[string]Dependency  // Dependencies that need to be notified on updates
 	equalsFn    func(a, b T) bool      // Custom equality function for value comparison
 	id          string                 // Unique identifier for this signal
-	lastAccess  int64                  // Timestamp of last access for tracking purposes
+	lastAccess  int64                  // Timestamp of last access for tracking
 	accessCount uint64                 // Number of times this signal has been accessed
 	writes      uint64                 // Number of write operations performed on this signal
 	createdAt   time.Time              // Time when the signal was created
 	metadata    map[string]interface{} // Metadata for debugging and tracing purposes
+}
+
+// SetMetadata sets metadata for the signal
+func (s *Signal[T]) SetMetadata(key string, value interface{}) {
+	s.mutex.Lock()
+	if s.metadata == nil {
+		s.metadata = make(map[string]interface{})
+	}
+	s.metadata[key] = value
+	s.mutex.Unlock()
+}
+
+// GetMetadata retrieves metadata for the signal
+func (s *Signal[T]) GetMetadata(key string) (interface{}, bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.metadata == nil {
+		return nil, false
+	}
+	value, exists := s.metadata[key]
+	return value, exists
+}
+
+// GetStats returns statistics about the signal's usage
+func (s *Signal[T]) GetStats() map[string]interface{} {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return map[string]interface{}{
+		"version":      s.version,
+		"accessCount":  s.accessCount,
+		"writes":       s.writes,
+		"createdAt":    s.createdAt,
+		"lastAccess":   s.lastAccess,
+		"dependencies": len(s.deps),
+	}
 }
 
 // AddDependency adds a dependency to this signal
@@ -32,27 +67,30 @@ func (s *Signal[T]) AddDependency(id string, dep Dependency) {
 	s.deps[id] = dep
 }
 
+// RemoveDependency removes a dependency from this signal by ID
+func (s *Signal[T]) RemoveDependency(effectID string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.deps != nil {
+		delete(s.deps, effectID)
+	}
+}
+
 // AddDependent adds an effect or other dependency to this signal
 // This will be called by the dependency tracking system when an effect
 // accesses this signal's value
-func (s *Signal[T]) AddDependent(dep Dependency) {
-	// Generate a unique ID for this dependency
-	id := fmt.Sprintf("dep_%p", dep)
-
-	// Add the dependency to our map
+func (s *Signal[T]) AddDependent(effectID string, dep Dependency) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Initialize deps map if it's nil
 	if s.deps == nil {
 		s.deps = make(map[string]Dependency)
 	}
 
-	// Register the dependency
-	s.deps[id] = dep
+	s.deps[effectID] = dep
 
 	if debugMode {
-		fmt.Printf("[DEBUG] Signal %s added dependent %s\n", s.id, id)
+		fmt.Printf("[DEBUG] Signal %s added dependent %s\n", s.id, effectID)
 	}
 }
 
@@ -68,7 +106,12 @@ type Effect struct {
 	debugInfo string //nolint:unused // Additional debugging information - will be used in future development
 }
 
-// debugInfo exposes the debug information for this effect
+// Notify implements the Dependency interface
+func (e *Effect) Notify() {
+	safelyRunEffect(e.fn)
+}
+
+// DebugInfo returns debugging information about this effect
 func (e *Effect) DebugInfo() string {
 	return e.debugInfo
 }
@@ -115,6 +158,7 @@ var (
 	errorHandler    func(error)
 	globalMutex     sync.RWMutex
 	debugMode       bool // Flag to enable/disable debug logging
+	effectDeps      = make(map[string][]string) // Track dependencies for each effect
 )
 
 // NewSignal creates a new signal with the given initial value
@@ -125,25 +169,34 @@ func NewSignal[T any](initialValue T) *Signal[T] {
 // NewSignalWithEquals creates a new signal with a custom equality function
 func NewSignalWithEquals[T any](initialValue T, equalsFn func(a, b T) bool) *Signal[T] {
 	globalMutex.Lock()
-	defer globalMutex.Unlock()
-
-	signal := &Signal[T]{
+	s := &Signal[T]{
 		value:       initialValue,
-		version:     0,
+		version:     1,
 		deps:        make(map[string]Dependency),
 		equalsFn:    equalsFn,
 		id:          fmt.Sprintf("signal_%d", atomic.AddUint64(&idCounter, 1)),
 		createdAt:   time.Now(),
-		writes:      0,
-		accessCount: 0,
 		lastAccess:  time.Now().UnixNano(),
 		metadata:    make(map[string]interface{}),
 	}
+	globalMutex.Unlock()
 
 	// Register the signal in the global registry
-	signalRegistry[signal.id] = signal
+	globalMutex.Lock()
+	signalRegistry[s.id] = s
+	if debugMode {
+		fmt.Printf("[DEBUG] Registered signal %s. Registry keys: ", s.id)
+		for k := range signalRegistry {
+			fmt.Printf("%s ", k)
+		}
+		fmt.Println()
+	}
+	globalMutex.Unlock()
 
-	return signal
+	// Set the signal id as top-level metadata
+	s.SetMetadata("id", s.id)
+
+	return s
 }
 
 // Value returns the current value of the signal and registers it as a dependency
@@ -153,31 +206,31 @@ func (s *Signal[T]) Value() T {
 	atomic.AddUint64(&s.accessCount, 1)
 	atomic.StoreInt64(&s.lastAccess, time.Now().UnixNano())
 
+	// Get the value first without holding the mutex
+	var value T
+	{
+		s.mutex.Lock()
+		value = s.value
+		s.mutex.Unlock()
+	}
+
 	// Register this signal as a dependency if we're in a tracking context
 	// This uses the AddSignalDependency function from signal_factory.go
 	AddSignalDependency(s.id)
 
-	// Fast path: If no tracking stack, we can do a simple read
-	if len(trackingStack) == 0 {
-		s.mutex.RLock()
-		value := s.value
-		s.mutex.RUnlock()
-		return value
+	// If we're tracking dependencies, record this signal
+	if len(trackingStack) > 0 {
+		// Use a separate goroutine to handle the dependency registration
+		// to prevent potential deadlocks
+		go func() {
+			globalMutex.Lock()
+			trackingContext := trackingStack[len(trackingStack)-1]
+			trackingContext[s.id] = true
+			globalMutex.Unlock()
+		}()
 	}
 
-	// When tracking dependencies with the global stack, we need to register this signal
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Record dependency if we're currently tracking with global stack
-	globalMutex.Lock()
-	if len(trackingStack) > 0 { // Double-check under lock
-		trackingContext := trackingStack[len(trackingStack)-1]
-		trackingContext[s.id] = true
-	}
-	globalMutex.Unlock()
-
-	return s.value
+	return value
 }
 
 // tryLock attempts to acquire the mutex lock with a timeout
@@ -210,7 +263,6 @@ func (s *Signal[T]) Set(newValue T) {
 
 	// Use standard mutex locking for better reliability
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	// Check if value is actually changing
 	isEqual := false
@@ -237,6 +289,7 @@ func (s *Signal[T]) Set(newValue T) {
 
 	// If values are equal, no need to update
 	if isEqual {
+		s.mutex.Unlock()
 		return
 	}
 
@@ -249,136 +302,35 @@ func (s *Signal[T]) Set(newValue T) {
 	s.value = newValue
 	atomic.AddUint64(&s.version, 1)
 
-	// Copy dependencies to notify to avoid any potential deadlocks
-	// from holding the lock during notification
-	deps := make([]Dependency, 0, len(s.deps))
+	// Copy dependencies to notify, then unlock
+	depsCopy := make([]Dependency, 0, len(s.deps))
 	for _, dep := range s.deps {
-		deps = append(deps, dep)
+		depsCopy = append(depsCopy, dep)
 	}
-
-	// Check if we're in batch mode
-	globalMutex.RLock()
-	inBatch := batchMode
-	globalMutex.RUnlock()
-
-	// Release the lock before notifying dependencies to prevent potential deadlocks
 	s.mutex.Unlock()
 
-	// Handle dependency notifications based on batching state
-	if inBatch {
-		// In batch mode, we need to:
-		// 1. Record this signal as batched
-		// 2. Queue batched effects for later processing
-		// 3. Immediately notify non-batched effects
-		globalMutex.Lock()
-		// Record the signal as batched for later processing
-		batchedSignals[s.id] = s
-
-		// Split dependencies into batched and non-batched
-		batchedDeps := make([]Dependency, 0, len(deps))
-		nonBatchedDeps := make([]Dependency, 0, len(deps))
-
-		// Process each dependency to identify which are batched vs non-batched
-		for _, dep := range deps {
-			if effect, ok := dep.(*Effect); ok {
-				// Try to find the effect's ID in the registry
-				effectFound := false
-
-				for id, registered := range effectsRegistry {
-					if registered == effect {
-						effectFound = true
-
-						// Get effect info to check if it's part of a batch
-						effectInfo, hasInfo := effectInfos[id]
-
-						if hasInfo && effectInfo.BatchID != "" {
-							// This is a batched effect, queue it for later
-							pendingEffects[id] = true
-							batchedDeps = append(batchedDeps, dep)
-
-							// Debug logging
-							if debugMode {
-								fmt.Printf("[DEBUG] Queueing batched effect %s with batch ID %s\n",
-									id, effectInfo.BatchID)
-							}
-						} else {
-							// This is a non-batched effect, mark for immediate notification
-							nonBatchedDeps = append(nonBatchedDeps, dep)
-
-							// Debug logging
-							if debugMode {
-								fmt.Printf("[DEBUG] Adding non-batched effect %s for immediate notification\n", id)
-							}
-						}
-						break
-					}
-				}
-
-				// If effect wasn't found in registry, default to immediate notification
-				if !effectFound {
-					nonBatchedDeps = append(nonBatchedDeps, dep)
-					if debugMode {
-						fmt.Printf("[DEBUG] Unregistered effect added for immediate notification\n")
-					}
-				}
-			} else {
-				// Non-effect dependencies always get immediate notification
-				nonBatchedDeps = append(nonBatchedDeps, dep)
-				if debugMode {
-					fmt.Printf("[DEBUG] Non-effect dependency added for immediate notification\n")
-				}
-			}
-		}
-
-		// Log summary of what we found
-		if debugMode {
-			fmt.Printf("[DEBUG] Signal %s has %d batched and %d non-batched dependencies\n",
-				s.id, len(batchedDeps), len(nonBatchedDeps))
-		}
-
-		globalMutex.Unlock()
-
-		// Notify non-batched dependencies immediately
-		if len(nonBatchedDeps) > 0 {
-			if debugMode {
-				fmt.Printf("[DEBUG] Notifying %d non-batched dependencies immediately\n", len(nonBatchedDeps))
-			}
-
-			for _, dep := range nonBatchedDeps {
-				dep.Notify()
-			}
-		}
-	} else {
-		// Not in batch mode, notify all dependencies immediately
-		if debugMode {
-			fmt.Printf("[DEBUG] Not in batch mode, notifying all %d dependencies immediately\n", len(deps))
-		}
-
-		for _, dep := range deps {
-			dep.Notify()
-		}
+	// Notify dependencies synchronously (no goroutine)
+	for _, dep := range depsCopy {
+		dep.Notify()
 	}
-
-	// Re-acquire the lock to maintain the deferred unlock semantics
-	// This ensures our defer s.mutex.Unlock() doesn't cause issues
-	s.mutex.Lock()
 }
 
 // notifyDependents notifies all dependencies that this signal has changed
-//
-//nolint:unused // Will be implemented in a future version of the signal system
 func (s *Signal[T]) notifyDependents() {
-	// Copy dependencies to avoid deadlocks
-	s.mutex.RLock()
-	deps := make([]Dependency, 0, len(s.deps))
-	for _, dep := range s.deps {
-		deps = append(deps, dep)
+	// Get a copy of all dependencies to notify (copy both IDs and Dependency values)
+	depsCopy := make([]Dependency, 0, len(s.deps))
+	{
+		s.mutex.Lock()
+		for effectID, dep := range s.deps {
+			_ = effectID // effectID is available for future use
+			depsCopy = append(depsCopy, dep)
+		}
+		s.mutex.Unlock()
 	}
-	s.mutex.RUnlock()
 
 	// Debug logging
 	if debugMode {
-		fmt.Printf("[DEBUG] Signal %s notifying %d dependencies\n", s.id, len(deps))
+		fmt.Printf("[DEBUG] Signal %s notifying %d dependencies\n", s.id, len(depsCopy))
 	}
 
 	// Check if we're currently in a batch update
@@ -386,231 +338,173 @@ func (s *Signal[T]) notifyDependents() {
 	inBatch := atomic.LoadInt32(&batchDepth) > 0
 	globalMutex.RUnlock()
 
-	// If in batch mode, queue notifications for later
+	// If we're in batch mode, queue the signal for batch processing
 	if inBatch {
 		globalMutex.Lock()
-		// Add this signal to the batched signals map
 		batchedSignals[s.id] = s
 
-		// Register effects for later execution
-		for _, dep := range deps {
-			switch e := dep.(type) {
-			case *Effect:
-				// Find the effect ID
-				var effectID string
-				for id, registered := range effectsRegistry {
-					if registered == e {
-						effectID = id
-						break
-					}
-				}
-				// Only add if we found the effect ID
-				if effectID != "" {
-					pendingEffects[effectID] = true
-				}
-			case *AsyncEffect:
-				// Find the async effect ID
-				var effectID string
-				for id, registered := range effectsRegistry {
-					if registered == e {
-						effectID = id
-						break
-					}
-				}
-				// Only add if we found the effect ID
-				if effectID != "" {
-					pendingEffects[effectID] = true
-				}
+		// Queue all effects for later processing
+		for effectID, dep := range s.deps {
+			if _, ok := dep.(*Effect); ok {
+				pendingEffects[effectID] = true
 			}
+		}
+
+		// Log summary
+		if debugMode {
+			fmt.Printf("[DEBUG] Signal %s queued for batch processing\n", s.id)
 		}
 		globalMutex.Unlock()
 	} else {
 		// Otherwise notify immediately
-		for _, dep := range deps {
+		if debugMode {
+			fmt.Printf("[DEBUG] Not in batch mode, notifying all %d dependencies immediately\n", len(depsCopy))
+		}
+
+		// Notify dependencies synchronously (no goroutine)
+		for _, dep := range depsCopy {
 			dep.Notify()
 		}
 	}
 }
 
-// StartTracking begins tracking signal dependencies
-func StartTracking() {
-	globalMutex.Lock()
-	defer globalMutex.Unlock()
 
-	// Create a new tracking context
-	trackingStack = append(trackingStack, make(map[string]bool))
-
-	// For debugging
-	if debugMode {
-		fmt.Printf("[DEBUG] Started tracking, depth: %d\n", len(trackingStack))
-	}
-}
-
-// StopTracking stops tracking signal dependencies and returns the collected dependencies
-func StopTracking() []string {
-	globalMutex.Lock()
-	defer globalMutex.Unlock()
-
-	if len(trackingStack) == 0 {
-		return []string{}
-	}
-
-	deps := trackingStack[len(trackingStack)-1]
-	trackingStack = trackingStack[:len(trackingStack)-1]
-
-	result := make([]string, 0, len(deps))
-	for dep := range deps {
-		result = append(result, dep)
-	}
-
-	// Debug logging
-	if debugMode {
-		fmt.Printf("[DEBUG] Stopped tracking, collected %d dependencies\n", len(result))
-	}
-
-	return result
-}
-
-// RegisterEffect registers a function to be called when any of its dependencies change
-func RegisterEffect(fn func(), deps []string) string {
-	globalMutex.Lock()
-	effectID := fmt.Sprintf("effect_%d", atomic.AddUint64(&idCounter, 1))
-
-	effect := &Effect{
-		fn:   fn,
-		deps: deps,
-	}
-
-	effectsRegistry[effectID] = effect
-	globalMutex.Unlock()
-
-	// Register this effect with all signals it depends on
-	for _, depID := range deps {
-		registerDependencyWithSignal(depID, effectID, effect)
-	}
-
-	// Run the effect once to initialize - this should run outside of batching
-	safelyRunEffect(fn)
-
-	return effectID
-}
-
-// RegisterEffectWithoutInitialRun registers a function to be called when any of its dependencies change,
+// ... (rest of the code remains the same)
 // but does not run the effect immediately. This is useful for computed signals that have already
 // calculated their initial value.
-func RegisterEffectWithoutInitialRun(fn func(), deps []string) string {
-	globalMutex.Lock()
-	effectID := fmt.Sprintf("effect_%d", atomic.AddUint64(&idCounter, 1))
-
-	effect := &Effect{
-		fn:   fn,
-		deps: deps,
-	}
-
-	effectsRegistry[effectID] = effect
-	globalMutex.Unlock()
-
-	// Register this effect with all signals it depends on
-	for _, depID := range deps {
-		registerDependencyWithSignal(depID, effectID, effect)
-	}
-
-	// Do not run the effect immediately
-	return effectID
-}
+// func RegisterEffectWithoutInitialRun(fn func(), deps []string, effectID ...string) string {
+// Implementation moved to signal_factory.go
+// }
 
 // RegisterAsyncEffect registers an effect that performs asynchronous operations
-func RegisterAsyncEffect(fn func(), deps []string) string {
-	globalMutex.Lock()
-	effectID := fmt.Sprintf("async_effect_%d", atomic.AddUint64(&idCounter, 1))
-
-	effect := &AsyncEffect{
-		fn:   fn,
-		deps: deps,
+func RegisterAsyncEffect(fn func(), deps []string, effectID ...string) string {
+	id := ""
+	if len(effectID) > 0 && effectID[0] != "" {
+		id = effectID[0]
+	} else {
+		id = fmt.Sprintf("async_effect_%d", atomic.AddUint64(&idCounter, 1))
 	}
-
-	effectsRegistry[effectID] = effect
-	globalMutex.Unlock()
-
-	// Register this effect with all signals it depends on
-	for _, depID := range deps {
-		registerDependencyWithSignal(depID, effectID, effect)
-	}
-
+	registerEffectWithID(fn, deps, id)
 	// Run the effect once to initialize
 	safelyRunEffect(fn)
-
-	return effectID
+	return id
 }
 
 // Batch executes a function in a batched context, deferring signal notifications
 // until the end of the batch to avoid cascading updates
 func Batch(fn func()) {
-	// Get the current batch depth before incrementing
-	wasBatchingBefore := atomic.LoadInt32(&batchDepth) > 0
-
 	// Increment batch depth
-	atomic.AddInt32(&batchDepth, 1)
-
-	// Set batch mode flag
-	globalMutex.Lock()
-	batchMode = true
-	globalMutex.Unlock()
+	newDepth := atomic.AddInt32(&batchDepth, 1)
 
 	// Debug logging
 	if debugMode {
-		currentDepth := atomic.LoadInt32(&batchDepth)
-		fmt.Printf("[DEBUG] Batch start - depth: %d\n", currentDepth)
+		fmt.Printf("[DEBUG] Batch start - depth: %d\n", newDepth)
 	}
 
 	// Run the function
 	fn()
 
 	// Decrement batch depth
-	newDepth := atomic.AddInt32(&batchDepth, -1)
+	newDepth = atomic.AddInt32(&batchDepth, -1)
 
 	// Debug logging
 	if debugMode {
 		fmt.Printf("[DEBUG] Batch end - depth: %d\n", newDepth)
 	}
 
-	// Only process pending effects if this was the outermost batch
-	if newDepth == 0 && !wasBatchingBefore {
-		// Reset batch mode
+	// Process pending effects if this was the outermost batch
+	if newDepth == 0 {
+		// Process batched signals and effects atomically
 		globalMutex.Lock()
+		defer globalMutex.Unlock()
+
+		// Reset batch mode
 		batchMode = false
 
-		// Process batched signals
+		// Process batched signals - only trigger one update per signal
 		processedSignals := make(map[string]bool)
 		for id := range batchedSignals {
-			processedSignals[id] = true
+			if !processedSignals[id] {
+				processedSignals[id] = true
+			}
 		}
 		batchedSignals = make(map[string]any)
 
-		// Process pending effects
+		// Process pending effects - only run one update per effect
 		effectsToRun := make(map[string]bool)
 		for effectID := range pendingEffects {
-			effectsToRun[effectID] = true
+			if !effectsToRun[effectID] {
+				effectsToRun[effectID] = true
+			}
 		}
 		pendingEffects = make(map[string]bool)
-		globalMutex.Unlock()
 
 		// Debug logging
 		if debugMode {
 			fmt.Printf("[DEBUG] Running %d pending effects\n", len(effectsToRun))
 		}
 
-		// Run all pending effects
+		// Run all pending effects while holding the lock
 		for effectID := range effectsToRun {
-			globalMutex.RLock()
 			effect, exists := effectsRegistry[effectID]
-			globalMutex.RUnlock()
-
 			if exists {
 				effect.Notify()
 			}
 		}
+
+		// Flush batched state notifications
+		batchedStateChangesMu.Lock()
+		for statePtr, v := range batchedStateChanges {
+			switch s := statePtr.(type) {
+			case *State[any]:
+				callbacks := make([]func(old, new any), len(s.onChange))
+				copy(callbacks, s.onChange)
+				for _, cb := range callbacks {
+					cb(v.old, v.new)
+				}
+			default:
+				// Try to call onChange for generic State[T] via reflection
+				// This is a fallback for generic support
+			}
+		}
+		batchedStateChanges = make(map[any]struct{old, new any})
+		batchedStateChangesMu.Unlock()
 	}
+}
+
+// RemoveEffectFromSignals removes an effect from all signals in the given dependency list.
+func RemoveEffectFromSignals(effectID string, deps []string) {
+	for _, depID := range deps {
+		if signal, ok := signalRegistry[depID]; ok {
+			// Use type assertion to call RemoveDependency if available
+			switch s := signal.(type) {
+			case interface{ RemoveDependency(string) }:
+				s.RemoveDependency(effectID)
+			}
+		}
+	}
+}
+
+// RemoveEffect removes an effect from the registry and performs cleanup
+func RemoveEffect(effectID interface{}) {
+	id, ok := effectID.(string)
+	if !ok || id == "" {
+		// Ignore nil or non-string effectIDs
+		return
+	}
+	globalMutex.Lock()
+	deps, hasDeps := effectDeps[id]
+	if hasDeps {
+		globalMutex.Unlock() // Unlock before calling RemoveEffectFromSignals (may lock internally)
+		RemoveEffectFromSignals(id, deps)
+		globalMutex.Lock()
+		delete(effectDeps, id)
+	}
+	if _, exists := effectsRegistry[id]; exists {
+		delete(effectsRegistry, id)
+		// Additional cleanup logic can be added here if needed
+	}
+	globalMutex.Unlock()
 }
 
 // SetErrorHandler sets a global error handler for effects
@@ -619,14 +513,6 @@ func SetErrorHandler(handler func(error)) {
 	defer globalMutex.Unlock()
 
 	errorHandler = handler
-}
-
-// Notify implements the Dependency interface for Effect
-func (e *Effect) Notify() {
-	if debugMode {
-		fmt.Printf("[DEBUG] Effect %s notified to run\n", e.debugInfo)
-	}
-	safelyRunEffect(e.fn)
 }
 
 // Notify implements the Dependency interface for AsyncEffect
@@ -661,45 +547,9 @@ func safelyRunEffect(fn func()) {
 	fn()
 }
 
-// GetStats returns statistics about the signal
-func (s *Signal[T]) GetStats() map[string]interface{} {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 
-	stats := map[string]interface{}{
-		"id":              s.id,
-		"version":         s.version,
-		"accessCount":     s.accessCount,
-		"writeCount":      s.writes,
-		"createdAt":       s.createdAt,
-		"age":             time.Since(s.createdAt).String(),
-		"dependencyCount": len(s.deps),
-	}
 
-	// Add any custom metadata
-	for k, v := range s.metadata {
-		stats[k] = v
-	}
 
-	return stats
-}
-
-// GetMetadata returns the metadata associated with this signal
-func (s *Signal[T]) GetMetadata(key string) (interface{}, bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	value, exists := s.metadata[key]
-	return value, exists
-}
-
-// SetMetadata sets a metadata value on this signal
-func (s *Signal[T]) SetMetadata(key string, value interface{}) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.metadata[key] = value
-}
 
 // registerDependencyWithSignal registers a dependency with a signal by ID
 func registerDependencyWithSignal(signalID, effectID string, dep Dependency) {

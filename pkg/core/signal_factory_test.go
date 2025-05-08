@@ -12,7 +12,7 @@ func TestCreateSignal(t *testing.T) {
 		t.Log("Creating signal with factory function...")
 
 		// Create a signal with the factory function
-		signal := CreateSignal(42)
+		signal := CreateSignal[int](42)
 
 		t.Log("Signal created, checking initial value...")
 		// Check that it has the correct initial value
@@ -61,7 +61,7 @@ func TestCreateSignal(t *testing.T) {
 		}
 
 		// Create a signal with custom equality
-		signal := CreateSignal(2, SignalOptions{
+		signal := CreateSignal[int](2, SignalOptions{
 			Equals: func(a, b any) bool {
 				return equalityFn(a.(int), b.(int))
 			},
@@ -83,14 +83,48 @@ func TestCreateSignal(t *testing.T) {
 	})
 }
 
+func TestDepsEqual(t *testing.T) {
+	t.Run("Equal slices same order", func(t *testing.T) {
+		deps1 := []string{"a", "b", "c"}
+		deps2 := []string{"a", "b", "c"}
+		assert.True(t, depsEqual(deps1, deps2), "Should be equal when contents and order match")
+	})
+	t.Run("Equal slices different order", func(t *testing.T) {
+		deps1 := []string{"x", "y", "z"}
+		deps2 := []string{"z", "x", "y"}
+		assert.True(t, depsEqual(deps1, deps2), "Should be equal when contents match but order differs")
+	})
+	t.Run("Unequal slices different lengths", func(t *testing.T) {
+		deps1 := []string{"a", "b"}
+		deps2 := []string{"a", "b", "c"}
+		assert.False(t, depsEqual(deps1, deps2), "Should not be equal when lengths differ")
+	})
+	t.Run("Unequal slices same length, different contents", func(t *testing.T) {
+		deps1 := []string{"a", "b", "c"}
+		deps2 := []string{"a", "b", "d"}
+		assert.False(t, depsEqual(deps1, deps2), "Should not be equal when contents differ")
+	})
+	t.Run("Both empty", func(t *testing.T) {
+		deps1 := []string{}
+		deps2 := []string{}
+		assert.True(t, depsEqual(deps1, deps2), "Empty slices should be equal")
+	})
+	t.Run("Nil vs empty", func(t *testing.T) {
+		var deps1 []string = nil
+		deps2 := []string{}
+		assert.True(t, depsEqual(deps1, deps2), "Nil and empty slices should be considered equal")
+	})
+}
+
+
 func TestCreateComputed(t *testing.T) {
 	t.Run("Basic Computed Signal", func(t *testing.T) {
 		// Create source signals
-		count := CreateSignal(5)
-		multiplier := CreateSignal(2)
+		count := CreateSignal[int](5)
+		multiplier := CreateSignal[int](2)
 
 		// Create a computed signal that depends on both
-		computed := CreateComputed(func() int {
+		computed := CreateComputed[int](func() int {
 			return count.Value() * multiplier.Value()
 		})
 
@@ -107,8 +141,8 @@ func TestCreateComputed(t *testing.T) {
 
 	t.Run("Computed with Custom Equality", func(t *testing.T) {
 		// Source signals
-		a := CreateSignal(5)
-		b := CreateSignal(5)
+		a := CreateSignal[int](5)
+		b := CreateSignal[int](5)
 
 		// Counter to track how many times the compute function runs
 		computeCounter := 0
@@ -120,7 +154,7 @@ func TestCreateComputed(t *testing.T) {
 
 		// Create a computed signal that checks if values are equal
 		// but only considers the result significant if it changes from true to false or vice versa
-		computed := CreateComputed(
+		computed := CreateComputed[bool](
 			func() bool {
 				t.Logf("** Running compute function, counter=%d **", computeCounter)
 				computeCounter++
