@@ -1,6 +1,7 @@
 package bubble
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/core"
@@ -51,6 +52,9 @@ type Event interface {
 	// SetPhase updates the current phase of event propagation.
 	SetPhase(phase EventPhase)
 	
+	// SwitchToPhase switches the event to a different phase, potentially skipping other phases.
+	SwitchToPhase(phase EventPhase)
+	
 	// IsPropagationStopped returns whether propagation has been stopped.
 	IsPropagationStopped() bool
 	
@@ -86,6 +90,9 @@ type Event interface {
 	
 	// SetPriority sets the priority of the event.
 	SetPriority(priority EventPriority)
+	
+	// Context returns the current event context with phase information.
+	Context() *EventContext
 }
 
 // BaseEvent provides a base implementation of the Event interface.
@@ -103,6 +110,8 @@ type BaseEvent struct {
 	originalMessage       tea.Msg
 	eventPriority         EventPriority
 	eventContext          *EventContext  // Added field for event context information
+	phaseSwitchRequested  bool          // Flag for phase switching
+	requestedPhase        EventPhase     // Target phase for phase switching
 }
 
 // NewBaseEvent creates a new base event with common properties.
@@ -163,6 +172,11 @@ func (e *BaseEvent) Phase() EventPhase {
 // SetPhase updates the current phase of event propagation.
 func (e *BaseEvent) SetPhase(phase EventPhase) {
 	e.phase = phase
+	
+	// Update the event context if it exists
+	if e.eventContext != nil {
+		e.eventContext.CurrentPhase = phase
+	}
 }
 
 // IsPropagationStopped returns whether propagation has been stopped.
@@ -199,6 +213,35 @@ func (e *BaseEvent) PreventDefault() {
 // Path returns the component path from the target to the root.
 func (e *BaseEvent) Path() []core.Component {
 	return e.componentPath
+}
+
+// Context returns the current event context with phase information.
+func (e *BaseEvent) Context() *EventContext {
+	// Create context if it doesn't exist
+	if e.eventContext == nil {
+		e.eventContext = &EventContext{
+			Timestamp:      time.Now(),
+			SequenceNumber: atomic.AddUint64(&globalEventSequence, 1),
+			CurrentPhase:   e.phase,
+			OriginalTarget: e.sourceComponent,
+			PropagationPath: e.componentPath,
+			UserInteraction: UserInteractionContext{
+				Modifiers: make(map[string]bool),
+			},
+			ApplicationState: make(map[string]interface{}),
+		}
+	}
+	
+	return e.eventContext
+}
+
+// SwitchToPhase switches the event to a different phase, potentially skipping other phases.
+func (e *BaseEvent) SwitchToPhase(phase EventPhase) {
+	e.phaseSwitchRequested = true
+	e.requestedPhase = phase
+	
+	// Update the current phase
+	e.SetPhase(phase)
 }
 
 // SetPath sets the component path from the target to the root.

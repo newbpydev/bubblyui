@@ -19,13 +19,7 @@ func TestStateSynchronization(t *testing.T) {
 		root := core.NewComponentManager("root")
 
 		// Create a basic synchronizer with nil model for unit testing
-		stateSync := &StateSynchronizer{
-			registeredComponents: make(map[string]*core.ComponentManager),
-			sharedStates:         make(map[string]*sharedState),
-			persistentStates:     make(map[string]bool),
-			stateVersions:        make(map[string]int),
-			migrations:           make(map[string]map[int]migrationFunc),
-		}
+		stateSync := NewStateSynchronizer(nil)
 
 		// Register the component
 		stateSync.RegisterComponent(root)
@@ -66,13 +60,7 @@ func TestStateSynchronization(t *testing.T) {
 		child1.AddChild(grandchild)
 
 		// Create a simple synchronizer for testing without model dependency
-		stateSync := &StateSynchronizer{
-			registeredComponents: make(map[string]*core.ComponentManager),
-			sharedStates:         make(map[string]*sharedState),
-			persistentStates:     make(map[string]bool),
-			stateVersions:        make(map[string]int),
-			migrations:           make(map[string]map[int]migrationFunc),
-		}
+		stateSync := NewStateSynchronizer(nil)
 
 		// Register components
 		stateSync.RegisterComponent(root)
@@ -108,13 +96,7 @@ func TestStateSynchronization(t *testing.T) {
 
 			// Create a simple state synchronizer without model dependency
 			root := core.NewComponentManager("root")
-			stateSync := &StateSynchronizer{
-				registeredComponents: make(map[string]*core.ComponentManager),
-				sharedStates:         make(map[string]*sharedState),
-				persistentStates:     make(map[string]bool),
-				stateVersions:        make(map[string]int),
-				migrations:           make(map[string]map[int]migrationFunc),
-			}
+			stateSync := NewStateSynchronizer(nil)
 			stateSync.RegisterComponent(root)
 
 			// Create shared persistent state
@@ -144,13 +126,7 @@ func TestStateSynchronization(t *testing.T) {
 
 			// Create a new state synchronizer for restoration
 			newRoot := core.NewComponentManager("newRoot")
-			newStateSync := &StateSynchronizer{
-				registeredComponents: make(map[string]*core.ComponentManager),
-				sharedStates:         make(map[string]*sharedState),
-				persistentStates:     make(map[string]bool),
-				stateVersions:        make(map[string]int),
-				migrations:           make(map[string]map[int]migrationFunc),
-			}
+			newStateSync := NewStateSynchronizer(nil)
 			newStateSync.RegisterComponent(newRoot)
 
 			// Create the same state schema
@@ -191,13 +167,7 @@ func TestStateSynchronization(t *testing.T) {
 
 			// Create a simple state synchronizer without model dependency
 			root := core.NewComponentManager("root")
-			stateSync := &StateSynchronizer{
-				registeredComponents: make(map[string]*core.ComponentManager),
-				sharedStates:         make(map[string]*sharedState),
-				persistentStates:     make(map[string]bool),
-				stateVersions:        make(map[string]int),
-				migrations:           make(map[string]map[int]migrationFunc),
-			}
+			stateSync := NewStateSynchronizer(nil)
 			stateSync.RegisterComponent(root)
 
 			// Register a migration from v1 to v2 using maps for flexibility
@@ -316,13 +286,7 @@ func TestPersistenceWithConcurrentUpdates(t *testing.T) {
 		root.AddChild(child2)
 
 		// Create a simple synchronizer without model dependency
-		stateSync := &StateSynchronizer{
-			registeredComponents: make(map[string]*core.ComponentManager),
-			sharedStates:         make(map[string]*sharedState),
-			persistentStates:     make(map[string]bool),
-			stateVersions:        make(map[string]int),
-			migrations:           make(map[string]map[int]migrationFunc),
-		}
+		stateSync := NewStateSynchronizer(nil)
 
 		// Register components
 		stateSync.RegisterComponent(root)
@@ -390,13 +354,7 @@ func TestPersistenceWithConcurrentUpdates(t *testing.T) {
 
 		// Verify state can be restored
 		newRoot := core.NewComponentManager("newRoot")
-		newStateSync := &StateSynchronizer{
-			registeredComponents: make(map[string]*core.ComponentManager),
-			sharedStates:         make(map[string]*sharedState),
-			persistentStates:     make(map[string]bool),
-			stateVersions:        make(map[string]int),
-			migrations:           make(map[string]map[int]migrationFunc),
-		}
+		newStateSync := NewStateSynchronizer(nil)
 		newStateSync.RegisterComponent(newRoot)
 
 		// Create the same state schema
@@ -454,13 +412,7 @@ func TestComponentModelConsistency(t *testing.T) {
 		right.AddChild(rightChild)
 
 		// Create a simple synchronizer without model dependency
-		stateSync := &StateSynchronizer{
-			registeredComponents: make(map[string]*core.ComponentManager),
-			sharedStates:         make(map[string]*sharedState),
-			persistentStates:     make(map[string]bool),
-			stateVersions:        make(map[string]int),
-			migrations:           make(map[string]map[int]migrationFunc),
-		}
+		stateSync := NewStateSynchronizer(nil)
 
 		// Register all components
 		stateSync.RegisterComponent(root)

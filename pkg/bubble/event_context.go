@@ -44,6 +44,18 @@ type EventContext struct {
 	
 	// Application state at the time of the event
 	ApplicationState map[string]interface{}
+	
+	// Current phase of event propagation
+	CurrentPhase EventPhase
+	
+	// Component currently handling the event (changes during propagation)
+	CurrentTarget core.Component
+	
+	// Original target of the event (doesn't change during propagation)
+	OriginalTarget core.Component
+	
+	// Path from target to root for propagation
+	PropagationPath []core.Component
 }
 
 // Global sequence counter for events
