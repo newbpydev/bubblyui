@@ -103,7 +103,6 @@ func (s *State[T]) Set(newValue T) {
 	// Batching logic: if in batch, record for notification after batch
 	if isBatching() {
 		recordStateChange(s, oldValue, newValue)
-		s.signal.Set(newValue)
 		s.mutex.Unlock()
 		return
 	}

@@ -139,10 +139,7 @@ func CreateComputed[T any](computeFn func() T, options ...SignalOptions) *Signal
 		}
 
 		if shouldUpdate {
-			// Update the signal value
-			signal.mutex.Lock()
-			signal.value = newValue
-			signal.mutex.Unlock()
+			// Only call Set, which will handle value assignment and notification/batching
 			signal.Set(newValue)
 		}
 	}
@@ -359,7 +356,7 @@ func defaultEquals[T comparable](a, b T) bool {
 // EnableDebugMode enables debug logging for signals
 func EnableDebugMode() {
 	signalFactoryMutex.Lock()
-	localDebugMode = true
+// localDebugMode = true
 	signalFactoryMutex.Unlock()
 }
 

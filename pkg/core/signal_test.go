@@ -48,7 +48,7 @@ func TestSignalBasics(t *testing.T) {
 }
 
 func TestSignalDependencyTracking(t *testing.T) {
-	debugMode = true // Ensure debug logs are printed
+// debugMode = true // Ensure debug logs are printed
 	t.Run("Simple Dependency", func(t *testing.T) {
 		countSignal := NewSignal(0)
 		doubledSignal := NewSignal(0)
@@ -173,7 +173,7 @@ func TestSignalConcurrency(t *testing.T) {
 }
 
 func TestBatchedUpdates(t *testing.T) {
-	debugMode = true // Ensure debug logs are printed
+// debugMode = true // Ensure debug logs are printed
 	t.Run("Batching Prevents Intermediate Updates", func(t *testing.T) {
 		signal := NewSignal(0)
 		derived := NewSignal(0)

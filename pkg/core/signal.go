@@ -157,7 +157,7 @@ var (
 	idCounter       uint64
 	errorHandler    func(error)
 	globalMutex     sync.RWMutex
-	debugMode       bool // Flag to enable/disable debug logging
+	debugMode       bool = false // Flag to enable/disable debug logging
 	effectDeps      = make(map[string][]string) // Track dependencies for each effect
 )
 
@@ -302,17 +302,11 @@ func (s *Signal[T]) Set(newValue T) {
 	s.value = newValue
 	atomic.AddUint64(&s.version, 1)
 
-	// Copy dependencies to notify, then unlock
-	depsCopy := make([]Dependency, 0, len(s.deps))
-	for _, dep := range s.deps {
-		depsCopy = append(depsCopy, dep)
-	}
-	s.mutex.Unlock()
+		s.mutex.Unlock()
 
-	// Notify dependencies synchronously (no goroutine)
-	for _, dep := range depsCopy {
-		dep.Notify()
-	}
+	// Notify dependents through batching logic
+	s.notifyDependents()
+
 }
 
 // notifyDependents notifies all dependencies that this signal has changed
@@ -368,6 +362,22 @@ func (s *Signal[T]) notifyDependents() {
 	}
 }
 
+// notifyDependentsDirect notifies all dependencies directly, without batch checks or global locks
+func (s *Signal[T]) notifyDependentsDirect() {
+	depsCopy := make([]Dependency, 0, len(s.deps))
+	s.mutex.Lock()
+	for _, dep := range s.deps {
+		depsCopy = append(depsCopy, dep)
+	}
+	s.mutex.Unlock()
+	for _, dep := range depsCopy {
+		dep.Notify()
+	}
+}
+
+
+
+
 
 // ... (rest of the code remains the same)
 // but does not run the effect immediately. This is useful for computed signals that have already
@@ -421,34 +431,46 @@ func Batch(fn func()) {
 		// Reset batch mode
 		batchMode = false
 
-		// Process batched signals - only trigger one update per signal
-		processedSignals := make(map[string]bool)
-		for id := range batchedSignals {
-			if !processedSignals[id] {
-				processedSignals[id] = true
+		// Process batched signals - notify all dependents for each signal
+		// Iteratively flush batched signals and effects until none remain
+		for {
+			// Phase 1: Collect signals and effects to process (under lock)
+			signalsToNotify := make([]any, 0, len(batchedSignals))
+			for _, sig := range batchedSignals {
+				signalsToNotify = append(signalsToNotify, sig)
 			}
-		}
-		batchedSignals = make(map[string]any)
+			batchedSignals = make(map[string]any)
 
-		// Process pending effects - only run one update per effect
-		effectsToRun := make(map[string]bool)
-		for effectID := range pendingEffects {
-			if !effectsToRun[effectID] {
-				effectsToRun[effectID] = true
+			effectsToRun := make([]string, 0, len(pendingEffects))
+			for effectID := range pendingEffects {
+				effectsToRun = append(effectsToRun, effectID)
 			}
-		}
-		pendingEffects = make(map[string]bool)
+			pendingEffects = make(map[string]bool)
 
-		// Debug logging
-		if debugMode {
-			fmt.Printf("[DEBUG] Running %d pending effects\n", len(effectsToRun))
-		}
+			// Debug logging
+			if debugMode {
+				fmt.Printf("[DEBUG] Running %d pending effects\n", len(effectsToRun))
+			}
 
-		// Run all pending effects while holding the lock
-		for effectID := range effectsToRun {
-			effect, exists := effectsRegistry[effectID]
-			if exists {
-				effect.Notify()
+			// Phase 2: Release lock, then notify and run effects
+			globalMutex.Unlock()
+
+			for _, sig := range signalsToNotify {
+				if s, ok := sig.(interface{ notifyDependentsDirect() }); ok {
+					s.notifyDependentsDirect()
+				}
+			}
+			for _, effectID := range effectsToRun {
+				effect, exists := effectsRegistry[effectID]
+				if exists {
+					effect.Notify()
+				}
+			}
+
+			// Phase 3: Re-acquire lock, check for more work
+			globalMutex.Lock()
+			if len(batchedSignals) == 0 && len(pendingEffects) == 0 {
+				break
 			}
 		}
 
