@@ -77,56 +77,59 @@
 ---
 
 ### 02-component-model
-**Status:** Not Started  
-**Coverage:** N/A  
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
 **Prerequisites:** 01-reactivity-system  
-**Unlocks:** 05-directives, 06-built-in-components
+**Unlocks:** 03-lifecycle-hooks, 05-directives, 06-built-in-components
 
 #### Requirements
-- [ ] requirements.md
-- [ ] designs.md
-- [ ] user-workflow.md
-- [ ] tasks.md
+- [x] requirements.md complete (480 lines)
+- [x] designs.md complete (720 lines)
+- [x] user-workflow.md complete (640 lines)
+- [x] tasks.md complete (560 lines, 19 tasks)
 
-#### Implementation
-- [ ] Component interface
-- [ ] ComponentBuilder (fluent API)
-- [ ] Props system
-- [ ] Event system
-- [ ] Template rendering
-- [ ] Integration with Bubbletea
+#### Implementation (19 tasks, ~58 hours)
+- [ ] Task 1.1-1.3: Component interface (8 hours)
+- [ ] Task 2.1-2.3: ComponentBuilder (7 hours)
+- [ ] Task 3.1-3.2: Context system (7 hours)
+- [ ] Task 4.1-4.2: Props & events (6 hours)
+- [ ] Task 5.1-5.2: Composition (5 hours)
+- [ ] Task 6.1-6.4: Polish (13 hours)
+- [ ] Task 7.1-7.3: Validation (12 hours)
 
 #### Testing
-- [ ] Unit tests
+- [ ] Unit tests (target: >80%)
 - [ ] Integration tests
-- [ ] Example components
+- [ ] Example components (button, counter, form, nested)
 
 ---
 
 ### 03-lifecycle-hooks
-**Status:** Not Started  
-**Coverage:** N/A  
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
 **Prerequisites:** 02-component-model  
 **Unlocks:** 04-composition-api
 
 #### Requirements
-- [ ] requirements.md
-- [ ] designs.md
-- [ ] user-workflow.md
-- [ ] tasks.md
+- [x] requirements.md complete (400 lines)
+- [x] designs.md complete (650 lines)
+- [x] user-workflow.md complete (625 lines)
+- [x] tasks.md complete (1100 lines, 16 tasks)
 
-#### Implementation
-- [ ] Setup hook
-- [ ] Mounted hook
-- [ ] Updated hook
-- [ ] Unmounted hook
-- [ ] Hook execution order
-- [ ] Async hooks support
+#### Implementation (16 tasks, ~49 hours)
+- [ ] Task 1.1-1.3: Lifecycle manager foundation (7 hours)
+- [ ] Task 2.1-2.3: Hook execution (10 hours)
+- [ ] Task 3.1-3.2: Error handling & safety (5 hours)
+- [ ] Task 4.1-4.2: Auto-cleanup integration (5 hours)
+- [ ] Task 5.1-5.3: Integration & optimization (11 hours)
+- [ ] Task 6.1-6.3: Testing & validation (11 hours)
 
 #### Testing
 - [ ] Hook order tests
 - [ ] Cleanup tests
 - [ ] Error handling tests
+- [ ] Memory leak tests
+- [ ] Example apps (basic, data-fetch, subscription, timer)
 
 ---
 
