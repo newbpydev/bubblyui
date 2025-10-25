@@ -190,39 +190,31 @@
 ---
 
 ### 06-built-in-components
-**Status:** Not Started  
-**Coverage:** N/A  
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
 **Prerequisites:** 02-component-model, 05-directives  
-**Unlocks:** Example applications
+**Unlocks:** Rapid app development, production-ready UIs
 
 #### Requirements
-- [ ] requirements.md
-- [ ] designs.md
-- [ ] user-workflow.md
-- [ ] tasks.md
+- [x] requirements.md complete (580 lines)
+- [x] designs.md complete (700 lines)
+- [x] user-workflow.md complete (300 lines)
+- [x] tasks.md complete (917 lines, 20 tasks)
 
-#### Atoms
-- [ ] Text
-- [ ] Button
-- [ ] Icon
-- [ ] Spacer
+#### Implementation (20 tasks, ~99 hours)
+- [ ] Task 1.1-1.4: Foundation & Atoms (6 components) (11 hours)
+- [ ] Task 2.1-2.4: Molecules (6 components) (16 hours)
+- [ ] Task 3.1-3.4: Organisms (8 components) (27 hours)
+- [ ] Task 4.1-4.2: Templates (4 components) (10 hours)
+- [ ] Task 5.1-5.3: Integration & documentation (21 hours)
+- [ ] Task 6.1-6.3: Performance & validation (14 hours)
 
-#### Molecules
-- [ ] Input
-- [ ] Checkbox
-- [ ] Select
-- [ ] TextArea
-
-#### Organisms
-- [ ] Form
-- [ ] Table
-- [ ] List
-- [ ] Modal
-
-#### Templates
-- [ ] AppLayout
-- [ ] PageLayout
-- [ ] PanelLayout
+#### Testing
+- [ ] Unit tests for all 24 components
+- [ ] Integration tests (composition)
+- [ ] Performance benchmarks
+- [ ] Accessibility validation
+- [ ] Example apps (todo, dashboard, settings, data-table)
 
 ---
 
