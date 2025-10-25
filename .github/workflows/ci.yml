@@ -36,9 +36,19 @@ jobs:
         run: go mod download
       
       - name: Run tests
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          set +e
+          output=$(go test -race -coverprofile=coverage.out -covermode=atomic ./... 2>&1)
+          exit_code=$?
+          echo "$output"
+          if [ $exit_code -ne 0 ] && echo "$output" | grep -q "no packages to test"; then
+            echo "No packages to test (expected for initial setup)"
+            exit 0
+          fi
+          exit $exit_code
       
       - name: Upload coverage
+        if: hashFiles('coverage.out') != ''
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.out
