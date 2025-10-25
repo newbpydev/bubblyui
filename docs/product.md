@@ -188,7 +188,7 @@ Developers can build complex TUI applications with the same ease and joy as buil
 package main
 
 import (
-    "github.com/yourusername/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 func main() {

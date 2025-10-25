@@ -1,9 +1,9 @@
 # BubblyUI
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/bubblyui.svg)](https://pkg.go.dev/github.com/yourusername/bubblyui)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/bubblyui)](https://goreportcard.com/report/github.com/yourusername/bubblyui)
+[![Go Reference](https://pkg.go.dev/badge/github.com/newbpydev/bubblyui.svg)](https://pkg.go.dev/github.com/newbpydev/bubblyui)
+[![Go Report Card](https://goreportcard.com/badge/github.com/newbpydev/bubblyui)](https://goreportcard.com/report/github.com/newbpydev/bubblyui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/yourusername/bubblyui/blob/main/.github/CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/newbpydev/bubblyui/blob/main/.github/CONTRIBUTING.md)
 
 > A Vue-inspired TUI framework for Go with type-safe reactivity and component-based architecture
 
@@ -41,7 +41,7 @@ BubblyUI brings the familiar patterns of Vue.js to Go terminal applications, pro
 ### Installation
 
 ```bash
-go get github.com/yourusername/bubblyui
+go get github.com/newbpydev/bubblyui
 ```
 
 ### Basic Example
@@ -51,7 +51,7 @@ package main
 
 import (
     "fmt"
-    "github.com/yourusername/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 func main() {
@@ -93,7 +93,7 @@ func main() {
 - **[Built-in Components](./specs/06-built-in-components/)** - Ready-to-use UI components
 
 ### API Reference
-- **[Package Documentation](https://pkg.go.dev/github.com/yourusername/bubblyui)** - Complete API reference
+- **[Package Documentation](https://pkg.go.dev/github.com/newbpydev/bubblyui)** - Complete API reference
 - **[Examples](./examples/)** - Comprehensive usage examples
 - **[Migration Guide](./docs/migration.md)** - Upgrading between versions
 
@@ -107,7 +107,7 @@ func main() {
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bubblyui.git
+git clone https://github.com/newbpydev/bubblyui.git
 cd bubblyui
 
 # Install development tools
@@ -170,7 +170,7 @@ go test -cover    # >80% coverage maintained
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bubblyui.git
+git clone https://github.com/newbpydev/bubblyui.git
 cd bubblyui
 
 # Install development tools
@@ -244,8 +244,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/bubblyui/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/bubblyui/discussions)
+- **Issues**: [GitHub Issues](https://github.com/newbpydev/bubblyui/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/newbpydev/bubblyui/discussions)
 - **Documentation**: Check the specs/ directory for detailed specifications
 - **Examples**: Browse the examples/ directory for usage patterns
 

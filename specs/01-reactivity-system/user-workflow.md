@@ -338,7 +338,7 @@ Inactive (no longer listening)
 ### Typical Development Session
 
 1. **Start**: Open editor, create component file
-2. **Import**: `import "github.com/yourusername/bubblyui/pkg/bubbly"`
+2. **Import**: `import "github.com/newbpydev/bubblyui/pkg/bubbly"`
 3. **Create Refs**: Define reactive state
 4. **Create Computed**: Add derived values
 5. **Add Watchers**: Set up side effects (if needed)

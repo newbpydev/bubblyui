@@ -19,7 +19,7 @@
 
 3. **Step 2**: Initialize Go module
    ```bash
-   go mod init github.com/yourusername/bubblyui
+   go mod init github.com/newbpydev/bubblyui
    ```
    - System creates: `go.mod` with module path
    - Go version: Will be set in next steps
@@ -89,7 +89,7 @@
 
 1. **Developer clones existing BubblyUI repo**
    ```bash
-   git clone https://github.com/yourusername/bubblyui.git
+   git clone https://github.com/newbpydev/bubblyui.git
    cd bubblyui
    ```
 
@@ -364,7 +364,7 @@ $ go mod verify
 all modules verified
 
 $ go list -m all
-github.com/yourusername/bubblyui
+github.com/newbpydev/bubblyui
 github.com/charmbracelet/bubbletea v0.25.0
 github.com/charmbracelet/lipgloss v0.9.1
 github.com/stretchr/testify v1.8.4
@@ -391,7 +391,7 @@ README.md
 **Test 3: Tools Work**
 ```bash
 $ make test
-ok      github.com/yourusername/bubblyui/pkg/bubbly
+ok      github.com/newbpydev/bubblyui/pkg/bubbly
 
 $ make lint
 # No output = success

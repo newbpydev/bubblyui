@@ -145,7 +145,7 @@ package components
 
 import (
     "github.com/charmbracelet/lipgloss"
-    "github.com/yourusername/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 type ButtonVariant string

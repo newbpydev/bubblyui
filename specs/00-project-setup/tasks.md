@@ -24,7 +24,7 @@
 mkdir bubblyui
 cd bubblyui
 git init
-go mod init github.com/yourusername/bubblyui
+go mod init github.com/newbpydev/bubblyui
 ```
 
 **Files Created:**
@@ -471,7 +471,7 @@ golangci-lint --version  # Should show version
 ```bash
 git add .
 git commit -m "Initial project setup"
-git remote add origin https://github.com/yourusername/bubblyui.git
+git remote add origin https://github.com/newbpydev/bubblyui.git
 git push -u origin main
 ```
 

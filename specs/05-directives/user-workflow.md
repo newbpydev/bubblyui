@@ -528,7 +528,7 @@ func TestDirectivesInTemplate(t *testing.T) {
 ## Documentation for Users
 
 ### Quick Start
-1. Import directives: `import "github.com/yourusername/bubblyui/pkg/bubbly"`
+1. Import directives: `import "github.com/newbpydev/bubblyui/pkg/bubbly"`
 2. Use in template: `If(condition, thenFunc).Render()`
 3. Chain directives: `.ElseIf().Else()`
 4. Compose directives: Nest for complex logic

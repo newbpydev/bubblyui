@@ -160,7 +160,7 @@ bubblyui/
 
 **Import Example:**
 ```go
-import "github.com/yourusername/bubblyui/pkg/bubbly"
+import "github.com/newbpydev/bubblyui/pkg/bubbly"
 
 app := bubbly.NewApp()
 ```
@@ -175,7 +175,7 @@ app := bubbly.NewApp()
 
 **Import Example:**
 ```go
-import "github.com/yourusername/bubblyui/pkg/directives"
+import "github.com/newbpydev/bubblyui/pkg/directives"
 
 component.If(condition, renderFunc)
 ```
@@ -189,7 +189,7 @@ component.If(condition, renderFunc)
 
 **Import Example:**
 ```go
-import "github.com/yourusername/bubblyui/pkg/composables"
+import "github.com/newbpydev/bubblyui/pkg/composables"
 
 state := composables.UseState(ctx, initialValue)
 ```
@@ -205,8 +205,8 @@ state := composables.UseState(ctx, initialValue)
 **Import Example:**
 ```go
 import (
-    "github.com/yourusername/bubblyui/pkg/components/atoms/button"
-    "github.com/yourusername/bubblyui/pkg/components/molecules/input"
+    "github.com/newbpydev/bubblyui/pkg/components/atoms/button"
+    "github.com/newbpydev/bubblyui/pkg/components/molecules/input"
 )
 ```
 
@@ -228,8 +228,8 @@ import (
     "github.com/charmbracelet/lipgloss"
     
     // BubblyUI packages (third)
-    "github.com/yourusername/bubblyui/pkg/bubbly"
-    "github.com/yourusername/bubblyui/pkg/directives"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/directives"
     
     // Local packages (last)
     "myapp/internal/models"
@@ -241,7 +241,7 @@ import (
 // Common aliases
 tea "github.com/charmbracelet/bubbletea"      // Short name
 lg "github.com/charmbracelet/lipgloss"        // Avoid conflicts
-bubbly "github.com/yourusername/bubblyui/pkg/bubbly"
+bubbly "github.com/newbpydev/bubblyui/pkg/bubbly"
 ```
 
 ---

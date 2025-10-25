@@ -41,7 +41,7 @@ Project Setup Foundation
 
 ### go.mod Design
 ```go
-module github.com/yourusername/bubblyui
+module github.com/newbpydev/bubblyui
 
 go 1.22  // Minimum version for generics support
 
@@ -244,7 +244,7 @@ linters-settings:
     simplify: true
   
   goimports:
-    local-prefixes: github.com/yourusername/bubblyui
+    local-prefixes: github.com/newbpydev/bubblyui
   
   gocyclo:
     min-complexity: 15
@@ -318,7 +318,7 @@ fmt:
 	gofmt -s -w .
 
 imports:
-	goimports -w -local github.com/yourusername/bubblyui .
+	goimports -w -local github.com/newbpydev/bubblyui .
 
 vet:
 	go vet ./...
@@ -462,10 +462,10 @@ jobs:
 
 > A Vue-inspired TUI framework for Go
 
-[![CI](https://github.com/yourusername/bubblyui/workflows/CI/badge.svg)](https://github.com/yourusername/bubblyui/actions)
-[![Coverage](https://codecov.io/gh/yourusername/bubblyui/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/bubblyui)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/bubblyui)](https://goreportcard.com/report/github.com/yourusername/bubblyui)
-[![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/bubblyui.svg)](https://pkg.go.dev/github.com/yourusername/bubblyui)
+[![CI](https://github.com/newbpydev/bubblyui/workflows/CI/badge.svg)](https://github.com/newbpydev/bubblyui/actions)
+[![Coverage](https://codecov.io/gh/newbpydev/bubblyui/branch/main/graph/badge.svg)](https://codecov.io/gh/newbpydev/bubblyui)
+[![Go Report Card](https://goreportcard.com/badge/github.com/newbpydev/bubblyui)](https://goreportcard.com/report/github.com/newbpydev/bubblyui)
+[![Go Reference](https://pkg.go.dev/badge/github.com/newbpydev/bubblyui.svg)](https://pkg.go.dev/github.com/newbpydev/bubblyui)
 
 ## Features
 
@@ -479,7 +479,7 @@ jobs:
 ## Installation
 
 ```bash
-go get github.com/yourusername/bubblyui
+go get github.com/newbpydev/bubblyui
 ```
 
 ## Quick Start
@@ -490,7 +490,7 @@ go get github.com/yourusername/bubblyui
 
 - [Getting Started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
-- [API Reference](https://pkg.go.dev/github.com/yourusername/bubblyui)
+- [API Reference](https://pkg.go.dev/github.com/newbpydev/bubblyui)
 - [Examples](cmd/examples/)
 
 ## Contributing

@@ -6,7 +6,7 @@ A comprehensive guide for contributors following professional open source practi
 
 ### 1. Fork and Clone
 ```bash
-git clone https://github.com/yourusername/bubblyui.git
+git clone https://github.com/newbpydev/bubblyui.git
 cd bubblyui
 git remote add upstream https://github.com/originalowner/bubblyui.git
 ```

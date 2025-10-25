@@ -13,7 +13,7 @@
 
 ### Module Path
 ```go
-module github.com/yourusername/bubblyui
+module github.com/newbpydev/bubblyui
 
 go 1.22
 ```
@@ -270,7 +270,7 @@ import (
     tea "github.com/charmbracelet/bubbletea"
     
     // Internal packages
-    "github.com/yourusername/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // 3. Constants
@@ -612,9 +612,9 @@ import (
     "github.com/stretchr/testify/assert"
     
     // 3. Internal packages (alphabetically sorted)
-    "github.com/yourusername/bubblyui/pkg/bubbly"
-    "github.com/yourusername/bubblyui/pkg/components"
-    "github.com/yourusername/bubblyui/internal/runtime"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/components"
+    "github.com/newbpydev/bubblyui/internal/runtime"
 )
 ```
 

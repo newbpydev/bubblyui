@@ -664,7 +664,7 @@ func TestComponent_ParentChild(t *testing.T) {
 ## Documentation for Users
 
 ### Quick Start
-1. Import: `import "github.com/yourusername/bubblyui/pkg/bubbly"`
+1. Import: `import "github.com/newbpydev/bubblyui/pkg/bubbly"`
 2. Create: `NewComponent("name")`
 3. Configure: `.Props()`, `.Setup()`, `.Template()`
 4. Build: `.Build()`

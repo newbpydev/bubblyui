@@ -564,7 +564,7 @@ func Watch[T any](source *Ref[T], callback func(T, T), options WatchOptions) fun
 
 ```go
 // go.mod
-module github.com/yourusername/bubblyui
+module github.com/newbpydev/bubblyui
 
 go 1.22
 

@@ -20,7 +20,7 @@ assignees: ''
    ```bash
    # Example setup steps
    go mod init my-app
-   go get github.com/yourusername/bubblyui
+   go get github.com/newbpydev/bubblyui
    ```
 
 2. **Code**: Provide minimal, reproducible code
@@ -28,7 +28,7 @@ assignees: ''
    // Minimal code that reproduces the issue
    package main
 
-   import "github.com/yourusername/bubblyui/pkg/bubbly"
+   import "github.com/newbpydev/bubblyui/pkg/bubbly"
 
    func main() {
        // Code that causes the issue

@@ -48,7 +48,7 @@ git --version
 ### Setup
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/bubblyui.git
+git clone https://github.com/newbpydev/bubblyui.git
 cd bubblyui
 
 # Install dependencies
@@ -253,7 +253,7 @@ Watch(count, func(newVal, oldVal int) {
 ## Module Structure
 
 ```
-github.com/yourusername/bubblyui
+github.com/newbpydev/bubblyui
 ├── pkg/bubbly         # Core framework
 ├── pkg/directives     # Built-in directives
 ├── pkg/composables    # Reusable logic
@@ -263,9 +263,9 @@ github.com/yourusername/bubblyui
 ### Import Paths
 ```go
 import (
-    "github.com/yourusername/bubblyui/pkg/bubbly"
-    "github.com/yourusername/bubblyui/pkg/components/button"
-    "github.com/yourusername/bubblyui/pkg/composables"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/components/button"
+    "github.com/newbpydev/bubblyui/pkg/composables"
 )
 ```
 

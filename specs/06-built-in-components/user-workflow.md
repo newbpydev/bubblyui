@@ -11,8 +11,8 @@
 2. **Step 1**: Import built-in components
    ```go
    import (
-       "github.com/yourusername/bubblyui/pkg/bubbly"
-       "github.com/yourusername/bubblyui/pkg/components"
+       "github.com/newbpydev/bubblyui/pkg/bubbly"
+       "github.com/newbpydev/bubblyui/pkg/components"
    )
    ```
    - System response: Components available

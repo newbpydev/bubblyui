@@ -243,7 +243,7 @@ clean:
 
 ### go.mod Structure
 ```go
-module github.com/yourusername/bubblyui
+module github.com/newbpydev/bubblyui
 
 go 1.22
 
