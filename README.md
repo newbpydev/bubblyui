@@ -1,7 +1,9 @@
 # BubblyUI
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/newbpydev/bubblyui.svg)](https://pkg.go.dev/github.com/newbpydev/bubblyui)
+[![CI](https://github.com/newbpydev/bubblyui/workflows/CI/badge.svg)](https://github.com/newbpydev/bubblyui/actions)
+[![Coverage](https://codecov.io/gh/newbpydev/bubblyui/branch/main/graph/badge.svg)](https://codecov.io/gh/newbpydev/bubblyui)
 [![Go Report Card](https://goreportcard.com/badge/github.com/newbpydev/bubblyui)](https://goreportcard.com/report/github.com/newbpydev/bubblyui)
+[![Go Reference](https://pkg.go.dev/badge/github.com/newbpydev/bubblyui.svg)](https://pkg.go.dev/github.com/newbpydev/bubblyui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/newbpydev/bubblyui/blob/main/.github/CONTRIBUTING.md)
 
