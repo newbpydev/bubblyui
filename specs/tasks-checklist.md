@@ -134,28 +134,30 @@
 ---
 
 ### 04-composition-api
-**Status:** Not Started  
-**Coverage:** N/A  
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
 **Prerequisites:** 01-reactivity-system, 02-component-model, 03-lifecycle-hooks  
-**Unlocks:** All composables
+**Unlocks:** 05-directives, 06-built-in-components, composable ecosystem
 
 #### Requirements
-- [ ] requirements.md
-- [ ] designs.md
-- [ ] user-workflow.md
-- [ ] tasks.md
+- [x] requirements.md complete (550 lines)
+- [x] designs.md complete (700 lines)
+- [x] user-workflow.md complete (750 lines)
+- [x] tasks.md complete (836 lines, 20 tasks)
 
-#### Implementation
-- [ ] Context API
-- [ ] Composable function pattern
-- [ ] Use hooks (useState, useEffect, etc.)
-- [ ] Dependency injection
-- [ ] Provide/Inject pattern
+#### Implementation (20 tasks, ~71 hours)
+- [ ] Task 1.1-1.3: Context extension (9 hours)
+- [ ] Task 2.1-2.5: Standard composables (15 hours)
+- [ ] Task 3.1-3.3: Complex composables (12 hours)
+- [ ] Task 4.1-4.3: Integration & utilities (9 hours)
+- [ ] Task 5.1-5.3: Performance & polish (12 hours)
+- [ ] Task 6.1-6.3: Testing & validation (14 hours)
 
 #### Testing
-- [ ] Composable tests
-- [ ] Context tests
-- [ ] DI tests
+- [ ] Composable unit tests (UseState, UseAsync, UseEffect, etc.)
+- [ ] Provide/inject tests
+- [ ] Integration tests with components
+- [ ] E2E example apps (todo, dashboard, form wizard)
 
 ---
 
