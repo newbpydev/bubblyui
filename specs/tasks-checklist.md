@@ -162,27 +162,30 @@
 ---
 
 ### 05-directives
-**Status:** Not Started  
-**Coverage:** N/A  
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
 **Prerequisites:** 02-component-model  
-**Unlocks:** Enhanced templates
+**Unlocks:** Enhanced templates, cleaner code, 06-built-in-components
 
 #### Requirements
-- [ ] requirements.md
-- [ ] designs.md
-- [ ] user-workflow.md
-- [ ] tasks.md
+- [x] requirements.md complete (485 lines)
+- [x] designs.md complete (650 lines)
+- [x] user-workflow.md complete (620 lines)
+- [x] tasks.md complete (782 lines, 16 tasks)
 
-#### Implementation
-- [ ] If() directive (conditional rendering)
-- [ ] ForEach() directive (list rendering)
-- [ ] Bind() directive (two-way binding)
-- [ ] On() directive (event handling)
-- [ ] Show() directive (visibility toggle)
+#### Implementation (16 tasks, ~54 hours)
+- [ ] Task 1.1-1.3: Foundation (If, Show directives) (6 hours)
+- [ ] Task 2.1-2.2: Iteration (ForEach) (7 hours)
+- [ ] Task 3.1-3.2: Binding (Bind variants) (7 hours)
+- [ ] Task 4.1-4.2: Events (On directive) (6 hours)
+- [ ] Task 5.1-5.4: Integration & polish (16 hours)
+- [ ] Task 6.1-6.3: Testing & validation (12 hours)
 
 #### Testing
-- [ ] Directive tests
-- [ ] Integration tests
+- [ ] Directive unit tests (If, ForEach, Bind, On, Show)
+- [ ] Integration tests with templates
+- [ ] Performance benchmarks
+- [ ] Example apps (basic, form, list, complex)
 
 ---
 
