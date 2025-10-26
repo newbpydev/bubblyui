@@ -131,6 +131,8 @@ func (r *Ref[T]) removeWatcher(w *watcher[T]) {
 //
 // For deep watchers, it performs deep comparison to determine if the value
 // actually changed before triggering the callback.
+//
+// For post-flush watchers, it queues the callback instead of executing immediately.
 func (r *Ref[T]) notifyWatchers(newVal, oldVal T, watchers []*watcher[T]) {
 	for _, w := range watchers {
 		shouldNotify := true
@@ -158,7 +160,20 @@ func (r *Ref[T]) notifyWatchers(newVal, oldVal T, watchers []*watcher[T]) {
 
 		// Only trigger callback if value changed (or not deep watching)
 		if shouldNotify {
-			w.callback(newVal, oldVal)
+			// Check flush mode
+			if w.options.Flush == "post" {
+				// Queue callback for later execution
+				// Capture values in closure to avoid race conditions
+				watcher := w
+				newValue := newVal
+				oldValue := oldVal
+				globalScheduler.enqueue(watcher, func() {
+					watcher.callback(newValue, oldValue)
+				})
+			} else {
+				// Execute immediately (sync mode)
+				w.callback(newVal, oldVal)
+			}
 		}
 	}
 }

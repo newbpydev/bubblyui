@@ -132,17 +132,17 @@ type watcher[T any] struct {
 }
 
 type WatchOptions struct {
-    Immediate   bool        // Execute immediately (✅ implemented in Task 3.2)
-    Deep        bool        // Watch nested changes (✅ implemented in Task 3.3)
-    DeepCompare interface{} // Custom deep comparator (✅ implemented in Task 3.3)
-    Flush       string      // "sync" or "post" (⏳ Task 3.4 - pending)
+    Immediate   bool        // Execute immediately (✅ Task 3.2)
+    Deep        bool        // Watch nested changes (✅ Task 3.3)
+    DeepCompare interface{} // Custom deep comparator (✅ Task 3.3)
+    Flush       string      // "sync" or "post" (✅ Task 3.4)
 }
 
 // Implementation status:
 // - Immediate: ✅ Fully implemented (Task 3.2)
 // - Deep: ✅ Fully implemented (Task 3.3) - reflection-based comparison
 // - DeepCompare: ✅ Fully implemented (Task 3.3) - custom comparator functions
-// - Flush: ⏳ Partial (only "sync" mode works, Task 3.4 pending)
+// - Flush: ✅ Fully implemented (Task 3.4) - sync and post modes with batching
 ```
 
 ### Dependency Tracker State
@@ -590,7 +590,7 @@ BenchmarkWatch_Deep-6          3570967  280.3  ns/op  144 B/op   3 allocs/op
 
 ---
 
-### Async Flush Modes (Task 3.4)
+### Async Flush Modes ✅ (Task 3.4 - Complete)
 
 **Problem:** Multiple rapid state changes trigger multiple watcher callbacks, causing redundant work:
 
@@ -605,7 +605,7 @@ count.Set(3)  // Callback runs again
 // 3 expensive operations when we only need the final state!
 ```
 
-**Solution: Post-Flush Mode**
+**Solution Implemented: Post-Flush Mode**
 
 ```go
 Watch(count, callback, WithFlush("post"))
@@ -613,56 +613,70 @@ Watch(count, callback, WithFlush("post"))
 count.Set(1)  // Queued
 count.Set(2)  // Queued (replaces previous)
 count.Set(3)  // Queued (replaces previous)
-// Callback runs once with final value after current operation
+
+FlushWatchers()  // Callback runs once with final value (3)
 ```
 
 **Implementation:**
 
-1. **Sync mode (current)**:
+1. **Sync mode** (default):
 ```go
-func (r *Ref[T]) Set(value T) {
-    r.value = value
-    r.notifyWatchers(value, oldValue)  // Immediate
+func (r *Ref[T]) notifyWatchers(...) {
+    if watcher.options.Flush == "sync" {
+        watcher.callback(newVal, oldVal)  // Immediate
+    }
 }
 ```
 
-2. **Post mode (pending)**:
+2. **Post mode** (✅ implemented):
 ```go
 type CallbackScheduler struct {
-    queue chan WatcherCallback
+    mu    sync.Mutex
+    queue map[interface{}]callbackFunc  // Batching via map
 }
 
-func (r *Ref[T]) Set(value T) {
-    r.value = value
+func (r *Ref[T]) notifyWatchers(...) {
     if watcher.options.Flush == "post" {
-        scheduler.Enqueue(watcher, value, oldValue)
-    } else {
-        watcher.callback(value, oldValue)
+        // Queue callback (replaces previous for same watcher)
+        globalScheduler.enqueue(watcher, func() {
+            watcher.callback(newVal, oldVal)
+        })
     }
 }
 
-// Execute queued callbacks after current operation
-func (s *CallbackScheduler) Flush() {
-    for callback := range s.queue {
-        callback.Execute()
-    }
+// Public API to execute queued callbacks
+func FlushWatchers() int {
+    return globalScheduler.flush()
 }
 ```
 
 **Integration with Bubbletea:**
-- Post-flush callbacks should return tea.Cmd
-- Batch multiple state changes into single render
-- Execute flush at end of Update() cycle
+```go
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    // State changes queue callbacks
+    m.count.Set(m.count.Get() + 1)
+    
+    // Execute all queued callbacks before returning
+    FlushWatchers()
+    
+    return m, nil
+}
+```
 
 **Benefits:**
-- Reduce redundant callback executions
-- Batch UI updates for better performance
-- Prevent intermediate states from being rendered
+- ✅ Reduce redundant callback executions (batching)
+- ✅ Batch UI updates for better performance
+- ✅ Prevent intermediate states from being rendered
+- ✅ Simple map-based queue for O(1) batching
+- ✅ Thread-safe implementation
 
-**Trade-offs:**
-- Slightly more complex implementation
-- Callbacks delayed by one tick
-- Need to manage callback queue lifecycle
+**Implementation Details:**
+- Global CallbackScheduler singleton
+- Map-based queue: watcher → callback
+- Batching: Same watcher = replace previous callback
+- Type-erased callbacks using closures
+- FlushWatchers() returns count executed
+- PendingCallbacks() for debugging
 
 ---
 

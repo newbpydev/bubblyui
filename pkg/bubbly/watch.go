@@ -222,34 +222,56 @@ func WithDeepCompare[T any](compareFn DeepCompareFunc[T]) WatchOption {
 
 // WithFlush returns a WatchOption that controls when the callback is executed.
 //
-// ⚠️ PARTIAL IMPLEMENTATION: Only "sync" mode is fully functional.
-// Full async flush implementation is planned in Task 3.4 of the reactivity system specification.
-//
 // Valid flush modes:
-//   - "sync" (default): Execute callback immediately when value changes (✅ implemented)
-//   - "post": Defer callback execution to next tick (⚠️ placeholder, currently behaves as sync)
+//   - "sync" (default): Execute callback immediately when value changes
+//   - "post": Queue callback for later execution via FlushWatchers()
 //
-// Current Behavior:
+// Post-Flush Mode:
 //
-//	Both "sync" and "post" modes execute callbacks immediately.
+// When using "post" mode, callbacks are queued instead of executed immediately.
+// This allows batching multiple rapid changes into a single callback execution.
+// You must call FlushWatchers() to execute all queued callbacks.
 //
-// Future Implementation (Task 3.4):
-//   - "post" mode will queue callbacks and execute after current operation
-//   - Batch multiple rapid changes into single callback execution
-//   - Integrate with Bubbletea's event loop for optimal rendering
-//   - Reduce redundant callback executions for better performance
+// Batching Behavior:
+//
+// If the same watcher is triggered multiple times before FlushWatchers() is called,
+// only the last callback (with the final values) will be executed. This prevents
+// redundant callback executions and improves performance.
+//
+// Integration with Bubbletea:
+//
+//	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+//	    switch msg := msg.(type) {
+//	    case someMsg:
+//	        m.count.Set(m.count.Get() + 1)  // Queued if using WithFlush("post")
+//	        m.count.Set(m.count.Get() + 1)  // Replaces previous (batching)
+//	    }
+//
+//	    // Execute all queued callbacks before returning
+//	    FlushWatchers()
+//
+//	    return m, nil
+//	}
 //
 // Example:
 //
 //	count := NewRef(0)
-//	Watch(count, func(newVal, oldVal int) {
-//	    fmt.Println("Changed")
-//	}, WithFlush("sync"))  // Executes immediately
 //
-//	// Future (Task 3.4):
+//	// Sync mode (default) - executes immediately
 //	Watch(count, func(newVal, oldVal int) {
-//	    fmt.Println("Changed")
-//	}, WithFlush("post"))  // Will defer to next tick
+//	    fmt.Println("Sync:", newVal)
+//	}, WithFlush("sync"))
+//
+//	// Post mode - queues for later
+//	Watch(count, func(newVal, oldVal int) {
+//	    fmt.Println("Post:", newVal)
+//	}, WithFlush("post"))
+//
+//	count.Set(1)  // Sync callback runs, post callback queued
+//	count.Set(2)  // Sync callback runs, post callback replaced in queue
+//	count.Set(3)  // Sync callback runs, post callback replaced in queue
+//
+//	FlushWatchers()  // Post callback runs once with final value (3)
 func WithFlush(mode string) WatchOption {
 	return func(opts *WatchOptions) {
 		opts.Flush = mode

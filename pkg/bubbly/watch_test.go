@@ -621,7 +621,10 @@ func TestWatch_WithFlush(t *testing.T) {
 		assert.True(t, called, "Callback should be called with sync flush")
 	})
 
-	t.Run("post flush mode accepted", func(t *testing.T) {
+	t.Run("post flush mode queues callback", func(t *testing.T) {
+		// Clear any pending callbacks from previous tests
+		FlushWatchers()
+		
 		ref := NewRef(0)
 		var called bool
 
@@ -631,8 +634,12 @@ func TestWatch_WithFlush(t *testing.T) {
 		defer cleanup()
 
 		ref.Set(1)
-		// Post flush is currently a placeholder (same as sync)
-		assert.True(t, called, "Callback should be called")
+		// Post flush queues callback, doesn't execute immediately
+		assert.False(t, called, "Callback should not be called immediately")
+		
+		// Flush to execute
+		FlushWatchers()
+		assert.True(t, called, "Callback should be called after flush")
 	})
 
 	t.Run("default flush mode is sync", func(t *testing.T) {
@@ -686,6 +693,9 @@ func TestWatch_OptionComposition(t *testing.T) {
 	})
 
 	t.Run("all options together", func(t *testing.T) {
+		// Clear any pending callbacks
+		FlushWatchers()
+		
 		ref := NewRef(42)
 		var callCount int
 
@@ -696,8 +706,13 @@ func TestWatch_OptionComposition(t *testing.T) {
 
 		assert.Equal(t, 1, callCount, "Should be called immediately")
 
+		// With post-flush, callback is queued
 		ref.Set(100)
-		assert.Equal(t, 2, callCount, "Should be called on change")
+		assert.Equal(t, 1, callCount, "Should not be called yet (post-flush)")
+		
+		// Flush to execute
+		FlushWatchers()
+		assert.Equal(t, 2, callCount, "Should be called after flush")
 	})
 
 	t.Run("options order doesn't matter", func(t *testing.T) {
@@ -1086,5 +1101,236 @@ func BenchmarkWatch_Shallow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		user.Set(User{Name: "John", Age: 30, Profile: "Developer"})
+	}
+}
+
+// TestWatch_PostFlush tests the WithFlush("post") option
+func TestWatch_PostFlush(t *testing.T) {
+	t.Run("post-flush queues callbacks", func(t *testing.T) {
+		// Clear any pending callbacks from previous tests
+		FlushWatchers()
+		
+		ref := NewRef(0)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+		}, WithFlush("post"))
+		defer cleanup()
+
+		// Set value - callback should be queued, not executed
+		ref.Set(1)
+		assert.Equal(t, 0, callCount, "Callback should not execute immediately")
+		assert.Equal(t, 1, PendingCallbacks(), "Should have 1 pending callback")
+
+		// Flush callbacks
+		flushed := FlushWatchers()
+		assert.Equal(t, 1, flushed, "Should flush 1 callback")
+		assert.Equal(t, 1, callCount, "Callback should execute after flush")
+		assert.Equal(t, 0, PendingCallbacks(), "Should have no pending callbacks")
+	})
+
+	t.Run("batching replaces previous callbacks", func(t *testing.T) {
+		ref := NewRef(0)
+		var callCount int
+		var lastValue int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+			lastValue = newVal
+		}, WithFlush("post"))
+		defer cleanup()
+
+		// Multiple sets - should batch into single callback
+		ref.Set(1)
+		ref.Set(2)
+		ref.Set(3)
+
+		assert.Equal(t, 0, callCount, "Callbacks should not execute yet")
+		assert.Equal(t, 1, PendingCallbacks(), "Should have 1 pending callback (batched)")
+
+		// Flush - should execute once with final value
+		FlushWatchers()
+		assert.Equal(t, 1, callCount, "Should execute callback once")
+		assert.Equal(t, 3, lastValue, "Should have final value")
+	})
+
+	t.Run("sync mode executes immediately", func(t *testing.T) {
+		ref := NewRef(0)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+		}, WithFlush("sync"))
+		defer cleanup()
+
+		ref.Set(1)
+		assert.Equal(t, 1, callCount, "Sync callback should execute immediately")
+		assert.Equal(t, 0, PendingCallbacks(), "Should have no pending callbacks")
+	})
+
+	t.Run("default mode is sync", func(t *testing.T) {
+		ref := NewRef(0)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+		})
+		defer cleanup()
+
+		ref.Set(1)
+		assert.Equal(t, 1, callCount, "Default should execute immediately")
+		assert.Equal(t, 0, PendingCallbacks(), "Should have no pending callbacks")
+	})
+
+	t.Run("multiple watchers with different flush modes", func(t *testing.T) {
+		ref := NewRef(0)
+		var syncCount, postCount int
+
+		cleanup1 := Watch(ref, func(n, o int) { syncCount++ }, WithFlush("sync"))
+		cleanup2 := Watch(ref, func(n, o int) { postCount++ }, WithFlush("post"))
+		defer cleanup1()
+		defer cleanup2()
+
+		ref.Set(1)
+		assert.Equal(t, 1, syncCount, "Sync watcher should execute")
+		assert.Equal(t, 0, postCount, "Post watcher should be queued")
+
+		FlushWatchers()
+		assert.Equal(t, 1, syncCount, "Sync count unchanged")
+		assert.Equal(t, 1, postCount, "Post watcher should execute")
+	})
+
+	t.Run("flush with no pending callbacks", func(t *testing.T) {
+		flushed := FlushWatchers()
+		assert.Equal(t, 0, flushed, "Should flush 0 callbacks")
+	})
+}
+
+// TestWatch_PostFlushWithDeep tests combining post-flush with deep watching
+func TestWatch_PostFlushWithDeep(t *testing.T) {
+	type User struct {
+		Name string
+		Age  int
+	}
+
+	t.Run("post-flush with deep watching", func(t *testing.T) {
+		user := NewRef(User{Name: "John", Age: 30})
+		var callCount int
+
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		}, WithFlush("post"), WithDeep())
+		defer cleanup()
+
+		// Set with same value - should NOT queue (deep equal)
+		user.Set(User{Name: "John", Age: 30})
+		assert.Equal(t, 0, PendingCallbacks(), "Should not queue on deep equal")
+
+		// Set with different value - should queue
+		user.Set(User{Name: "Jane", Age: 30})
+		assert.Equal(t, 1, PendingCallbacks(), "Should queue on change")
+
+		FlushWatchers()
+		assert.Equal(t, 1, callCount, "Should execute once")
+	})
+}
+
+// TestWatch_PostFlushConcurrent tests thread safety of post-flush
+func TestWatch_PostFlushConcurrent(t *testing.T) {
+	t.Run("concurrent post-flush operations", func(t *testing.T) {
+		ref := NewRef(0)
+		var callCount int32
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			atomic.AddInt32(&callCount, 1)
+		}, WithFlush("post"))
+		defer cleanup()
+
+		const numGoroutines = 50
+		var wg sync.WaitGroup
+		wg.Add(numGoroutines)
+
+		// Concurrent sets
+		for i := 0; i < numGoroutines; i++ {
+			go func(val int) {
+				defer wg.Done()
+				ref.Set(val)
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Should have 1 pending callback (batched)
+		assert.Equal(t, 1, PendingCallbacks(), "Should batch into 1 callback")
+
+		// Flush
+		FlushWatchers()
+		assert.Equal(t, int32(1), callCount, "Should execute once")
+	})
+
+	t.Run("concurrent flush calls", func(t *testing.T) {
+		ref := NewRef(0)
+		var callCount int32
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			atomic.AddInt32(&callCount, 1)
+		}, WithFlush("post"))
+		defer cleanup()
+
+		ref.Set(1)
+
+		const numGoroutines = 10
+		var wg sync.WaitGroup
+		wg.Add(numGoroutines)
+
+		// Concurrent flushes - should be safe
+		for i := 0; i < numGoroutines; i++ {
+			go func() {
+				defer wg.Done()
+				FlushWatchers()
+			}()
+		}
+
+		wg.Wait()
+
+		// Callback should execute exactly once
+		assert.Equal(t, int32(1), callCount, "Should execute once despite concurrent flushes")
+	})
+}
+
+// BenchmarkWatch_PostFlush benchmarks post-flush performance
+func BenchmarkWatch_PostFlush(b *testing.B) {
+	ref := NewRef(0)
+	cleanup := Watch(ref, func(n, o int) {}, WithFlush("post"))
+	defer cleanup()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ref.Set(i)
+		if i%100 == 0 {
+			FlushWatchers()
+		}
+	}
+	FlushWatchers() // Final flush
+}
+
+// BenchmarkWatch_PostFlushBatching benchmarks batching benefit
+func BenchmarkWatch_PostFlushBatching(b *testing.B) {
+	ref := NewRef(0)
+	var count int
+	cleanup := Watch(ref, func(n, o int) {
+		count++ // Simulate work
+	}, WithFlush("post"))
+	defer cleanup()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// 10 rapid changes
+		for j := 0; j < 10; j++ {
+			ref.Set(j)
+		}
+		// Flush once - callback executes once instead of 10 times
+		FlushWatchers()
 	}
 }

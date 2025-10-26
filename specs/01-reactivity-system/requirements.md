@@ -36,7 +36,7 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 3.4. Support deep watching for nested structures ✅ (Task 3.3 - complete)  
 3.5. Support immediate execution (run callback on creation) ✅  
 3.6. Return cleanup function to stop watching ✅  
-3.7. Support flush modes (sync/post) for callback timing ⏳ (Task 3.4 - pending)  
+3.7. Support flush modes (sync/post) for callback timing ✅ (Task 3.4 - complete)  
 
 ### 4. Dependency Tracking
 4.1. Track which Refs are accessed during computed function execution  
@@ -87,7 +87,7 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 - [x] Cleanup function stops watching
 - [x] Immediate option works
 - [x] Deep watching for nested structures (Task 3.3 - complete)
-- [ ] Flush modes for callback timing (Task 3.4 - pending)
+- [x] Flush modes for callback timing (Task 3.4 - complete)
 
 ### General
 - [ ] All operations are type-safe
