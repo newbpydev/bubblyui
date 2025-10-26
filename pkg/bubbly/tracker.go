@@ -1,7 +1,10 @@
 package bubbly
 
 import (
+	"bytes"
 	"errors"
+	"runtime"
+	"strconv"
 	"sync"
 )
 
@@ -44,42 +47,103 @@ type trackingContext struct {
 	deps []Dependency
 }
 
-// DepTracker manages dependency tracking during computed value evaluation.
-// It maintains a stack of currently evaluating dependencies to detect circular
-// references and tracks which dependencies are accessed during evaluation.
-//
-// The tracker uses thread-local storage pattern via goroutine-local state to
-// ensure each goroutine has its own tracking context.
-type DepTracker struct {
-	mu    sync.RWMutex
+// trackingState holds the tracking state for a single goroutine.
+// Each goroutine has its own isolated tracking state to prevent contention.
+type trackingState struct {
+	mu    sync.Mutex
 	stack []*trackingContext
+}
+
+// getGoroutineID returns the ID of the current goroutine.
+// This is extracted from the runtime stack trace and is used for per-goroutine tracking.
+// Note: This is an internal implementation detail and should not be exposed publicly.
+func getGoroutineID() uint64 {
+	// Get stack trace with format: "goroutine 123 [running]:\n..."
+	buf := make([]byte, 64)
+	n := runtime.Stack(buf, false)
+	buf = buf[:n]
+
+	// Find "goroutine " prefix
+	const prefix = "goroutine "
+	idx := bytes.Index(buf, []byte(prefix))
+	if idx == -1 {
+		return 0
+	}
+
+	// Skip "goroutine " and parse the number
+	buf = buf[idx+len(prefix):]
+
+	// Find the space after the number
+	spaceIdx := bytes.IndexByte(buf, ' ')
+	if spaceIdx == -1 {
+		return 0
+	}
+
+	// Parse the goroutine ID
+	id, err := strconv.ParseUint(string(buf[:spaceIdx]), 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return id
+}
+
+// DepTracker manages dependency tracking during computed value evaluation.
+// It maintains per-goroutine tracking state to prevent contention between goroutines.
+// Each goroutine has its own isolated stack of tracking contexts.
+//
+// The tracker uses sync.Map for goroutine-local storage, eliminating the global
+// mutex bottleneck that caused deadlocks with 100+ concurrent goroutines.
+type DepTracker struct {
+	states sync.Map // map[uint64]*trackingState - goroutine ID -> tracking state
 }
 
 // globalTracker is the global dependency tracker instance.
 // Each goroutine will have its own tracking state managed through this instance.
 var globalTracker = &DepTracker{}
 
+// getOrCreateState returns the tracking state for the current goroutine,
+// creating it if it doesn't exist.
+func (dt *DepTracker) getOrCreateState() *trackingState {
+	gid := getGoroutineID()
+
+	// Try to load existing state
+	if state, ok := dt.states.Load(gid); ok {
+		return state.(*trackingState)
+	}
+
+	// Create new state
+	state := &trackingState{
+		stack: nil,
+	}
+
+	// Store and return (may race with another goroutine, but that's fine)
+	actual, _ := dt.states.LoadOrStore(gid, state)
+	return actual.(*trackingState)
+}
+
 // BeginTracking starts tracking dependencies for the current evaluation.
 // It should be called before evaluating a computed function.
 // Returns an error if circular dependency is detected or max depth is exceeded.
 func (dt *DepTracker) BeginTracking(dep Dependency) error {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+	state := dt.getOrCreateState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
 
 	// Check for circular dependency
-	for _, ctx := range dt.stack {
+	for _, ctx := range state.stack {
 		if ctx.dep == dep {
 			return ErrCircularDependency
 		}
 	}
 
 	// Check max depth
-	if len(dt.stack) >= MaxDependencyDepth {
+	if len(state.stack) >= MaxDependencyDepth {
 		return ErrMaxDepthExceeded
 	}
 
 	// Push new tracking context onto stack
-	dt.stack = append(dt.stack, &trackingContext{
+	state.stack = append(state.stack, &trackingContext{
 		dep:  dep,
 		deps: nil,
 	})
@@ -90,15 +154,16 @@ func (dt *DepTracker) BeginTracking(dep Dependency) error {
 // Track records a dependency access during evaluation.
 // This is called by Ref.Get() when dependency tracking is active.
 func (dt *DepTracker) Track(dep Dependency) {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+	state := dt.getOrCreateState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
 
-	if len(dt.stack) == 0 {
+	if len(state.stack) == 0 {
 		return
 	}
 
 	// Get current tracking context (top of stack)
-	ctx := dt.stack[len(dt.stack)-1]
+	ctx := state.stack[len(state.stack)-1]
 
 	// Avoid duplicate dependencies
 	for _, d := range ctx.deps {
@@ -112,31 +177,51 @@ func (dt *DepTracker) Track(dep Dependency) {
 
 // EndTracking stops tracking and returns the collected dependencies.
 // It should be called after evaluating a computed function.
+// If this is the last tracking context for the goroutine, the state is cleaned up
+// to prevent memory leaks.
 func (dt *DepTracker) EndTracking() []Dependency {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
+	gid := getGoroutineID()
+	state := dt.getOrCreateState()
+	state.mu.Lock()
+	defer state.mu.Unlock()
 
-	if len(dt.stack) == 0 {
+	if len(state.stack) == 0 {
 		return nil
 	}
 
 	// Pop from stack
-	ctx := dt.stack[len(dt.stack)-1]
-	dt.stack = dt.stack[:len(dt.stack)-1]
+	ctx := state.stack[len(state.stack)-1]
+	state.stack = state.stack[:len(state.stack)-1]
+
+	// Clean up goroutine state if stack is now empty (prevent memory leaks)
+	if len(state.stack) == 0 {
+		state.mu.Unlock() // Unlock before deleting
+		dt.states.Delete(gid)
+		state.mu.Lock() // Re-lock for defer
+	}
 
 	return ctx.deps
 }
 
-// IsTracking returns true if dependency tracking is currently active.
+// IsTracking returns true if dependency tracking is currently active
+// for the current goroutine.
 func (dt *DepTracker) IsTracking() bool {
-	dt.mu.RLock()
-	defer dt.mu.RUnlock()
-	return len(dt.stack) > 0
+	gid := getGoroutineID()
+	state, ok := dt.states.Load(gid)
+	if !ok {
+		return false
+	}
+
+	ts := state.(*trackingState)
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return len(ts.stack) > 0
 }
 
-// Reset clears the tracking stack. This is primarily for testing.
+// Reset clears all tracking state. This is primarily for testing.
 func (dt *DepTracker) Reset() {
-	dt.mu.Lock()
-	defer dt.mu.Unlock()
-	dt.stack = nil
+	dt.states.Range(func(key, value interface{}) bool {
+		dt.states.Delete(key)
+		return true
+	})
 }

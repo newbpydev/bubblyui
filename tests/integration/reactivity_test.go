@@ -272,13 +272,13 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 		computed := bubbly.NewComputed(func() int {
 			return base.Get() * 2
 		})
-		
-		// Reduced concurrency to avoid global tracker contention
-		// NOTE: Global tracker is a known limitation - should be per-goroutine
-		const numGoroutines = 10
+
+		// Per-goroutine tracking now supports high concurrency (100+ goroutines)
+		// Fixed: Task 6.1 - Per-Goroutine Tracker implementation
+		const numGoroutines = 100
 		var wg sync.WaitGroup
 		wg.Add(numGoroutines)
-		
+
 		// Concurrent reads of computed value
 		for i := 0; i < numGoroutines; i++ {
 			go func() {
@@ -290,7 +290,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 				}
 			}()
 		}
-		
+
 		// Update base while reading
 		go func() {
 			for i := 0; i < 5; i++ {
@@ -298,7 +298,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 				time.Sleep(5 * time.Millisecond)
 			}
 		}()
-		
+
 		wg.Wait()
 	})
 }

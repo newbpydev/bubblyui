@@ -2,6 +2,7 @@ package bubbly
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -307,5 +308,157 @@ func TestDepTracker_TrackingIsolation(t *testing.T) {
 	// Verify isolation - deps2 should not contain ref1
 	for _, dep := range deps2 {
 		assert.NotEqual(t, ref1, dep, "second session should not contain dependencies from first session")
+	}
+}
+
+// TestDepTracker_HighConcurrency tests scalability with 100+ concurrent goroutines.
+// This test exposes the global tracker contention issue and should pass after
+// implementing per-goroutine tracking.
+func TestDepTracker_HighConcurrency(t *testing.T) {
+	dt := &DepTracker{}
+
+	const numGoroutines = 100
+	const numOps = 50
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Track successful operations
+	var successCount atomic.Int32
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+
+			for j := 0; j < numOps; j++ {
+				computed := newMockDependency("computed")
+				ref1 := newMockDependency("ref1")
+				ref2 := newMockDependency("ref2")
+
+				err := dt.BeginTracking(computed)
+				if err != nil {
+					// Should not fail with per-goroutine tracking
+					t.Errorf("goroutine %d: BeginTracking failed: %v", id, err)
+					continue
+				}
+
+				dt.Track(ref1)
+				dt.Track(ref2)
+				deps := dt.EndTracking()
+
+				// Verify we got our dependencies back
+				if len(deps) == 2 {
+					successCount.Add(1)
+				} else {
+					t.Errorf("goroutine %d: expected 2 deps, got %d", id, len(deps))
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// All operations should succeed with per-goroutine tracking
+	expectedSuccess := int32(numGoroutines * numOps)
+	actualSuccess := successCount.Load()
+	assert.Equal(t, expectedSuccess, actualSuccess,
+		"expected %d successful operations, got %d", expectedSuccess, actualSuccess)
+
+	// Tracker should be clean after all goroutines finish
+	assert.False(t, dt.IsTracking(), "tracker should not be tracking after all operations")
+}
+
+// TestDepTracker_GoroutineIsolation tests that goroutines don't interfere with each other.
+func TestDepTracker_GoroutineIsolation(t *testing.T) {
+	dt := &DepTracker{}
+
+	const numGoroutines = 50
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Each goroutine tracks different dependencies
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+
+			computed := newMockDependency("computed")
+			ref := newMockDependency("ref")
+
+			err := dt.BeginTracking(computed)
+			require.NoError(t, err)
+
+			dt.Track(ref)
+
+			deps := dt.EndTracking()
+
+			// Each goroutine should get exactly its own dependency
+			assert.Equal(t, 1, len(deps), "goroutine %d: expected 1 dependency", id)
+			if len(deps) > 0 {
+				assert.Equal(t, ref, deps[0], "goroutine %d: wrong dependency", id)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+// Benchmarks
+
+// BenchmarkDepTracker_Sequential benchmarks sequential tracking operations.
+func BenchmarkDepTracker_Sequential(b *testing.B) {
+	dt := &DepTracker{}
+	computed := newMockDependency("computed")
+	ref := newMockDependency("ref")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = dt.BeginTracking(computed)
+		dt.Track(ref)
+		_ = dt.EndTracking()
+	}
+}
+
+// BenchmarkDepTracker_Concurrent benchmarks concurrent tracking with multiple goroutines.
+func BenchmarkDepTracker_Concurrent(b *testing.B) {
+	dt := &DepTracker{}
+
+	b.RunParallel(func(pb *testing.PB) {
+		computed := newMockDependency("computed")
+		ref := newMockDependency("ref")
+
+		for pb.Next() {
+			_ = dt.BeginTracking(computed)
+			dt.Track(ref)
+			_ = dt.EndTracking()
+		}
+	})
+}
+
+// BenchmarkDepTracker_HighConcurrency benchmarks with 100 goroutines.
+func BenchmarkDepTracker_HighConcurrency(b *testing.B) {
+	dt := &DepTracker{}
+	const numGoroutines = 100
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		computed := newMockDependency("computed")
+		ref1 := newMockDependency("ref1")
+		ref2 := newMockDependency("ref2")
+
+		for pb.Next() {
+			_ = dt.BeginTracking(computed)
+			dt.Track(ref1)
+			dt.Track(ref2)
+			_ = dt.EndTracking()
+		}
+	})
+}
+
+// BenchmarkGetGoroutineID benchmarks the goroutine ID extraction.
+func BenchmarkGetGoroutineID(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = getGoroutineID()
 	}
 }
