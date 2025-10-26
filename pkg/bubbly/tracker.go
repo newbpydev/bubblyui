@@ -9,13 +9,23 @@ import (
 // infinite recursion in circular dependencies.
 const MaxDependencyDepth = 100
 
-// Common errors for dependency tracking.
+// Common errors for the reactivity system.
 var (
-	// ErrCircularDependency is returned when a circular dependency is detected.
+	// ErrCircularDependency is returned when a circular dependency is detected in computed values.
+	// This occurs when computed value A depends on B, which depends on A (directly or indirectly).
 	ErrCircularDependency = errors.New("circular dependency detected")
 
-	// ErrMaxDepthExceeded is returned when dependency depth exceeds the maximum allowed.
+	// ErrMaxDepthExceeded is returned when dependency depth exceeds the maximum allowed (100).
+	// This prevents stack overflow from deeply nested computed values.
 	ErrMaxDepthExceeded = errors.New("max dependency depth exceeded")
+
+	// ErrNilCallback is returned when a nil callback function is provided to Watch.
+	// Watch requires a valid callback function to notify when values change.
+	ErrNilCallback = errors.New("callback cannot be nil")
+
+	// ErrNilComputeFn is returned when a nil compute function is provided to NewComputed.
+	// Computed values require a valid function to compute their value.
+	ErrNilComputeFn = errors.New("compute function cannot be nil")
 )
 
 // Dependency represents something that can be invalidated when its dependencies change.
@@ -122,4 +132,11 @@ func (dt *DepTracker) IsTracking() bool {
 	dt.mu.RLock()
 	defer dt.mu.RUnlock()
 	return len(dt.stack) > 0
+}
+
+// Reset clears the tracking stack. This is primarily for testing.
+func (dt *DepTracker) Reset() {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+	dt.stack = nil
 }

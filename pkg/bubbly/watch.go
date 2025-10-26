@@ -89,6 +89,11 @@ func Watch[T any](
 	callback WatchCallback[T],
 	options ...WatchOption,
 ) WatchCleanup {
+	// Validate callback is not nil
+	if callback == nil {
+		panic(ErrNilCallback)
+	}
+
 	// Build options
 	opts := WatchOptions{
 		Flush: "sync", // Default to synchronous execution

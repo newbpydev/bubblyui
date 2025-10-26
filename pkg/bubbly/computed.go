@@ -55,6 +55,11 @@ type Computed[T any] struct {
 //	    return doubled.Get() * 2
 //	})
 func NewComputed[T any](fn func() T) *Computed[T] {
+	// Validate compute function is not nil
+	if fn == nil {
+		panic(ErrNilComputeFn)
+	}
+
 	return &Computed[T]{
 		fn:    fn,
 		dirty: true, // Starts dirty to trigger initial computation
@@ -107,10 +112,9 @@ func (c *Computed[T]) Get() T {
 	// Begin tracking dependencies for this computed value
 	err := globalTracker.BeginTracking(c)
 	if err != nil {
-		// If circular dependency or max depth exceeded, return zero value
-		// In production, this should be logged or handled appropriately
-		var zero T
-		return zero
+		// Panic on circular dependency or max depth exceeded
+		// This is a programming error that should be caught during development
+		panic(err)
 	}
 
 	// Evaluate function (will track accessed Refs/Computed values)

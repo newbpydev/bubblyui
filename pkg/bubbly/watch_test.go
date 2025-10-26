@@ -624,7 +624,7 @@ func TestWatch_WithFlush(t *testing.T) {
 	t.Run("post flush mode queues callback", func(t *testing.T) {
 		// Clear any pending callbacks from previous tests
 		FlushWatchers()
-		
+
 		ref := NewRef(0)
 		var called bool
 
@@ -636,7 +636,7 @@ func TestWatch_WithFlush(t *testing.T) {
 		ref.Set(1)
 		// Post flush queues callback, doesn't execute immediately
 		assert.False(t, called, "Callback should not be called immediately")
-		
+
 		// Flush to execute
 		FlushWatchers()
 		assert.True(t, called, "Callback should be called after flush")
@@ -695,7 +695,7 @@ func TestWatch_OptionComposition(t *testing.T) {
 	t.Run("all options together", func(t *testing.T) {
 		// Clear any pending callbacks
 		FlushWatchers()
-		
+
 		ref := NewRef(42)
 		var callCount int
 
@@ -709,7 +709,7 @@ func TestWatch_OptionComposition(t *testing.T) {
 		// With post-flush, callback is queued
 		ref.Set(100)
 		assert.Equal(t, 1, callCount, "Should not be called yet (post-flush)")
-		
+
 		// Flush to execute
 		FlushWatchers()
 		assert.Equal(t, 2, callCount, "Should be called after flush")
@@ -1109,7 +1109,7 @@ func TestWatch_PostFlush(t *testing.T) {
 	t.Run("post-flush queues callbacks", func(t *testing.T) {
 		// Clear any pending callbacks from previous tests
 		FlushWatchers()
-		
+
 		ref := NewRef(0)
 		var callCount int
 
