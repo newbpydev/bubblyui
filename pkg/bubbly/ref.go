@@ -9,8 +9,9 @@ import "sync"
 // It is unexported as it's an implementation detail used by the Watch function.
 // WatchOptions is defined in watch.go.
 type watcher[T any] struct {
-	callback func(newVal, oldVal T)
-	options  WatchOptions
+	callback  func(newVal, oldVal T)
+	options   WatchOptions
+	prevValue *T // Stores previous value for deep comparison (nil if not deep watching)
 }
 
 // Ref is a type-safe reactive reference that holds a mutable value of type T.
@@ -127,9 +128,38 @@ func (r *Ref[T]) removeWatcher(w *watcher[T]) {
 // notifyWatchers calls all watcher callbacks with the new and old values.
 // This method is called outside the lock to prevent deadlocks if a watcher
 // callback tries to access the Ref.
+//
+// For deep watchers, it performs deep comparison to determine if the value
+// actually changed before triggering the callback.
 func (r *Ref[T]) notifyWatchers(newVal, oldVal T, watchers []*watcher[T]) {
 	for _, w := range watchers {
-		w.callback(newVal, oldVal)
+		shouldNotify := true
+
+		// If deep watching is enabled, check if value actually changed
+		if w.options.Deep {
+			// Get custom comparator if provided
+			var compareFn DeepCompareFunc[T]
+			if w.options.DeepCompare != nil {
+				if fn, ok := w.options.DeepCompare.(DeepCompareFunc[T]); ok {
+					compareFn = fn
+				}
+			}
+
+			// Compare with previous value if available
+			if w.prevValue != nil {
+				// Use deep comparison to check if value changed
+				shouldNotify = hasChanged(*w.prevValue, newVal, compareFn)
+			}
+
+			// Update previous value for next comparison
+			prevCopy := newVal
+			w.prevValue = &prevCopy
+		}
+
+		// Only trigger callback if value changed (or not deep watching)
+		if shouldNotify {
+			w.callback(newVal, oldVal)
+		}
 	}
 }
 

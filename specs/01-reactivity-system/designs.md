@@ -132,17 +132,17 @@ type watcher[T any] struct {
 }
 
 type WatchOptions struct {
-    Immediate bool              // Execute immediately (✅ implemented in Task 3.2)
-    Deep      bool              // Watch nested changes (⏳ Task 3.3 - pending)
-    Flush     string            // "sync" or "post" (⏳ Task 3.4 - pending)
-    DeepCompare func(old, new T) bool  // Custom deep comparator (Task 3.3)
+    Immediate   bool        // Execute immediately (✅ implemented in Task 3.2)
+    Deep        bool        // Watch nested changes (✅ implemented in Task 3.3)
+    DeepCompare interface{} // Custom deep comparator (✅ implemented in Task 3.3)
+    Flush       string      // "sync" or "post" (⏳ Task 3.4 - pending)
 }
 
 // Implementation status:
-// - Immediate: ✅ Fully implemented
-// - Deep: Placeholder (accepted but no effect)
-// - Flush: Placeholder (only "sync" mode works)
-// - DeepCompare: Not yet implemented
+// - Immediate: ✅ Fully implemented (Task 3.2)
+// - Deep: ✅ Fully implemented (Task 3.3) - reflection-based comparison
+// - DeepCompare: ✅ Fully implemented (Task 3.3) - custom comparator functions
+// - Flush: ⏳ Partial (only "sync" mode works, Task 3.4 pending)
 ```
 
 ### Dependency Tracker State
@@ -519,9 +519,9 @@ todos.Set(append(todos.Get(), "Task 3"))
 
 ---
 
-## Advanced Features (Pending Implementation)
+## Advanced Features
 
-### Deep Watching (Task 3.3)
+### Deep Watching ✅ (Task 3.3 - Complete)
 
 **Problem:** By default, watchers only trigger when `Set()` is called on a Ref. Changes to nested fields don't trigger watchers:
 
@@ -540,45 +540,53 @@ u.Profile.Bio = "New bio"
 // user still has old value!
 ```
 
-**Solution Approaches:**
+**Solution Implemented:**
 
-1. **Reflection-based (automatic)**:
+1. **Reflection-based (automatic)** - ✅ Implemented:
 ```go
 Watch(user, callback, WithDeep())
-// Internally uses reflect.DeepEqual to detect nested changes
-// Performance: ~10-100x slower than shallow watching
+// Uses reflect.DeepEqual to detect nested changes
+// Performance: ~7x slower than shallow (280ns vs 40ns)
+// Only triggers if value actually changed
 ```
 
-2. **Custom comparator (manual)**:
+2. **Custom comparator (manual)** - ✅ Implemented:
 ```go
 Watch(user, callback, WithDeepCompare(func(old, new User) bool {
-    return old.Profile.Bio != new.Profile.Bio
+    return old.Profile.Bio == new.Profile.Bio  // return true if equal
 }))
 // User controls what counts as a "change"
-// Performance: same as shallow watching
+// Performance: ~2.5x slower than shallow (99ns vs 40ns)
 ```
 
-3. **Hybrid (recommended)**:
+3. **Hybrid approach** - ✅ Implemented:
 ```go
 // Default to reflection for structs
 Watch(user, callback, WithDeep())
 
-// Allow override for performance-critical paths
+// Override for performance-critical paths
 Watch(user, callback, WithDeepCompare(customCompare))
 ```
 
 **Implementation Details:**
-- Store previous value for comparison
-- On Set(), compare old vs new using deep equality
-- Only trigger callback if deep comparison shows change
-- Document performance implications clearly
-- Provide benchmarks comparing shallow vs deep
+- ✅ Store previous value in watcher struct
+- ✅ On Set(), compare old vs new using deep equality
+- ✅ Only trigger callback if deep comparison shows change
+- ✅ Performance benchmarks provided
+- ✅ Comprehensive documentation with warnings
 
-**Edge Cases:**
-- Circular references (detect and handle)
-- Unexported fields (reflection limitations)
-- Large nested structures (performance warning)
-- Pointer semantics (compare values, not addresses)
+**Edge Cases Handled:**
+- ✅ Nil values and pointers
+- ✅ Unexported fields (reflect.DeepEqual handles correctly)
+- ✅ Empty collections (slices, maps)
+- ✅ Pointer semantics (compares values, not addresses)
+
+**Performance Benchmarks:**
+```
+BenchmarkWatch_Shallow-6      28958858   40.23 ns/op    0 B/op   0 allocs/op
+BenchmarkWatch_DeepCompare-6  11447961   98.91 ns/op   48 B/op   1 allocs/op
+BenchmarkWatch_Deep-6          3570967  280.3  ns/op  144 B/op   3 allocs/op
+```
 
 ---
 

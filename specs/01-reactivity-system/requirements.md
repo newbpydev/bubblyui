@@ -33,7 +33,7 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 3.1. Create watchers with `Watch(source Ref[T], callback func(newVal, oldVal T))` ✅  
 3.2. Execute callback when source value changes ✅  
 3.3. Support multiple watchers per Ref ✅  
-3.4. Support deep watching for nested structures ⏳ (Task 3.3 - pending)  
+3.4. Support deep watching for nested structures ✅ (Task 3.3 - complete)  
 3.5. Support immediate execution (run callback on creation) ✅  
 3.6. Return cleanup function to stop watching ✅  
 3.7. Support flush modes (sync/post) for callback timing ⏳ (Task 3.4 - pending)  
@@ -86,7 +86,7 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 - [x] Multiple watchers work independently
 - [x] Cleanup function stops watching
 - [x] Immediate option works
-- [ ] Deep watching for nested structures (Task 3.3 - pending)
+- [x] Deep watching for nested structures (Task 3.3 - complete)
 - [ ] Flush modes for callback timing (Task 3.4 - pending)
 
 ### General
@@ -113,8 +113,12 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 ### 3. Deep Struct Changes
 **Scenario:** Nested field changes in struct stored in Ref  
 **Handling:** Deep watchers must be explicitly enabled (performance consideration)  
-**Status:** Placeholder implemented in Task 3.2, full implementation in Task 3.3  
-**Implementation:** Use reflection-based comparison or custom comparator function
+**Status:** ✅ Fully implemented in Task 3.3  
+**Implementation:** 
+- Reflection-based: `WithDeep()` uses `reflect.DeepEqual` (~7x slower)
+- Custom comparator: `WithDeepCompare(fn)` for performance (~2.5x slower)
+- Stores previous value for comparison
+- Only triggers callback if value actually changed
 
 ### 4. Concurrent Modifications
 **Scenario:** Multiple goroutines modify same Ref  

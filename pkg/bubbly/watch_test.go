@@ -733,3 +733,358 @@ func TestWatch_OptionsDefaults(t *testing.T) {
 		assert.True(t, immediatelyCalled, "Should call on change")
 	})
 }
+
+// TestWatch_DeepWatching tests the WithDeep option with reflection-based comparison
+func TestWatch_DeepWatching(t *testing.T) {
+	type Profile struct {
+		Bio string
+		Age int
+	}
+	type User struct {
+		Name    string
+		Profile Profile
+	}
+
+	t.Run("deep watching detects nested struct changes", func(t *testing.T) {
+		user := NewRef(User{Name: "John", Profile: Profile{Bio: "Developer", Age: 30}})
+		var callCount int
+
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set with same values - should NOT trigger (deep equal)
+		user.Set(User{Name: "John", Profile: Profile{Bio: "Developer", Age: 30}})
+		assert.Equal(t, 0, callCount, "Should not trigger on deep equal values")
+
+		// Set with nested change - should trigger
+		user.Set(User{Name: "John", Profile: Profile{Bio: "Engineer", Age: 30}})
+		assert.Equal(t, 1, callCount, "Should trigger on nested change")
+	})
+
+	t.Run("deep watching with slice changes", func(t *testing.T) {
+		ref := NewRef([]int{1, 2, 3})
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal []int) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set with same slice - should NOT trigger
+		ref.Set([]int{1, 2, 3})
+		assert.Equal(t, 0, callCount, "Should not trigger on equal slice")
+
+		// Set with different slice - should trigger
+		ref.Set([]int{1, 2, 4})
+		assert.Equal(t, 1, callCount, "Should trigger on slice change")
+	})
+
+	t.Run("deep watching with map changes", func(t *testing.T) {
+		ref := NewRef(map[string]int{"a": 1, "b": 2})
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal map[string]int) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set with same map - should NOT trigger
+		ref.Set(map[string]int{"a": 1, "b": 2})
+		assert.Equal(t, 0, callCount, "Should not trigger on equal map")
+
+		// Set with different map - should trigger
+		ref.Set(map[string]int{"a": 1, "b": 3})
+		assert.Equal(t, 1, callCount, "Should trigger on map change")
+	})
+
+	t.Run("shallow watching triggers on every Set", func(t *testing.T) {
+		user := NewRef(User{Name: "John", Profile: Profile{Bio: "Developer", Age: 30}})
+		var callCount int
+
+		// Without WithDeep - shallow watching
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		})
+		defer cleanup()
+
+		// Set with same values - SHOULD trigger (shallow watching)
+		user.Set(User{Name: "John", Profile: Profile{Bio: "Developer", Age: 30}})
+		assert.Equal(t, 1, callCount, "Shallow watching triggers on every Set")
+
+		// Set again - triggers again
+		user.Set(User{Name: "John", Profile: Profile{Bio: "Developer", Age: 30}})
+		assert.Equal(t, 2, callCount, "Shallow watching triggers every time")
+	})
+
+	t.Run("deep watching with pointer values", func(t *testing.T) {
+		val1 := 10
+		val2 := 10
+		val3 := 20
+
+		ref := NewRef(&val1)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal *int) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set with pointer to same value - should NOT trigger
+		ref.Set(&val2)
+		assert.Equal(t, 0, callCount, "Should not trigger on equal pointer values")
+
+		// Set with pointer to different value - should trigger
+		ref.Set(&val3)
+		assert.Equal(t, 1, callCount, "Should trigger on different pointer value")
+	})
+}
+
+// TestWatch_DeepCompare tests the WithDeepCompare option with custom comparators
+func TestWatch_DeepCompare(t *testing.T) {
+	type User struct {
+		ID      int
+		Name    string
+		Profile string // Large field we want to ignore
+	}
+
+	t.Run("custom comparator for selective comparison", func(t *testing.T) {
+		// Only compare ID and Name, ignore Profile
+		compareUsers := func(old, new User) bool {
+			return old.ID == new.ID && old.Name == new.Name
+		}
+
+		user := NewRef(User{ID: 1, Name: "John", Profile: "Long bio..."})
+		var callCount int
+
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		}, WithDeepCompare(compareUsers))
+		defer cleanup()
+
+		// Change Profile only - should NOT trigger
+		user.Set(User{ID: 1, Name: "John", Profile: "Different bio..."})
+		assert.Equal(t, 0, callCount, "Should not trigger when only Profile changes")
+
+		// Change Name - should trigger
+		user.Set(User{ID: 1, Name: "Jane", Profile: "Different bio..."})
+		assert.Equal(t, 1, callCount, "Should trigger when Name changes")
+	})
+
+	t.Run("custom comparator with complex logic", func(t *testing.T) {
+		type Config struct {
+			Version int
+			Data    map[string]string
+		}
+
+		// Only trigger if version changes OR specific data keys change
+		compareConfig := func(old, new Config) bool {
+			if old.Version != new.Version {
+				return false // Different
+			}
+			// Only check specific keys
+			return old.Data["important"] == new.Data["important"]
+		}
+
+		config := NewRef(Config{
+			Version: 1,
+			Data:    map[string]string{"important": "value", "other": "data"},
+		})
+		var callCount int
+
+		cleanup := Watch(config, func(newVal, oldVal Config) {
+			callCount++
+		}, WithDeepCompare(compareConfig))
+		defer cleanup()
+
+		// Change "other" key - should NOT trigger
+		config.Set(Config{
+			Version: 1,
+			Data:    map[string]string{"important": "value", "other": "changed"},
+		})
+		assert.Equal(t, 0, callCount, "Should not trigger on non-important data change")
+
+		// Change "important" key - should trigger
+		config.Set(Config{
+			Version: 1,
+			Data:    map[string]string{"important": "new-value", "other": "changed"},
+		})
+		assert.Equal(t, 1, callCount, "Should trigger on important data change")
+
+		// Change version - should trigger
+		config.Set(Config{
+			Version: 2,
+			Data:    map[string]string{"important": "new-value", "other": "changed"},
+		})
+		assert.Equal(t, 2, callCount, "Should trigger on version change")
+	})
+}
+
+// TestWatch_DeepEdgeCases tests edge cases for deep watching
+func TestWatch_DeepEdgeCases(t *testing.T) {
+	t.Run("deep watching with nil values", func(t *testing.T) {
+		ref := NewRef[*int](nil)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal *int) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set to nil again - should NOT trigger
+		ref.Set(nil)
+		assert.Equal(t, 0, callCount, "Should not trigger on nil to nil")
+
+		// Set to non-nil - should trigger
+		val := 10
+		ref.Set(&val)
+		assert.Equal(t, 1, callCount, "Should trigger on nil to non-nil")
+	})
+
+	t.Run("deep watching with empty collections", func(t *testing.T) {
+		ref := NewRef([]int{})
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal []int) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set to empty slice again - should NOT trigger
+		ref.Set([]int{})
+		assert.Equal(t, 0, callCount, "Should not trigger on empty to empty")
+
+		// Set to non-empty - should trigger
+		ref.Set([]int{1})
+		assert.Equal(t, 1, callCount, "Should trigger on empty to non-empty")
+	})
+
+	t.Run("deep watching with unexported fields", func(t *testing.T) {
+		type privateStruct struct {
+			Public  string
+			private string // unexported
+		}
+
+		ref := NewRef(privateStruct{Public: "visible", private: "hidden"})
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal privateStruct) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// reflect.DeepEqual handles unexported fields correctly
+		ref.Set(privateStruct{Public: "visible", private: "hidden"})
+		assert.Equal(t, 0, callCount, "Should handle unexported fields")
+
+		ref.Set(privateStruct{Public: "changed", private: "hidden"})
+		assert.Equal(t, 1, callCount, "Should detect public field change")
+	})
+}
+
+// TestWatch_DeepWithOtherOptions tests combining deep watching with other options
+func TestWatch_DeepWithOtherOptions(t *testing.T) {
+	type User struct {
+		Name string
+		Age  int
+	}
+
+	t.Run("deep with immediate", func(t *testing.T) {
+		user := NewRef(User{Name: "John", Age: 30})
+		var callCount int
+
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		}, WithDeep(), WithImmediate())
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should call immediately")
+
+		// Set with same values - should NOT trigger
+		user.Set(User{Name: "John", Age: 30})
+		assert.Equal(t, 1, callCount, "Should not trigger on deep equal")
+
+		// Set with different values - should trigger
+		user.Set(User{Name: "Jane", Age: 30})
+		assert.Equal(t, 2, callCount, "Should trigger on change")
+	})
+
+	t.Run("deep compare with immediate", func(t *testing.T) {
+		user := NewRef(User{Name: "John", Age: 30})
+		var callCount int
+
+		compareNames := func(old, new User) bool {
+			return old.Name == new.Name
+		}
+
+		cleanup := Watch(user, func(newVal, oldVal User) {
+			callCount++
+		}, WithDeepCompare(compareNames), WithImmediate())
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should call immediately")
+
+		// Change age only - should NOT trigger
+		user.Set(User{Name: "John", Age: 31})
+		assert.Equal(t, 1, callCount, "Should not trigger when name unchanged")
+	})
+}
+
+// BenchmarkWatch_Deep benchmarks deep watching performance
+func BenchmarkWatch_Deep(b *testing.B) {
+	type User struct {
+		Name    string
+		Age     int
+		Profile string
+	}
+
+	user := NewRef(User{Name: "John", Age: 30, Profile: "Developer"})
+	cleanup := Watch(user, func(n, o User) {}, WithDeep())
+	defer cleanup()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		user.Set(User{Name: "John", Age: 30, Profile: "Developer"})
+	}
+}
+
+// BenchmarkWatch_DeepCompare benchmarks custom comparator performance
+func BenchmarkWatch_DeepCompare(b *testing.B) {
+	type User struct {
+		Name    string
+		Age     int
+		Profile string
+	}
+
+	compareUsers := func(old, new User) bool {
+		return old.Name == new.Name && old.Age == new.Age
+	}
+
+	user := NewRef(User{Name: "John", Age: 30, Profile: "Developer"})
+	cleanup := Watch(user, func(n, o User) {}, WithDeepCompare(compareUsers))
+	defer cleanup()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		user.Set(User{Name: "John", Age: 30, Profile: "Different"})
+	}
+}
+
+// BenchmarkWatch_Shallow benchmarks shallow watching for comparison
+func BenchmarkWatch_Shallow(b *testing.B) {
+	type User struct {
+		Name    string
+		Age     int
+		Profile string
+	}
+
+	user := NewRef(User{Name: "John", Age: 30, Profile: "Developer"})
+	cleanup := Watch(user, func(n, o User) {})
+	defer cleanup()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		user.Set(User{Name: "John", Age: 30, Profile: "Developer"})
+	}
+}

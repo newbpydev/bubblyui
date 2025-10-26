@@ -82,9 +82,9 @@
 
 **Use Case:** Initialize UI based on current state
 
-### Scenario C: Deep Watching ⏳ (Task 3.3 - Pending Implementation)
+### Scenario C: Deep Watching ✅ (Task 3.3 - Complete)
 
-**Current Status:** WithDeep() is accepted but acts as placeholder (no deep comparison yet)
+**Status:** Fully implemented with reflection-based and custom comparator support
 
 1. Developer creates Ref with struct
    ```go
@@ -92,30 +92,37 @@
    ```
 2. Developer creates deep watcher
    ```go
-   Watch(user, callback, WithDeep())  // ⚠️ Currently placeholder
+   Watch(user, callback, WithDeep())  // ✅ Fully functional
    ```
-3. Developer updates nested field
+3. Developer sets value with same data
    ```go
-   u := user.Get()
-   u.Age = 31
-   user.Set(u)  // ✅ This triggers watcher (Set() was called)
+   user.Set(User{Name: "John", Age: 30})  // No callback (deep equal)
    ```
-4. System response: Watcher triggers because Set() was called
-5. Callback executes with old and new user objects
+4. Developer sets value with nested change
+   ```go
+   user.Set(User{Name: "John", Age: 31})  // ✅ Callback triggered
+   ```
+5. System response: Deep comparison detects change, callback executes
 
-**Future Enhancement (Task 3.3):**
-- True deep comparison using reflection or custom comparator
-- Detect nested field changes without explicit Set()
-- Performance-conscious implementation with opt-in behavior
+**Features:**
+- ✅ Reflection-based: `WithDeep()` uses `reflect.DeepEqual`
+- ✅ Custom comparator: `WithDeepCompare(fn)` for performance
+- ✅ Only triggers on actual changes (not every Set)
+- ✅ Works with structs, slices, maps, pointers
+
+**Performance:**
+- Shallow: 40ns/op (baseline)
+- Custom comparator: 99ns/op (~2.5x slower)
+- Reflection-based: 280ns/op (~7x slower)
 
 **Use Case:** Track changes in complex data structures
 
-**Workaround Until Task 3.3:**
-Always call Set() after modifying nested fields:
+**Example with custom comparator:**
 ```go
-u := user.Get()
-u.Age = 31
-user.Set(u)  // Required to trigger watchers
+compareUsers := func(old, new User) bool {
+    return old.Name == new.Name && old.Age == new.Age
+}
+Watch(user, callback, WithDeepCompare(compareUsers))
 ```
 
 ### Scenario D: Chained Computed Values

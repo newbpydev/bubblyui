@@ -27,11 +27,20 @@ type WatchOptions struct {
 	Immediate bool
 
 	// Deep enables watching of nested changes in complex structures.
-	// ⚠️ PLACEHOLDER: Currently accepted but has no effect on behavior.
-	// Full implementation planned in Task 3.3 of the reactivity system spec.
-	// When implemented, will use reflection or custom comparator for deep comparison.
-	// Until then, watchers only trigger when Set() is explicitly called.
+	// When enabled, uses reflection-based deep comparison (reflect.DeepEqual) to detect
+	// changes in nested fields, slice elements, and map values.
+	//
+	// Performance note: Deep watching is 10-100x slower than shallow watching.
+	// For performance-critical paths, use DeepCompare with a custom comparator.
 	Deep bool
+
+	// DeepCompare is an optional custom comparison function for deep watching.
+	// If provided, it overrides the default reflect.DeepEqual behavior.
+	// The function should return true if the values are considered equal.
+	//
+	// This is stored as interface{} to avoid type parameters in WatchOptions,
+	// but will be type-asserted to DeepCompareFunc[T] when used.
+	DeepCompare interface{}
 
 	// Flush controls when the callback is executed relative to the value change.
 	// ⚠️ PARTIAL IMPLEMENTATION: Only "sync" mode is fully functional.
@@ -94,6 +103,12 @@ func Watch[T any](
 		options:  opts,
 	}
 
+	// If deep watching is enabled, initialize prevValue with current value
+	if opts.Deep {
+		currentVal := source.Get()
+		w.prevValue = &currentVal
+	}
+
 	// Register watcher with the Ref
 	source.addWatcher(w)
 
@@ -130,34 +145,78 @@ func WithImmediate() WatchOption {
 
 // WithDeep returns a WatchOption that enables deep watching of nested changes.
 //
-// ⚠️ PLACEHOLDER: This option is currently accepted but has no effect on behavior.
-// Full implementation is planned in Task 3.3 of the reactivity system specification.
+// When enabled, the watcher uses reflection-based deep comparison (reflect.DeepEqual)
+// to determine if the value has actually changed. This allows detecting changes in:
+//   - Nested struct fields
+//   - Slice elements
+//   - Map values
+//   - Pointer-referenced values
 //
-// Current Behavior:
-//   - Watchers trigger only when Set() is explicitly called on the Ref
-//   - Nested field changes do NOT trigger watchers automatically
+// Performance Impact:
 //
-// Future Implementation (Task 3.3):
-//   - Use reflection-based deep comparison (reflect.DeepEqual)
-//   - Support custom comparator functions for performance
-//   - Detect nested struct, slice, and map changes
+//	Deep watching is 10-100x slower than shallow watching due to reflection overhead.
+//	For performance-critical paths, use WithDeepCompare() with a custom comparator.
 //
-// Workaround Until Task 3.3:
+// Example:
 //
-//	  Always call Set() after modifying nested fields:
+//	type User struct {
+//	    Name    string
+//	    Profile Profile
+//	}
 //
-//		user := NewRef(User{Name: "John", Profile: Profile{Age: 30}})
-//		Watch(user, func(newVal, oldVal User) {
-//		    fmt.Println("User changed")
-//		}, WithDeep())
+//	user := NewRef(User{Name: "John", Profile: Profile{Age: 30}})
+//	Watch(user, func(newVal, oldVal User) {
+//	    fmt.Println("User changed")
+//	}, WithDeep())
 //
-//		// Current: Must call Set() to trigger watcher
-//		u := user.Get()
-//		u.Profile.Age = 31
-//		user.Set(u)  // Required to trigger watcher
+//	// Without deep watching, this would trigger callback even if values are same
+//	user.Set(User{Name: "John", Profile: Profile{Age: 30}})  // No callback (deep equal)
+//
+//	// With actual change
+//	user.Set(User{Name: "John", Profile: Profile{Age: 31}})  // Callback triggered
 func WithDeep() WatchOption {
 	return func(opts *WatchOptions) {
 		opts.Deep = true
+	}
+}
+
+// WithDeepCompare returns a WatchOption that enables deep watching with a custom comparator.
+//
+// This allows you to define custom equality logic for performance-critical paths.
+// The comparator function should return true if the values are considered equal.
+//
+// Performance:
+//
+//	Custom comparators can be as fast as shallow watching if you only compare
+//	the fields that matter to your application.
+//
+// Example:
+//
+//	type User struct {
+//	    ID      int
+//	    Name    string
+//	    Profile Profile  // Large nested struct
+//	}
+//
+//	// Only compare ID and Name, ignore Profile for performance
+//	compareUsers := func(old, new User) bool {
+//	    return old.ID == new.ID && old.Name == new.Name
+//	}
+//
+//	user := NewRef(User{ID: 1, Name: "John"})
+//	Watch(user, func(newVal, oldVal User) {
+//	    fmt.Println("User changed")
+//	}, WithDeepCompare(compareUsers))
+//
+//	// This won't trigger callback (ID and Name are same)
+//	user.Set(User{ID: 1, Name: "John", Profile: Profile{Age: 31}})
+//
+//	// This will trigger callback (Name changed)
+//	user.Set(User{ID: 1, Name: "Jane", Profile: Profile{Age: 31}})
+func WithDeepCompare[T any](compareFn DeepCompareFunc[T]) WatchOption {
+	return func(opts *WatchOptions) {
+		opts.Deep = true
+		opts.DeepCompare = compareFn
 	}
 }
 
