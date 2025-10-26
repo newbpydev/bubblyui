@@ -1,8 +1,15 @@
 package bubbly
 
 import (
+	"fmt"
+	"sync/atomic"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// componentIDCounter is an atomic counter for generating unique component IDs.
+// It's incremented each time a new component is created.
+var componentIDCounter atomic.Uint64
 
 // Component is the core interface for BubblyUI components.
 // It extends Bubbletea's tea.Model interface with additional methods
@@ -116,6 +123,33 @@ type componentImpl struct {
 	// Lifecycle
 	//nolint:unused // Will be used in Task 1.3
 	mounted bool // Whether component has been initialized
+}
+
+// newComponentImpl creates a new component instance with the given name.
+// This is an internal constructor used by the ComponentBuilder (Task 2.1).
+//
+// The constructor:
+//   - Generates a unique ID using an atomic counter
+//   - Initializes all map and slice fields to prevent nil pointer panics
+//   - Sets the component name
+//   - Leaves other fields at their zero values (nil, false)
+//
+// Example:
+//
+//	c := newComponentImpl("Button")
+//	// c.id will be "component-1", "component-2", etc.
+//	// c.state, c.handlers, c.children are initialized and empty
+func newComponentImpl(name string) *componentImpl {
+	// Generate unique ID using atomic counter
+	id := componentIDCounter.Add(1)
+
+	return &componentImpl{
+		name:     name,
+		id:       fmt.Sprintf("component-%d", id),
+		state:    make(map[string]interface{}),
+		handlers: make(map[string][]EventHandler),
+		children: []Component{},
+	}
 }
 
 // Name returns the component's name.
