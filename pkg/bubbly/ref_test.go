@@ -1,6 +1,8 @@
 package bubbly
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -474,8 +476,6 @@ func TestRef_WatcherNotificationOrder(t *testing.T) {
 		assert.Equal(t, []int{1, 2, 3}, order, "Watchers should be notified in registration order")
 	})
 }
-
-// TestRef_WatcherMemoryLeak verifies no memory leaks with watchers
 func TestRef_WatcherMemoryLeak(t *testing.T) {
 	t.Run("watchers can be removed to prevent leaks", func(t *testing.T) {
 		ref := NewRef(0)
@@ -502,4 +502,319 @@ func TestRef_WatcherMemoryLeak(t *testing.T) {
 
 		assert.Equal(t, 0, watcherCount, "All watchers should be removed")
 	})
+}
+
+// TestRef_ConcurrentGet verifies concurrent Get operations are safe
+func TestRef_ConcurrentGet(t *testing.T) {
+	t.Run("multiple concurrent readers", func(t *testing.T) {
+		ref := NewRef(42)
+		const numReaders = 100
+
+		var wg sync.WaitGroup
+		wg.Add(numReaders)
+
+		for i := 0; i < numReaders; i++ {
+			go func() {
+				defer wg.Done()
+				value := ref.Get()
+				assert.Equal(t, 42, value, "All readers should see the same value")
+			}()
+		}
+
+		wg.Wait()
+	})
+
+	t.Run("concurrent reads with different types", func(t *testing.T) {
+		stringRef := NewRef("concurrent")
+		const numReaders = 50
+
+		var wg sync.WaitGroup
+		wg.Add(numReaders)
+
+		for i := 0; i < numReaders; i++ {
+			go func() {
+				defer wg.Done()
+				value := stringRef.Get()
+				assert.Equal(t, "concurrent", value)
+			}()
+		}
+
+		wg.Wait()
+	})
+}
+
+// TestRef_ConcurrentSet verifies concurrent Set operations are safe
+func TestRef_ConcurrentSet(t *testing.T) {
+	t.Run("multiple concurrent writers", func(t *testing.T) {
+		ref := NewRef(0)
+		const numWriters = 100
+
+		var wg sync.WaitGroup
+		wg.Add(numWriters)
+
+		for i := 0; i < numWriters; i++ {
+			value := i
+			go func(v int) {
+				defer wg.Done()
+				ref.Set(v)
+			}(value)
+		}
+
+		wg.Wait()
+
+		// Final value should be one of the written values (0-99)
+		finalValue := ref.Get()
+		assert.GreaterOrEqual(t, finalValue, 0)
+		assert.Less(t, finalValue, numWriters)
+	})
+
+	t.Run("no panics during concurrent writes", func(t *testing.T) {
+		ref := NewRef("initial")
+		const numWriters = 100
+
+		var wg sync.WaitGroup
+		wg.Add(numWriters)
+
+		assert.NotPanics(t, func() {
+			for i := 0; i < numWriters; i++ {
+				go func(idx int) {
+					defer wg.Done()
+					ref.Set("value" + string(rune('0'+idx%10)))
+				}(i)
+			}
+			wg.Wait()
+		})
+	})
+}
+
+// TestRef_ConcurrentGetSet verifies mixed concurrent Get/Set operations
+func TestRef_ConcurrentGetSet(t *testing.T) {
+	t.Run("mixed readers and writers", func(t *testing.T) {
+		ref := NewRef(0)
+		const numReaders = 80
+		const numWriters = 20
+
+		var wg sync.WaitGroup
+		wg.Add(numReaders + numWriters)
+
+		// Start readers
+		for i := 0; i < numReaders; i++ {
+			go func() {
+				defer wg.Done()
+				for j := 0; j < 10; j++ {
+					_ = ref.Get()
+				}
+			}()
+		}
+
+		// Start writers
+		for i := 0; i < numWriters; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				for j := 0; j < 10; j++ {
+					ref.Set(idx*10 + j)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Should complete without deadlock or panic
+		finalValue := ref.Get()
+		assert.GreaterOrEqual(t, finalValue, 0)
+	})
+
+	t.Run("concurrent operations with watchers", func(t *testing.T) {
+		ref := NewRef(0)
+		var notificationCount int32
+
+		w := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				atomic.AddInt32(&notificationCount, 1)
+			},
+		}
+		ref.addWatcher(w)
+
+		const numOperations = 50
+		var wg sync.WaitGroup
+		wg.Add(numOperations * 2)
+
+		// Readers
+		for i := 0; i < numOperations; i++ {
+			go func() {
+				defer wg.Done()
+				_ = ref.Get()
+			}()
+		}
+
+		// Writers
+		for i := 0; i < numOperations; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				ref.Set(idx)
+			}(i)
+		}
+
+		wg.Wait()
+
+		// All writes should have triggered notifications
+		count := atomic.LoadInt32(&notificationCount)
+		assert.Equal(t, int32(numOperations), count, "All writes should trigger watchers")
+	})
+}
+
+// TestRef_StressTest verifies stability under heavy concurrent load
+func TestRef_StressTest(t *testing.T) {
+	t.Run("1000+ concurrent operations", func(t *testing.T) {
+		ref := NewRef(0)
+		const numGoroutines = 100
+		const opsPerGoroutine = 100
+
+		var wg sync.WaitGroup
+		wg.Add(numGoroutines)
+
+		// Mix of reads and writes
+		for i := 0; i < numGoroutines; i++ {
+			go func(id int) {
+				defer wg.Done()
+				for j := 0; j < opsPerGoroutine; j++ {
+					if j%2 == 0 {
+						ref.Set(id*opsPerGoroutine + j)
+					} else {
+						_ = ref.Get()
+					}
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Should complete without deadlock, panic, or race conditions
+		assert.NotPanics(t, func() {
+			_ = ref.Get()
+		})
+	})
+
+	t.Run("stress test with watchers", func(t *testing.T) {
+		ref := NewRef(0)
+		var notificationCount int32
+
+		// Add multiple watchers
+		for i := 0; i < 10; i++ {
+			w := &watcher[int]{
+				callback: func(newVal, oldVal int) {
+					atomic.AddInt32(&notificationCount, 1)
+				},
+			}
+			ref.addWatcher(w)
+		}
+
+		const numGoroutines = 50
+		const opsPerGoroutine = 20
+
+		var wg sync.WaitGroup
+		wg.Add(numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			go func(id int) {
+				defer wg.Done()
+				for j := 0; j < opsPerGoroutine; j++ {
+					ref.Set(id*opsPerGoroutine + j)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Each write triggers 10 watchers
+		expectedNotifications := int32(numGoroutines * opsPerGoroutine * 10)
+		count := atomic.LoadInt32(&notificationCount)
+		assert.Equal(t, expectedNotifications, count)
+	})
+}
+
+// BenchmarkRefGet_Concurrent benchmarks concurrent Get operations
+func BenchmarkRefGet_Concurrent(b *testing.B) {
+	ref := NewRef(42)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_ = ref.Get()
+		}
+	})
+}
+
+// BenchmarkRefSet_Concurrent benchmarks concurrent Set operations
+func BenchmarkRefSet_Concurrent(b *testing.B) {
+	ref := NewRef(0)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			ref.Set(i)
+			i++
+		}
+	})
+}
+
+// BenchmarkRefGetSet_Mixed benchmarks mixed Get/Set workload (80% reads, 20% writes)
+func BenchmarkRefGetSet_Mixed(b *testing.B) {
+	ref := NewRef(0)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if i%5 == 0 {
+				// 20% writes
+				ref.Set(i)
+			} else {
+				// 80% reads
+				_ = ref.Get()
+			}
+			i++
+		}
+	})
+}
+
+// BenchmarkRefGet benchmarks single-threaded Get operations
+func BenchmarkRefGet(b *testing.B) {
+	ref := NewRef(42)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ref.Get()
+	}
+}
+
+// BenchmarkRefSet benchmarks single-threaded Set operations
+func BenchmarkRefSet(b *testing.B) {
+	ref := NewRef(0)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ref.Set(i)
+	}
+}
+
+// BenchmarkRefSetWithWatchers benchmarks Set operations with watchers
+func BenchmarkRefSetWithWatchers(b *testing.B) {
+	ref := NewRef(0)
+
+	// Add 10 watchers
+	for i := 0; i < 10; i++ {
+		w := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				// Minimal work in callback
+			},
+		}
+		ref.addWatcher(w)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ref.Set(i)
+	}
 }
