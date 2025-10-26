@@ -1028,24 +1028,89 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	0.118s
 
 ---
 
-### Task 5.3: Example Applications
+### Task 5.3: Example Applications ✅ COMPLETE
 **Description:** Create example apps demonstrating reactivity
 
-**Prerequisites:** All tasks complete
+**Prerequisites:** All tasks complete - ✅
 
 **Unlocks:** Documentation and showcase
 
 **Files:**
-- `cmd/examples/reactive-counter/main.go`
-- `cmd/examples/reactive-todo/main.go`
+- `cmd/examples/reactive-counter/main.go` ✅
+- `cmd/examples/reactive-todo/main.go` ✅
+- `cmd/examples/form-validation/main.go` ✅
+- `cmd/examples/async-data/main.go` ✅
+- `cmd/examples/README.md` ✅
 
 **Examples:**
-- [ ] Simple counter (basic Ref usage)
-- [ ] Todo list (Ref + Computed)
-- [ ] Form validation (multiple Refs + Computed)
-- [ ] Async data (Ref + Watch)
+- [x] Simple counter (basic Ref usage)
+- [x] Todo list (Ref + Computed)
+- [x] Form validation (multiple Refs + Computed)
+- [x] Async data (Ref + Watch)
+
+**Implementation Notes:**
+- Created 4 comprehensive example applications demonstrating BubblyUI reactivity with Bubbletea
+- All examples build and run successfully
+- Added dependencies: bubbletea v1.3.10, lipgloss v1.1.0
+- Example applications:
+  - **Reactive Counter (135 lines):**
+    - Demonstrates basic `Ref[int]` usage
+    - Shows `Computed[T]` for derived values (doubled counter)
+    - Keyboard controls: ↑/↓ increment/decrement, r reset, q quit
+    - Clean Lipgloss styling with borders and colors
+    - Watcher cleanup on exit
+  - **Reactive Todo List (220 lines):**
+    - Complex reactive state with `Ref[[]Todo]`
+    - Multiple computed values: totalCount, completedCount, activeCount
+    - Demonstrates chained computed (activeCount = total - completed)
+    - Full CRUD operations: add, toggle, delete todos
+    - Input mode for adding new todos
+    - Keyboard navigation with cursor
+    - Real-time statistics update automatically
+  - **Form Validation (265 lines):**
+    - Multiple reactive fields: email, password, confirmPassword
+    - Computed validation states for each field
+    - Email validation with regex
+    - Password strength validation (min 8 chars)
+    - Password matching validation
+    - Overall form validity (chained computed)
+    - Visual feedback: ✓/✗ indicators, colored borders
+    - Tab navigation between fields
+    - Disabled submit button until form valid
+  - **Async Data Loading (195 lines):**
+    - Demonstrates `Watch()` for side effects
+    - Reactive loading states
+    - Simulated async API calls (2s delay)
+    - Error handling with 20% failure rate
+    - Multiple watchers for logging
+    - Reload functionality
+    - Loading spinner animation
+    - Integration with Bubbletea commands
+- Common patterns documented:
+  - Basic reactive state creation and updates
+  - Computed value patterns
+  - Watcher usage and cleanup
+  - Bubbletea integration (Model/Update/View)
+- Key features demonstrated:
+  - Zero-boilerplate reactivity
+  - Automatic UI updates
+  - Type-safe state management
+  - Computed value caching
+  - Side effects with watchers
+  - Clean separation of concerns
+- Quality verification:
+  - All 4 examples compile successfully
+  - No lint errors
+  - Clean code structure
+  - Comprehensive comments
+  - README with usage instructions
+- Dependencies added to go.mod:
+  - github.com/charmbracelet/bubbletea v1.3.10
+  - github.com/charmbracelet/lipgloss v1.1.0
+  - All transitive dependencies resolved
 
 **Estimated effort:** 4 hours
+**Actual effort:** ~2.5 hours
 
 ---
 
