@@ -1,0 +1,39 @@
+goos: linux
+goarch: amd64
+pkg: github.com/newbpydev/bubblyui/pkg/bubbly
+cpu: AMD Ryzen 5 4500U with Radeon Graphics         
+BenchmarkRef_Get-6                       	 1000000	        32.72 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRef_Set-6                       	 1000000	        39.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRef_SetWithWatchers/watchers_1-6         	 1000000	        35.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRef_SetWithWatchers/watchers_5-6         	 1000000	        97.66 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRef_SetWithWatchers/watchers_0010-6      	 1000000	       128.7 ns/op	      80 B/op	       1 allocs/op
+BenchmarkRef_SetWithWatchers/watchers_0050-6      	 1000000	       413.7 ns/op	     416 B/op	       1 allocs/op
+BenchmarkRef_SetWithWatchers/watchers_0100-6      	 1000000	       780.1 ns/op	     896 B/op	       1 allocs/op
+BenchmarkRef_GetConcurrent-6                      	 1000000	        60.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRef_SetConcurrent-6                      	 1000000	        54.43 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRef_MixedWorkload-6                      	 1000000	        43.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComputed_GetCached-6                     	 1000000	        24.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComputed_GetUncached-6                   	 1000000	       287.5 ns/op	      64 B/op	       2 allocs/op
+BenchmarkComputed_ChainedEvaluation/chain_2-6     	 1000000	       550.4 ns/op	     128 B/op	       4 allocs/op
+BenchmarkComputed_ChainedEvaluation/chain_4-6     	 1000000	      1112 ns/op	     256 B/op	       8 allocs/op
+BenchmarkComputed_ChainedEvaluation/chain_8-6     	 1000000	      2384 ns/op	     512 B/op	      16 allocs/op
+BenchmarkComputed_ChainedEvaluation/chain_0016-6  	 1000000	      4655 ns/op	    1024 B/op	      32 allocs/op
+BenchmarkComputed_ComplexSum-6                    	 1000000	       398.1 ns/op	     144 B/op	       3 allocs/op
+BenchmarkComputed_ConcurrentAccess-6              	 1000000	        57.74 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWatch_SingleWatcher-6                    	 1000000	        35.00 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWatch_ScalingWatchers/watchers_1-6       	 1000000	        38.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkWatch_ScalingWatchers/watchers_5-6       	 1000000	        80.05 ns/op	      48 B/op	       1 allocs/op
+BenchmarkWatch_ScalingWatchers/watchers_0010-6    	 1000000	       153.1 ns/op	      80 B/op	       1 allocs/op
+BenchmarkWatch_ScalingWatchers/watchers_0050-6    	 1000000	       369.6 ns/op	     416 B/op	       1 allocs/op
+BenchmarkWatch_ScalingWatchers/watchers_0100-6    	 1000000	       619.0 ns/op	     896 B/op	       1 allocs/op
+BenchmarkWatch_WithImmediate-6                    	 1000000	       308.5 ns/op	     256 B/op	       5 allocs/op
+BenchmarkWatch_WithDeep-6                         	 1000000	       268.9 ns/op	      72 B/op	       3 allocs/op
+BenchmarkWatch_WithDeepCompare-6                  	 1000000	       110.2 ns/op	      24 B/op	       1 allocs/op
+BenchmarkWatch_WithFlushPost-6                    	 1000000	       391.1 ns/op	     304 B/op	       3 allocs/op
+BenchmarkLargeScale_ManyRefs/refs_0100-6          	 1000000	        60.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLargeScale_ManyRefs/refs_1000-6          	 1000000	        56.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLargeScale_ManyRefs/refs_0000-6          	 1000000	        60.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLargeScale_ManyComputed/computed_0100-6  	 1000000	     44327 ns/op	    8192 B/op	     201 allocs/op
+BenchmarkLargeScale_ManyComputed/computed_1000-6  	signal: terminated
+FAIL	github.com/newbpydev/bubblyui/pkg/bubbly	536.963s
+FAIL
