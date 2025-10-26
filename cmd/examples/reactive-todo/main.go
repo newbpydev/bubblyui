@@ -243,8 +243,8 @@ func main() {
 		cursor:         0,
 	}
 
-	// Run the program
-	p := tea.NewProgram(m)
+	// Run the program with alternate screen buffer
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)

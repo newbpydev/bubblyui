@@ -152,6 +152,13 @@ func (m model) View() string {
     // Read reactive state
     return fmt.Sprintf("Count: %d", m.count.Get())
 }
+
+func main() {
+    m := model{count: bubbly.NewRef(0)}
+    // Use tea.WithAltScreen() for clean screen updates
+    p := tea.NewProgram(m, tea.WithAltScreen())
+    p.Run()
+}
 ```
 
 ## Dependencies

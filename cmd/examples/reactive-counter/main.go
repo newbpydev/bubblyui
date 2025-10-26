@@ -126,8 +126,8 @@ func main() {
 		cleanup: cleanup,
 	}
 
-	// Run the Bubbletea program
-	p := tea.NewProgram(m)
+	// Run the Bubbletea program with alternate screen buffer
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)

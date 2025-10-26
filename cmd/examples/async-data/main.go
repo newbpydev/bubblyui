@@ -24,6 +24,9 @@ type fetchMsg struct {
 	err  error
 }
 
+// tickMsg is sent on each frame for spinner animation
+type tickMsg time.Time
+
 // model represents the application state with async data loading
 type model struct {
 	// Reactive state
@@ -42,7 +45,14 @@ type model struct {
 func (m model) Init() tea.Cmd {
 	// Start loading immediately
 	m.loading.Set(true)
-	return fetchUser()
+	return tea.Batch(fetchUser(), tickCmd())
+}
+
+// tickCmd returns a command that sends a tick message for animation
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 // Update handles incoming messages
@@ -60,7 +70,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Reload data
 			m.loading.Set(true)
 			m.error.Set(nil)
-			return m, fetchUser()
+			return m, tea.Batch(fetchUser(), tickCmd())
 		}
 
 	case fetchMsg:
@@ -72,6 +82,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.user.Set(&msg.user)
 			m.error.Set(nil)
 		}
+		return m, nil
+
+	case tickMsg:
+		// Continue ticking while loading
+		if m.loading.Get() {
+			return m, tickCmd()
+		}
+		return m, nil
 	}
 
 	return m, nil
@@ -207,8 +225,8 @@ func main() {
 		cleanup: combinedCleanup,
 	}
 
-	// Run the program
-	p := tea.NewProgram(m)
+	// Run the program with alternate screen buffer
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
