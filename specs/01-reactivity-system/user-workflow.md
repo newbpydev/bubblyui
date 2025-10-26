@@ -82,7 +82,9 @@
 
 **Use Case:** Initialize UI based on current state
 
-### Scenario C: Deep Watching
+### Scenario C: Deep Watching ⏳ (Task 3.3 - Pending Implementation)
+
+**Current Status:** WithDeep() is accepted but acts as placeholder (no deep comparison yet)
 
 1. Developer creates Ref with struct
    ```go
@@ -90,18 +92,31 @@
    ```
 2. Developer creates deep watcher
    ```go
-   Watch(user, callback, WithDeep())
+   Watch(user, callback, WithDeep())  // ⚠️ Currently placeholder
    ```
 3. Developer updates nested field
    ```go
    u := user.Get()
    u.Age = 31
-   user.Set(u)
+   user.Set(u)  // ✅ This triggers watcher (Set() was called)
    ```
-4. System response: Deep watcher detects change
+4. System response: Watcher triggers because Set() was called
 5. Callback executes with old and new user objects
 
+**Future Enhancement (Task 3.3):**
+- True deep comparison using reflection or custom comparator
+- Detect nested field changes without explicit Set()
+- Performance-conscious implementation with opt-in behavior
+
 **Use Case:** Track changes in complex data structures
+
+**Workaround Until Task 3.3:**
+Always call Set() after modifying nested fields:
+```go
+u := user.Get()
+u.Age = 31
+user.Set(u)  // Required to trigger watchers
+```
 
 ### Scenario D: Chained Computed Values
 

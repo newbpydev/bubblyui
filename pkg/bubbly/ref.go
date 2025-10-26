@@ -5,17 +5,12 @@ package bubbly
 
 import "sync"
 
-// WatchOptions configures watcher behavior.
-// This is a placeholder for Task 3.2 where full options will be implemented.
-type WatchOptions struct {
-	// Future fields: Deep, Immediate, Flush
-}
-
 // watcher represents an internal watcher that observes changes to a Ref.
 // It is unexported as it's an implementation detail used by the Watch function.
+// WatchOptions is defined in watch.go.
 type watcher[T any] struct {
 	callback func(newVal, oldVal T)
-	options  WatchOptions //nolint:unused // Reserved for Task 3.2 (watch options implementation)
+	options  WatchOptions
 }
 
 // Ref is a type-safe reactive reference that holds a mutable value of type T.

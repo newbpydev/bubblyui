@@ -468,9 +468,268 @@ func BenchmarkWatch_MultipleWatchers(b *testing.B) {
 			cleanup()
 		}
 	}()
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ref.Set(i)
 	}
+}
+
+// TestWatch_WithImmediate tests the WithImmediate option
+func TestWatch_WithImmediate(t *testing.T) {
+	t.Run("callback executes immediately with current value", func(t *testing.T) {
+		ref := NewRef(42)
+		var called bool
+		var receivedNew, receivedOld int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			called = true
+			receivedNew = newVal
+			receivedOld = oldVal
+		}, WithImmediate())
+		defer cleanup()
+
+		assert.True(t, called, "Callback should be called immediately")
+		assert.Equal(t, 42, receivedNew, "Should receive current value as new")
+		assert.Equal(t, 42, receivedOld, "Should receive current value as old")
+	})
+
+	t.Run("callback still executes on subsequent changes", func(t *testing.T) {
+		ref := NewRef(10)
+		var callCount int
+		var values []int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+			values = append(values, newVal)
+		}, WithImmediate())
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should be called once immediately")
+		assert.Equal(t, []int{10}, values)
+
+		ref.Set(20)
+		assert.Equal(t, 2, callCount, "Should be called again on change")
+		assert.Equal(t, []int{10, 20}, values)
+	})
+
+	t.Run("without immediate option callback not called initially", func(t *testing.T) {
+		ref := NewRef(42)
+		var called bool
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			called = true
+		})
+		defer cleanup()
+
+		assert.False(t, called, "Callback should not be called without WithImmediate")
+
+		ref.Set(100)
+		assert.True(t, called, "Callback should be called on change")
+	})
+
+	t.Run("immediate with different types", func(t *testing.T) {
+		t.Run("string", func(t *testing.T) {
+			ref := NewRef("hello")
+			var received string
+
+			cleanup := Watch(ref, func(newVal, oldVal string) {
+				received = newVal
+			}, WithImmediate())
+			defer cleanup()
+
+			assert.Equal(t, "hello", received)
+		})
+
+		t.Run("struct", func(t *testing.T) {
+			type User struct {
+				Name string
+			}
+			ref := NewRef(User{Name: "John"})
+			var received User
+
+			cleanup := Watch(ref, func(newVal, oldVal User) {
+				received = newVal
+			}, WithImmediate())
+			defer cleanup()
+
+			assert.Equal(t, "John", received.Name)
+		})
+	})
+}
+
+// TestWatch_WithDeep tests the WithDeep option
+func TestWatch_WithDeep(t *testing.T) {
+	t.Run("deep option is accepted", func(t *testing.T) {
+		type User struct {
+			Name string
+			Age  int
+		}
+		ref := NewRef(User{Name: "John", Age: 30})
+		var called bool
+
+		cleanup := Watch(ref, func(newVal, oldVal User) {
+			called = true
+		}, WithDeep())
+		defer cleanup()
+
+		// Deep watching is a placeholder, but option should be accepted
+		ref.Set(User{Name: "Jane", Age: 25})
+		assert.True(t, called, "Callback should be called on Set")
+	})
+
+	t.Run("deep option documented as placeholder", func(t *testing.T) {
+		// This test documents that WithDeep is currently a placeholder
+		// Deep watching would require reflection or manual change detection
+		// For now, it only triggers on Set() calls, not nested field changes
+		type Profile struct {
+			Bio string
+		}
+		type User struct {
+			Name    string
+			Profile Profile
+		}
+
+		ref := NewRef(User{Name: "John", Profile: Profile{Bio: "Developer"}})
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal User) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// This triggers the watcher (Set is called)
+		user := ref.Get()
+		user.Profile.Bio = "Engineer"
+		ref.Set(user)
+
+		assert.Equal(t, 1, callCount, "Should be called when Set is used")
+	})
+}
+
+// TestWatch_WithFlush tests the WithFlush option
+func TestWatch_WithFlush(t *testing.T) {
+	t.Run("sync flush mode", func(t *testing.T) {
+		ref := NewRef(0)
+		var called bool
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			called = true
+		}, WithFlush("sync"))
+		defer cleanup()
+
+		ref.Set(1)
+		assert.True(t, called, "Callback should be called with sync flush")
+	})
+
+	t.Run("post flush mode accepted", func(t *testing.T) {
+		ref := NewRef(0)
+		var called bool
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			called = true
+		}, WithFlush("post"))
+		defer cleanup()
+
+		ref.Set(1)
+		// Post flush is currently a placeholder (same as sync)
+		assert.True(t, called, "Callback should be called")
+	})
+
+	t.Run("default flush mode is sync", func(t *testing.T) {
+		ref := NewRef(0)
+		var called bool
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			called = true
+		})
+		defer cleanup()
+
+		ref.Set(1)
+		assert.True(t, called, "Callback should be called with default flush mode")
+	})
+}
+
+// TestWatch_OptionComposition tests combining multiple options
+func TestWatch_OptionComposition(t *testing.T) {
+	t.Run("immediate and deep together", func(t *testing.T) {
+		ref := NewRef(100)
+		var callCount int
+		var values []int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+			values = append(values, newVal)
+		}, WithImmediate(), WithDeep())
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should be called immediately")
+		assert.Equal(t, []int{100}, values)
+
+		ref.Set(200)
+		assert.Equal(t, 2, callCount)
+		assert.Equal(t, []int{100, 200}, values)
+	})
+
+	t.Run("immediate and flush together", func(t *testing.T) {
+		ref := NewRef("initial")
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal string) {
+			callCount++
+		}, WithImmediate(), WithFlush("sync"))
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should be called immediately")
+
+		ref.Set("changed")
+		assert.Equal(t, 2, callCount)
+	})
+
+	t.Run("all options together", func(t *testing.T) {
+		ref := NewRef(42)
+		var callCount int
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			callCount++
+		}, WithImmediate(), WithDeep(), WithFlush("post"))
+		defer cleanup()
+
+		assert.Equal(t, 1, callCount, "Should be called immediately")
+
+		ref.Set(100)
+		assert.Equal(t, 2, callCount, "Should be called on change")
+	})
+
+	t.Run("options order doesn't matter", func(t *testing.T) {
+		ref1 := NewRef(1)
+		ref2 := NewRef(1)
+		var count1, count2 int
+
+		cleanup1 := Watch(ref1, func(n, o int) { count1++ },
+			WithImmediate(), WithFlush("sync"))
+		cleanup2 := Watch(ref2, func(n, o int) { count2++ },
+			WithFlush("sync"), WithImmediate())
+		defer cleanup1()
+		defer cleanup2()
+
+		assert.Equal(t, count1, count2, "Order of options should not matter")
+	})
+}
+
+// TestWatch_OptionsDefaults tests default option values
+func TestWatch_OptionsDefaults(t *testing.T) {
+	t.Run("default options", func(t *testing.T) {
+		ref := NewRef(10)
+		var immediatelyCalled bool
+
+		cleanup := Watch(ref, func(newVal, oldVal int) {
+			immediatelyCalled = true
+		})
+		defer cleanup()
+
+		assert.False(t, immediatelyCalled, "Should not call immediately by default")
+
+		ref.Set(20)
+		assert.True(t, immediatelyCalled, "Should call on change")
+	})
 }

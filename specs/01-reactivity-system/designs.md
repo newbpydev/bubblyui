@@ -132,10 +132,17 @@ type watcher[T any] struct {
 }
 
 type WatchOptions struct {
-    Deep      bool    // Watch nested changes
-    Immediate bool    // Execute immediately
-    Flush     string  // "sync" or "post"
+    Immediate bool              // Execute immediately (✅ implemented in Task 3.2)
+    Deep      bool              // Watch nested changes (⏳ Task 3.3 - pending)
+    Flush     string            // "sync" or "post" (⏳ Task 3.4 - pending)
+    DeepCompare func(old, new T) bool  // Custom deep comparator (Task 3.3)
 }
+
+// Implementation status:
+// - Immediate: ✅ Fully implemented
+// - Deep: Placeholder (accepted but no effect)
+// - Flush: Placeholder (only "sync" mode works)
+// - DeepCompare: Not yet implemented
 ```
 
 ### Dependency Tracker State
@@ -509,6 +516,145 @@ Watch(todos, func(newVal, oldVal []string) {
 todos.Set(append(todos.Get(), "Task 3"))
 // Prints: Todo count: 3
 ```
+
+---
+
+## Advanced Features (Pending Implementation)
+
+### Deep Watching (Task 3.3)
+
+**Problem:** By default, watchers only trigger when `Set()` is called on a Ref. Changes to nested fields don't trigger watchers:
+
+```go
+type User struct {
+    Name string
+    Profile Profile
+}
+
+user := NewRef(User{Name: "John"})
+Watch(user, callback)  // Only triggers on user.Set()
+
+// This does NOT trigger the watcher:
+u := user.Get()
+u.Profile.Bio = "New bio"
+// user still has old value!
+```
+
+**Solution Approaches:**
+
+1. **Reflection-based (automatic)**:
+```go
+Watch(user, callback, WithDeep())
+// Internally uses reflect.DeepEqual to detect nested changes
+// Performance: ~10-100x slower than shallow watching
+```
+
+2. **Custom comparator (manual)**:
+```go
+Watch(user, callback, WithDeepCompare(func(old, new User) bool {
+    return old.Profile.Bio != new.Profile.Bio
+}))
+// User controls what counts as a "change"
+// Performance: same as shallow watching
+```
+
+3. **Hybrid (recommended)**:
+```go
+// Default to reflection for structs
+Watch(user, callback, WithDeep())
+
+// Allow override for performance-critical paths
+Watch(user, callback, WithDeepCompare(customCompare))
+```
+
+**Implementation Details:**
+- Store previous value for comparison
+- On Set(), compare old vs new using deep equality
+- Only trigger callback if deep comparison shows change
+- Document performance implications clearly
+- Provide benchmarks comparing shallow vs deep
+
+**Edge Cases:**
+- Circular references (detect and handle)
+- Unexported fields (reflection limitations)
+- Large nested structures (performance warning)
+- Pointer semantics (compare values, not addresses)
+
+---
+
+### Async Flush Modes (Task 3.4)
+
+**Problem:** Multiple rapid state changes trigger multiple watcher callbacks, causing redundant work:
+
+```go
+Watch(count, func(n, o int) {
+    // Expensive operation (e.g., API call, render)
+})
+
+count.Set(1)  // Callback runs
+count.Set(2)  // Callback runs again
+count.Set(3)  // Callback runs again
+// 3 expensive operations when we only need the final state!
+```
+
+**Solution: Post-Flush Mode**
+
+```go
+Watch(count, callback, WithFlush("post"))
+
+count.Set(1)  // Queued
+count.Set(2)  // Queued (replaces previous)
+count.Set(3)  // Queued (replaces previous)
+// Callback runs once with final value after current operation
+```
+
+**Implementation:**
+
+1. **Sync mode (current)**:
+```go
+func (r *Ref[T]) Set(value T) {
+    r.value = value
+    r.notifyWatchers(value, oldValue)  // Immediate
+}
+```
+
+2. **Post mode (pending)**:
+```go
+type CallbackScheduler struct {
+    queue chan WatcherCallback
+}
+
+func (r *Ref[T]) Set(value T) {
+    r.value = value
+    if watcher.options.Flush == "post" {
+        scheduler.Enqueue(watcher, value, oldValue)
+    } else {
+        watcher.callback(value, oldValue)
+    }
+}
+
+// Execute queued callbacks after current operation
+func (s *CallbackScheduler) Flush() {
+    for callback := range s.queue {
+        callback.Execute()
+    }
+}
+```
+
+**Integration with Bubbletea:**
+- Post-flush callbacks should return tea.Cmd
+- Batch multiple state changes into single render
+- Execute flush at end of Update() cycle
+
+**Benefits:**
+- Reduce redundant callback executions
+- Batch UI updates for better performance
+- Prevent intermediate states from being rendered
+
+**Trade-offs:**
+- Slightly more complex implementation
+- Callbacks delayed by one tick
+- Need to manage callback queue lifecycle
 
 ---
 

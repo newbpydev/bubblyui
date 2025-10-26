@@ -30,12 +30,13 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 2.5. Support chaining (computed can depend on other computed values)  
 
 ### 3. Watchers
-3.1. Create watchers with `Watch(source Ref[T], callback func(newVal, oldVal T))`  
-3.2. Execute callback when source value changes  
-3.3. Support multiple watchers per Ref  
-3.4. Support deep watching for nested structures  
-3.5. Support immediate execution (run callback on creation)  
-3.6. Return cleanup function to stop watching  
+3.1. Create watchers with `Watch(source Ref[T], callback func(newVal, oldVal T))` ✅  
+3.2. Execute callback when source value changes ✅  
+3.3. Support multiple watchers per Ref ✅  
+3.4. Support deep watching for nested structures ⏳ (Task 3.3 - pending)  
+3.5. Support immediate execution (run callback on creation) ✅  
+3.6. Return cleanup function to stop watching ✅  
+3.7. Support flush modes (sync/post) for callback timing ⏳ (Task 3.4 - pending)  
 
 ### 4. Dependency Tracking
 4.1. Track which Refs are accessed during computed function execution  
@@ -81,11 +82,12 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 - [ ] Handles circular dependencies gracefully
 
 ### Watchers
-- [ ] Callback executes on value change
-- [ ] Multiple watchers work independently
-- [ ] Cleanup function stops watching
-- [ ] Immediate option works
-- [ ] Deep watching for nested structures
+- [x] Callback executes on value change
+- [x] Multiple watchers work independently
+- [x] Cleanup function stops watching
+- [x] Immediate option works
+- [ ] Deep watching for nested structures (Task 3.3 - pending)
+- [ ] Flush modes for callback timing (Task 3.4 - pending)
 
 ### General
 - [ ] All operations are type-safe
@@ -110,7 +112,9 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 
 ### 3. Deep Struct Changes
 **Scenario:** Nested field changes in struct stored in Ref  
-**Handling:** Deep watchers must be explicitly enabled (performance consideration)
+**Handling:** Deep watchers must be explicitly enabled (performance consideration)  
+**Status:** Placeholder implemented in Task 3.2, full implementation in Task 3.3  
+**Implementation:** Use reflection-based comparison or custom comparator function
 
 ### 4. Concurrent Modifications
 **Scenario:** Multiple goroutines modify same Ref  
