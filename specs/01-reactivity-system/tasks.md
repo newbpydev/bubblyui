@@ -1171,19 +1171,19 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	0.118s
 
 ---
 
-### Task 6.2: Watch Computed Values
+### Task 6.2: Watch Computed Values ✅
 **Description:** Enable watching computed values directly (Vue 3 compatibility)
 
-**Prerequisites:** Phase 4 complete
+**Prerequisites:** Phase 4 complete ✅
 
-**Unlocks:** Cleaner reactive patterns (form validation, derived state)
+**Unlocks:** Cleaner reactive patterns (form validation, derived state) ✅
 
 **Files:**
-- `pkg/bubbly/watch.go` - Update Watch signature with Watchable interface
-- `pkg/bubbly/computed.go` - Implement Watchable interface
-- `pkg/bubbly/ref.go` - Ensure implements Watchable
-- `pkg/bubbly/watch_test.go` - Add tests for watching computed
-- `pkg/bubbly/example_test.go` - Add examples
+- `pkg/bubbly/watch.go` - Update Watch signature with Watchable interface ✅
+- `pkg/bubbly/computed.go` - Implement Watchable interface ✅
+- `pkg/bubbly/ref.go` - Ensure implements Watchable ✅
+- `pkg/bubbly/watch_test.go` - Add tests for watching computed ✅
+- `cmd/examples/watch-computed/main.go` - Shopping cart example ✅
 
 **Type Safety:**
 ```go
@@ -1201,16 +1201,37 @@ func Watch[T any](
 ```
 
 **Tests:**
-- [ ] Watch computed value changes
-- [ ] Watch chained computed values
-- [ ] Multiple watchers on same computed
-- [ ] Computed with deep watching
-- [ ] Computed with flush modes
-- [ ] Computed with immediate execution
+- [x] Watch computed value changes
+- [x] Watch chained computed values
+- [x] Multiple watchers on same computed
+- [x] Computed with deep watching
+- [x] Computed with flush modes
+- [x] Computed with immediate execution
+- [x] Concurrency safety
+- [x] No-change optimization
 
-**Estimated effort:** 3-4 hours
+**Estimated effort:** 3-4 hours ✅ (Completed in ~3 hours)
 **Priority:** MEDIUM (nice to have, workarounds exist)
-**Breaking Change:** No (extends existing API)
+**Breaking Change:** No (extends existing API) ✅
+
+**Implementation Notes:**
+- **Watchable Interface**: Created generic interface that both `Ref[T]` and `Computed[T]` implement
+- **Watch() Signature**: Updated to accept `Watchable[T]` instead of `*Ref[T]` - fully backward compatible
+- **Computed Watchers**: Added `watchers` field to `Computed[T]` struct
+- **Watcher Methods**: Implemented `addWatcher()`, `removeWatcher()`, and `notifyWatchers()` for `Computed[T]`
+- **Dependency Establishment**: When first watcher is added to a computed, it's evaluated to establish dependencies
+- **Change Detection**: Uses `reflect.DeepEqual` to only notify watchers when computed value actually changes
+- **Auto-Recomputation**: When dependencies invalidate a watched computed, it automatically recomputes and notifies
+- **All Options Supported**: Deep watching, immediate execution, and flush modes all work with computed values
+- **Thread Safety**: All operations are thread-safe with proper mutex usage
+- **Test Coverage**: 97.7% overall coverage with comprehensive tests for all scenarios
+- **Example Application**: Created interactive shopping cart demo (`cmd/examples/watch-computed/`) showing:
+  - Watching multiple computed values (subtotal, total, discount, loyalty points)
+  - Chained computed values (discount depends on subtotal, total depends on both)
+  - Real-time watcher activity logs
+  - Practical use case with Bubbletea integration
+- **Performance**: No significant performance impact, computed values only recompute when dependencies change
+- **Vue 3 Compatibility**: Matches Vue 3's behavior where computed values can be watched directly
 
 ---
 
