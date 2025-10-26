@@ -188,26 +188,81 @@ func (c *componentImpl) On(event string, handler EventHandler) {
 
 // Init implements tea.Model.Init().
 // It runs the setup function if provided and initializes child components.
+//
+// The Init method is called once when the component is first initialized
+// by the Bubbletea runtime. It:
+//   - Executes the setup function (if provided) with a Context
+//   - Marks the component as mounted
+//   - Initializes all child components
+//   - Returns batched commands from children
+//
+// The setup function is only executed once, even if Init() is called multiple times.
 func (c *componentImpl) Init() tea.Cmd {
-	// Minimal implementation - will be expanded in Task 1.3
+	// Run setup function if provided and not already mounted
+	if c.setup != nil && !c.mounted {
+		ctx := &Context{component: c}
+		c.setup(ctx)
+		c.mounted = true
+	}
+
+	// Initialize child components
+	if len(c.children) > 0 {
+		cmds := make([]tea.Cmd, len(c.children))
+		for i, child := range c.children {
+			cmds[i] = child.Init()
+		}
+		return tea.Batch(cmds...)
+	}
+
 	return nil
 }
 
 // Update implements tea.Model.Update().
 // It handles incoming Bubbletea messages and updates component state.
+//
+// The Update method is called for every message in the Bubbletea event loop.
+// It:
+//   - Processes the incoming message
+//   - Updates child components with the message
+//   - Returns the updated model and batched commands
+//
+// Currently, this is a minimal implementation that will be expanded in later tasks
+// to handle component-specific messages and event routing.
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Minimal implementation - will be expanded in Task 1.3
+	// Update child components
+	if len(c.children) > 0 {
+		cmds := make([]tea.Cmd, len(c.children))
+		for i, child := range c.children {
+			updatedChild, cmd := child.Update(msg)
+			// Update the child in the slice
+			if impl, ok := updatedChild.(*componentImpl); ok {
+				c.children[i] = impl
+			}
+			cmds[i] = cmd
+		}
+		return c, tea.Batch(cmds...)
+	}
+
 	return c, nil
 }
 
 // View implements tea.Model.View().
 // It calls the template function to generate the UI string.
+//
+// The View method is called whenever the UI needs to be rendered.
+// It:
+//   - Creates a RenderContext for the template
+//   - Calls the template function with the context
+//   - Returns the rendered string
+//
+// If no template is provided, it returns an empty string.
 func (c *componentImpl) View() string {
-	// Minimal implementation - will be expanded in Task 1.3
 	if c.template == nil {
 		return ""
 	}
-	return ""
+
+	ctx := RenderContext{component: c}
+	return c.template(ctx)
 }
 
 // Context provides the API available during component setup.

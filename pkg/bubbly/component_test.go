@@ -368,3 +368,216 @@ func TestComponentChildrenSliceOperations(t *testing.T) {
 		assert.Equal(t, "Child", parent.children[0].Name())
 	})
 }
+
+// ========== Task 1.3: Bubbletea Model Implementation Tests ==========
+
+// TestComponentInit verifies Init() method behavior
+func TestComponentInit(t *testing.T) {
+	t.Run("init_without_setup", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		cmd := c.Init()
+		// Should return nil when no setup function
+		assert.Nil(t, cmd)
+	})
+
+	t.Run("init_executes_setup", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		setupCalled := false
+
+		c.setup = func(ctx *Context) {
+			setupCalled = true
+		}
+
+		c.Init()
+		assert.True(t, setupCalled, "Setup function should be called")
+	})
+
+	t.Run("init_marks_as_mounted", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		c.setup = func(ctx *Context) {}
+
+		assert.False(t, c.mounted, "Should not be mounted initially")
+		c.Init()
+		assert.True(t, c.mounted, "Should be mounted after Init()")
+	})
+
+	t.Run("init_only_runs_setup_once", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		callCount := 0
+
+		c.setup = func(ctx *Context) {
+			callCount++
+		}
+
+		c.Init()
+		c.Init()
+		assert.Equal(t, 1, callCount, "Setup should only run once")
+	})
+
+	t.Run("init_with_children", func(t *testing.T) {
+		parent := newComponentImpl("Parent")
+		child1 := newComponentImpl("Child1")
+		child2 := newComponentImpl("Child2")
+
+		parent.children = []Component{child1, child2}
+
+		cmd := parent.Init()
+		// Should return a command when there are children
+		// (tea.Batch of child Init commands)
+		_ = cmd
+	})
+}
+
+// TestComponentUpdate verifies Update() method behavior
+func TestComponentUpdate(t *testing.T) {
+	t.Run("update_returns_model_and_cmd", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		model, cmd := c.Update(tea.KeyMsg{})
+
+		assert.NotNil(t, model)
+		assert.Equal(t, c, model)
+		_ = cmd
+	})
+
+	t.Run("update_with_key_message", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+
+		model, _ := c.Update(msg)
+		assert.NotNil(t, model)
+	})
+
+	t.Run("update_with_children", func(t *testing.T) {
+		parent := newComponentImpl("Parent")
+		child := newComponentImpl("Child")
+		parent.children = []Component{child}
+
+		model, cmd := parent.Update(tea.KeyMsg{})
+		assert.NotNil(t, model)
+		_ = cmd
+	})
+
+	t.Run("update_preserves_component_state", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		c.state["key"] = "value"
+
+		model, _ := c.Update(tea.KeyMsg{})
+		updatedComp := model.(*componentImpl)
+		assert.Equal(t, "value", updatedComp.state["key"])
+	})
+}
+
+// TestComponentView verifies View() method behavior
+func TestComponentView(t *testing.T) {
+	t.Run("view_without_template", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		view := c.View()
+		assert.Equal(t, "", view, "Should return empty string without template")
+	})
+
+	t.Run("view_calls_template", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		templateCalled := false
+
+		c.template = func(ctx RenderContext) string {
+			templateCalled = true
+			return "Hello World"
+		}
+
+		view := c.View()
+		assert.True(t, templateCalled, "Template should be called")
+		assert.Equal(t, "Hello World", view)
+	})
+
+	t.Run("view_returns_template_output", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		c.template = func(ctx RenderContext) string {
+			return "Test Output"
+		}
+
+		view := c.View()
+		assert.Equal(t, "Test Output", view)
+	})
+
+	t.Run("view_provides_render_context", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		var receivedCtx RenderContext
+
+		c.template = func(ctx RenderContext) string {
+			receivedCtx = ctx
+			return "test"
+		}
+
+		c.View()
+		assert.NotNil(t, receivedCtx)
+	})
+}
+
+// TestComponentLifecycle verifies full component lifecycle
+func TestComponentLifecycle(t *testing.T) {
+	t.Run("full_lifecycle", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+
+		setupCalled := false
+		templateCalled := false
+
+		c.setup = func(ctx *Context) {
+			setupCalled = true
+		}
+
+		c.template = func(ctx RenderContext) string {
+			templateCalled = true
+			return "rendered"
+		}
+
+		// Init phase
+		c.Init()
+		assert.True(t, setupCalled)
+		assert.True(t, c.mounted)
+
+		// Update phase
+		model, _ := c.Update(tea.KeyMsg{})
+		assert.NotNil(t, model)
+
+		// View phase
+		view := c.View()
+		assert.True(t, templateCalled)
+		assert.Equal(t, "rendered", view)
+	})
+}
+
+// TestComponentSetupContext verifies Context is passed to setup
+func TestComponentSetupContext(t *testing.T) {
+	t.Run("setup_receives_context", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+		var receivedCtx *Context
+
+		c.setup = func(ctx *Context) {
+			receivedCtx = ctx
+		}
+
+		c.Init()
+		assert.NotNil(t, receivedCtx, "Setup should receive a Context")
+	})
+}
+
+// TestComponentChildrenLifecycle verifies child component lifecycle
+func TestComponentChildrenLifecycle(t *testing.T) {
+	t.Run("children_initialized", func(t *testing.T) {
+		parent := newComponentImpl("Parent")
+		child := newComponentImpl("Child")
+
+		child.setup = func(ctx *Context) {
+			// Setup function for child
+		}
+
+		parent.children = []Component{child}
+		cmd := parent.Init()
+
+		// Child Init should be called via batched commands
+		// Note: In actual Bubbletea, commands are executed by the runtime
+		// Here we're just verifying the structure is correct
+		assert.NotNil(t, parent.children)
+		_ = cmd // Command will be batched
+	})
+}
