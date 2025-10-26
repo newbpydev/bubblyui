@@ -1,9 +1,6 @@
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor
-    - tests/fixtures
 
 linters:
   enable:
@@ -25,7 +22,6 @@ linters:
     - revive
 
   disable:
-    - exhaustivestruct  # Too strict for our use case
     - exhaustruct
     - paralleltest      # Not always applicable
 
@@ -57,10 +53,11 @@ linters-settings:
         disabled: false
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  
+  exclude-dirs:
+    - vendor
+    - tests/fixtures
   exclude-rules:
     # Exclude some linters from running on tests
     - path: _test\.go

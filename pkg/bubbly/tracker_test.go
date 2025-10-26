@@ -249,7 +249,7 @@ func TestDepTracker_Concurrent(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 
 			for j := 0; j < numOps; j++ {
@@ -269,7 +269,7 @@ func TestDepTracker_Concurrent(t *testing.T) {
 					assert.Equal(t, ref, deps[0])
 				}
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()
@@ -438,7 +438,6 @@ func BenchmarkDepTracker_Concurrent(b *testing.B) {
 // BenchmarkDepTracker_HighConcurrency benchmarks with 100 goroutines.
 func BenchmarkDepTracker_HighConcurrency(b *testing.B) {
 	dt := &DepTracker{}
-	const numGoroutines = 100
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

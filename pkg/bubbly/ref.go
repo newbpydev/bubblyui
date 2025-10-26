@@ -14,6 +14,52 @@ type watcher[T any] struct {
 	prevValue *T // Stores previous value for deep comparison (nil if not deep watching)
 }
 
+// notifyWatcher handles notification logic for a single watcher.
+// It performs deep comparison if enabled and handles flush modes.
+// This is a shared helper to avoid code duplication between Ref and Computed.
+func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
+	shouldNotify := true
+
+	// If deep watching is enabled, check if value actually changed
+	if w.options.Deep {
+		// Get custom comparator if provided
+		var compareFn DeepCompareFunc[T]
+		if w.options.DeepCompare != nil {
+			if fn, ok := w.options.DeepCompare.(DeepCompareFunc[T]); ok {
+				compareFn = fn
+			}
+		}
+
+		// Compare with previous value if available
+		if w.prevValue != nil {
+			// Use deep comparison to check if value changed
+			shouldNotify = hasChanged(*w.prevValue, newVal, compareFn)
+		}
+
+		// Update previous value for next comparison
+		prevCopy := newVal
+		w.prevValue = &prevCopy
+	}
+
+	// Only trigger callback if value changed (or not deep watching)
+	if shouldNotify {
+		// Check flush mode
+		if w.options.Flush == "post" {
+			// Queue callback for later execution
+			// Capture values in closure to avoid race conditions
+			watcher := w
+			newValue := newVal
+			oldValue := oldVal
+			globalScheduler.enqueue(watcher, func() {
+				watcher.callback(newValue, oldValue)
+			})
+		} else {
+			// Execute immediately (sync mode)
+			w.callback(newVal, oldVal)
+		}
+	}
+}
+
 // Ref is a type-safe reactive reference that holds a mutable value of type T.
 // It provides thread-safe read and write operations using a read-write mutex.
 // Ref supports watchers that are notified when the value changes.
@@ -139,55 +185,11 @@ func (r *Ref[T]) removeWatcher(w *watcher[T]) {
 }
 
 // notifyWatchers calls all watcher callbacks with the new and old values.
-// This method is called outside the lock to prevent deadlocks if a watcher
-// callback tries to access the Ref.
-//
-// For deep watchers, it performs deep comparison to determine if the value
-// actually changed before triggering the callback.
-//
-// For post-flush watchers, it queues the callback instead of executing immediately.
+// This method is called after Set() updates the value.
+// It handles deep watching and flush modes by delegating to the shared notifyWatcher helper.
 func (r *Ref[T]) notifyWatchers(newVal, oldVal T, watchers []*watcher[T]) {
 	for _, w := range watchers {
-		shouldNotify := true
-
-		// If deep watching is enabled, check if value actually changed
-		if w.options.Deep {
-			// Get custom comparator if provided
-			var compareFn DeepCompareFunc[T]
-			if w.options.DeepCompare != nil {
-				if fn, ok := w.options.DeepCompare.(DeepCompareFunc[T]); ok {
-					compareFn = fn
-				}
-			}
-
-			// Compare with previous value if available
-			if w.prevValue != nil {
-				// Use deep comparison to check if value changed
-				shouldNotify = hasChanged(*w.prevValue, newVal, compareFn)
-			}
-
-			// Update previous value for next comparison
-			prevCopy := newVal
-			w.prevValue = &prevCopy
-		}
-
-		// Only trigger callback if value changed (or not deep watching)
-		if shouldNotify {
-			// Check flush mode
-			if w.options.Flush == "post" {
-				// Queue callback for later execution
-				// Capture values in closure to avoid race conditions
-				watcher := w
-				newValue := newVal
-				oldValue := oldVal
-				globalScheduler.enqueue(watcher, func() {
-					watcher.callback(newValue, oldValue)
-				})
-			} else {
-				// Execute immediately (sync mode)
-				w.callback(newVal, oldVal)
-			}
-		}
+		notifyWatcher(w, newVal, oldVal)
 	}
 }
 

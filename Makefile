@@ -28,14 +28,16 @@ test-cover:
 
 # Linting
 lint:
-	golangci-lint run
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint..."; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; }
+	@PATH="$(HOME)/go/bin:$(PATH)" golangci-lint run
 
 # Formatting
 fmt:
 	gofmt -s -w .
 
 imports:
-	goimports -w -local github.com/newbpydev/bubblyui .
+	@command -v goimports >/dev/null 2>&1 || { echo "Installing goimports..."; go install golang.org/x/tools/cmd/goimports@latest; }
+	@PATH="$(HOME)/go/bin:$(PATH)" goimports -w -local github.com/newbpydev/bubblyui .
 
 vet:
 	go vet ./...

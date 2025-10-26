@@ -101,12 +101,7 @@ func (e *watchEffect) run() {
 		cleanup()
 	}
 
-	// Track dependencies during effect execution
-	e.mu.Lock()
-	deps := make([]Dependency, 0)
-	e.mu.Unlock()
-
-	// Begin tracking
+	// Begin tracking dependencies during effect execution
 	err := globalTracker.BeginTracking(nil)
 	if err != nil {
 		// If we can't track (e.g., circular dependency), just run the effect once
@@ -119,6 +114,7 @@ func (e *watchEffect) run() {
 			if r := recover(); r != nil {
 				// Log or handle panic, but don't crash
 				// In production, you might want to log this
+				_ = r // Suppress unused variable warning
 			}
 		}()
 
@@ -133,13 +129,14 @@ func (e *watchEffect) run() {
 			if r := recover(); r != nil {
 				// Effect panicked, but we still want to track dependencies
 				// and allow future runs
+				_ = r // Suppress unused variable warning
 			}
 		}()
 		e.effect()
 	}()
 
 	// End tracking and get dependencies
-	deps = globalTracker.EndTracking()
+	deps := globalTracker.EndTracking()
 
 	// Set up watchers for each dependency
 	e.mu.Lock()

@@ -222,6 +222,8 @@ func (c *Computed[T]) AddDependent(dep Dependency) {
 // Task 6.2: When the first watcher is added, the computed value is evaluated
 // to establish dependency relationships. This ensures that when dependencies
 // change, the computed will be notified and can trigger its watchers.
+//
+//nolint:unused // Interface method - used via Watchable interface
 func (c *Computed[T]) addWatcher(w *watcher[T]) {
 	c.mu.Lock()
 	isFirstWatcher := len(c.watchers) == 0
@@ -260,6 +262,8 @@ func (c *Computed[T]) addWatcher(w *watcher[T]) {
 // This is an internal method used by the cleanup function returned by Watch.
 // Removing a non-existent watcher is safe and does nothing.
 // Implements the Watchable interface.
+//
+//nolint:unused // Interface method - used via Watchable interface
 func (c *Computed[T]) removeWatcher(w *watcher[T]) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -277,7 +281,7 @@ func (c *Computed[T]) removeWatcher(w *watcher[T]) {
 
 // notifyWatchers calls all watcher callbacks with the new and old values.
 // This method is called when the computed value changes after recomputation.
-// It handles deep watching and flush modes just like Ref watchers.
+// It handles deep watching and flush modes by delegating to the shared notifyWatcher helper.
 func (c *Computed[T]) notifyWatchers(newVal, oldVal T) {
 	c.mu.RLock()
 	// Copy watchers slice while holding the read lock
@@ -294,45 +298,6 @@ func (c *Computed[T]) notifyWatchers(newVal, oldVal T) {
 	}
 
 	for _, w := range watchersCopy {
-		shouldNotify := true
-
-		// If deep watching is enabled, check if value actually changed
-		if w.options.Deep {
-			// Get custom comparator if provided
-			var compareFn DeepCompareFunc[T]
-			if w.options.DeepCompare != nil {
-				if fn, ok := w.options.DeepCompare.(DeepCompareFunc[T]); ok {
-					compareFn = fn
-				}
-			}
-
-			// Compare with previous value if available
-			if w.prevValue != nil {
-				// Use deep comparison to check if value changed
-				shouldNotify = hasChanged(*w.prevValue, newVal, compareFn)
-			}
-
-			// Update previous value for next comparison
-			prevCopy := newVal
-			w.prevValue = &prevCopy
-		}
-
-		// Only trigger callback if value changed (or not deep watching)
-		if shouldNotify {
-			// Check flush mode
-			if w.options.Flush == "post" {
-				// Queue callback for later execution
-				// Capture values in closure to avoid race conditions
-				watcher := w
-				newValue := newVal
-				oldValue := oldVal
-				globalScheduler.enqueue(watcher, func() {
-					watcher.callback(newValue, oldValue)
-				})
-			} else {
-				// Execute immediately (sync mode)
-				w.callback(newVal, oldVal)
-			}
-		}
+		notifyWatcher(w, newVal, oldVal)
 	}
 }
