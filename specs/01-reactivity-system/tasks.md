@@ -1232,6 +1232,10 @@ func Watch[T any](
   - Practical use case with Bubbletea integration
 - **Performance**: No significant performance impact, computed values only recompute when dependencies change
 - **Vue 3 Compatibility**: Matches Vue 3's behavior where computed values can be watched directly
+- **Bug Fix**: Fixed unsigned integer underflow in `tests/integration/reactivity_test.go` memory stability test
+  - Issue: When GC reduced memory, `uint64` subtraction caused underflow
+  - Solution: Use `int64` and handle both memory increase and decrease cases
+  - Result: Test now correctly passes when GC is effective (memory decreases)
 
 ---
 

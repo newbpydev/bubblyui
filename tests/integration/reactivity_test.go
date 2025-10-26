@@ -363,12 +363,21 @@ func TestLongRunningStability(t *testing.T) {
 		var memAfter runtime.MemStats
 		runtime.ReadMemStats(&memAfter)
 
-		// Memory should not grow excessively
-		growth := memAfter.Alloc - memBefore.Alloc
-		t.Logf("Memory growth: %d bytes", growth)
+		// Calculate memory growth (handle both increase and decrease)
+		var growth int64
+		if memAfter.Alloc >= memBefore.Alloc {
+			growth = int64(memAfter.Alloc - memBefore.Alloc)
+			t.Logf("Memory growth: %d bytes", growth)
+		} else {
+			// Memory decreased (GC was very effective)
+			decrease := int64(memBefore.Alloc - memAfter.Alloc)
+			t.Logf("Memory decreased: %d bytes (GC effective)", decrease)
+			growth = 0 // Treat decrease as zero growth for the test
+		}
 
 		// Allow some growth but not excessive (< 10MB for 10k objects)
-		assert.Less(t, growth, uint64(10*1024*1024),
+		// If memory decreased or stayed same, test passes
+		assert.LessOrEqual(t, growth, int64(10*1024*1024),
 			"Memory growth should be reasonable")
 	})
 }
