@@ -152,7 +152,7 @@ BenchmarkRefSetWithWatchers     98.37 ns/op   80 B/op    1 allocs/op
 
 ## Phase 2: Computed Values
 
-### Task 2.1: Computed[T] - Basic Implementation
+### Task 2.1: Computed[T] - Basic Implementation ✅ COMPLETE
 **Description:** Implement lazy computed values with caching
 
 **Prerequisites:** Task 1.1 (Ref basic)
@@ -160,8 +160,8 @@ BenchmarkRefSetWithWatchers     98.37 ns/op   80 B/op    1 allocs/op
 **Unlocks:** Task 2.2 (Dependency tracking)
 
 **Files:**
-- `pkg/bubbly/computed.go`
-- `pkg/bubbly/computed_test.go`
+- `pkg/bubbly/computed.go` ✅
+- `pkg/bubbly/computed_test.go` ✅
 
 **Type Safety:**
 ```go
@@ -177,12 +177,29 @@ func (c *Computed[T]) Get() T
 ```
 
 **Tests:**
-- [ ] Lazy evaluation (fn not called until Get)
-- [ ] Caching works (fn called only once)
-- [ ] Multiple Get calls return cached value
-- [ ] Type safety enforced
+- [x] Lazy evaluation (fn not called until Get)
+- [x] Caching works (fn called only once)
+- [x] Multiple Get calls return cached value
+- [x] Type safety enforced
+
+**Implementation Notes:**
+- Completed with TDD approach (RED-GREEN-REFACTOR)
+- 100% test coverage achieved
+- All quality gates passed (test-race, fmt, vet, build)
+- Thread-safe implementation using sync.RWMutex with double-check locking pattern
+- Comprehensive godoc comments added
+- Tests cover: lazy evaluation, caching, type safety, concurrent access, complex computations, chained computed values, zero values
+- Performance benchmarks:
+  - Cached Get: 11.32 ns/op (0 allocs) - exceeds <1μs requirement
+  - First Get: 71.64 ns/op (1 alloc)
+  - Concurrent Get: 41.49 ns/op (0 allocs)
+- No dependency tracking yet (deferred to Task 2.2 as per spec)
+- Cache invalidation mechanism deferred to Task 2.3
+- Double-check locking prevents race conditions during first evaluation
+- Fast path optimization: read lock check before acquiring write lock
 
 **Estimated effort:** 3 hours
+**Actual effort:** ~2 hours
 
 ---
 
