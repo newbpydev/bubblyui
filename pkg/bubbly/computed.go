@@ -1,6 +1,9 @@
 package bubbly
 
-import "sync"
+import (
+	"reflect"
+	"sync"
+)
 
 // Computed is a type-safe computed value that lazily evaluates a function and caches the result.
 // It provides thread-safe read operations using a read-write mutex.
@@ -14,6 +17,9 @@ import "sync"
 // Computed implements the Dependency interface, allowing it to be used as a dependency
 // for other computed values, enabling chained computations.
 //
+// Computed also implements the Watchable interface (Task 6.2), allowing watchers to be
+// registered that will be notified when the computed value changes.
+//
 // Example usage:
 //
 //	count := bubbly.NewRef(5)
@@ -23,6 +29,11 @@ import "sync"
 //	value := doubled.Get()  // Computes and caches: 10
 //	count.Set(10)           // Invalidates doubled's cache
 //	value2 := doubled.Get() // Recomputes: 20
+//
+//	// Watch computed value changes (Task 6.2)
+//	Watch(doubled, func(newVal, oldVal int) {
+//	    fmt.Printf("Doubled changed: %d → %d\n", oldVal, newVal)
+//	})
 type Computed[T any] struct {
 	mu         sync.RWMutex
 	fn         func() T
@@ -30,6 +41,7 @@ type Computed[T any] struct {
 	dirty      bool
 	deps       []Dependency
 	dependents []Dependency
+	watchers   []*watcher[T] // Task 6.2: Support watching computed values
 }
 
 // NewComputed creates a new computed value with the given computation function.
@@ -77,6 +89,9 @@ func NewComputed[T any](fn func() T) *Computed[T] {
 // call Get() concurrently. The computation function is guaranteed to be called at most once
 // per invalidation, even under concurrent access.
 //
+// Task 6.2: When the computed value changes after recomputation, all registered watchers
+// are notified with the new and old values.
+//
 // Example:
 //
 //	count := NewRef(5)
@@ -84,7 +99,7 @@ func NewComputed[T any](fn func() T) *Computed[T] {
 //	value := computed.Get()  // Evaluates function, tracks count, returns 10
 //	value2 := computed.Get() // Returns cached 10 (no re-evaluation)
 //	count.Set(10)            // Invalidates cache
-//	value3 := computed.Get() // Re-evaluates, returns 20
+//	value3 := computed.Get() // Re-evaluates, returns 20, notifies watchers
 func (c *Computed[T]) Get() T {
 	// Track this Computed as a dependency if tracking is active
 	if globalTracker.IsTracking() {
@@ -102,16 +117,21 @@ func (c *Computed[T]) Get() T {
 
 	// Slow path: need to compute value
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	// Double-check dirty flag in case another goroutine computed it
 	if !c.dirty {
-		return c.cache
+		val := c.cache
+		c.mu.Unlock()
+		return val
 	}
+
+	// Store old value for watcher notification (Task 6.2)
+	oldValue := c.cache
 
 	// Begin tracking dependencies for this computed value
 	err := globalTracker.BeginTracking(c)
 	if err != nil {
+		c.mu.Unlock()
 		// Panic on circular dependency or max depth exceeded
 		// This is a programming error that should be caught during development
 		panic(err)
@@ -133,15 +153,31 @@ func (c *Computed[T]) Get() T {
 	c.dirty = false
 	c.deps = deps
 
+	// Check if we have watchers before unlocking
+	hasWatchers := len(c.watchers) > 0
+	c.mu.Unlock()
+
+	// Task 6.2: Notify watchers if value changed
+	// Only notify if there are watchers and value actually changed
+	// Use reflect.DeepEqual for comparison to handle all types correctly
+	if hasWatchers && !reflect.DeepEqual(oldValue, result) {
+		c.notifyWatchers(result, oldValue)
+	}
+
 	return result
 }
 
 // Invalidate marks this computed value as dirty, requiring recomputation on next Get().
 // It also recursively invalidates all dependents (other computed values that depend on this one).
 // Implements the Dependency interface.
+//
+// Task 6.2: If this computed value has watchers, it triggers immediate recomputation
+// to notify watchers of the value change. This ensures watchers are notified even if
+// no one explicitly calls Get() after invalidation.
 func (c *Computed[T]) Invalidate() {
 	c.mu.Lock()
 	c.dirty = true
+	hasWatchers := len(c.watchers) > 0
 	deps := make([]Dependency, len(c.dependents))
 	copy(deps, c.dependents)
 	c.mu.Unlock()
@@ -149,6 +185,12 @@ func (c *Computed[T]) Invalidate() {
 	// Invalidate all dependents outside the lock
 	for _, dep := range deps {
 		dep.Invalidate()
+	}
+
+	// Task 6.2: If we have watchers, trigger recomputation to notify them
+	// This ensures watchers are called even if no one explicitly calls Get()
+	if hasWatchers {
+		c.Get()
 	}
 }
 
@@ -167,4 +209,130 @@ func (c *Computed[T]) AddDependent(dep Dependency) {
 	}
 
 	c.dependents = append(c.dependents, dep)
+}
+
+// ============================================================================
+// Task 6.2: Watchable Interface Implementation
+// ============================================================================
+
+// addWatcher registers a new watcher to be notified of computed value changes.
+// This is an internal method used by the public Watch function.
+// Implements the Watchable interface.
+//
+// Task 6.2: When the first watcher is added, the computed value is evaluated
+// to establish dependency relationships. This ensures that when dependencies
+// change, the computed will be notified and can trigger its watchers.
+func (c *Computed[T]) addWatcher(w *watcher[T]) {
+	c.mu.Lock()
+	isFirstWatcher := len(c.watchers) == 0
+	needsInitialEval := c.dirty // Check if never evaluated
+
+	// Preallocate watchers slice with small initial capacity on first watcher
+	if c.watchers == nil {
+		c.watchers = make([]*watcher[T], 0, 4) // Most computed have 1-4 watchers
+	}
+
+	c.watchers = append(c.watchers, w)
+	c.mu.Unlock()
+
+	// Task 6.2: Evaluate computed value on first watcher to establish dependencies
+	// This ensures the computed registers itself with its dependencies (Refs/Computed)
+	// so that when they change, this computed will be invalidated and can notify watchers
+	// Only evaluate if this is the first watcher AND the computed has never been evaluated
+	if isFirstWatcher && needsInitialEval {
+		// Temporarily remove watchers to prevent notification during initial evaluation
+		c.mu.Lock()
+		savedWatchers := c.watchers
+		c.watchers = nil
+		c.mu.Unlock()
+
+		// Evaluate to establish dependencies
+		c.Get()
+
+		// Restore watchers
+		c.mu.Lock()
+		c.watchers = savedWatchers
+		c.mu.Unlock()
+	}
+}
+
+// removeWatcher unregisters a watcher so it no longer receives notifications.
+// This is an internal method used by the cleanup function returned by Watch.
+// Removing a non-existent watcher is safe and does nothing.
+// Implements the Watchable interface.
+func (c *Computed[T]) removeWatcher(w *watcher[T]) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Find and remove the watcher using pointer comparison
+	for i, watcher := range c.watchers {
+		if watcher == w {
+			// Remove by replacing with last element and truncating
+			c.watchers[i] = c.watchers[len(c.watchers)-1]
+			c.watchers = c.watchers[:len(c.watchers)-1]
+			return
+		}
+	}
+}
+
+// notifyWatchers calls all watcher callbacks with the new and old values.
+// This method is called when the computed value changes after recomputation.
+// It handles deep watching and flush modes just like Ref watchers.
+func (c *Computed[T]) notifyWatchers(newVal, oldVal T) {
+	c.mu.RLock()
+	// Copy watchers slice while holding the read lock
+	var watchersCopy []*watcher[T]
+	if len(c.watchers) > 0 {
+		watchersCopy = make([]*watcher[T], len(c.watchers))
+		copy(watchersCopy, c.watchers)
+	}
+	c.mu.RUnlock()
+
+	// Notify watchers outside the lock (only if there are watchers)
+	if len(watchersCopy) == 0 {
+		return
+	}
+
+	for _, w := range watchersCopy {
+		shouldNotify := true
+
+		// If deep watching is enabled, check if value actually changed
+		if w.options.Deep {
+			// Get custom comparator if provided
+			var compareFn DeepCompareFunc[T]
+			if w.options.DeepCompare != nil {
+				if fn, ok := w.options.DeepCompare.(DeepCompareFunc[T]); ok {
+					compareFn = fn
+				}
+			}
+
+			// Compare with previous value if available
+			if w.prevValue != nil {
+				// Use deep comparison to check if value changed
+				shouldNotify = hasChanged(*w.prevValue, newVal, compareFn)
+			}
+
+			// Update previous value for next comparison
+			prevCopy := newVal
+			w.prevValue = &prevCopy
+		}
+
+		// Only trigger callback if value changed (or not deep watching)
+		if shouldNotify {
+			// Check flush mode
+			if w.options.Flush == "post" {
+				// Queue callback for later execution
+				// Capture values in closure to avoid race conditions
+				watcher := w
+				newValue := newVal
+				oldValue := oldVal
+				globalScheduler.enqueue(watcher, func() {
+					watcher.callback(newValue, oldValue)
+				})
+			} else {
+				// Execute immediately (sync mode)
+				w.callback(newVal, oldVal)
+			}
+		}
+	}
 }

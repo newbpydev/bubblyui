@@ -1334,3 +1334,246 @@ func BenchmarkWatch_PostFlushBatching(b *testing.B) {
 		FlushWatchers()
 	}
 }
+
+// ============================================================================
+// Task 6.2: Watch Computed Values Tests
+// ============================================================================
+
+// TestWatch_ComputedValue tests watching computed values directly
+func TestWatch_ComputedValue(t *testing.T) {
+	t.Run("watch computed value changes", func(t *testing.T) {
+		count := NewRef(5)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+
+		var called bool
+		var newVal, oldVal int
+
+		cleanup := Watch(doubled, func(n, o int) {
+			called = true
+			newVal = n
+			oldVal = o
+		})
+		defer cleanup()
+
+		// Change underlying ref
+		count.Set(10)
+
+		assert.True(t, called, "Callback should be called when computed value changes")
+		assert.Equal(t, 20, newVal, "New computed value should be 20")
+		assert.Equal(t, 10, oldVal, "Old computed value should be 10")
+	})
+
+	t.Run("watch chained computed values", func(t *testing.T) {
+		count := NewRef(2)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+		quadrupled := NewComputed(func() int {
+			return doubled.Get() * 2
+		})
+
+		var callCount int
+		var values []int
+
+		cleanup := Watch(quadrupled, func(n, o int) {
+			callCount++
+			values = append(values, n)
+		})
+		defer cleanup()
+
+		count.Set(3) // quadrupled: 2*2*2=8 -> 3*2*2=12
+		count.Set(5) // quadrupled: 12 -> 5*2*2=20
+
+		assert.Equal(t, 2, callCount, "Callback should be called twice")
+		assert.Equal(t, []int{12, 20}, values, "Should track chained computed changes")
+	})
+
+	t.Run("multiple watchers on same computed", func(t *testing.T) {
+		count := NewRef(1)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+
+		var called1, called2 bool
+		var val1, val2 int
+
+		cleanup1 := Watch(doubled, func(n, o int) {
+			called1 = true
+			val1 = n
+		})
+		defer cleanup1()
+
+		cleanup2 := Watch(doubled, func(n, o int) {
+			called2 = true
+			val2 = n
+		})
+		defer cleanup2()
+
+		count.Set(5)
+
+		assert.True(t, called1, "First watcher should be called")
+		assert.True(t, called2, "Second watcher should be called")
+		assert.Equal(t, 10, val1, "First watcher should see new value")
+		assert.Equal(t, 10, val2, "Second watcher should see new value")
+	})
+
+	t.Run("computed with immediate execution", func(t *testing.T) {
+		count := NewRef(7)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+
+		var called bool
+		var immediateVal int
+
+		cleanup := Watch(doubled, func(n, o int) {
+			if !called {
+				immediateVal = n
+			}
+			called = true
+		}, WithImmediate())
+		defer cleanup()
+
+		assert.True(t, called, "Callback should be called immediately")
+		assert.Equal(t, 14, immediateVal, "Should receive current computed value")
+	})
+
+	t.Run("computed with deep watching", func(t *testing.T) {
+		type Data struct {
+			Value int
+		}
+
+		ref := NewRef(Data{Value: 5})
+		computed := NewComputed(func() Data {
+			return ref.Get()
+		})
+
+		var callCount int
+
+		cleanup := Watch(computed, func(n, o Data) {
+			callCount++
+		}, WithDeep())
+		defer cleanup()
+
+		// Set same value - should not trigger with deep watching
+		ref.Set(Data{Value: 5})
+		assert.Equal(t, 0, callCount, "Should not trigger for equal values")
+
+		// Set different value - should trigger
+		ref.Set(Data{Value: 10})
+		assert.Equal(t, 1, callCount, "Should trigger for different values")
+	})
+
+	t.Run("computed with flush modes", func(t *testing.T) {
+		count := NewRef(0)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+
+		var syncCalls, postCalls int
+
+		cleanupSync := Watch(doubled, func(n, o int) {
+			syncCalls++
+		}, WithFlush("sync"))
+		defer cleanupSync()
+
+		cleanupPost := Watch(doubled, func(n, o int) {
+			postCalls++
+		}, WithFlush("post"))
+		defer cleanupPost()
+
+		count.Set(1)
+		count.Set(2)
+		count.Set(3)
+
+		assert.Equal(t, 3, syncCalls, "Sync watcher should execute immediately")
+		assert.Equal(t, 0, postCalls, "Post watcher should be queued")
+
+		FlushWatchers()
+		assert.Equal(t, 1, postCalls, "Post watcher should execute once after flush")
+	})
+
+	t.Run("cleanup stops watching computed", func(t *testing.T) {
+		count := NewRef(1)
+		doubled := NewComputed(func() int {
+			return count.Get() * 2
+		})
+
+		var callCount int
+
+		cleanup := Watch(doubled, func(n, o int) {
+			callCount++
+		})
+
+		count.Set(2)
+		assert.Equal(t, 1, callCount, "Should be called before cleanup")
+
+		cleanup()
+
+		count.Set(3)
+		assert.Equal(t, 1, callCount, "Should not be called after cleanup")
+	})
+}
+
+// TestWatch_ComputedConcurrency tests thread safety of watching computed values
+func TestWatch_ComputedConcurrency(t *testing.T) {
+	count := NewRef(0)
+	doubled := NewComputed(func() int {
+		return count.Get() * 2
+	})
+
+	var callCount atomic.Int32
+	var wg sync.WaitGroup
+
+	// Multiple watchers
+	for i := 0; i < 10; i++ {
+		cleanup := Watch(doubled, func(n, o int) {
+			callCount.Add(1)
+		})
+		defer cleanup()
+	}
+
+	// Concurrent updates with distinct values
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func(val int) {
+			defer wg.Done()
+			// Use unique values to ensure each update produces a different computed result
+			count.Set(val * 100)
+		}(i)
+	}
+	wg.Wait()
+
+	// With concurrent updates, some notifications might be skipped if values don't change
+	// or if updates happen while computed is being evaluated. We just verify that:
+	// 1. At least some notifications happened (> 0)
+	// 2. No more than expected (10 updates × 10 watchers = 100)
+	calls := callCount.Load()
+	assert.Greater(t, calls, int32(0), "Should have at least some notifications")
+	assert.LessOrEqual(t, calls, int32(100), "Should not exceed maximum possible notifications")
+}
+
+// TestWatch_ComputedNoChange tests that computed watchers don't trigger on no-op changes
+func TestWatch_ComputedNoChange(t *testing.T) {
+	count := NewRef(5)
+	doubled := NewComputed(func() int {
+		return count.Get() * 2
+	})
+
+	var callCount int
+
+	cleanup := Watch(doubled, func(n, o int) {
+		callCount++
+	})
+	defer cleanup()
+
+	// Set to same value - computed result doesn't change
+	count.Set(5)
+	assert.Equal(t, 0, callCount, "Should not trigger when computed value doesn't change")
+
+	// Set to different value - computed result changes
+	count.Set(10)
+	assert.Equal(t, 1, callCount, "Should trigger when computed value changes")
+}

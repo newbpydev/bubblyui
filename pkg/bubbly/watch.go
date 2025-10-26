@@ -1,5 +1,29 @@
 package bubbly
 
+// Watchable is an interface for reactive values that can be watched.
+// Both Ref[T] and Computed[T] implement this interface, allowing Watch()
+// to accept either type.
+//
+// This design follows Vue 3's approach where computed values are just
+// special refs that can be watched directly.
+//
+// Example:
+//
+//	count := NewRef(5)
+//	doubled := NewComputed(func() int { return count.Get() * 2 })
+//
+//	// Both work with Watch()
+//	Watch(count, callback)    // Watch a Ref
+//	Watch(doubled, callback)  // Watch a Computed
+type Watchable[T any] interface {
+	// Get returns the current value
+	Get() T
+	// addWatcher registers a watcher (internal method)
+	addWatcher(w *watcher[T])
+	// removeWatcher unregisters a watcher (internal method)
+	removeWatcher(w *watcher[T])
+}
+
 // WatchCallback is a function that is called when a watched value changes.
 // It receives both the new value and the old value as parameters.
 //
@@ -55,19 +79,20 @@ type WatchOptions struct {
 // Options are applied using the functional options pattern.
 type WatchOption func(*WatchOptions)
 
-// Watch creates a watcher that executes the callback whenever the source Ref's value changes.
+// Watch creates a watcher that executes the callback whenever the source value changes.
+// It accepts any Watchable[T] source, including Ref[T] and Computed[T].
 // It returns a cleanup function that should be called to stop watching and prevent memory leaks.
 //
 // The callback receives both the new value and the old value, allowing you to react to changes
 // and compare states. The callback is executed synchronously after the value is set.
 //
-// Multiple watchers can be registered on the same Ref, and they will all be notified
+// Multiple watchers can be registered on the same source, and they will all be notified
 // independently when the value changes.
 //
-// Type parameter T must match the type of the Ref being watched, ensuring compile-time
+// Type parameter T must match the type of the source being watched, ensuring compile-time
 // type safety for the callback parameters.
 //
-// Example:
+// Example with Ref:
 //
 //	count := NewRef(0)
 //	cleanup := Watch(count, func(newVal, oldVal int) {
@@ -78,14 +103,25 @@ type WatchOption func(*WatchOptions)
 //	count.Set(5)   // Prints: Count changed: 0 → 5
 //	count.Set(10)  // Prints: Count changed: 5 → 10
 //
+// Example with Computed:
+//
+//	count := NewRef(5)
+//	doubled := NewComputed(func() int { return count.Get() * 2 })
+//	cleanup := Watch(doubled, func(newVal, oldVal int) {
+//	    fmt.Printf("Doubled changed: %d → %d\n", oldVal, newVal)
+//	})
+//	defer cleanup()
+//
+//	count.Set(10)  // Prints: Doubled changed: 10 → 20
+//
 // Options:
 //
-//	Watch(ref, callback, WithImmediate())  // Execute callback immediately
-//	Watch(ref, callback, WithDeep())       // Watch nested changes (placeholder)
-//	Watch(ref, callback, WithFlush("post")) // Defer callback execution
-//	Watch(ref, callback, WithImmediate(), WithFlush("sync")) // Combine options
+//	Watch(source, callback, WithImmediate())  // Execute callback immediately
+//	Watch(source, callback, WithDeep())       // Watch nested changes
+//	Watch(source, callback, WithFlush("post")) // Defer callback execution
+//	Watch(source, callback, WithImmediate(), WithFlush("sync")) // Combine options
 func Watch[T any](
-	source *Ref[T],
+	source Watchable[T],
 	callback WatchCallback[T],
 	options ...WatchOption,
 ) WatchCleanup {
