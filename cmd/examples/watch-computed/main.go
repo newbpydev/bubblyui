@@ -108,6 +108,11 @@ var (
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).
 			MarginTop(1)
+
+	helpTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("170")).
+			Bold(true).
+			MarginTop(1)
 )
 
 func initialModel() model {
@@ -333,21 +338,28 @@ func (m model) View() string {
 	}
 	b.WriteString("\n")
 
-	// Help
-	help := fmt.Sprintf("%s • %s • %s • %s • %s",
-		keys.Up.Help().Desc,
-		keys.Add.Help().Desc,
-		keys.Remove.Help().Desc,
-		keys.Discount.Help().Desc,
-		keys.Quit.Help().Desc,
-	)
-	b.WriteString(helpStyle.Render(help))
+	// Help section with clear keyboard shortcuts
+	b.WriteString(helpTitleStyle.Render("Keyboard Shortcuts:"))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(fmt.Sprintf("  ↑/↓ or k/j: %s", "navigate items")))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(fmt.Sprintf("  + or =: %s", "add quantity to selected item")))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(fmt.Sprintf("  - or _: %s", "remove quantity from selected item")))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(fmt.Sprintf("  d: %s", "toggle 10%% discount")))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(fmt.Sprintf("  q or ctrl+c: %s", "quit")))
 
 	return b.String()
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(
+		initialModel(),
+		tea.WithAltScreen(),       // Use alternate screen buffer
+		tea.WithMouseCellMotion(), // Enable mouse support
+	)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)

@@ -103,6 +103,76 @@ go run ./cmd/examples/async-data/main.go
 
 ---
 
+### 5. Watch Computed Values (`watch-computed/`)
+
+**Demonstrates:** Task 6.2 - Watching `Computed[T]` values directly
+
+A shopping cart application that watches computed values for automatic updates.
+
+**Features:**
+- Watch computed values (subtotal, total, discount, loyalty points)
+- Chained computed values
+- Real-time watcher activity logs
+- Full-screen terminal UI with altscreen
+- Clear keyboard shortcuts
+
+**Run:**
+```bash
+go run ./cmd/examples/watch-computed/main.go
+```
+
+**Keyboard Shortcuts:**
+- `↑/↓` or `k/j`: Navigate items
+- `+` or `=`: Add quantity to selected item
+- `-` or `_`: Remove quantity from selected item
+- `d`: Toggle 10% discount
+- `q` or `ctrl+c`: Quit
+
+**Key Concepts:**
+- Watching computed values with `Watch(computed, callback)`
+- Automatic dependency tracking in computed values
+- Chained computed values (discount → total)
+- Vue 3-style computed watching
+
+---
+
+### 6. WatchEffect (`watch-effect/`)
+
+**Demonstrates:** Task 6.3 - Automatic dependency tracking with `WatchEffect()`
+
+A real-time analytics dashboard that automatically tracks dependencies.
+
+**Features:**
+- Automatic dependency discovery (no manual specification)
+- 5 watch effects tracking different metrics
+- Conditional dependency tracking
+- Real-time activity logging
+- Full-screen terminal UI with altscreen
+- Auto-generate mode for demo
+
+**Run:**
+```bash
+go run ./cmd/examples/watch-effect/main.go
+```
+
+**Keyboard Shortcuts:**
+- `v`: Add visitor
+- `p`: Add pageview
+- `r`: Add revenue
+- `e`: Add error
+- `t`: Toggle details (demonstrates conditional dependencies)
+- `a`: Auto-generate activity
+- `q` or `ctrl+c`: Quit
+
+**Key Concepts:**
+- Automatic dependency tracking with `WatchEffect()`
+- No need to specify dependencies manually
+- Dynamic dependency tracking (conditional access)
+- Vue 3-style watchEffect behavior
+- Computed value watching
+
+---
+
 ## Building All Examples
 
 ```bash
@@ -111,6 +181,8 @@ go build -o bin/reactive-counter ./cmd/examples/reactive-counter/
 go build -o bin/reactive-todo ./cmd/examples/reactive-todo/
 go build -o bin/form-validation ./cmd/examples/form-validation/
 go build -o bin/async-data ./cmd/examples/async-data/
+go build -o bin/watch-computed ./cmd/examples/watch-computed/
+go build -o bin/watch-effect ./cmd/examples/watch-effect/
 ```
 
 ## Common Patterns

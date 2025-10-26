@@ -37,6 +37,14 @@ type model struct {
 
 	// Cleanup functions
 	cleanups []bubbly.WatchCleanup
+
+	// Channel for watch effect updates
+	updateChan chan string
+}
+
+// watchEffectMsg carries a log message from a watch effect
+type watchEffectMsg struct {
+	log string
 }
 
 // keyMap defines keyboard shortcuts
@@ -113,6 +121,11 @@ var (
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).
 			MarginTop(1)
+
+	helpTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("170")).
+			Bold(true).
+			MarginTop(1)
 )
 
 func initialModel() model {
@@ -169,6 +182,7 @@ func initialModel() model {
 		errorRate:      errorRate,
 		healthStatus:   healthStatus,
 		logs:           make([]string, 0, 20),
+		updateChan:     make(chan string, 100), // Buffered channel for watch effect updates
 	}
 
 	// Task 6.3: Use WatchEffect for automatic dependency tracking!
@@ -176,6 +190,13 @@ func initialModel() model {
 	m.setupWatchEffects()
 
 	return m
+}
+
+// waitForWatchEffect listens for watch effect updates
+func waitForWatchEffect(updateChan chan string) tea.Cmd {
+	return func() tea.Msg {
+		return watchEffectMsg{log: <-updateChan}
+	}
 }
 
 func (m *model) setupWatchEffects() {
@@ -239,15 +260,18 @@ func (m *model) setupWatchEffects() {
 }
 
 func (m *model) addLog(msg string) {
-	m.logs = append(m.logs, msg)
-	// Keep only last 15 logs
-	if len(m.logs) > 15 {
-		m.logs = m.logs[len(m.logs)-15:]
+	// Send log to channel for Bubbletea to handle
+	// Non-blocking send to avoid deadlocks
+	select {
+	case m.updateChan <- msg:
+	default:
+		// Channel full, skip this log
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	// Start listening for watch effect updates
+	return waitForWatchEffect(m.updateChan)
 }
 
 type autoGenMsg struct{}
@@ -259,6 +283,15 @@ func autoGenerate() tea.Msg {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case watchEffectMsg:
+		// Watch effect triggered - add log and continue listening
+		m.logs = append(m.logs, msg.log)
+		// Keep only last 15 logs
+		if len(m.logs) > 15 {
+			m.logs = m.logs[len(m.logs)-15:]
+		}
+		return m, waitForWatchEffect(m.updateChan)
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Quit):
@@ -267,6 +300,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, cleanup := range m.cleanups {
 				cleanup()
 			}
+			// Close channel
+			close(m.updateChan)
 			return m, tea.Quit
 
 		case key.Matches(msg, keys.Visitor):
@@ -374,24 +409,23 @@ func (m model) View() string {
 	}
 	b.WriteString("\n")
 
-	// Help
-	help := fmt.Sprintf("%s • %s • %s • %s • %s • %s • %s",
-		keys.Visitor.Help().Desc,
-		keys.PageView.Help().Desc,
-		keys.Revenue.Help().Desc,
-		keys.Error.Help().Desc,
-		keys.Toggle.Help().Desc,
-		keys.Auto.Help().Desc,
-		keys.Quit.Help().Desc,
-	)
-	b.WriteString(helpStyle.Render(help))
+	// Help section with clear keyboard shortcuts
+	b.WriteString(helpTitleStyle.Render("Keyboard Shortcuts:"))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("  v: add visitor  •  p: add pageview  •  r: add revenue  •  e: add error"))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("  t: toggle details  •  a: auto-generate activity  •  q: quit"))
 
 	return b.String()
 }
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(
+		initialModel(),
+		tea.WithAltScreen(),       // Use alternate screen buffer
+		tea.WithMouseCellMotion(), // Enable mouse support
+	)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
