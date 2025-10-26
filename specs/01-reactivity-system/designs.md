@@ -712,10 +712,122 @@ func (m model) Setup(ctx *Context) {
 
 ---
 
+## Known Limitations & Solutions
+
+### 1. Global Tracker Contention (HIGH PRIORITY)
+
+**Current Design:**
+```go
+// Single global tracker for ALL goroutines
+var globalTracker = &DepTracker{
+    mu sync.Mutex  // ALL goroutines contend for this lock
+}
+```
+
+**Problem:**
+- Single mutex causes severe contention with 100+ concurrent goroutines
+- Deadlocks when many goroutines access computed values simultaneously
+- Race detector timeouts in high-concurrency scenarios
+
+**Solution Design:**
+```go
+// Per-goroutine tracker using sync.Map
+type DepTracker struct {
+    trackers sync.Map // map[goroutineID]*trackingState
+}
+
+type trackingState struct {
+    mu    sync.Mutex
+    stack []*trackingContext
+}
+
+func (dt *DepTracker) BeginTracking(dep Dependency) error {
+    gid := getGoroutineID()  // Get current goroutine ID
+    state := dt.getOrCreateState(gid)
+    state.mu.Lock()  // Only locks THIS goroutine's state
+    defer state.mu.Unlock()
+    // ... tracking logic
+}
+```
+
+**Benefits:**
+- Zero contention between goroutines
+- Scales to 1000+ concurrent goroutines
+- No deadlocks
+- Better performance
+
+**Implementation Priority:** HIGH (before production use with high concurrency)
+
+---
+
+### 2. Watch Computed Values (MEDIUM PRIORITY)
+
+**Current Design:**
+```go
+// Watch only accepts Ref[T]
+func Watch[T any](
+    source *Ref[T],  // ❌ Cannot pass *Computed[T]
+    callback WatchCallback[T],
+    options ...WatchOption,
+) WatchCleanup
+```
+
+**Problem:**
+- Cannot watch computed values directly (Vue 3 supports this)
+- Requires awkward workarounds (watch underlying refs)
+
+**Solution Design:**
+```go
+// Create Watchable interface
+type Watchable[T any] interface {
+    Get() T
+    addWatcher(w *watcher[T])
+    removeWatcher(w *watcher[T])
+}
+
+// Update Watch signature
+func Watch[T any](
+    source Watchable[T],  // ✅ Accepts Ref OR Computed
+    callback WatchCallback[T],
+    options ...WatchOption,
+) WatchCleanup
+
+// Computed implements Watchable
+func (c *Computed[T]) addWatcher(w *watcher[T]) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    if c.watchers == nil {
+        c.watchers = make([]*watcher[T], 0, 4)
+    }
+    c.watchers = append(c.watchers, w)
+}
+
+func (c *Computed[T]) Get() T {
+    // ... existing logic ...
+    
+    // After recomputation, notify watchers if value changed
+    if c.dirty && !reflect.DeepEqual(oldValue, newValue) {
+        c.notifyWatchers(newValue, oldValue)
+    }
+    
+    return c.cache
+}
+```
+
+**Use Cases:**
+- Form validation (watch overall form validity)
+- Derived state monitoring (watch computed totals)
+- Business logic triggers (watch complex computed state)
+
+**Implementation Priority:** MEDIUM (nice to have, workarounds exist)
+
+---
+
 ## Future Enhancements
 
 1. **Reactive Collections:** `RefArray[T]`, `RefMap[K,V]`
 2. **Shallow Refs:** `ShallowRef[T]` for large objects
 3. **Readonly Refs:** `Readonly[T]` for immutable exposure
+4. **WatchEffect:** Automatic dependency tracking for watchers (LOW priority)
 4. **Effect Scheduling:** Control when effects run (sync, async, debounced)
 5. **Dev Tools:** Visualize reactive graph

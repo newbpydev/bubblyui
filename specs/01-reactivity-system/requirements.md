@@ -37,12 +37,15 @@ Implement a type-safe reactive state management system inspired by Vue 3's Compo
 3.5. Support immediate execution (run callback on creation) ✅  
 3.6. Return cleanup function to stop watching ✅  
 3.7. Support flush modes (sync/post) for callback timing ✅ (Task 3.4 - complete)  
+3.8. **Support watching Computed values** (Vue 3 compatibility)  
+3.9. **Support WatchEffect** for automatic dependency tracking (future)  
 
 ### 4. Dependency Tracking
 4.1. Track which Refs are accessed during computed function execution  
 4.2. Invalidate computed cache when any dependency changes  
 4.3. Handle circular dependency detection  
 4.4. Support manual dependency specification (if needed)  
+4.5. **Per-goroutine tracking** for high-concurrency scenarios (100+ goroutines)  
 
 ## Non-Functional Requirements
 

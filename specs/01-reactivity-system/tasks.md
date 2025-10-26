@@ -1000,6 +1000,112 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	0.118s
 
 ---
 
+## Phase 6: Future Enhancements
+
+### Task 6.1: Per-Goroutine Tracker
+**Description:** Fix global tracker contention for high-concurrency scenarios
+
+**Prerequisites:** Phase 5 complete
+
+**Unlocks:** Production-ready for 100+ concurrent goroutines
+
+**Files:**
+- `pkg/bubbly/tracker.go` - Refactor to per-goroutine tracking
+- `pkg/bubbly/tracker_test.go` - Add concurrency tests
+- `tests/integration/reactivity_test.go` - Increase concurrency back to 100
+
+**Implementation:**
+- Replace global mutex with `sync.Map` for per-goroutine state
+- Add `getGoroutineID()` helper
+- Update `BeginTracking()`, `EndTracking()`, `Track()` methods
+- Zero contention between goroutines
+
+**Tests:**
+- [ ] 100+ concurrent goroutines accessing computed values
+- [ ] No deadlocks under high load
+- [ ] Race detector passes
+- [ ] Performance benchmarks show improvement
+
+**Estimated effort:** 4-6 hours
+**Priority:** HIGH (before production use with high concurrency)
+
+---
+
+### Task 6.2: Watch Computed Values
+**Description:** Enable watching computed values directly (Vue 3 compatibility)
+
+**Prerequisites:** Phase 4 complete
+
+**Unlocks:** Cleaner reactive patterns (form validation, derived state)
+
+**Files:**
+- `pkg/bubbly/watch.go` - Update Watch signature with Watchable interface
+- `pkg/bubbly/computed.go` - Implement Watchable interface
+- `pkg/bubbly/ref.go` - Ensure implements Watchable
+- `pkg/bubbly/watch_test.go` - Add tests for watching computed
+- `pkg/bubbly/example_test.go` - Add examples
+
+**Type Safety:**
+```go
+type Watchable[T any] interface {
+    Get() T
+    addWatcher(w *watcher[T])
+    removeWatcher(w *watcher[T])
+}
+
+func Watch[T any](
+    source Watchable[T],
+    callback WatchCallback[T],
+    options ...WatchOption,
+) WatchCleanup
+```
+
+**Tests:**
+- [ ] Watch computed value changes
+- [ ] Watch chained computed values
+- [ ] Multiple watchers on same computed
+- [ ] Computed with deep watching
+- [ ] Computed with flush modes
+- [ ] Computed with immediate execution
+
+**Estimated effort:** 3-4 hours
+**Priority:** MEDIUM (nice to have, workarounds exist)
+**Breaking Change:** No (extends existing API)
+
+---
+
+### Task 6.3: WatchEffect
+**Description:** Automatic dependency tracking for watchers
+
+**Prerequisites:** Task 6.2 complete
+
+**Unlocks:** Vue 3-style automatic reactivity
+
+**Files:**
+- `pkg/bubbly/watch_effect.go` - New file
+- `pkg/bubbly/watch_effect_test.go` - Tests
+
+**Implementation:**
+```go
+func WatchEffect(effect func()) WatchCleanup {
+    // 1. Run effect once to discover dependencies
+    // 2. Track all Ref.Get() and Computed.Get() calls
+    // 3. Watch all discovered dependencies
+    // 4. Re-run effect when any dependency changes
+}
+```
+
+**Tests:**
+- [ ] Automatic dependency discovery
+- [ ] Re-runs on any dependency change
+- [ ] Cleanup stops all watchers
+- [ ] Works with computed values
+
+**Estimated effort:** 6-8 hours
+**Priority:** LOW (nice to have, not critical)
+
+---
+
 ## Task Dependency Graph
 
 ```
@@ -1022,7 +1128,13 @@ Task 2.3: Cache Invalidation
 Task 3.1: Watch Function
     ↓
 Task 3.2: Watch Options
-    ↓
+    ├─────────────┬──────────┐
+    ↓             ↓          ↓
+Task 3.3:     Task 3.4:     (continues to Phase 4)
+Deep Watch    Async Flush
+    ↓             ↓
+    └─────────────┴──────────┘
+                  ↓
 Task 4.1: Error Handling
     ↓
 Task 4.2: Performance Optimization
@@ -1034,9 +1146,18 @@ Task 5.1: Integration Tests
 Task 5.2: Benchmarking
     ↓
 Task 5.3: Example Apps
-    ↓
-Unlocks: 02-component-model
+    ├─────────────────────┐
+    ↓                     ↓
+Ready for use      Phase 6: Future Enhancements
+    ↓                     ↓
+02-component-model   Task 6.1: Per-Goroutine Tracker
+                          ↓
+                     Task 6.2: Watch Computed Values
+                          ↓
+                     Task 6.3: WatchEffect
 ```
+
+**Note:** Phase 6 tasks can be implemented in parallel with other features or deferred based on priority.
 
 ---
 

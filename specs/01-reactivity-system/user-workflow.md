@@ -428,6 +428,94 @@ Watch(searchTerm, func(newTerm, oldTerm string) {
 
 ---
 
+## Future Workflows (Phase 6 Enhancements)
+
+### Scenario E: Watch Computed Values (Task 6.2 - Planned)
+
+**Status:** Not yet implemented. See `designs.md` for solution design.
+
+**Planned Workflow:**
+1. Developer creates base Refs
+   ```go
+   email := NewRef("")
+   password := NewRef("")
+   ```
+2. Developer creates computed for form validity
+   ```go
+   formValid := NewComputed(func() bool {
+       return len(email.Get()) > 0 && len(password.Get()) >= 8
+   })
+   ```
+3. Developer watches computed value directly
+   ```go
+   Watch(formValid, func(valid, wasValid bool) {
+       if valid {
+           enableSubmitButton()
+       }
+   })
+   ```
+4. System response: Watcher triggers when computed value changes
+5. Developer sees: Cleaner code, no workarounds needed
+
+**Current Workaround:**
+```go
+// Must watch underlying refs instead
+Watch(password, func(n, o string) {
+    if formValid.Get() {
+        enableSubmitButton()
+    }
+})
+```
+
+**Use Cases:**
+- Form validation (watch overall validity)
+- Derived state monitoring (watch computed totals)
+- Business logic triggers (watch complex computed state)
+
+---
+
+### Scenario F: WatchEffect (Task 6.3 - Planned)
+
+**Status:** Not yet implemented. Low priority future enhancement.
+
+**Planned Workflow:**
+1. Developer creates multiple Refs
+   ```go
+   firstName := NewRef("John")
+   lastName := NewRef("Doe")
+   age := NewRef(30)
+   ```
+2. Developer uses WatchEffect for automatic tracking
+   ```go
+   cleanup := WatchEffect(func() {
+       fmt.Printf("%s %s is %d years old\n",
+           firstName.Get(), lastName.Get(), age.Get())
+   })
+   defer cleanup()
+   ```
+3. System response: Automatically tracks all accessed Refs
+4. Developer updates any Ref
+   ```go
+   firstName.Set("Jane")  // Effect re-runs automatically
+   ```
+5. System response: Effect re-executes, prints new values
+6. Developer sees: No manual Watch() calls needed
+
+**Benefits:**
+- Automatic dependency discovery
+- Less boilerplate code
+- Vue 3-style reactivity
+
+**Current Workaround:**
+```go
+// Must manually watch each ref
+Watch(firstName, func(n, o string) { /* ... */ })
+Watch(lastName, func(n, o string) { /* ... */ })
+Watch(age, func(n, o int) { /* ... */ })
+```
+
+---
+
 ## Documentation for Users
 
 ### Quick Start Guide
