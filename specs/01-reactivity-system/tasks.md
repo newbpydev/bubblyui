@@ -57,7 +57,7 @@ func (r *Ref[T]) Set(value T)
 
 ---
 
-### Task 1.2: Ref[T] - Watcher Support
+### Task 1.2: Ref[T] - Watcher Support ✅ COMPLETE
 **Description:** Add watcher registration and notification to Ref
 
 **Prerequisites:** Task 1.1 (basic Ref)
@@ -65,8 +65,8 @@ func (r *Ref[T]) Set(value T)
 **Unlocks:** Task 3.1 (Watch function)
 
 **Files:**
-- `pkg/bubbly/ref.go` (extend)
-- `pkg/bubbly/ref_test.go` (extend)
+- `pkg/bubbly/ref.go` (extend) ✅
+- `pkg/bubbly/ref_test.go` (extend) ✅
 
 **Type Safety:**
 ```go
@@ -81,13 +81,26 @@ func (r *Ref[T]) notifyWatchers(newVal, oldVal T)
 ```
 
 **Tests:**
-- [ ] Watchers receive notifications
-- [ ] Multiple watchers work independently
-- [ ] Watcher removal works
-- [ ] Notification order is consistent
-- [ ] No memory leaks
+- [x] Watchers receive notifications
+- [x] Multiple watchers work independently
+- [x] Watcher removal works
+- [x] Notification order is consistent
+- [x] No memory leaks
+
+**Implementation Notes:**
+- Completed with TDD approach (RED-GREEN-REFACTOR)
+- 100% test coverage maintained
+- All quality gates passed (test-race, lint, fmt, vet, build)
+- Thread-safe watcher management with mutex protection
+- Watchers copied before notification to prevent deadlocks
+- Notifications happen outside lock to avoid blocking
+- Safe watcher removal using pointer comparison
+- WatchOptions placeholder added for Task 3.2
+- Comprehensive tests: single/multiple watchers, removal, ordering, memory leaks
+- Internal methods (unexported) as per design - public Watch() comes in Task 3.1
 
 **Estimated effort:** 3 hours
+**Actual effort:** ~2 hours
 
 ---
 

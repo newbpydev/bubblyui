@@ -261,3 +261,245 @@ func TestRef_ComplexTypes(t *testing.T) {
 		assert.Equal(t, "LA", ref.Get().Address.City)
 	})
 }
+
+// TestRef_WatcherNotification verifies that watchers receive notifications
+func TestRef_WatcherNotification(t *testing.T) {
+	t.Run("single watcher receives notification", func(t *testing.T) {
+		ref := NewRef(10)
+
+		var receivedNew, receivedOld int
+		var callCount int
+
+		w := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				receivedNew = newVal
+				receivedOld = oldVal
+				callCount++
+			},
+		}
+
+		ref.addWatcher(w)
+		ref.Set(20)
+
+		assert.Equal(t, 1, callCount, "Callback should be called once")
+		assert.Equal(t, 10, receivedOld, "Old value should be 10")
+		assert.Equal(t, 20, receivedNew, "New value should be 20")
+	})
+
+	t.Run("watcher receives correct values on multiple updates", func(t *testing.T) {
+		ref := NewRef("initial")
+
+		var updates []struct {
+			old string
+			new string
+		}
+
+		w := &watcher[string]{
+			callback: func(newVal, oldVal string) {
+				updates = append(updates, struct {
+					old string
+					new string
+				}{old: oldVal, new: newVal})
+			},
+		}
+
+		ref.addWatcher(w)
+		ref.Set("second")
+		ref.Set("third")
+
+		assert.Len(t, updates, 2, "Should have 2 updates")
+		assert.Equal(t, "initial", updates[0].old)
+		assert.Equal(t, "second", updates[0].new)
+		assert.Equal(t, "second", updates[1].old)
+		assert.Equal(t, "third", updates[1].new)
+	})
+}
+
+// TestRef_MultipleWatchers verifies that multiple watchers work independently
+func TestRef_MultipleWatchers(t *testing.T) {
+	t.Run("multiple watchers all receive notifications", func(t *testing.T) {
+		ref := NewRef(0)
+
+		var count1, count2, count3 int
+
+		w1 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count1++
+			},
+		}
+		w2 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count2++
+			},
+		}
+		w3 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count3++
+			},
+		}
+
+		ref.addWatcher(w1)
+		ref.addWatcher(w2)
+		ref.addWatcher(w3)
+
+		ref.Set(1)
+		ref.Set(2)
+
+		assert.Equal(t, 2, count1, "Watcher 1 should be called twice")
+		assert.Equal(t, 2, count2, "Watcher 2 should be called twice")
+		assert.Equal(t, 2, count3, "Watcher 3 should be called twice")
+	})
+
+	t.Run("watchers are independent", func(t *testing.T) {
+		ref := NewRef(100)
+
+		var sum1, sum2 int
+
+		w1 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				sum1 += newVal
+			},
+		}
+		w2 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				sum2 += newVal * 2
+			},
+		}
+
+		ref.addWatcher(w1)
+		ref.addWatcher(w2)
+
+		ref.Set(10)
+		ref.Set(20)
+
+		assert.Equal(t, 30, sum1, "Watcher 1 sum should be 10+20")
+		assert.Equal(t, 60, sum2, "Watcher 2 sum should be (10*2)+(20*2)")
+	})
+}
+
+// TestRef_WatcherRemoval verifies that watcher removal works
+func TestRef_WatcherRemoval(t *testing.T) {
+	t.Run("removed watcher does not receive notifications", func(t *testing.T) {
+		ref := NewRef(0)
+
+		var count int
+		w := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count++
+			},
+		}
+
+		ref.addWatcher(w)
+		ref.Set(1)
+		assert.Equal(t, 1, count, "Should be called once before removal")
+
+		ref.removeWatcher(w)
+		ref.Set(2)
+		assert.Equal(t, 1, count, "Should not be called after removal")
+	})
+
+	t.Run("removing one watcher does not affect others", func(t *testing.T) {
+		ref := NewRef(0)
+
+		var count1, count2 int
+
+		w1 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count1++
+			},
+		}
+		w2 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				count2++
+			},
+		}
+
+		ref.addWatcher(w1)
+		ref.addWatcher(w2)
+
+		ref.Set(1)
+		assert.Equal(t, 1, count1)
+		assert.Equal(t, 1, count2)
+
+		ref.removeWatcher(w1)
+		ref.Set(2)
+
+		assert.Equal(t, 1, count1, "Removed watcher should not be called")
+		assert.Equal(t, 2, count2, "Other watcher should still be called")
+	})
+
+	t.Run("removing non-existent watcher is safe", func(t *testing.T) {
+		ref := NewRef(0)
+
+		w := &watcher[int]{
+			callback: func(newVal, oldVal int) {},
+		}
+
+		// Should not panic
+		assert.NotPanics(t, func() {
+			ref.removeWatcher(w)
+		})
+	})
+}
+
+// TestRef_WatcherNotificationOrder verifies notification order is consistent
+func TestRef_WatcherNotificationOrder(t *testing.T) {
+	t.Run("watchers notified in registration order", func(t *testing.T) {
+		ref := NewRef(0)
+
+		var order []int
+
+		w1 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				order = append(order, 1)
+			},
+		}
+		w2 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				order = append(order, 2)
+			},
+		}
+		w3 := &watcher[int]{
+			callback: func(newVal, oldVal int) {
+				order = append(order, 3)
+			},
+		}
+
+		ref.addWatcher(w1)
+		ref.addWatcher(w2)
+		ref.addWatcher(w3)
+
+		ref.Set(1)
+
+		assert.Equal(t, []int{1, 2, 3}, order, "Watchers should be notified in registration order")
+	})
+}
+
+// TestRef_WatcherMemoryLeak verifies no memory leaks with watchers
+func TestRef_WatcherMemoryLeak(t *testing.T) {
+	t.Run("watchers can be removed to prevent leaks", func(t *testing.T) {
+		ref := NewRef(0)
+
+		// Add and remove many watchers
+		watchers := make([]*watcher[int], 100)
+		for i := 0; i < 100; i++ {
+			w := &watcher[int]{
+				callback: func(newVal, oldVal int) {},
+			}
+			watchers[i] = w
+			ref.addWatcher(w)
+		}
+
+		// Remove all watchers
+		for _, w := range watchers {
+			ref.removeWatcher(w)
+		}
+
+		// Verify no watchers remain (internal check)
+		ref.mu.RLock()
+		watcherCount := len(ref.watchers)
+		ref.mu.RUnlock()
+
+		assert.Equal(t, 0, watcherCount, "All watchers should be removed")
+	})
+}
