@@ -87,16 +87,23 @@ func (r *Ref[T]) Set(value T) {
 	r.mu.Lock()
 	oldValue := r.value
 	r.value = value
+
 	// Copy watchers slice while holding the lock
-	watchersCopy := make([]*watcher[T], len(r.watchers))
-	copy(watchersCopy, r.watchers)
+	// Use exact length to avoid over-allocation
+	var watchersCopy []*watcher[T]
+	if len(r.watchers) > 0 {
+		watchersCopy = make([]*watcher[T], len(r.watchers))
+		copy(watchersCopy, r.watchers)
+	}
 	r.mu.Unlock()
 
 	// Invalidate all dependent computed values
 	r.Invalidate()
 
-	// Notify watchers outside the lock to avoid deadlocks
-	r.notifyWatchers(value, oldValue, watchersCopy)
+	// Notify watchers outside the lock (only if there are watchers)
+	if len(watchersCopy) > 0 {
+		r.notifyWatchers(value, oldValue, watchersCopy)
+	}
 }
 
 // addWatcher registers a new watcher to be notified of value changes.
@@ -104,6 +111,12 @@ func (r *Ref[T]) Set(value T) {
 func (r *Ref[T]) addWatcher(w *watcher[T]) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// Preallocate watchers slice with small initial capacity on first watcher
+	if r.watchers == nil {
+		r.watchers = make([]*watcher[T], 0, 4) // Most refs have 1-4 watchers
+	}
+
 	r.watchers = append(r.watchers, w)
 }
 
