@@ -1,0 +1,202 @@
+package bubbly
+
+import (
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// Component is the core interface for BubblyUI components.
+// It extends Bubbletea's tea.Model interface with additional methods
+// for component identification, props management, and event handling.
+//
+// Components encapsulate:
+//   - State: Reactive values (Refs, Computed) managed internally
+//   - Props: Immutable configuration passed from parent
+//   - Events: Custom events emitted to parent components
+//   - Template: Rendering logic that produces UI strings
+//   - Children: Nested child components
+//
+// Components integrate seamlessly with Bubbletea's Elm architecture:
+//   - Init(): Initialize component and run setup function
+//   - Update(msg): Handle Bubbletea messages and trigger event handlers
+//   - View(): Render component using template function
+//
+// Example:
+//
+//	type ButtonProps struct {
+//	    Label string
+//	}
+//
+//	button := NewComponent("Button").
+//	    Props(ButtonProps{Label: "Click me"}).
+//	    Template(func(ctx RenderContext) string {
+//	        props := ctx.Props().(ButtonProps)
+//	        return props.Label
+//	    }).
+//	    Build()
+type Component interface {
+	tea.Model
+
+	// Name returns the component's name (e.g., "Button", "Counter").
+	// This is primarily used for debugging and component identification.
+	Name() string
+
+	// ID returns the component's unique instance identifier.
+	// Each component instance gets a unique ID generated at creation time.
+	// This is useful for tracking components in a tree and debugging.
+	ID() string
+
+	// Props returns the component's props (configuration data).
+	// Props are immutable from the component's perspective and are
+	// passed down from parent components.
+	//
+	// The returned value should be type-asserted to the expected props type:
+	//
+	//	props := component.Props().(ButtonProps)
+	Props() interface{}
+
+	// Emit sends a custom event with associated data.
+	// Events bubble up to parent components that have registered handlers.
+	//
+	// Example:
+	//
+	//	component.Emit("submit", FormData{...})
+	Emit(event string, data interface{})
+
+	// On registers an event handler for the specified event name.
+	// Multiple handlers can be registered for the same event.
+	//
+	// Example:
+	//
+	//	component.On("click", func(data interface{}) {
+	//	    // Handle click event
+	//	})
+	On(event string, handler EventHandler)
+}
+
+// componentImpl is the internal implementation of the Component interface.
+// It is unexported to enforce the use of the ComponentBuilder for creation.
+//
+// The struct holds all component state including:
+//   - Identification (name, id)
+//   - Configuration (props, setup, template)
+//   - State (internal state map for exposed values)
+//   - Relationships (parent, children)
+//   - Event system (handlers map)
+//   - Lifecycle (mounted flag)
+//
+// Note: Some fields are currently unused as they will be implemented in later tasks:
+//   - setup: Task 1.3 (Bubbletea Model Implementation)
+//   - state: Task 3.1 (Setup Context Implementation)
+//   - parent, children: Task 5.1 (Children Management)
+//   - mounted: Task 1.3 (Bubbletea Model Implementation)
+type componentImpl struct {
+	// Identification
+	name string // Component name (e.g., "Button")
+	id   string // Unique instance ID
+
+	// Configuration
+	props interface{} // Props passed from parent
+	//nolint:unused // Will be used in Task 1.3
+	setup    SetupFunc  // Setup function (runs once on Init)
+	template RenderFunc // Template function (runs on every View)
+
+	// State
+	//nolint:unused // Will be used in Task 3.1
+	state map[string]interface{} // Exposed state (Refs, Computed, etc.)
+
+	// Relationships
+	//nolint:unused // Will be used in Task 5.1
+	parent *Component // Parent component (for event bubbling)
+	//nolint:unused // Will be used in Task 5.1
+	children []Component // Child components
+
+	// Event system
+	handlers map[string][]EventHandler // Event name -> handlers
+
+	// Lifecycle
+	//nolint:unused // Will be used in Task 1.3
+	mounted bool // Whether component has been initialized
+}
+
+// Name returns the component's name.
+func (c *componentImpl) Name() string {
+	return c.name
+}
+
+// ID returns the component's unique identifier.
+func (c *componentImpl) ID() string {
+	return c.id
+}
+
+// Props returns the component's props.
+func (c *componentImpl) Props() interface{} {
+	return c.props
+}
+
+// Emit sends an event with associated data.
+// Currently a minimal implementation that will be expanded in later tasks.
+func (c *componentImpl) Emit(event string, data interface{}) {
+	// Minimal implementation - will be expanded in Task 4.2
+	if handlers, ok := c.handlers[event]; ok {
+		for _, handler := range handlers {
+			handler(data)
+		}
+	}
+}
+
+// On registers an event handler.
+func (c *componentImpl) On(event string, handler EventHandler) {
+	if c.handlers == nil {
+		c.handlers = make(map[string][]EventHandler)
+	}
+	c.handlers[event] = append(c.handlers[event], handler)
+}
+
+// Init implements tea.Model.Init().
+// It runs the setup function if provided and initializes child components.
+func (c *componentImpl) Init() tea.Cmd {
+	// Minimal implementation - will be expanded in Task 1.3
+	return nil
+}
+
+// Update implements tea.Model.Update().
+// It handles incoming Bubbletea messages and updates component state.
+func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Minimal implementation - will be expanded in Task 1.3
+	return c, nil
+}
+
+// View implements tea.Model.View().
+// It calls the template function to generate the UI string.
+func (c *componentImpl) View() string {
+	// Minimal implementation - will be expanded in Task 1.3
+	if c.template == nil {
+		return ""
+	}
+	return ""
+}
+
+// Context provides the API available during component setup.
+// It will be fully implemented in Task 3.1.
+//
+// The component field will be used to provide access to:
+//   - Reactive primitives (Ref, Computed, Watch)
+//   - Event handling (On, Emit)
+//   - Component data (Props, Children)
+//   - State exposure (Expose, Get)
+type Context struct {
+	//nolint:unused // Will be used in Task 3.1
+	component *componentImpl
+}
+
+// RenderContext provides the API available during template rendering.
+// It will be fully implemented in Task 3.2.
+//
+// The component field will be used to provide read-only access to:
+//   - Component state (Get)
+//   - Props (Props)
+//   - Children (Children, RenderChild)
+type RenderContext struct {
+	//nolint:unused // Will be used in Task 3.2
+	component *componentImpl
+}
