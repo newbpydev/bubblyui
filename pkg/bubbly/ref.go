@@ -22,15 +22,19 @@ type watcher[T any] struct {
 // It provides thread-safe read and write operations using a read-write mutex.
 // Ref supports watchers that are notified when the value changes.
 //
+// Ref implements the Dependency interface, allowing it to participate in
+// automatic dependency tracking for computed values.
+//
 // Example usage:
 //
 //	count := bubbly.NewRef(0)
 //	value := count.Get()  // Read current value
 //	count.Set(42)         // Update value and notify watchers
 type Ref[T any] struct {
-	mu       sync.RWMutex
-	value    T
-	watchers []*watcher[T]
+	mu         sync.RWMutex
+	value      T
+	watchers   []*watcher[T]
+	dependents []Dependency
 }
 
 // NewRef creates a new reactive reference with the given initial value.
@@ -54,14 +58,19 @@ func NewRef[T any](value T) *Ref[T] {
 // This operation is thread-safe and uses a read lock, allowing multiple
 // concurrent readers.
 //
-// In future iterations, Get will also participate in dependency tracking
-// when called within computed value evaluation.
+// When called during computed value evaluation, Get automatically registers
+// this Ref as a dependency of the computed value.
 //
 // Example:
 //
 //	ref := NewRef(42)
 //	value := ref.Get()  // Returns 42
 func (r *Ref[T]) Get() T {
+	// Track this Ref as a dependency if tracking is active
+	if globalTracker.IsTracking() {
+		globalTracker.Track(r)
+	}
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.value
@@ -70,6 +79,9 @@ func (r *Ref[T]) Get() T {
 // Set updates the value of the reference and notifies all registered watchers.
 // This operation is thread-safe and uses a write lock.
 // Watchers are notified outside the lock to prevent deadlocks.
+//
+// When the value changes, all dependent computed values are invalidated,
+// causing them to recompute on their next Get() call.
 //
 // Example:
 //
@@ -83,6 +95,9 @@ func (r *Ref[T]) Set(value T) {
 	watchersCopy := make([]*watcher[T], len(r.watchers))
 	copy(watchersCopy, r.watchers)
 	r.mu.Unlock()
+
+	// Invalidate all dependent computed values
+	r.Invalidate()
 
 	// Notify watchers outside the lock to avoid deadlocks
 	r.notifyWatchers(value, oldValue, watchersCopy)
@@ -121,4 +136,36 @@ func (r *Ref[T]) notifyWatchers(newVal, oldVal T, watchers []*watcher[T]) {
 	for _, w := range watchers {
 		w.callback(newVal, oldVal)
 	}
+}
+
+// Invalidate marks all dependents (computed values) as needing recomputation.
+// This is called when the Ref's value changes.
+// Implements the Dependency interface.
+func (r *Ref[T]) Invalidate() {
+	r.mu.RLock()
+	deps := make([]Dependency, len(r.dependents))
+	copy(deps, r.dependents)
+	r.mu.RUnlock()
+
+	// Invalidate all dependents outside the lock
+	for _, dep := range deps {
+		dep.Invalidate()
+	}
+}
+
+// AddDependent registers a computed value that depends on this Ref.
+// When the Ref changes, all dependents will be invalidated.
+// Implements the Dependency interface.
+func (r *Ref[T]) AddDependent(dep Dependency) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Avoid duplicate dependents
+	for _, d := range r.dependents {
+		if d == dep {
+			return
+		}
+	}
+
+	r.dependents = append(r.dependents, dep)
 }

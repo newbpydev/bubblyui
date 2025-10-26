@@ -389,3 +389,282 @@ func BenchmarkComputed_ComplexComputation(b *testing.B) {
 		_ = computed.Get()
 	}
 }
+
+// TestComputed_DependencyTracking verifies automatic dependency tracking
+func TestComputed_DependencyTracking(t *testing.T) {
+	t.Run("computed tracks ref dependency", func(t *testing.T) {
+		count := NewRef(5)
+		var callCount int
+		doubled := NewComputed(func() int {
+			callCount++
+			return count.Get() * 2
+		})
+
+		// First access - should compute
+		value1 := doubled.Get()
+		assert.Equal(t, 10, value1)
+		assert.Equal(t, 1, callCount, "Should compute on first access")
+
+		// Second access - should use cache
+		value2 := doubled.Get()
+		assert.Equal(t, 10, value2)
+		assert.Equal(t, 1, callCount, "Should use cache on second access")
+
+		// Change ref value - should invalidate cache
+		count.Set(10)
+
+		// Next access - should recompute
+		value3 := doubled.Get()
+		assert.Equal(t, 20, value3)
+		assert.Equal(t, 2, callCount, "Should recompute after dependency change")
+	})
+
+	t.Run("computed tracks multiple ref dependencies", func(t *testing.T) {
+		a := NewRef(10)
+		b := NewRef(20)
+		var callCount int
+		sum := NewComputed(func() int {
+			callCount++
+			return a.Get() + b.Get()
+		})
+
+		// Initial computation
+		value1 := sum.Get()
+		assert.Equal(t, 30, value1)
+		assert.Equal(t, 1, callCount)
+
+		// Change first ref
+		a.Set(15)
+		value2 := sum.Get()
+		assert.Equal(t, 35, value2)
+		assert.Equal(t, 2, callCount)
+
+		// Change second ref
+		b.Set(25)
+		value3 := sum.Get()
+		assert.Equal(t, 40, value3)
+		assert.Equal(t, 3, callCount)
+	})
+
+	t.Run("chained computed values", func(t *testing.T) {
+		count := NewRef(5)
+		var doubledCalls, quadrupledCalls int
+
+		doubled := NewComputed(func() int {
+			doubledCalls++
+			return count.Get() * 2
+		})
+
+		quadrupled := NewComputed(func() int {
+			quadrupledCalls++
+			return doubled.Get() * 2
+		})
+
+		// Initial computation
+		value1 := quadrupled.Get()
+		assert.Equal(t, 20, value1)
+		assert.Equal(t, 1, doubledCalls)
+		assert.Equal(t, 1, quadrupledCalls)
+
+		// Change base ref - should invalidate entire chain
+		count.Set(10)
+
+		value2 := quadrupled.Get()
+		assert.Equal(t, 40, value2)
+		assert.Equal(t, 2, doubledCalls, "Doubled should recompute")
+		assert.Equal(t, 2, quadrupledCalls, "Quadrupled should recompute")
+	})
+
+	t.Run("computed with no dependencies", func(t *testing.T) {
+		var callCount int
+		constant := NewComputed(func() int {
+			callCount++
+			return 42
+		})
+
+		// Should compute once and cache forever
+		for i := 0; i < 10; i++ {
+			value := constant.Get()
+			assert.Equal(t, 42, value)
+		}
+		assert.Equal(t, 1, callCount, "Should compute only once")
+	})
+}
+
+// TestComputed_CacheInvalidation verifies cache invalidation behavior
+func TestComputed_CacheInvalidation(t *testing.T) {
+	t.Run("invalidation propagates through chain", func(t *testing.T) {
+		a := NewRef(1)
+		b := NewComputed(func() int { return a.Get() * 2 })
+		c := NewComputed(func() int { return b.Get() * 2 })
+		d := NewComputed(func() int { return c.Get() * 2 })
+
+		// Initial values: a=1, b=2, c=4, d=8
+		assert.Equal(t, 8, d.Get())
+
+		// Change a - should invalidate b, c, d
+		a.Set(2)
+
+		// New values: a=2, b=4, c=8, d=16
+		assert.Equal(t, 16, d.Get())
+	})
+
+	t.Run("diamond dependency pattern", func(t *testing.T) {
+		//     a
+		//    / \
+		//   b   c
+		//    \ /
+		//     d
+		a := NewRef(10)
+		var bCalls, cCalls, dCalls int
+
+		b := NewComputed(func() int {
+			bCalls++
+			return a.Get() + 5
+		})
+
+		c := NewComputed(func() int {
+			cCalls++
+			return a.Get() * 2
+		})
+
+		d := NewComputed(func() int {
+			dCalls++
+			return b.Get() + c.Get()
+		})
+
+		// Initial: b=15, c=20, d=35
+		value1 := d.Get()
+		assert.Equal(t, 35, value1)
+		assert.Equal(t, 1, bCalls)
+		assert.Equal(t, 1, cCalls)
+		assert.Equal(t, 1, dCalls)
+
+		// Change a - should invalidate b, c, d
+		a.Set(20)
+
+		// New: b=25, c=40, d=65
+		value2 := d.Get()
+		assert.Equal(t, 65, value2)
+		assert.Equal(t, 2, bCalls)
+		assert.Equal(t, 2, cCalls)
+		assert.Equal(t, 2, dCalls)
+	})
+
+	t.Run("selective invalidation", func(t *testing.T) {
+		a := NewRef(10)
+		b := NewRef(20)
+		var sumCalls, productCalls int
+
+		sum := NewComputed(func() int {
+			sumCalls++
+			return a.Get() + b.Get()
+		})
+
+		product := NewComputed(func() int {
+			productCalls++
+			return a.Get() * b.Get()
+		})
+
+		// Initial computation
+		_ = sum.Get()
+		_ = product.Get()
+		assert.Equal(t, 1, sumCalls)
+		assert.Equal(t, 1, productCalls)
+
+		// Change only a - both should recompute
+		a.Set(15)
+		_ = sum.Get()
+		_ = product.Get()
+		assert.Equal(t, 2, sumCalls)
+		assert.Equal(t, 2, productCalls)
+	})
+}
+
+// TestComputed_CircularDependency verifies circular dependency detection
+func TestComputed_CircularDependency(t *testing.T) {
+	t.Run("circular dependency detected by tracker", func(t *testing.T) {
+		// Test that the tracker detects circular dependencies
+		tracker := &DepTracker{}
+
+		dep1 := newMockDependency("dep1")
+		dep2 := newMockDependency("dep2")
+
+		// Start tracking dep1
+		err := tracker.BeginTracking(dep1)
+		assert.NoError(t, err)
+
+		// Start tracking dep2 (nested)
+		err = tracker.BeginTracking(dep2)
+		assert.NoError(t, err)
+
+		// Try to track dep1 again - should detect circular dependency
+		err = tracker.BeginTracking(dep1)
+		assert.ErrorIs(t, err, ErrCircularDependency, "Should detect circular dependency")
+
+		// Clean up
+		tracker.EndTracking() // dep2
+		tracker.EndTracking() // dep1
+	})
+
+	t.Run("max depth prevents infinite recursion", func(t *testing.T) {
+		// Verify max depth limit prevents stack overflow
+		tracker := &DepTracker{}
+
+		deps := make([]*mockDependency, MaxDependencyDepth+1)
+		for i := range deps {
+			deps[i] = newMockDependency("dep")
+		}
+
+		// Fill to max depth
+		for i := 0; i < MaxDependencyDepth; i++ {
+			err := tracker.BeginTracking(deps[i])
+			assert.NoError(t, err)
+		}
+
+		// Exceeding max depth should error
+		err := tracker.BeginTracking(deps[MaxDependencyDepth])
+		assert.ErrorIs(t, err, ErrMaxDepthExceeded)
+
+		// Clean up
+		for i := 0; i < MaxDependencyDepth; i++ {
+			tracker.EndTracking()
+		}
+	})
+}
+
+// TestComputed_ConcurrentInvalidation verifies thread safety during invalidation
+func TestComputed_ConcurrentInvalidation(t *testing.T) {
+	count := NewRef(0)
+	var callCount int32
+	computed := NewComputed(func() int {
+		atomic.AddInt32(&callCount, 1)
+		return count.Get() * 2
+	})
+
+	// Prime the cache
+	_ = computed.Get()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&callCount))
+
+	const numGoroutines = 50
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Concurrently invalidate and read
+	for i := 0; i < numGoroutines; i++ {
+		go func(val int) {
+			defer wg.Done()
+			count.Set(val)
+			_ = computed.Get()
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify no race conditions occurred
+	// The exact call count is non-deterministic due to concurrent access
+	// but should be > 1 and <= numGoroutines + 1
+	finalCount := atomic.LoadInt32(&callCount)
+	assert.Greater(t, finalCount, int32(1), "Should have recomputed at least once")
+	assert.LessOrEqual(t, finalCount, int32(numGoroutines+1), "Should not compute more than necessary")
+}

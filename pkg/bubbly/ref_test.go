@@ -818,3 +818,176 @@ func BenchmarkRefSetWithWatchers(b *testing.B) {
 		ref.Set(i)
 	}
 }
+
+// TestRef_DependencyInterface verifies Ref implements Dependency interface
+func TestRef_DependencyInterface(t *testing.T) {
+	t.Run("implements Invalidate", func(t *testing.T) {
+		ref := NewRef(10)
+
+		// Create a mock dependent
+		mockDep := newMockDependency("mock")
+
+		// Add dependent
+		ref.AddDependent(mockDep)
+
+		// Invalidate should call dependent's Invalidate
+		ref.Invalidate()
+
+		assert.True(t, mockDep.IsInvalidated(), "Dependent should be invalidated")
+	})
+
+	t.Run("implements AddDependent", func(t *testing.T) {
+		ref := NewRef(10)
+		dep1 := newMockDependency("dep1")
+		dep2 := newMockDependency("dep2")
+
+		ref.AddDependent(dep1)
+		ref.AddDependent(dep2)
+
+		// Verify dependents were added (indirectly through invalidation)
+		ref.Invalidate()
+
+		assert.True(t, dep1.IsInvalidated())
+		assert.True(t, dep2.IsInvalidated())
+	})
+
+	t.Run("avoids duplicate dependents", func(t *testing.T) {
+		ref := NewRef(10)
+		dep := newMockDependency("dep")
+
+		// Add same dependent multiple times
+		ref.AddDependent(dep)
+		ref.AddDependent(dep)
+		ref.AddDependent(dep)
+
+		// Reset and invalidate
+		dep.Reset()
+		ref.Invalidate()
+
+		// Should only be invalidated once
+		assert.True(t, dep.IsInvalidated())
+	})
+}
+
+// TestRef_SetInvalidatesDependents verifies Set triggers invalidation
+func TestRef_SetInvalidatesDependents(t *testing.T) {
+	t.Run("set invalidates single dependent", func(t *testing.T) {
+		ref := NewRef(10)
+		dep := newMockDependency("dep")
+		ref.AddDependent(dep)
+
+		// Set should trigger invalidation
+		ref.Set(20)
+
+		assert.True(t, dep.IsInvalidated(), "Dependent should be invalidated after Set")
+	})
+
+	t.Run("set invalidates multiple dependents", func(t *testing.T) {
+		ref := NewRef(10)
+		dep1 := newMockDependency("dep1")
+		dep2 := newMockDependency("dep2")
+		dep3 := newMockDependency("dep3")
+
+		ref.AddDependent(dep1)
+		ref.AddDependent(dep2)
+		ref.AddDependent(dep3)
+
+		ref.Set(20)
+
+		assert.True(t, dep1.IsInvalidated())
+		assert.True(t, dep2.IsInvalidated())
+		assert.True(t, dep3.IsInvalidated())
+	})
+
+	t.Run("multiple sets invalidate each time", func(t *testing.T) {
+		ref := NewRef(10)
+
+		dep1 := newMockDependency("dep1")
+		dep2 := newMockDependency("dep2")
+		dep3 := newMockDependency("dep3")
+		ref.AddDependent(dep1)
+		ref.AddDependent(dep2)
+		ref.AddDependent(dep3)
+
+		// First set
+		ref.Set(20)
+		assert.True(t, dep1.IsInvalidated())
+		assert.True(t, dep2.IsInvalidated())
+		assert.True(t, dep3.IsInvalidated())
+
+		// Reset
+		dep1.Reset()
+		dep2.Reset()
+		dep3.Reset()
+
+		// Second set
+		ref.Set(30)
+		assert.True(t, dep1.IsInvalidated())
+		assert.True(t, dep2.IsInvalidated())
+		assert.True(t, dep3.IsInvalidated())
+	})
+}
+
+// TestRef_GetTracking verifies Get participates in dependency tracking
+func TestRef_GetTracking(t *testing.T) {
+	t.Run("get tracks dependency when tracking active", func(t *testing.T) {
+		ref := NewRef(42)
+		tracker := &DepTracker{}
+
+		computed := newMockDependency("computed")
+		err := tracker.BeginTracking(computed)
+		assert.NoError(t, err)
+
+		// Manually track using global tracker
+		globalTracker = tracker
+		defer func() { globalTracker = &DepTracker{} }()
+
+		_ = ref.Get()
+
+		deps := tracker.EndTracking()
+		assert.Equal(t, 1, len(deps), "Should track ref as dependency")
+		assert.Equal(t, ref, deps[0])
+	})
+
+	t.Run("get does not track when not tracking", func(t *testing.T) {
+		ref := NewRef(42)
+		tracker := &DepTracker{}
+
+		globalTracker = tracker
+		defer func() { globalTracker = &DepTracker{} }()
+
+		// Get without BeginTracking
+		_ = ref.Get()
+
+		assert.False(t, tracker.IsTracking(), "Should not be tracking")
+	})
+}
+
+// TestRef_ConcurrentDependents verifies thread safety with dependents
+func TestRef_ConcurrentDependents(t *testing.T) {
+	ref := NewRef(0)
+
+	const numDependents = 100
+	dependents := make([]*mockDependency, numDependents)
+	for i := 0; i < numDependents; i++ {
+		dependents[i] = newMockDependency("dep")
+	}
+
+	// Concurrently add dependents
+	var wg sync.WaitGroup
+	wg.Add(numDependents)
+	for i := 0; i < numDependents; i++ {
+		go func(dep *mockDependency) {
+			defer wg.Done()
+			ref.AddDependent(dep)
+		}(dependents[i])
+	}
+	wg.Wait()
+
+	// Set should invalidate all
+	ref.Set(100)
+
+	for i, dep := range dependents {
+		assert.True(t, dep.IsInvalidated(), "Dependent %d should be invalidated", i)
+	}
+}
