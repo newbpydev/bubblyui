@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // SentryReporter is an error reporter that sends errors to Sentry.
@@ -245,7 +244,7 @@ func NewSentryReporter(dsn string, opts ...SentryOption) (*SentryReporter, error
 //	        StackTrace: debug.Stack(),
 //	    },
 //	)
-func (r *SentryReporter) ReportPanic(err *bubbly.HandlerPanicError, ctx *ErrorContext) {
+func (r *SentryReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext) {
 	// Use WithScope to add context without affecting other events
 	r.hub.WithScope(func(scope *sentry.Scope) {
 		// Set component tags

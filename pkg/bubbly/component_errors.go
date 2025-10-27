@@ -102,6 +102,9 @@ func (e *MaxDepthError) Unwrap() error {
 
 // HandlerPanicError wraps a panic that occurred in an event handler.
 // This allows the application to continue running even if a handler panics.
+//
+// Note: This type is also available in the observability package to avoid
+// import cycles when integrating with error reporting.
 type HandlerPanicError struct {
 	// ComponentName is the name of the component where the panic occurred
 	ComponentName string

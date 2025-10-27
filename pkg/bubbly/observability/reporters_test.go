@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +43,7 @@ func TestConsoleReporter_ReportPanic(t *testing.T) {
 	tests := []struct {
 		name            string
 		verbose         bool
-		panicErr        *bubbly.HandlerPanicError
+		panicErr        *HandlerPanicError
 		ctx             *ErrorContext
 		wantInOutput    []string
 		wantNotInOutput []string
@@ -52,7 +51,7 @@ func TestConsoleReporter_ReportPanic(t *testing.T) {
 		{
 			name:    "report panic verbose mode",
 			verbose: true,
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "TestComponent",
 				EventName:     "click",
 				PanicValue:    "unexpected error",
@@ -75,7 +74,7 @@ func TestConsoleReporter_ReportPanic(t *testing.T) {
 		{
 			name:    "report panic non-verbose mode",
 			verbose: false,
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "Button",
 				EventName:     "submit",
 				PanicValue:    "validation failed",
@@ -100,7 +99,7 @@ func TestConsoleReporter_ReportPanic(t *testing.T) {
 		{
 			name:    "report panic without stack trace",
 			verbose: true,
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "Form",
 				EventName:     "change",
 				PanicValue:    "nil pointer",
@@ -297,12 +296,12 @@ func TestSentryReporter_New(t *testing.T) {
 func TestSentryReporter_ReportPanic(t *testing.T) {
 	tests := []struct {
 		name     string
-		panicErr *bubbly.HandlerPanicError
+		panicErr *HandlerPanicError
 		ctx      *ErrorContext
 	}{
 		{
 			name: "report panic with full context",
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "TestComponent",
 				EventName:     "click",
 				PanicValue:    "unexpected error",
@@ -330,7 +329,7 @@ func TestSentryReporter_ReportPanic(t *testing.T) {
 		},
 		{
 			name: "report panic with minimal context",
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "Button",
 				EventName:     "submit",
 				PanicValue:    "validation failed",
@@ -529,7 +528,7 @@ func TestConsoleReporter_Concurrent(t *testing.T) {
 				go func(id int) {
 					for j := 0; j < tt.operations; j++ {
 						reporter.ReportPanic(
-							&bubbly.HandlerPanicError{
+							&HandlerPanicError{
 								ComponentName: "Test",
 								EventName:     "event",
 								PanicValue:    "panic",

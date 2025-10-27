@@ -4,8 +4,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // ConsoleReporter is a simple error reporter that logs errors to the console.
@@ -82,7 +80,7 @@ func NewConsoleReporter(verbose bool) *ConsoleReporter {
 // Example output (non-verbose mode):
 //
 //	2024/01/01 12:00:00 [ERROR] Panic in component 'Button' event 'click': unexpected error
-func (r *ConsoleReporter) ReportPanic(err *bubbly.HandlerPanicError, ctx *ErrorContext) {
+func (r *ConsoleReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

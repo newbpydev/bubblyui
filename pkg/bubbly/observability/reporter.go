@@ -1,11 +1,29 @@
 package observability
 
 import (
+	"fmt"
 	"sync"
 	"time"
-
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
+
+// HandlerPanicError wraps a panic that occurred in an event handler.
+// This allows the application to continue running even if a handler panics.
+//
+// This type is defined here to avoid import cycles between bubbly and observability packages.
+type HandlerPanicError struct {
+	// ComponentName is the name of the component where the panic occurred
+	ComponentName string
+	// EventName is the name of the event being handled
+	EventName string
+	// PanicValue is the value passed to panic()
+	PanicValue interface{}
+}
+
+// Error implements the error interface for HandlerPanicError.
+func (e *HandlerPanicError) Error() string {
+	return fmt.Sprintf("panic in event handler: component '%s', event '%s', panic: %v",
+		e.ComponentName, e.EventName, e.PanicValue)
+}
 
 // ErrorReporter is a pluggable interface for error tracking backends.
 // Implementations can send errors to services like Sentry, Rollbar, or custom backends.
@@ -49,7 +67,7 @@ type ErrorReporter interface {
 	//   - ctx: Rich context about where and when the panic occurred
 	//
 	// Thread-safe: Must be safe to call concurrently.
-	ReportPanic(err *bubbly.HandlerPanicError, ctx *ErrorContext)
+	ReportPanic(err *HandlerPanicError, ctx *ErrorContext)
 
 	// ReportError reports a general error.
 	// This can be called manually to report validation errors, business logic errors, etc.

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +19,7 @@ type mockReporter struct {
 }
 
 type mockPanicCall struct {
-	err *bubbly.HandlerPanicError
+	err *HandlerPanicError
 	ctx *ErrorContext
 }
 
@@ -29,7 +28,7 @@ type mockErrorCall struct {
 	ctx *ErrorContext
 }
 
-func (m *mockReporter) ReportPanic(err *bubbly.HandlerPanicError, ctx *ErrorContext) {
+func (m *mockReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.panicCalls = append(m.panicCalls, mockPanicCall{err: err, ctx: ctx})
@@ -84,7 +83,7 @@ func TestErrorReporter_Interface(t *testing.T) {
 			require.NotNil(t, tt.reporter)
 
 			// Test ReportPanic
-			panicErr := &bubbly.HandlerPanicError{
+			panicErr := &HandlerPanicError{
 				ComponentName: "TestComponent",
 				EventName:     "testEvent",
 				PanicValue:    "test panic",
@@ -348,13 +347,13 @@ func TestBreadcrumb_Fields(t *testing.T) {
 func TestErrorReporter_ReportPanic(t *testing.T) {
 	tests := []struct {
 		name      string
-		panicErr  *bubbly.HandlerPanicError
+		panicErr  *HandlerPanicError
 		ctx       *ErrorContext
 		wantCalls int
 	}{
 		{
 			name: "report single panic",
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "Button",
 				EventName:     "click",
 				PanicValue:    "unexpected error",
@@ -369,7 +368,7 @@ func TestErrorReporter_ReportPanic(t *testing.T) {
 		},
 		{
 			name: "report panic with stack trace",
-			panicErr: &bubbly.HandlerPanicError{
+			panicErr: &HandlerPanicError{
 				ComponentName: "Form",
 				EventName:     "submit",
 				PanicValue:    "validation failed",

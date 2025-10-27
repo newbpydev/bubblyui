@@ -1,8 +1,11 @@
 package bubbly
 
 import (
+	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // eventPool is a sync.Pool for reusing Event objects.
@@ -105,13 +108,24 @@ func (c *componentImpl) bubbleEvent(event *Event) {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						// Log the panic but don't crash the application
-						// In production, this could be sent to error tracking service
-						_ = &HandlerPanicError{
+						// Create panic error with details
+						panicErr := &observability.HandlerPanicError{
 							ComponentName: c.name,
 							EventName:     event.Name,
 							PanicValue:    r,
 						}
+
+						// Report panic to error tracking service if configured
+						if reporter := observability.GetErrorReporter(); reporter != nil {
+							reporter.ReportPanic(panicErr, &observability.ErrorContext{
+								ComponentName: c.name,
+								ComponentID:   c.id,
+								EventName:     event.Name,
+								Timestamp:     time.Now(),
+								StackTrace:    debug.Stack(),
+							})
+						}
+
 						// Note: We don't stop propagation on panic - other handlers should still run
 					}
 				}()
