@@ -342,9 +342,28 @@ func NewCounter() *Component {
 }
 ```
 
+## Future Requirements (Not in current scope)
+
+### 9. Error Tracking & Observability (Optional Enhancement)
+
+9.1. Pluggable error reporter interface  
+9.2. Report panics from event handlers to external services  
+9.3. Include rich error context (component, event, stack trace)  
+9.4. Built-in Console reporter for development  
+9.5. Built-in Sentry reporter for production  
+9.6. Breadcrumb collection for debugging  
+9.7. Privacy-aware (PII filtering via hooks)  
+9.8. Zero overhead when not configured  
+9.9. Async error reporting (non-blocking)  
+
+**Priority:** MEDIUM - Useful for production debugging but not critical  
+**Estimated Effort:** 15 hours (2 days)  
+**See:** `designs.md` "Error Tracking & Observability" section for full design
+
 ## Open Questions
 1. Should components support async initialization?
 2. How to handle component-level error boundaries?
 3. Should we support component slots (like Vue)?
 4. Optimal strategy for large component trees?
 5. How to debug component hierarchies?
+6. Which error tracking services should have built-in support? (Sentry, Rollbar, Bugsnag?)

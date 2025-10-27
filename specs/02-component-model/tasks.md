@@ -1194,3 +1194,240 @@ Unlocks: 03-lifecycle-hooks, 05-directives, 06-built-in-components
 - Directives can access component context
 - Built-in components can use component model
 - Composition API can create components
+
+---
+
+## Phase 8: Error Tracking & Observability (Future Enhancement)
+
+**Status:** NOT IN CURRENT SCOPE - Future enhancement  
+**Priority:** MEDIUM  
+**Prerequisites:** All of Feature 02 complete  
+**Estimated Effort:** 15 hours (2 days)
+
+### Task 8.1: Error Reporter Interface
+**Description:** Define pluggable error reporter interface
+
+**Prerequisites:** Task 6.2 (Error handling complete)
+
+**Unlocks:** Task 8.2 (Built-in reporters)
+
+**Files:**
+- `pkg/bubbly/observability/reporter.go`
+- `pkg/bubbly/observability/reporter_test.go`
+
+**Type Safety:**
+```go
+type ErrorReporter interface {
+    ReportPanic(err *HandlerPanicError, ctx *ErrorContext)
+    ReportError(err error, ctx *ErrorContext)
+    Flush(timeout time.Duration) error
+}
+
+type ErrorContext struct {
+    ComponentName  string
+    ComponentID    string
+    EventName      string
+    Timestamp      time.Time
+    Tags           map[string]string
+    Extra          map[string]interface{}
+    Breadcrumbs    []Breadcrumb
+    StackTrace     []byte
+}
+
+func SetErrorReporter(reporter ErrorReporter)
+func GetErrorReporter() ErrorReporter
+```
+
+**Tests:**
+- [ ] Interface defined correctly
+- [ ] SetErrorReporter stores reporter
+- [ ] GetErrorReporter returns reporter
+- [ ] Nil reporter handled gracefully
+
+**Estimated effort:** 2 hours
+
+---
+
+### Task 8.2: Built-in Reporters
+**Description:** Implement Console and Sentry reporters
+
+**Prerequisites:** Task 8.1
+
+**Unlocks:** Task 8.3 (Integration)
+
+**Files:**
+- `pkg/bubbly/observability/console_reporter.go`
+- `pkg/bubbly/observability/sentry_reporter.go`
+- `pkg/bubbly/observability/reporters_test.go`
+
+**Type Safety:**
+```go
+type ConsoleReporter struct {
+    verbose bool
+}
+
+type SentryReporter struct {
+    hub *sentry.Hub
+}
+
+func NewConsoleReporter(verbose bool) *ConsoleReporter
+func NewSentryReporter(dsn string, opts ...SentryOption) (*SentryReporter, error)
+```
+
+**Tests:**
+- [ ] Console reporter logs to stdout
+- [ ] Sentry reporter sends to Sentry
+- [ ] Verbose mode shows stack traces
+- [ ] BeforeSend hooks work
+- [ ] Flush works correctly
+
+**Estimated effort:** 4 hours
+
+---
+
+### Task 8.3: Integration with Event System
+**Description:** Integrate error reporting into panic recovery
+
+**Prerequisites:** Task 8.2
+
+**Unlocks:** Task 8.4 (Breadcrumbs)
+
+**Files:**
+- `pkg/bubbly/events.go` (extend)
+- `pkg/bubbly/builder.go` (extend)
+
+**Integration Points:**
+```go
+// In events.go bubbleEvent method
+if reporter := GetErrorReporter(); reporter != nil {
+    reporter.ReportPanic(panicErr, &ErrorContext{
+        ComponentName: c.name,
+        ComponentID:   c.id,
+        EventName:     event.Name,
+        Timestamp:     time.Now(),
+        StackTrace:    debug.Stack(),
+    })
+}
+```
+
+**Tests:**
+- [ ] Panics reported when reporter configured
+- [ ] No errors when reporter nil
+- [ ] Error context includes all fields
+- [ ] Stack traces captured
+- [ ] Non-blocking (async)
+
+**Estimated effort:** 2 hours
+
+---
+
+### Task 8.4: Breadcrumb System
+**Description:** Implement automatic breadcrumb collection
+
+**Prerequisites:** Task 8.3
+
+**Unlocks:** Task 8.5 (Documentation)
+
+**Files:**
+- `pkg/bubbly/observability/breadcrumbs.go`
+- `pkg/bubbly/observability/breadcrumbs_test.go`
+
+**Type Safety:**
+```go
+type Breadcrumb struct {
+    Type      string
+    Category  string
+    Message   string
+    Level     string
+    Timestamp time.Time
+    Data      map[string]interface{}
+}
+
+func RecordBreadcrumb(category, message string, data map[string]interface{})
+func GetBreadcrumbs() []Breadcrumb
+func ClearBreadcrumbs()
+```
+
+**Tests:**
+- [ ] Breadcrumbs recorded correctly
+- [ ] Max breadcrumbs enforced (100)
+- [ ] Old breadcrumbs dropped
+- [ ] Thread-safe
+- [ ] Included in error context
+
+**Estimated effort:** 2 hours
+
+---
+
+### Task 8.5: Documentation & Examples
+**Description:** Document error tracking setup and usage
+
+**Prerequisites:** Task 8.4
+
+**Unlocks:** Phase 8 complete
+
+**Files:**
+- `docs/guides/error-tracking.md`
+- `cmd/examples/error-tracking/`
+
+**Documentation:**
+- [ ] Error tracking guide
+- [ ] Setup instructions
+- [ ] Sentry integration example
+- [ ] Custom reporter example
+- [ ] Privacy & filtering guide
+- [ ] Troubleshooting section
+
+**Examples:**
+```go
+// Development setup
+func ExampleConsoleReporter()
+
+// Production setup
+func ExampleSentryReporter()
+
+// Custom reporter
+func ExampleCustomReporter()
+
+// Privacy filtering
+func ExamplePIIFiltering()
+```
+
+**Estimated effort:** 2 hours
+
+---
+
+### Task 8.6: Integration Tests
+**Description:** End-to-end error tracking tests
+
+**Prerequisites:** Task 8.5
+
+**Unlocks:** Error tracking feature complete
+
+**Files:**
+- `tests/integration/error_tracking_test.go`
+
+**Tests:**
+- [ ] Development workflow with console reporter
+- [ ] Production workflow with Sentry
+- [ ] Custom reporter implementation
+- [ ] Breadcrumb trail verification
+- [ ] Privacy filtering verification
+- [ ] Performance impact measurement
+
+**Estimated effort:** 3 hours
+
+---
+
+## Phase 8 Summary
+
+**Total Tasks:** 6  
+**Total Effort:** 15 hours (2 days)  
+**Status:** Future enhancement, not in current release  
+**Dependencies:** Feature 02 must be complete  
+**Benefits:** Production error visibility, debugging, monitoring  
+**Documentation:** See `designs.md` "Error Tracking & Observability" section
+
+---
+
+**Note:** This phase is documented for future implementation. The current comment in `events.go:99-105` notes this as a future enhancement. When ready to implement, follow this task breakdown.

@@ -812,3 +812,10 @@ func TestComponent_ParentChild(t *testing.T) {
 - **State not updating?** Ensure Expose() was called
 - **Events not firing?** Check event name spelling
 - **Children not rendering?** Call ctx.RenderChild()
+
+## Debugging & Monitoring (Optional)
+
+Developers can optionally configure error tracking:
+- Development: Console reporter for local debugging
+- Production: Sentry/custom reporter for monitoring
+- See error-tracking.md guide for setup
