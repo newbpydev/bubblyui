@@ -227,6 +227,10 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 				Padding(1, 2).
 				Width(50)
 
+			// Calculate input field width to fill form
+			// Form width (50) - left/right padding (2*2) - border (2) - field padding (2) = 42
+			inputWidth := 42
+
 			// Title
 			formTitle := lipgloss.NewStyle().
 				Bold(true).
@@ -237,7 +241,7 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			emailStyle := lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
 				Padding(0, 1).
-				Width(45)
+				Width(inputWidth)
 
 			if focused == 0 {
 				emailStyle = emailStyle.BorderForeground(lipgloss.Color("86"))
@@ -253,13 +257,18 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 				emailLabel += " ✓"
 			}
 
-			emailField := emailStyle.Render(fmt.Sprintf("%s\n%s", emailLabel, emailVal))
+			// Ensure consistent field width
+			emailContent := fmt.Sprintf("%s\n%s", emailLabel, emailVal)
+			if len(emailVal) == 0 {
+				emailContent = fmt.Sprintf("%s\n ", emailLabel) // Add space for empty field
+			}
+			emailField := emailStyle.Render(emailContent)
 
 			// Password field
 			passwordStyle := lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
 				Padding(0, 1).
-				Width(45).
+				Width(inputWidth).
 				MarginTop(1)
 
 			if focused == 1 {
@@ -276,11 +285,12 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 				passwordLabel += " ✓"
 			}
 
-			passwordField := passwordStyle.Render(fmt.Sprintf(
-				"%s\n%s",
-				passwordLabel,
-				strings.Repeat("*", len(passwordVal)),
-			))
+			// Ensure consistent field width
+			passwordContent := fmt.Sprintf("%s\n%s", passwordLabel, strings.Repeat("*", len(passwordVal)))
+			if len(passwordVal) == 0 {
+				passwordContent = fmt.Sprintf("%s\n ", passwordLabel) // Add space for empty field
+			}
+			passwordField := passwordStyle.Render(passwordContent)
 
 			// Submit button
 			buttonStyle := lipgloss.NewStyle().
