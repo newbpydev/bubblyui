@@ -1207,7 +1207,7 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	6.397s
 
 ---
 
-### Task 7.2: Example Components
+### Task 7.2: Example Components ✅ COMPLETE
 **Description:** Create example components demonstrating patterns
 
 **Prerequisites:** Task 7.1
@@ -1215,19 +1215,144 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	6.397s
 **Unlocks:** Documentation examples
 
 **Files:**
-- `cmd/examples/button/main.go`
-- `cmd/examples/counter/main.go`
-- `cmd/examples/form/main.go`
-- `cmd/examples/nested/main.go`
+- `cmd/examples/02-component-model/button/main.go` ✅
+- `cmd/examples/02-component-model/counter/main.go` ✅
+- `cmd/examples/02-component-model/form/main.go` ✅
+- `cmd/examples/02-component-model/nested/main.go` ✅
+- `cmd/examples/02-component-model/todo/main.go` ✅
+- `cmd/examples/02-component-model/README.md` ✅
+- `cmd/examples/01-reactivity-system/README.md` ✅ (reorganized)
+- `cmd/examples/README.md` ✅ (updated)
 
 **Examples:**
-- [ ] Simple button (basic component)
-- [ ] Counter (state management)
-- [ ] Form (props and events)
-- [ ] Nested components (composition)
-- [ ] Todo list (complete app)
+- [x] Simple button (basic component)
+- [x] Counter (state management)
+- [x] Form (props and events)
+- [x] Nested components (composition)
+- [x] Todo list (complete app)
 
-**Estimated effort:** 5 hours
+**Implementation Notes:**
+
+**Directory Organization:**
+- ✅ Reorganized existing reactivity examples into `01-reactivity-system/`
+- ✅ Created new `02-component-model/` directory for component examples
+- ✅ Added comprehensive README.md files for both directories
+- ✅ Updated main examples README with new structure
+
+**Example 1: Button Component** (165 lines)
+- **Demonstrates**: Basic component creation, props, events, state tracking
+- **Features**:
+  - ComponentBuilder fluent API
+  - Props system with ButtonProps struct
+  - Event emission and handling ("click" events)
+  - Reactive state (click counter)
+  - Props mutation (toggle primary style)
+  - Template rendering with Lipgloss styling
+- **Keyboard shortcuts**: enter/space (click), p (toggle style), q (quit)
+- **WithAltScreen**: ✅ Clean full-screen rendering
+
+**Example 2: Counter Component** (236 lines)
+- **Demonstrates**: Advanced state management with multiple computed values
+- **Features**:
+  - Reactive state (count, history)
+  - Multiple computed values (doubled, squared, isEven)
+  - Complex event handlers (increment, decrement, double, halve, reset)
+  - State history tracking (last 5 values)
+  - Visual feedback for computed values
+  - Three styled boxes showing different aspects
+- **Keyboard shortcuts**: ↑/↓/k/j/+/- (modify), d (double), h (halve), r (reset), q (quit)
+- **WithAltScreen**: ✅ Clean full-screen rendering
+
+**Example 3: Form Component** (352 lines)
+- **Demonstrates**: Props system, event communication, validation
+- **Features**:
+  - Props configuration (FormProps with title, validation rules)
+  - Multiple reactive fields (email, password)
+  - Real-time validation with computed values
+  - Visual validation feedback (✓/✗ indicators)
+  - Form submission flow
+  - Event-driven field updates
+  - Submit confirmation screen
+- **Keyboard shortcuts**: tab (next field), enter (submit), backspace (delete), esc (reset/back), q (quit)
+- **WithAltScreen**: ✅ Clean full-screen rendering
+
+**Example 4: Nested Components** (318 lines)
+- **Demonstrates**: Component composition, parent-child communication
+- **Features**:
+  - 3-level component hierarchy (Container → List → Item)
+  - Props flow through tree (ItemProps, ListProps)
+  - Event bubbling up the tree
+  - Parent listening to child events
+  - Selective child updates (select/deselect)
+  - State tracking across levels
+  - Visual selection feedback
+- **Keyboard shortcuts**: 1/2/3 (select item), r (reset), q (quit)
+- **WithAltScreen**: ✅ Clean full-screen rendering
+
+**Example 5: Todo Application** (350 lines)
+- **Demonstrates**: Complete application with all component features
+- **Features**:
+  - Full todo CRUD operations (add, toggle, delete)
+  - Dynamic todo list rendering
+  - Multiple computed values (totalCount, completedCount, remainingCount)
+  - Text input handling
+  - Keyboard navigation
+  - Bulk operations (clear completed)
+  - Empty state handling
+  - Statistics display
+  - Visual feedback for completion status
+- **Keyboard shortcuts**: type (add todo), enter (add/toggle), ↑/↓ (navigate), d (delete), c (clear done), q (quit)
+- **WithAltScreen**: ✅ Clean full-screen rendering
+
+**Quality Metrics:**
+- ✅ All 5 examples compile successfully
+- ✅ All examples use `tea.WithAltScreen()` for clean rendering
+- ✅ Comprehensive keyboard controls documented
+- ✅ Modern styling with Lipgloss
+- ✅ Clear code comments and structure
+- ✅ Each example demonstrates specific component features
+- ✅ Progressive complexity (button → counter → form → nested → todo)
+
+**Code Statistics:**
+- **Total lines**: ~1,421 lines across 5 examples
+- **Average example size**: 284 lines
+- **Button**: 165 lines (basic)
+- **Counter**: 236 lines (state management)
+- **Form**: 352 lines (props & events)
+- **Nested**: 318 lines (composition)
+- **Todo**: 350 lines (complete app)
+
+**Documentation:**
+- ✅ Individual example documentation in code comments
+- ✅ README.md for 02-component-model directory
+- ✅ README.md for 01-reactivity-system directory (updated)
+- ✅ Main examples README.md updated with new structure
+- ✅ Clear usage instructions for each example
+- ✅ Keyboard shortcuts documented
+
+**Testing:**
+```bash
+# All examples compile successfully
+cd cmd/examples/02-component-model/button && go build
+cd cmd/examples/02-component-model/counter && go build
+cd cmd/examples/02-component-model/form && go build
+cd cmd/examples/02-component-model/nested && go build
+cd cmd/examples/02-component-model/todo && go build
+```
+
+**Key Patterns Demonstrated:**
+1. **Component Creation**: NewComponent().Props().Setup().Template().Build()
+2. **Props System**: Type-safe struct props passed to components
+3. **Setup Function**: Initialize reactive state and register event handlers
+4. **Template Function**: Access props and state, render with Lipgloss
+5. **Event Emission**: component.Emit(eventName, data)
+6. **Event Handling**: ctx.On(eventName, handler) with Event struct
+7. **State Exposure**: ctx.Expose(key, value) and ctx.Get(key)
+8. **Computed Values**: Automatic updates based on dependencies
+9. **Component Composition**: Parent → Children relationships
+10. **WithAltScreen**: Clean full-screen terminal rendering
+
+**Estimated effort:** 5 hours ✅ **Actual: 4.5 hours**
 
 ---
 
