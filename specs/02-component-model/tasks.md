@@ -629,30 +629,81 @@ func (c *componentImpl) renderChildren() []string
 
 ---
 
-### Task 5.2: Parent-Child Communication
-**Description:** Implement event bubbling from child to parent
+### Task 5.2: Parent-Child Communication (Event Bubbling)
+**Description:** Implement automatic event bubbling from child to parent components following Vue.js/DOM event model
 
-**Prerequisites:** Task 5.1
+**Prerequisites:** Task 5.1, Task 4.2
 
 **Unlocks:** Phase 6 (Integration)
 
 **Files:**
 - `pkg/bubbly/events.go` (extend)
 - `pkg/bubbly/events_test.go` (extend)
+- `pkg/bubbly/component.go` (extend for parent reference)
 
 **Type Safety:**
 ```go
+type Event struct {
+    Name      string
+    Source    Component
+    Data      interface{}
+    Timestamp time.Time
+    Stopped   bool        // Flag to stop propagation
+}
+
 func (c *componentImpl) bubbleEvent(event Event)
+func (e *Event) StopPropagation()
+func (c *componentImpl) Emit(event string, data interface{}) // Update to use bubbleEvent
 ```
 
-**Tests:**
-- [ ] Child events bubble to parent
-- [ ] Parent can listen to child events
-- [ ] Event propagation stops if handled
-- [ ] Multiple levels of nesting work
-- [ ] Event data preserved
+**Implementation Details:**
+1. **Add Stopped field to Event struct**
+   - Boolean flag to control propagation
+   - Default: false (events bubble by default)
+   
+2. **Implement bubbleEvent() method**
+   - Execute local handlers first
+   - Check if propagation stopped
+   - Recursively call parent's bubbleEvent if not stopped
+   - Thread-safe with existing handlersMu
+   
+3. **Implement StopPropagation() method**
+   - Sets Event.Stopped = true
+   - Prevents further bubbling
+   
+4. **Update Emit() to use bubbleEvent**
+   - Create Event struct with all metadata
+   - Call bubbleEvent instead of direct handler execution
+   
+5. **Ensure parent reference is set**
+   - Verify parent field is populated in Children() method (Task 5.1)
+   - Type assert parent to *componentImpl for bubbleEvent access
 
-**Estimated effort:** 2 hours
+**Tests:**
+- [ ] Event bubbles from child to immediate parent
+- [ ] Event bubbles through multiple levels (3+ deep)
+- [ ] Parent receives event with original source component
+- [ ] Event data preserved through bubbling
+- [ ] StopPropagation() prevents further bubbling
+- [ ] Local handlers execute before bubbling
+- [ ] Multiple handlers at each level execute
+- [ ] Event without parent doesn't panic
+- [ ] Concurrent event bubbling (race detector)
+- [ ] Event timestamp preserved through bubbling
+- [ ] Stopped flag prevents parent notification
+- [ ] Integration test: Button → Form → Dialog bubbling
+
+**Performance Requirements:**
+- Bubbling overhead: O(depth) where depth is component tree depth
+- No memory allocations during bubbling (reuse Event struct)
+- Thread-safe with existing RWMutex (no additional locks)
+
+**Reference:**
+- See `designs.md` Event Bubbling Architecture section for detailed design
+- See `user-workflow.md` Scenario D & E for usage examples
+- Follows Vue.js custom event propagation pattern
+
+**Estimated effort:** 3 hours (updated from 2 hours for comprehensive implementation)
 
 ---
 

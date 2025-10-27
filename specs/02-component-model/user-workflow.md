@@ -198,7 +198,134 @@
 
 **Use Case:** Complex layouts with multiple sections
 
-### Scenario D: Dynamic Component Creation
+### Scenario D: Event Bubbling Through Component Tree
+
+1. **Developer creates nested button in form in dialog**
+   ```go
+   // Deep child: Submit button
+   submitButton := NewComponent("SubmitButton").
+       Setup(func(ctx *Context) {
+           ctx.On("keypress", func(data interface{}) {
+               if data.(string) == "enter" {
+                   // Emit custom event that will bubble
+                   ctx.Emit("formSubmit", map[string]interface{}{
+                       "source": "submitButton",
+                       "timestamp": time.Now(),
+                   })
+               }
+           })
+       }).
+       Template(func(ctx RenderContext) string {
+           return "[Submit]"
+       }).
+       Build()
+   
+   // Middle level: Form component
+   form := NewComponent("Form").
+       Children(submitButton).
+       Setup(func(ctx *Context) {
+           // Form can handle or let bubble
+           ctx.On("formSubmit", func(data interface{}) {
+               fmt.Println("Form validating...")
+               // Optionally stop propagation here if validation fails
+               // Otherwise, event continues bubbling
+           })
+       }).
+       Template(func(ctx RenderContext) string {
+           return "Form:\n" + ctx.RenderChild(ctx.Children()[0])
+       }).
+       Build()
+   
+   // Top level: Dialog component
+   dialog := NewComponent("Dialog").
+       Children(form).
+       Setup(func(ctx *Context) {
+           // Dialog handles final submission
+           ctx.On("formSubmit", func(data interface{}) {
+               eventData := data.(map[string]interface{})
+               fmt.Printf("Dialog closing after submit from: %s\n", 
+                   eventData["source"])
+               // Close dialog after successful submission
+           })
+       }).
+       Template(func(ctx RenderContext) string {
+           return "Dialog:\n" + ctx.RenderChild(ctx.Children()[0])
+       }).
+       Build()
+   ```
+
+2. **Event bubbling flow**
+   - User presses Enter on submit button
+   - submitButton emits "formSubmit" event
+   - Event bubbles to Form component
+   - Form validates and lets event continue
+   - Event bubbles to Dialog component
+   - Dialog handles final submission
+   - All three components can coordinate behavior
+
+3. **Benefits demonstrated**
+   - **Decoupling**: Button doesn't know about Dialog
+   - **Layered Handling**: Each level can react appropriately
+   - **Coordinated State**: Multiple components respond to one event
+   - **Clean Architecture**: Natural parent-child communication
+
+**Use Case:** Multi-level component trees with coordinated event handling
+
+### Scenario E: Event Bubbling with Stop Propagation
+
+1. **Developer creates form with cancel functionality**
+   ```go
+   cancelButton := NewComponent("CancelButton").
+       Setup(func(ctx *Context) {
+           ctx.On("click", func(data interface{}) {
+               // Emit event with stop propagation intent
+               ctx.Emit("actionCancelled", map[string]interface{}{
+                   "stopBubbling": true,
+               })
+           })
+       }).
+       Build()
+   
+   form := NewComponent("Form").
+       Children(cancelButton).
+       Setup(func(ctx *Context) {
+           ctx.On("actionCancelled", func(data interface{}) {
+               eventData := data.(map[string]interface{})
+               
+               // Form handles cancellation
+               fmt.Println("Form handling cancellation...")
+               
+               // Check if we should stop bubbling
+               if stop, ok := eventData["stopBubbling"].(bool); ok && stop {
+                   // Stop propagation - don't notify parent dialog
+                   // (Implementation: handler can set Event.Stopped flag)
+                   return
+               }
+           })
+       }).
+       Build()
+   
+   dialog := NewComponent("Dialog").
+       Children(form).
+       Setup(func(ctx *Context) {
+           ctx.On("actionCancelled", func(data interface{}) {
+               // This won't be called if form stopped propagation
+               fmt.Println("Dialog closing due to cancellation")
+           })
+       }).
+       Build()
+   ```
+
+2. **Controlled propagation flow**
+   - Cancel button emits event
+   - Form handles locally
+   - Form stops propagation
+   - Dialog never receives event
+   - Each component has control over bubbling
+
+**Use Case:** Fine-grained control over event propagation
+
+### Scenario F: Dynamic Component Creation
 
 1. **Developer creates component factory**
    ```go

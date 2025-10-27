@@ -42,8 +42,10 @@ Implement a Vue-inspired component system that wraps Bubbletea's Model-Update-Vi
 4.1. Components can emit custom events  
 4.2. Parent components can listen to child events  
 4.3. Type-safe event payloads  
-4.4. Event bubbling (optional)  
+4.4. Event bubbling from child to parent  
 4.5. Event handlers registered via `On(eventName, handler)`  
+4.6. Event propagation control (stop bubbling)  
+4.7. Event metadata includes source component and timestamp  
 
 ### 5. Template Rendering
 5.1. Template as Go function: `func(ctx RenderContext) string`  
@@ -126,6 +128,9 @@ Implement a Vue-inspired component system that wraps Bubbletea's Model-Update-Vi
 - [ ] Event payloads type-safe
 - [ ] Multiple listeners per event
 - [ ] Event handlers execute correctly
+- [ ] Events bubble from child to parent
+- [ ] Event propagation can be stopped
+- [ ] Event metadata includes source and timestamp
 
 ### Template Rendering
 - [ ] Template function renders to string

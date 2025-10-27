@@ -532,6 +532,139 @@ func (c *componentImpl) Emit(event string, data interface{}) {
 }
 ```
 
+### Event Bubbling Architecture
+
+**Purpose**: Events automatically propagate from child components up through parent components until handled or reaching the root.
+
+**Design Pattern**: Follows Vue.js and DOM event bubbling model for familiar, predictable behavior.
+
+#### Bubbling Flow
+```
+Child Component (emits "submit")
+    ↓
+Parent Component (listens for "submit" or bubbles up)
+    ↓
+Grandparent Component (listens or bubbles up)
+    ↓
+Root Component (final opportunity to handle)
+```
+
+#### Implementation Design
+
+```go
+type Event struct {
+    Name      string
+    Source    Component    // Original emitter
+    Data      interface{}
+    Timestamp time.Time
+    Stopped   bool         // Flag to stop propagation
+}
+
+// Emit with automatic bubbling
+func (c *componentImpl) Emit(event string, data interface{}) {
+    evt := Event{
+        Name:      event,
+        Source:    c,
+        Data:      data,
+        Timestamp: time.Now(),
+        Stopped:   false,
+    }
+    
+    c.bubbleEvent(evt)
+}
+
+// bubbleEvent propagates event up the component tree
+func (c *componentImpl) bubbleEvent(evt Event) {
+    // Skip if event propagation was stopped
+    if evt.Stopped {
+        return
+    }
+    
+    // Execute local handlers first
+    c.handlersMu.RLock()
+    handlers, ok := c.handlers[evt.Name]
+    c.handlersMu.RUnlock()
+    
+    if ok {
+        for _, handler := range handlers {
+            handler(evt.Data)
+            // Note: handlers can call StopPropagation()
+            // to set evt.Stopped = true
+        }
+    }
+    
+    // Bubble to parent if not stopped and parent exists
+    if !evt.Stopped && c.parent != nil {
+        c.parent.(*componentImpl).bubbleEvent(evt)
+    }
+}
+
+// StopPropagation prevents event from bubbling further
+func (e *Event) StopPropagation() {
+    e.Stopped = true
+}
+```
+
+#### Event Handler with Stop Propagation
+
+```go
+// Child component
+child := NewComponent("Button").
+    Setup(func(ctx *Context) {
+        ctx.On("click", func(data interface{}) {
+            // Handle locally
+            fmt.Println("Button clicked")
+            
+            // Emit custom event that will bubble
+            ctx.Emit("buttonClicked", map[string]interface{}{
+                "timestamp": time.Now(),
+                "buttonId": "submit",
+            })
+        })
+    }).
+    Build()
+
+// Parent component - handles bubbled events
+parent := NewComponent("Form").
+    Children(child).
+    Setup(func(ctx *Context) {
+        // Listen for child's buttonClicked event
+        ctx.On("buttonClicked", func(data interface{}) {
+            eventData := data.(map[string]interface{})
+            fmt.Printf("Form received button click: %v\n", eventData)
+            
+            // Stop propagation to prevent grandparent from seeing it
+            // (Implementation detail: handler can set stop flag)
+        })
+    }).
+    Build()
+```
+
+#### Use Cases
+
+1. **Form Submission**: Button click bubbles up to form for validation
+2. **Menu Selection**: Item selection bubbles to menu container
+3. **List Actions**: Item actions bubble to list for coordinated updates
+4. **Error Handling**: Errors bubble up for centralized handling
+5. **Analytics**: All events bubble to root for logging
+
+#### Performance Considerations
+
+- **Efficient Path**: O(depth) where depth is component tree depth
+- **Early Exit**: Handlers can stop propagation to prevent unnecessary traversal
+- **No Overhead**: If no parent, bubbling stops immediately
+- **Thread-Safe**: Uses existing handlersMu for concurrent access
+
+#### Comparison with DOM Event Bubbling
+
+| Feature | DOM Events | BubblyUI Events |
+|---------|------------|-----------------|
+| Direction | Bottom-up | Bottom-up |
+| Stop Propagation | `event.stopPropagation()` | Event.Stopped flag |
+| Capture Phase | Yes | No (not needed in TUI) |
+| Default Prevention | `event.preventDefault()` | Not applicable |
+| Event Object | Full DOM Event | Event struct with metadata |
+
 ---
 
 ## Integration with Reactivity System
