@@ -57,3 +57,6 @@ tmp/
 
 # Debug logs
 debug.log
+
+# Errors json
+errors.json
