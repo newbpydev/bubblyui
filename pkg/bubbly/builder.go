@@ -1,5 +1,39 @@
 package bubbly
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// Validation errors returned by Build().
+var (
+	// ErrMissingTemplate is returned when Build() is called without setting a template.
+	ErrMissingTemplate = errors.New("template is required")
+)
+
+// ValidationError represents one or more validation errors encountered during Build().
+// It provides detailed information about what went wrong during component validation.
+type ValidationError struct {
+	// ComponentName is the name of the component that failed validation.
+	ComponentName string
+
+	// Errors is the list of validation errors encountered.
+	Errors []error
+}
+
+// Error implements the error interface for ValidationError.
+// It formats the error message to include the component name and all validation errors.
+func (e *ValidationError) Error() string {
+	var errMsgs []string
+	for _, err := range e.Errors {
+		errMsgs = append(errMsgs, err.Error())
+	}
+	return fmt.Sprintf("component '%s' validation failed: %s",
+		e.ComponentName,
+		strings.Join(errMsgs, "; "))
+}
+
 // ComponentBuilder provides a fluent API for creating components.
 // It implements the builder pattern to make component creation
 // readable and type-safe.
@@ -184,4 +218,54 @@ func (b *ComponentBuilder) Template(fn RenderFunc) *ComponentBuilder {
 func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	b.component.children = children
 	return b
+}
+
+// Build validates the component configuration and returns the final Component.
+// This is the terminal method in the builder chain that performs validation
+// and creates the component instance.
+//
+// Validation rules:
+//   - Template is required (components must have a render function)
+//   - All accumulated errors are checked and reported
+//
+// If validation fails, Build returns nil and an error describing what's wrong.
+// If validation succeeds, Build returns the configured Component ready for use.
+//
+// Example:
+//
+//	component, err := NewComponent("Button").
+//	    Props(ButtonProps{Label: "Click me"}).
+//	    Template(func(ctx RenderContext) string {
+//	        props := ctx.Props().(ButtonProps)
+//	        return props.Label
+//	    }).
+//	    Build()
+//
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// Use component with Bubbletea
+//	p := tea.NewProgram(component)
+//	p.Run()
+//
+// Returns:
+//   - Component: The built component (nil if validation fails)
+//   - error: Validation error (nil if validation succeeds)
+func (b *ComponentBuilder) Build() (Component, error) {
+	// Validate required fields
+	if b.component.template == nil {
+		b.errors = append(b.errors, ErrMissingTemplate)
+	}
+
+	// Check for accumulated errors
+	if len(b.errors) > 0 {
+		return nil, &ValidationError{
+			ComponentName: b.component.name,
+			Errors:        b.errors,
+		}
+	}
+
+	// Return the component (implements Component interface)
+	return b.component, nil
 }

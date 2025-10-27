@@ -410,3 +410,180 @@ func TestComponentBuilder_TypeSafety(t *testing.T) {
 		assert.NotNil(t, builder)
 	})
 }
+
+// TestComponentBuilder_Build tests the Build method.
+func TestComponentBuilder_Build(t *testing.T) {
+	t.Run("builds valid component with template", func(t *testing.T) {
+		// Arrange
+		builder := NewComponent("Test").
+			Template(func(ctx RenderContext) string {
+				return "Hello"
+			})
+
+		// Act
+		component, err := builder.Build()
+
+		// Assert
+		require.NoError(t, err, "Build should succeed with template")
+		require.NotNil(t, component, "Component should not be nil")
+		assert.Equal(t, "Test", component.Name())
+		assert.NotEmpty(t, component.ID())
+	})
+
+	t.Run("fails without template", func(t *testing.T) {
+		// Arrange
+		builder := NewComponent("Test")
+
+		// Act
+		component, err := builder.Build()
+
+		// Assert
+		require.Error(t, err, "Build should fail without template")
+		assert.Nil(t, component, "Component should be nil on error")
+		assert.Contains(t, err.Error(), "template is required")
+	})
+
+	t.Run("builds with all configuration", func(t *testing.T) {
+		// Arrange
+		type TestProps struct {
+			Label string
+		}
+		props := TestProps{Label: "Click"}
+		setupFn := func(ctx *Context) {}
+		templateFn := func(ctx RenderContext) string { return "test" }
+		child, childErr := NewComponent("Child").Template(func(ctx RenderContext) string { return "child" }).Build()
+		require.NoError(t, childErr)
+
+		// Act
+		component, err := NewComponent("Test").
+			Props(props).
+			Setup(setupFn).
+			Template(templateFn).
+			Children(child).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, component)
+		assert.Equal(t, props, component.Props())
+	})
+
+	t.Run("returns component implementing Component interface", func(t *testing.T) {
+		// Arrange & Act
+		component, err := NewComponent("Test").
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, component)
+
+		// Verify it implements Component interface
+		var _ Component = component
+		assert.Equal(t, "Test", component.Name())
+		assert.NotEmpty(t, component.ID())
+		assert.NotNil(t, component.Props)
+		assert.NotNil(t, component.Emit)
+		assert.NotNil(t, component.On)
+	})
+
+	t.Run("error message is clear and descriptive", func(t *testing.T) {
+		// Arrange
+		builder := NewComponent("MyButton")
+
+		// Act
+		_, err := builder.Build()
+
+		// Assert
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "template is required")
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("builds component with only template", func(t *testing.T) {
+		// Arrange - minimal valid configuration
+		builder := NewComponent("Minimal").
+			Template(func(ctx RenderContext) string {
+				return "minimal"
+			})
+
+		// Act
+		component, err := builder.Build()
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, component)
+		assert.Nil(t, component.Props(), "Props should be nil when not set")
+	})
+}
+
+// TestComponentBuilder_BuildValidation tests validation logic.
+func TestComponentBuilder_BuildValidation(t *testing.T) {
+	t.Run("accumulates multiple errors", func(t *testing.T) {
+		// Arrange - builder with no template
+		builder := NewComponent("Test")
+
+		// Act
+		_, err := builder.Build()
+
+		// Assert
+		require.Error(t, err)
+		// Should mention template requirement
+		assert.Contains(t, err.Error(), "template")
+	})
+
+	t.Run("validates before returning component", func(t *testing.T) {
+		// Arrange
+		builder := NewComponent("Test")
+
+		// Act
+		component, err := builder.Build()
+
+		// Assert - validation happens before component is returned
+		assert.Error(t, err)
+		assert.Nil(t, component, "Component should be nil when validation fails")
+	})
+}
+
+// TestComponentBuilder_BuildIntegration tests Build with Bubbletea.
+func TestComponentBuilder_BuildIntegration(t *testing.T) {
+	t.Run("built component works with Bubbletea", func(t *testing.T) {
+		// Arrange
+		component, err := NewComponent("Test").
+			Template(func(ctx RenderContext) string {
+				return "Hello World"
+			}).
+			Build()
+
+		require.NoError(t, err)
+
+		// Act - use as tea.Model
+		_ = component.Init()
+		_, _ = component.Update(nil)
+		view := component.View()
+
+		// Assert
+		assert.Equal(t, "Hello World", view)
+	})
+
+	t.Run("built component with setup executes correctly", func(t *testing.T) {
+		// Arrange
+		setupCalled := false
+		component, err := NewComponent("Test").
+			Setup(func(ctx *Context) {
+				setupCalled = true
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+
+		// Act
+		_ = component.Init()
+
+		// Assert
+		assert.True(t, setupCalled, "Setup should be called during Init")
+	})
+}
