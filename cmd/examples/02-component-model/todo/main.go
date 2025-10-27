@@ -11,9 +11,9 @@ import (
 
 // Todo represents a todo item
 type Todo struct {
-	ID    int
-	Text  string
-	Done  bool
+	ID   int
+	Text string
+	Done bool
 }
 
 // TodoItemProps for individual todo items

@@ -714,7 +714,7 @@ func TestComplexComponentTree(t *testing.T) {
 		var level2Children []bubbly.Component
 		for i := 0; i < 3; i++ {
 			node, _ := bubbly.NewComponent(fmt.Sprintf("Node%d", i)).
-				Children(level3Children[i*3:(i+1)*3]...).
+				Children(level3Children[i*3 : (i+1)*3]...).
 				Template(func(ctx bubbly.RenderContext) string {
 					output := "N("
 					for _, c := range ctx.Children() {

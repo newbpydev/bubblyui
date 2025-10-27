@@ -17,9 +17,9 @@ type ButtonProps struct {
 
 // model wraps the button component for Bubbletea integration
 type model struct {
-	button      bubbly.Component
-	isPrimary   bool
-	clickCount  int
+	button     bubbly.Component
+	isPrimary  bool
+	clickCount int
 }
 
 func (m model) Init() tea.Cmd {

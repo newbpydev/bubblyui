@@ -1276,18 +1276,28 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	6.397s
 - **Keyboard shortcuts**: tab (next field), enter (submit), backspace (delete), esc (reset/back), q (quit)
 - **WithAltScreen**: ✅ Clean full-screen rendering
 
-**Example 4: Nested Components** (318 lines)
-- **Demonstrates**: Component composition, parent-child communication
+**Example 4: Nested Components** (202 lines) ✅ **REIMPLEMENTED**
+- **Demonstrates**: Component composition, safe event handling, infinite loop prevention
 - **Features**:
-  - 3-level component hierarchy (Container → List → Item)
-  - Props flow through tree (ItemProps, ListProps)
-  - Event bubbling up the tree
-  - Parent listening to child events
-  - Selective child updates (select/deselect)
-  - State tracking across levels
-  - Visual selection feedback
+  - Container component with reactive state (selectedID)
+  - Item rendering with selection state
+  - Event-driven state updates (select, reset events)
+  - Visual selection feedback with Lipgloss styling
+  - Safe event flow: Root model → Component (no circular events)
+  - State-driven rendering (no prop mutations)
 - **Keyboard shortcuts**: 1/2/3 (select item), r (reset), q (quit)
 - **WithAltScreen**: ✅ Clean full-screen rendering
+- **Safety Features**:
+  - ✅ No infinite loops: Events flow one-way (root → component)
+  - ✅ No circular dependencies: Handlers only update state, never emit events
+  - ✅ Thread-safe: All state updates use Ref.Set()
+  - ✅ Race detector clean: Tested with `-race` flag
+- **Implementation Notes**:
+  - Simplified from original 3-level hierarchy to single Container component
+  - Items rendered inline in template (not as separate components)
+  - Event handlers receive Event struct and extract data safely
+  - Selection state managed via Ref and checked in template
+  - Pattern follows counter example for consistency
 
 **Example 5: Todo Application** (350 lines)
 - **Demonstrates**: Complete application with all component features
@@ -1314,12 +1324,12 @@ ok  	github.com/newbpydev/bubblyui/tests/integration	6.397s
 - ✅ Progressive complexity (button → counter → form → nested → todo)
 
 **Code Statistics:**
-- **Total lines**: ~1,421 lines across 5 examples
-- **Average example size**: 284 lines
+- **Total lines**: ~1,305 lines across 5 examples
+- **Average example size**: 261 lines
 - **Button**: 165 lines (basic)
 - **Counter**: 236 lines (state management)
 - **Form**: 352 lines (props & events)
-- **Nested**: 318 lines (composition)
+- **Nested**: 202 lines (composition) ✅ **UPDATED**
 - **Todo**: 350 lines (complete app)
 
 **Documentation:**

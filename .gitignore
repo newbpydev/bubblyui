@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# Go executable binaries in example directories
+cmd/examples/*/*
+
 # Test binary, built with `go test -c`
 *.test
 

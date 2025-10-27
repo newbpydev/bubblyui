@@ -74,7 +74,7 @@ func TestChildren_Access(t *testing.T) {
 			// Verify defensive copy (modifying result shouldn't affect internal state)
 			if tt.expectDefensiveCopy && len(result) > 0 {
 				originalLen := len(parent.(*componentImpl).children)
-				result = append(result, nil) // Modify returned slice
+				_ = append(result, nil) // Modify returned slice (assignment to _ to satisfy linter)
 				assert.Equal(t, originalLen, len(parent.(*componentImpl).children), "internal children should not be affected")
 			}
 		})

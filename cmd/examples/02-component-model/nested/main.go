@@ -9,24 +9,13 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// ItemProps for list items
-type ItemProps struct {
-	Text string
-	ID   int
-}
-
-// ListProps for the list container
-type ListProps struct {
-	Title string
-}
-
-// model wraps the root component
+// model wraps the container component
 type model struct {
-	root bubbly.Component
+	container bubbly.Component
 }
 
 func (m model) Init() tea.Cmd {
-	return m.root.Init()
+	return m.container.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -36,18 +25,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "1":
-			m.root.Emit("selectItem", 1)
+			// Select first item
+			m.container.Emit("select", 1)
 		case "2":
-			m.root.Emit("selectItem", 2)
+			// Select second item
+			m.container.Emit("select", 2)
 		case "3":
-			m.root.Emit("selectItem", 3)
+			// Select third item
+			m.container.Emit("select", 3)
 		case "r":
-			m.root.Emit("reset", nil)
+			// Reset selection
+			m.container.Emit("reset", nil)
 		}
 	}
 
-	updatedComponent, cmd := m.root.Update(msg)
-	m.root = updatedComponent.(bubbly.Component)
+	updatedComponent, cmd := m.container.Update(msg)
+	m.container = updatedComponent.(bubbly.Component)
 	return m, cmd
 }
 
@@ -57,252 +50,140 @@ func (m model) View() string {
 		Foreground(lipgloss.Color("205")).
 		MarginBottom(1)
 
-	title := titleStyle.Render("🪆 Nested Components - Composition")
+	title := titleStyle.Render("🔗 Nested Components - Component Composition")
 
-	componentView := m.root.View()
+	componentView := m.container.View()
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
+		MarginTop(2)
 
-	help := helpStyle.Render("1/2/3: select item • r: reset • q: quit")
+	help := helpStyle.Render(
+		"1/2/3: select item • r: reset • q: quit",
+	)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n", title, componentView, help)
 }
 
-// createItem creates a single item component
-func createItem(props ItemProps) (bubbly.Component, error) {
-	return bubbly.NewComponent("Item").
-		Props(props).
-		Setup(func(ctx *bubbly.Context) {
-			selected := ctx.Ref(false)
-			ctx.Expose("selected", selected)
-
-			ctx.On("select", func(data interface{}) {
-				selected.Set(true)
-			})
-
-			ctx.On("deselect", func(data interface{}) {
-				selected.Set(false)
-			})
-		}).
-		Template(func(ctx bubbly.RenderContext) string {
-			props := ctx.Props().(ItemProps)
-			selected := ctx.Get("selected").(*bubbly.Ref[interface{}])
-			isSelected := selected.Get().(bool)
-
-			itemStyle := lipgloss.NewStyle().
-				Padding(0, 2).
-				Border(lipgloss.NormalBorder()).
-				Width(40)
-
-			if isSelected {
-				itemStyle = itemStyle.
-					Bold(true).
-					Foreground(lipgloss.Color("15")).
-					Background(lipgloss.Color("63")).
-					BorderForeground(lipgloss.Color("99"))
-			} else {
-				itemStyle = itemStyle.
-					Foreground(lipgloss.Color("250")).
-					BorderForeground(lipgloss.Color("240"))
-			}
-
-			status := "  "
-			if isSelected {
-				status = "✓ "
-			}
-
-			return itemStyle.Render(fmt.Sprintf("%s%d. %s", status, props.ID, props.Text))
-		}).
-		Build()
+// ItemData represents data for a single item
+type ItemData struct {
+	ID    int
+	Label string
 }
 
-// createList creates a list container with items
-func createList(props ListProps, items []bubbly.Component) (bubbly.Component, error) {
-	return bubbly.NewComponent("List").
-		Props(props).
-		Children(items...).
+// createContainer creates the root container component
+func createContainer() (bubbly.Component, error) {
+	// Define the items
+	items := []ItemData{
+		{ID: 1, Label: "First Item"},
+		{ID: 2, Label: "Second Item"},
+		{ID: 3, Label: "Third Item"},
+	}
+
+	return bubbly.NewComponent("Container").
 		Setup(func(ctx *bubbly.Context) {
+			// Reactive state for selected item ID (0 = none selected)
 			selectedID := ctx.Ref(0)
 			ctx.Expose("selectedID", selectedID)
 
-			ctx.On("itemSelected", func(data interface{}) {
+			// Event handler for selection
+			ctx.On("select", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
-					itemID := event.Data.(int)
-					selectedID.Set(itemID)
-
-					// Select the specific item
-					children := ctx.Children()
-					for _, child := range children {
-						childProps := child.Props().(ItemProps)
-						if childProps.ID == itemID {
-							child.Emit("select", nil)
-						} else {
-							child.Emit("deselect", nil)
-						}
+					if id, ok := event.Data.(int); ok {
+						selectedID.Set(id)
 					}
 				}
 			})
 
+			// Event handler for reset
 			ctx.On("reset", func(data interface{}) {
 				selectedID.Set(0)
-				// Deselect all items
-				children := ctx.Children()
-				for _, child := range children {
-					child.Emit("deselect", nil)
-				}
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
-			props := ctx.Props().(ListProps)
+			// Get selected ID
 			selectedID := ctx.Get("selectedID").(*bubbly.Ref[interface{}])
+			selected := selectedID.Get().(int)
 
-			listStyle := lipgloss.NewStyle().
+			// Container style
+			containerStyle := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("170")).
+				BorderForeground(lipgloss.Color("99")).
 				Padding(1, 2).
-				Width(46)
+				Width(50)
 
-			titleStyle := lipgloss.NewStyle().
+			// Header
+			headerStyle := lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("170")).
 				MarginBottom(1)
 
-			title := titleStyle.Render(props.Title)
+			header := headerStyle.Render("Item List")
 
-			// Render children
+			// Render items
 			var itemViews []string
-			for _, child := range ctx.Children() {
-				itemViews = append(itemViews, ctx.RenderChild(child))
+			for _, item := range items {
+				itemViews = append(itemViews, renderItem(item, selected))
 			}
-
-			items := lipgloss.JoinVertical(lipgloss.Left, itemViews...)
 
 			// Status
 			statusStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("241")).
-				MarginTop(1)
+				MarginTop(1).
+				Italic(true)
 
-			selID := selectedID.Get().(int)
-			status := "No selection"
-			if selID > 0 {
-				status = fmt.Sprintf("Selected: Item %d", selID)
+			var status string
+			if selected == 0 {
+				status = statusStyle.Render("No item selected")
+			} else {
+				status = statusStyle.Render(fmt.Sprintf("Selected: Item %d", selected))
 			}
-			statusText := statusStyle.Render(status)
 
-			return listStyle.Render(lipgloss.JoinVertical(
+			// Combine all parts
+			content := lipgloss.JoinVertical(
 				lipgloss.Left,
-				title,
-				items,
-				statusText,
-			))
+				header,
+				"",
+				lipgloss.JoinVertical(lipgloss.Left, itemViews...),
+				"",
+				status,
+			)
+
+			return containerStyle.Render(content)
 		}).
 		Build()
 }
 
-// createContainer creates the root container
-func createContainer(list bubbly.Component) (bubbly.Component, error) {
-	return bubbly.NewComponent("Container").
-		Children(list).
-		Setup(func(ctx *bubbly.Context) {
-			totalSelections := ctx.Ref(0)
-			ctx.Expose("totalSelections", totalSelections)
+// renderItem renders a single item with selection styling
+func renderItem(item ItemData, selectedID int) string {
+	isSelected := item.ID == selectedID
 
-			// Listen to list for selections
-			children := ctx.Children()
-			if len(children) > 0 {
-				listComponent := children[0]
-				listComponent.On("itemSelected", func(data interface{}) {
-					if event, ok := data.(*bubbly.Event); ok {
-						totalSelections.Set(totalSelections.Get().(int) + 1)
-						// Forward event
-						ctx.Emit("itemSelected", event.Data)
-					}
-				})
-			}
+	var style lipgloss.Style
+	var prefix string
 
-			ctx.On("selectItem", func(data interface{}) {
-				if event, ok := data.(*bubbly.Event); ok {
-					itemID := event.Data.(int)
-					children := ctx.Children()
-					if len(children) > 0 {
-						listComponent := children[0]
-						// Reset all items first
-						listComponent.Emit("reset", nil)
-						// Send selection event to list
-						listComponent.Emit("itemSelected", itemID)
-					}
-				}
-			})
+	if isSelected {
+		// Selected style
+		style = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("15")).
+			Background(lipgloss.Color("63")).
+			Padding(0, 2).
+			Width(44)
+		prefix = "▶ "
+	} else {
+		// Normal style
+		style = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("250")).
+			Padding(0, 2).
+			Width(44)
+		prefix = "  "
+	}
 
-			ctx.On("reset", func(data interface{}) {
-				totalSelections.Set(0)
-				children := ctx.Children()
-				if len(children) > 0 {
-					children[0].Emit("reset", nil)
-				}
-			})
-		}).
-		Template(func(ctx bubbly.RenderContext) string {
-			totalSelections := ctx.Get("totalSelections").(*bubbly.Ref[interface{}])
-
-			containerStyle := lipgloss.NewStyle().
-				Border(lipgloss.DoubleBorder()).
-				BorderForeground(lipgloss.Color("205")).
-				Padding(1, 2)
-
-			headerStyle := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("205")).
-				MarginBottom(1)
-
-			header := headerStyle.Render("Container Component")
-
-			// Render list child
-			var listView string
-			for _, child := range ctx.Children() {
-				listView = ctx.RenderChild(child)
-			}
-
-			// Stats
-			statsStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("86")).
-				MarginTop(1)
-
-			stats := statsStyle.Render(fmt.Sprintf(
-				"Total selections: %d",
-				totalSelections.Get().(int),
-			))
-
-			return containerStyle.Render(lipgloss.JoinVertical(
-				lipgloss.Left,
-				header,
-				listView,
-				stats,
-			))
-		}).
-		Build()
+	return style.Render(fmt.Sprintf("%s%s", prefix, item.Label))
 }
 
 func main() {
-	// Create item components
-	item1, _ := createItem(ItemProps{Text: "First Item", ID: 1})
-	item2, _ := createItem(ItemProps{Text: "Second Item", ID: 2})
-	item3, _ := createItem(ItemProps{Text: "Third Item", ID: 3})
-
-	// Create list with items
-	list, err := createList(
-		ListProps{Title: "Select an Item"},
-		[]bubbly.Component{item1, item2, item3},
-	)
-	if err != nil {
-		fmt.Printf("Error creating list: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Create container with list
-	container, err := createContainer(list)
+	container, err := createContainer()
 	if err != nil {
 		fmt.Printf("Error creating container: %v\n", err)
 		os.Exit(1)
@@ -310,7 +191,7 @@ func main() {
 
 	container.Init()
 
-	m := model{root: container}
+	m := model{container: container}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

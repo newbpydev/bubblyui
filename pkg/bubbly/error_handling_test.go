@@ -53,9 +53,9 @@ func TestCircularReferenceDetection(t *testing.T) {
 					Build()
 
 				// A -> B
-				compA.(*componentImpl).AddChild(compB)
+				_ = compA.(*componentImpl).AddChild(compB)
 				// B -> C
-				compB.(*componentImpl).AddChild(compC)
+				_ = compB.(*componentImpl).AddChild(compC)
 				// Try C -> A (circular)
 				err := compC.(*componentImpl).AddChild(compA)
 				return compA, compC, err
@@ -362,7 +362,7 @@ func TestCircularReferenceErrorDetails(t *testing.T) {
 		Build()
 
 	// A -> B
-	compA.(*componentImpl).AddChild(compB)
+	_ = compA.(*componentImpl).AddChild(compB)
 
 	// Try B -> A (circular)
 	err := compB.(*componentImpl).AddChild(compA)
