@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+// eventPool is a sync.Pool for reusing Event objects.
+// This reduces allocations and GC pressure during event emission.
+// Events are reset when retrieved from the pool and returned after use.
+var eventPool = sync.Pool{
+	New: func() interface{} {
+		return &Event{}
+	},
+}
+
 // Event represents a component event with metadata.
 // Events are emitted by components and can be listened to by parent components.
 //

@@ -416,13 +416,17 @@ func TestEventBubbling_ChildToParent(t *testing.T) {
 	err := parent.AddChild(child)
 	require.NoError(t, err)
 
-	// Track event reception
-	var parentReceived bool
-	var parentData interface{}
-
+	// Track whether parent received the event
+	parentReceived := false
+	var eventData interface{}
+	var eventSource Component
 	parent.On("test-event", func(data interface{}) {
 		parentReceived = true
-		parentData = data
+		// Extract data from Event during handler execution (before pooling)
+		if event, ok := data.(*Event); ok {
+			eventData = event.Data
+			eventSource = event.Source
+		}
 	})
 
 	// Emit event from child
@@ -433,10 +437,8 @@ func TestEventBubbling_ChildToParent(t *testing.T) {
 	assert.True(t, parentReceived, "parent should receive bubbled event")
 
 	// Verify event data is preserved
-	if event, ok := parentData.(*Event); ok {
-		assert.Equal(t, testData, event.Data, "event data should be preserved")
-		assert.Equal(t, child, event.Source, "event source should be child")
-	}
+	assert.Equal(t, testData, eventData, "event data should be preserved")
+	assert.Equal(t, child, eventSource, "event source should be child")
 }
 
 // TestEventBubbling_MultipleLevels tests event bubbling through multiple levels (3+ deep).

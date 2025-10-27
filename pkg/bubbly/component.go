@@ -182,17 +182,26 @@ func (c *componentImpl) Props() interface{} {
 //
 //	component.Emit("submit", FormData{Username: "user"})
 func (c *componentImpl) Emit(eventName string, data interface{}) {
-	// Create event with metadata
-	event := &Event{
-		Name:      eventName,
-		Source:    c,
-		Data:      data,
-		Timestamp: time.Now(),
-		Stopped:   false,
-	}
+	// Get event from pool to reduce allocations
+	event := eventPool.Get().(*Event)
+
+	// Initialize event with metadata
+	event.Name = eventName
+	event.Source = c
+	event.Data = data
+	event.Timestamp = time.Now()
+	event.Stopped = false
 
 	// Start event bubbling from this component
 	c.bubbleEvent(event)
+
+	// Return event to pool after bubbling completes
+	// Safe because bubbling is synchronous (no goroutines)
+	event.Name = ""
+	event.Source = nil
+	event.Data = nil
+	event.Stopped = false
+	eventPool.Put(event)
 }
 
 // On registers an event handler for the specified event name.
