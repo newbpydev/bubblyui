@@ -2133,6 +2133,17 @@ func ExamplePIIFiltering() // ✅ Included in custom-reporter example
 
 **Estimated effort:** 2 hours ✅ **Actual: 2.5 hours**
 
+**Bug Fix (2024-10-27):**
+- **Issue:** Event handlers were incorrectly casting `data` directly to string
+- **Root Cause:** Handlers receive `*bubbly.Event` struct, not raw data
+- **Fix:** Extract data from `event.Data` field in all event handlers
+- **Files Fixed:**
+  - `console-reporter/main.go` - Fixed digit and operator handlers
+  - `sentry-reporter/main.go` - Fixed input handler
+  - `custom-reporter/main.go` - Fixed input handler
+- **Verification:** All examples now build and run correctly
+- **Pattern:** Always use `event := data.(*bubbly.Event)` then `event.Data`
+
 ---
 
 ### Task 8.6: Integration Tests

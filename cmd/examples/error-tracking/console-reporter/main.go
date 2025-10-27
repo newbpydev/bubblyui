@@ -126,7 +126,10 @@ func createCalculator() (bubbly.Component, error) {
 
 			// Event handlers
 			ctx.On("digit", func(data interface{}) {
-				digit := data.(string)
+				// Extract data from Event struct
+				event := data.(*bubbly.Event)
+				digit := event.Data.(string)
+				
 				currentDisplay := display.Get().(string)
 				isNew := newNumber.Get().(bool)
 
@@ -143,7 +146,8 @@ func createCalculator() (bubbly.Component, error) {
 			})
 
 			ctx.On("operator", func(data interface{}) {
-				op := data.(string)
+				event := data.(*bubbly.Event)
+				op := event.Data.(string)
 				currentOp := operator.Get().(string)
 
 				// If there's a pending operation, calculate it first

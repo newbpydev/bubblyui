@@ -132,7 +132,8 @@ func createForm() (bubbly.Component, error) {
 
 			// Event handlers
 			ctx.On("input", func(data interface{}) {
-				char := data.(string)
+				event := data.(*bubbly.Event)
+				char := event.Data.(string)
 				field := currentField.Get().(int)
 
 				switch field {
