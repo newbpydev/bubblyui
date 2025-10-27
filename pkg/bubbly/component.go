@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -170,15 +171,28 @@ func (c *componentImpl) Props() interface{} {
 	return c.props
 }
 
-// Emit sends an event with associated data.
+// Emit sends an event with associated data and bubbles it up to parent components.
 // It creates an Event struct with metadata (timestamp, source) and
-// calls all registered handlers for the event.
+// calls bubbleEvent to propagate the event through the component tree.
+//
+// Events automatically bubble from child to parent unless a handler calls
+// event.StopPropagation().
 //
 // Example:
 //
 //	component.Emit("submit", FormData{Username: "user"})
-func (c *componentImpl) Emit(event string, data interface{}) {
-	c.emitEvent(event, data)
+func (c *componentImpl) Emit(eventName string, data interface{}) {
+	// Create event with metadata
+	event := &Event{
+		Name:      eventName,
+		Source:    c,
+		Data:      data,
+		Timestamp: time.Now(),
+		Stopped:   false,
+	}
+
+	// Start event bubbling from this component
+	c.bubbleEvent(event)
 }
 
 // On registers an event handler for the specified event name.

@@ -13,6 +13,10 @@ import (
 //   - Source: The component that emitted the event
 //   - Data: Arbitrary data associated with the event
 //   - Timestamp: When the event was emitted
+//   - Stopped: Flag to control event propagation (set via StopPropagation)
+//
+// Events automatically bubble up from child to parent components unless
+// StopPropagation() is called by a handler.
 //
 // Example:
 //
@@ -21,6 +25,7 @@ import (
 //	    Source:    component,
 //	    Data:      FormData{Username: "user"},
 //	    Timestamp: time.Now(),
+//	    Stopped:   false,
 //	}
 type Event struct {
 	// Name is the event identifier (e.g., "click", "submit")
@@ -35,41 +40,73 @@ type Event struct {
 
 	// Timestamp is when the event was emitted
 	Timestamp time.Time
+
+	// Stopped indicates whether event propagation has been stopped
+	// Set to true by calling StopPropagation() to prevent bubbling to parent
+	Stopped bool
 }
 
-// emitEvent is an internal method that creates and emits an Event.
-// It handles event creation with proper metadata and calls all registered handlers.
+// StopPropagation prevents the event from bubbling to parent components.
+// This method should be called by event handlers that want to stop
+// the event from propagating further up the component tree.
 //
-// This method:
-//   - Creates an Event struct with timestamp
-//   - Looks up registered handlers for the event name
-//   - Executes each handler with the event data
-//   - Handles handler panics gracefully (future enhancement)
+// Example:
 //
-// Note: This is called by the public Emit() method on componentImpl.
-// The Event struct is created for future use (e.g., event bubbling, logging).
-func (c *componentImpl) emitEvent(eventName string, data interface{}) {
-	// Create event with metadata
-	// Note: Currently we pass data directly to handlers, but the Event struct
-	// is available for future enhancements like event bubbling or logging.
-	_ = Event{
-		Name:      eventName,
-		Source:    c,
-		Data:      data,
-		Timestamp: time.Now(),
+//	component.On("submit", func(data interface{}) {
+//	    if event, ok := data.(*Event); ok {
+//	        // Handle the event locally
+//	        fmt.Println("Handling submit")
+//	        // Prevent parent from seeing this event
+//	        event.StopPropagation()
+//	    }
+//	})
+func (e *Event) StopPropagation() {
+	e.Stopped = true
+}
+
+// bubbleEvent propagates an event up the component tree.
+// It executes local handlers first, then recursively calls the parent's
+// bubbleEvent if the event hasn't been stopped.
+//
+// This implements Vue.js-style event bubbling where events automatically
+// propagate from child to parent components unless explicitly stopped.
+//
+// The bubbling flow:
+//  1. Execute all local handlers for this event
+//  2. Pass Event pointer to handlers (so they can call StopPropagation)
+//  3. Check if event.Stopped is true after handlers execute
+//  4. If not stopped and parent exists, recursively call parent.bubbleEvent
+//
+// Thread-safe: Uses existing handlersMu RWMutex for concurrent access.
+func (c *componentImpl) bubbleEvent(event *Event) {
+	// Skip if event propagation was already stopped
+	if event.Stopped {
+		return
 	}
 
 	// Get handlers with read lock
 	c.handlersMu.RLock()
-	handlers, ok := c.handlers[eventName]
+	handlers, ok := c.handlers[event.Name]
 	c.handlersMu.RUnlock()
 
-	// Execute all registered handlers for this event
+	// Execute all local handlers for this event
 	if ok {
 		for _, handler := range handlers {
-			// Call handler with event data
-			// Note: In future, we may want to recover from panics here
-			handler(data)
+			// Pass Event pointer to handler so it can call StopPropagation
+			handler(event)
+
+			// Check if handler stopped propagation
+			if event.Stopped {
+				return
+			}
+		}
+	}
+
+	// Bubble to parent if not stopped and parent exists
+	if !event.Stopped && c.parent != nil {
+		// Type assert parent to *componentImpl to access bubbleEvent
+		if parentImpl, ok := (*c.parent).(*componentImpl); ok {
+			parentImpl.bubbleEvent(event)
 		}
 	}
 }
