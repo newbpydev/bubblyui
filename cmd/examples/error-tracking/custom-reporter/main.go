@@ -210,25 +210,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "tab":
 			m.form.Emit("next-field", nil)
+			return m, nil
 		case "shift+tab":
 			m.form.Emit("prev-field", nil)
+			return m, nil
 		case "enter":
 			m.form.Emit("submit", nil)
+			return m, nil
 		case "backspace":
 			m.form.Emit("backspace", nil)
+			return m, nil
 		case "e":
 			// Trigger an error with sensitive data
 			m.form.Emit("trigger-error", nil)
+			return m, nil
 		default:
 			if len(msg.String()) == 1 {
 				m.form.Emit("input", msg.String())
+				return m, nil
 			}
 		}
 	}
 
-	updatedComponent, cmd := m.form.Update(msg)
-	m.form = updatedComponent.(bubbly.Component)
-	return m, cmd
+	return m, nil
 }
 
 func (m model) View() string {

@@ -2133,7 +2133,9 @@ func ExamplePIIFiltering() // ✅ Included in custom-reporter example
 
 **Estimated effort:** 2 hours ✅ **Actual: 2.5 hours**
 
-**Bug Fix (2024-10-27):**
+**Bug Fixes (2024-10-27):**
+
+**Fix #1: Event Handler Data Extraction**
 - **Issue:** Event handlers were incorrectly casting `data` directly to string
 - **Root Cause:** Handlers receive `*bubbly.Event` struct, not raw data
 - **Fix:** Extract data from `event.Data` field in all event handlers
@@ -2141,8 +2143,31 @@ func ExamplePIIFiltering() // ✅ Included in custom-reporter example
   - `console-reporter/main.go` - Fixed digit and operator handlers
   - `sentry-reporter/main.go` - Fixed input handler
   - `custom-reporter/main.go` - Fixed input handler
-- **Verification:** All examples now build and run correctly
 - **Pattern:** Always use `event := data.(*bubbly.Event)` then `event.Data`
+
+**Fix #2: Update Loop Blocking After Emit**
+- **Issue:** After calling `Emit()`, the UI would freeze/stop responding
+- **Root Cause:** After emitting events, code was calling `component.Update(tea.Msg)` which the component doesn't handle, causing the Update loop to not return properly
+- **Analysis:** Components handle `*bubbly.Event` messages internally via `Emit()`, not `tea.Msg` messages. Passing `tea.Msg` to `component.Update()` after already handling it with `Emit()` creates a broken state.
+- **Fix:** Return immediately after `Emit()` calls instead of passing msg to component
+- **Files Fixed:**
+  - `console-reporter/main.go` - Added `return m, nil` after all Emit() calls
+  - `sentry-reporter/main.go` - Added `return m, nil` after all Emit() calls
+  - `custom-reporter/main.go` - Added `return m, nil` after all Emit() calls
+- **Pattern:** After `component.Emit(event, data)`, always `return m, nil`
+
+**Fix #3: TUI-Aware Error Display**
+- **Issue:** Stack traces were printing to stderr, causing jumbled output in TUI
+- **Root Cause:** ConsoleReporter logs to stderr which conflicts with Bubbletea's TUI rendering
+- **Fix:** Created `TUIReporter` that sends errors as Bubbletea messages
+- **Implementation:**
+  - Added `errorMsg` type for error notifications
+  - Added `TUIReporter` that uses `program.Send()` to send errors to TUI
+  - Added error overlay display with red box and ESC to dismiss
+  - Replaced ConsoleReporter with TUIReporter in console-reporter example
+- **Result:** Errors now appear as clean, formatted overlays in the TUI
+
+**Verification:** All examples now build and run correctly with proper panic handling
 
 ---
 

@@ -30,39 +30,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			observability.RecordBreadcrumb("user", "User pressed tab to switch field", nil)
 			m.form.Emit("next-field", nil)
+			return m, nil
 		case "shift+tab":
 			observability.RecordBreadcrumb("user", "User pressed shift+tab to go back", nil)
 			m.form.Emit("prev-field", nil)
+			return m, nil
 		case "enter":
 			observability.RecordBreadcrumb("user", "User submitted form", map[string]interface{}{
 				"action": "submit",
 			})
 			m.form.Emit("submit", nil)
+			return m, nil
 		case "backspace":
 			m.form.Emit("backspace", nil)
+			return m, nil
 		case "e":
 			// Trigger an error to demonstrate error tracking
 			observability.RecordBreadcrumb("user", "User triggered error (for testing)", map[string]interface{}{
 				"action": "error_test",
 			})
 			m.form.Emit("trigger-error", nil)
+			return m, nil
 		case "p":
 			// Trigger a panic to demonstrate panic tracking
 			observability.RecordBreadcrumb("user", "User triggered panic (for testing)", map[string]interface{}{
 				"action": "panic_test",
 			})
 			m.form.Emit("trigger-panic", nil)
+			return m, nil
 		default:
 			// Handle character input
 			if len(msg.String()) == 1 {
 				m.form.Emit("input", msg.String())
+				return m, nil
 			}
 		}
 	}
 
-	updatedComponent, cmd := m.form.Update(msg)
-	m.form = updatedComponent.(bubbly.Component)
-	return m, cmd
+	return m, nil
 }
 
 func (m model) View() string {
