@@ -116,7 +116,8 @@ type componentImpl struct {
 	//nolint:unused // Will be used in Task 5.1
 	parent *Component // Parent component (for event bubbling)
 	//nolint:unused // Will be used in Task 5.1
-	children []Component // Child components
+	children   []Component  // Child components
+	childrenMu sync.RWMutex // Protects children slice
 
 	// Event system
 	handlersMu sync.RWMutex              // Protects handlers map

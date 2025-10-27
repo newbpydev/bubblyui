@@ -217,6 +217,15 @@ func (b *ComponentBuilder) Template(fn RenderFunc) *ComponentBuilder {
 //   - *ComponentBuilder: The builder for method chaining
 func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	b.component.children = children
+
+	// Set parent reference for each child
+	parent := Component(b.component)
+	for _, child := range children {
+		if childImpl, ok := child.(*componentImpl); ok {
+			childImpl.parent = &parent
+		}
+	}
+
 	return b
 }
 
