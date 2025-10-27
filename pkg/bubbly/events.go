@@ -123,6 +123,7 @@ func (c *componentImpl) bubbleEvent(event *Event) {
 								EventName:     event.Name,
 								Timestamp:     time.Now(),
 								StackTrace:    debug.Stack(),
+								Breadcrumbs:   observability.GetBreadcrumbs(),
 							})
 						}
 
