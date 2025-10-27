@@ -6,7 +6,23 @@
 *.dylib
 
 # Go executable binaries in example directories
-cmd/examples/*/*
+# Pattern 1: Ignore binaries named the same as their parent directory
+# (e.g., cmd/examples/01-x/button/button, cmd/examples/02-y/nested3/nested3)
+cmd/examples/*/*/async-data
+cmd/examples/*/*/button
+cmd/examples/*/*/counter
+cmd/examples/*/*/form
+cmd/examples/*/*/form-validation
+cmd/examples/*/*/nested
+cmd/examples/*/*/nested2
+cmd/examples/*/*/nested3
+cmd/examples/*/*/reactive-counter
+cmd/examples/*/*/reactive-todo
+cmd/examples/*/*/todo
+cmd/examples/*/*/watch-computed
+cmd/examples/*/*/watch-effect
+# Pattern 2: Ignore any binary with -race suffix (race detector builds)
+cmd/examples/*/*/*-race
 
 # Test binary, built with `go test -c`
 *.test
