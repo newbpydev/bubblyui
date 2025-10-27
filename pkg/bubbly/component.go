@@ -265,18 +265,7 @@ func (c *componentImpl) View() string {
 	return c.template(ctx)
 }
 
-// Context provides the API available during component setup.
-// It will be fully implemented in Task 3.1.
-//
-// The component field will be used to provide access to:
-//   - Reactive primitives (Ref, Computed, Watch)
-//   - Event handling (On, Emit)
-//   - Component data (Props, Children)
-//   - State exposure (Expose, Get)
-type Context struct {
-	//nolint:unused // Will be used in Task 3.1
-	component *componentImpl
-}
+// Context is now defined in context.go (Task 3.1)
 
 // RenderContext provides the API available during template rendering.
 // It will be fully implemented in Task 3.2.
