@@ -17,7 +17,9 @@ type ButtonProps struct {
 
 // model wraps the button component for Bubbletea integration
 type model struct {
-	button bubbly.Component
+	button      bubbly.Component
+	isPrimary   bool
+	clickCount  int
 }
 
 func (m model) Init() tea.Cmd {
@@ -31,15 +33,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "enter", " ":
+			// Increment click counter
+			m.clickCount++
 			// Simulate button click
 			m.button.Emit("click", nil)
 		case "p":
-			// Toggle primary style by recreating component with different props
+			// Toggle primary style and recreate component while preserving state
+			m.isPrimary = !m.isPrimary
 			currentProps := m.button.Props().(ButtonProps)
 			newButton, _ := createButton(ButtonProps{
 				Label:   currentProps.Label,
-				Primary: !currentProps.Primary,
-			})
+				Primary: m.isPrimary,
+			}, m.clickCount)
 			m.button = newButton
 			m.button.Init()
 		}
@@ -75,13 +80,13 @@ func (m model) View() string {
 	return fmt.Sprintf("%s\n\n%s\n%s\n", title, componentView, help)
 }
 
-// createButton creates a button component with the given props
-func createButton(props ButtonProps) (bubbly.Component, error) {
+// createButton creates a button component with the given props and initial click count
+func createButton(props ButtonProps, initialClicks int) (bubbly.Component, error) {
 	return bubbly.NewComponent("Button").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Track click count
-			clicks := ctx.Ref(0)
+			// Track click count with initial value
+			clicks := ctx.Ref(initialClicks)
 			ctx.Expose("clicks", clicks)
 
 			// Handle click events
@@ -136,7 +141,7 @@ func main() {
 	button, err := createButton(ButtonProps{
 		Label:   "Click Me!",
 		Primary: true,
-	})
+	}, 0)
 	if err != nil {
 		fmt.Printf("Error creating button: %v\n", err)
 		os.Exit(1)
@@ -146,7 +151,11 @@ func main() {
 	button.Init()
 
 	// Create model
-	m := model{button: button}
+	m := model{
+		button:     button,
+		isPrimary:  true,
+		clickCount: 0,
+	}
 
 	// Run with alternate screen buffer
 	p := tea.NewProgram(m, tea.WithAltScreen())
