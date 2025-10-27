@@ -1,6 +1,9 @@
 package bubbly
 
-import "sync/atomic"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // hookIDCounter is an atomic counter for generating unique hook IDs.
 var hookIDCounter atomic.Uint64
@@ -87,6 +90,10 @@ type LifecycleManager struct {
 	// All watchers are automatically cleaned up when component unmounts.
 	watchers []watcherCleanup
 
+	// stateMu protects the mounted and unmounting state flags.
+	// Uses RWMutex for read-heavy access patterns.
+	stateMu sync.RWMutex
+
 	// mounted indicates whether the component has been mounted.
 	// Set to true after onMounted hooks execute.
 	mounted bool
@@ -136,4 +143,56 @@ func newLifecycleManager(c *componentImpl) *LifecycleManager {
 //	})
 func (lm *LifecycleManager) registerHook(hookType string, hook lifecycleHook) {
 	lm.hooks[hookType] = append(lm.hooks[hookType], hook)
+}
+
+// IsMounted returns whether the component has been mounted.
+// This method is thread-safe and uses a read lock.
+//
+// Example:
+//
+//	if lm.IsMounted() {
+//	    // Component is mounted
+//	}
+func (lm *LifecycleManager) IsMounted() bool {
+	lm.stateMu.RLock()
+	defer lm.stateMu.RUnlock()
+	return lm.mounted
+}
+
+// IsUnmounting returns whether the component is currently unmounting.
+// This method is thread-safe and uses a read lock.
+//
+// Example:
+//
+//	if lm.IsUnmounting() {
+//	    // Component is unmounting
+//	}
+func (lm *LifecycleManager) IsUnmounting() bool {
+	lm.stateMu.RLock()
+	defer lm.stateMu.RUnlock()
+	return lm.unmounting
+}
+
+// setMounted sets the mounted state of the component.
+// This method is thread-safe and uses a write lock.
+//
+// Example:
+//
+//	lm.setMounted(true)  // Mark as mounted
+func (lm *LifecycleManager) setMounted(mounted bool) {
+	lm.stateMu.Lock()
+	defer lm.stateMu.Unlock()
+	lm.mounted = mounted
+}
+
+// setUnmounting sets the unmounting state of the component.
+// This method is thread-safe and uses a write lock.
+//
+// Example:
+//
+//	lm.setUnmounting(true)  // Mark as unmounting
+func (lm *LifecycleManager) setUnmounting(unmounting bool) {
+	lm.stateMu.Lock()
+	defer lm.stateMu.Unlock()
+	lm.unmounting = unmounting
 }

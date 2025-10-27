@@ -408,3 +408,209 @@ func TestContext_OnCleanup(t *testing.T) {
 		})
 	}
 }
+
+// TestLifecycleManager_IsMounted tests the IsMounted state query.
+func TestLifecycleManager_IsMounted(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialMounted bool
+		expectedResult bool
+	}{
+		{
+			name:           "initial state is not mounted",
+			initialMounted: false,
+			expectedResult: false,
+		},
+		{
+			name:           "mounted state returns true",
+			initialMounted: true,
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Set initial state
+			if tt.initialMounted {
+				lm.setMounted(true)
+			}
+
+			// Query state
+			result := lm.IsMounted()
+
+			// Verify result
+			assert.Equal(t, tt.expectedResult, result, "IsMounted should return correct state")
+		})
+	}
+}
+
+// TestLifecycleManager_IsUnmounting tests the IsUnmounting state query.
+func TestLifecycleManager_IsUnmounting(t *testing.T) {
+	tests := []struct {
+		name              string
+		initialUnmounting bool
+		expectedResult    bool
+	}{
+		{
+			name:              "initial state is not unmounting",
+			initialUnmounting: false,
+			expectedResult:    false,
+		},
+		{
+			name:              "unmounting state returns true",
+			initialUnmounting: true,
+			expectedResult:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Set initial state
+			if tt.initialUnmounting {
+				lm.setUnmounting(true)
+			}
+
+			// Query state
+			result := lm.IsUnmounting()
+
+			// Verify result
+			assert.Equal(t, tt.expectedResult, result, "IsUnmounting should return correct state")
+		})
+	}
+}
+
+// TestLifecycleManager_StateTransitions tests state transitions.
+func TestLifecycleManager_StateTransitions(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "can transition from unmounted to mounted",
+		},
+		{
+			name: "can transition to unmounting",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Verify initial state
+			assert.False(t, lm.IsMounted(), "should start unmounted")
+			assert.False(t, lm.IsUnmounting(), "should start not unmounting")
+
+			// Transition to mounted
+			lm.setMounted(true)
+			assert.True(t, lm.IsMounted(), "should be mounted after setMounted(true)")
+			assert.False(t, lm.IsUnmounting(), "should still not be unmounting")
+
+			// Transition to unmounting
+			lm.setUnmounting(true)
+			assert.True(t, lm.IsMounted(), "should still be mounted")
+			assert.True(t, lm.IsUnmounting(), "should be unmounting after setUnmounting(true)")
+
+			// Can transition back
+			lm.setMounted(false)
+			lm.setUnmounting(false)
+			assert.False(t, lm.IsMounted(), "should be unmounted after setMounted(false)")
+			assert.False(t, lm.IsUnmounting(), "should not be unmounting after setUnmounting(false)")
+		})
+	}
+}
+
+// TestLifecycleManager_ThreadSafeState tests concurrent state access.
+func TestLifecycleManager_ThreadSafeState(t *testing.T) {
+	tests := []struct {
+		name           string
+		goroutineCount int
+	}{
+		{
+			name:           "concurrent reads and writes",
+			goroutineCount: 10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Run concurrent operations
+			done := make(chan bool)
+			for i := 0; i < tt.goroutineCount; i++ {
+				go func(id int) {
+					defer func() { done <- true }()
+
+					// Perform multiple operations
+					for j := 0; j < 100; j++ {
+						if id%2 == 0 {
+							// Even goroutines: set and read mounted
+							lm.setMounted(j%2 == 0)
+							_ = lm.IsMounted()
+						} else {
+							// Odd goroutines: set and read unmounting
+							lm.setUnmounting(j%2 == 0)
+							_ = lm.IsUnmounting()
+						}
+					}
+				}(i)
+			}
+
+			// Wait for all goroutines
+			for i := 0; i < tt.goroutineCount; i++ {
+				<-done
+			}
+
+			// Verify final state is valid (no panics occurred)
+			_ = lm.IsMounted()
+			_ = lm.IsUnmounting()
+		})
+	}
+}
+
+// TestLifecycleManager_StatePersistence tests that state persists correctly.
+func TestLifecycleManager_StatePersistence(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "state persists across multiple queries",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Set mounted state
+			lm.setMounted(true)
+
+			// Query multiple times
+			for i := 0; i < 10; i++ {
+				assert.True(t, lm.IsMounted(), "mounted state should persist")
+			}
+
+			// Set unmounting state
+			lm.setUnmounting(true)
+
+			// Query multiple times
+			for i := 0; i < 10; i++ {
+				assert.True(t, lm.IsUnmounting(), "unmounting state should persist")
+			}
+		})
+	}
+}
