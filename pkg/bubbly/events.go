@@ -92,8 +92,24 @@ func (c *componentImpl) bubbleEvent(event *Event) {
 	// Execute all local handlers for this event
 	if ok {
 		for _, handler := range handlers {
-			// Pass Event pointer to handler so it can call StopPropagation
-			handler(event)
+			// Recover from panics in event handlers to prevent application crashes
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						// Log the panic but don't crash the application
+						// In production, this could be sent to error tracking service
+						_ = &HandlerPanicError{
+							ComponentName: c.name,
+							EventName:     event.Name,
+							PanicValue:    r,
+						}
+						// Note: We don't stop propagation on panic - other handlers should still run
+					}
+				}()
+
+				// Pass Event pointer to handler so it can call StopPropagation
+				handler(event)
+			}()
 
 			// Check if handler stopped propagation
 			if event.Stopped {

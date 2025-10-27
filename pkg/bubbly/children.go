@@ -45,6 +45,8 @@ func (c *componentImpl) Children() []Component {
 //
 // Returns an error if:
 //   - child is nil (ErrNilChild)
+//   - adding child would create a circular reference (ErrCircularRef)
+//   - adding child would exceed maximum depth (ErrMaxDepth)
 //
 // Example:
 //
@@ -61,6 +63,53 @@ func (c *componentImpl) AddChild(child Component) error {
 		return ErrNilChild
 	}
 
+	// Check for self-reference (A -> A)
+	if child == Component(c) {
+		return &CircularRefError{
+			ParentName: c.name,
+			ChildName:  child.Name(),
+			Message:    "component cannot be a child of itself",
+		}
+	}
+
+	// Check for circular reference (child is an ancestor of this component)
+	if c.hasAncestor(child) {
+		return &CircularRefError{
+			ParentName: c.name,
+			ChildName:  child.Name(),
+			Message:    "child is an ancestor of parent",
+		}
+	}
+
+	// Check if child has this component as an ancestor (reverse check)
+	if childImpl, ok := child.(*componentImpl); ok {
+		if childImpl.hasAncestor(Component(c)) {
+			return &CircularRefError{
+				ParentName: c.name,
+				ChildName:  child.Name(),
+				Message:    "parent is an ancestor of child",
+			}
+		}
+
+		// Calculate depth after adding child
+		// The child will be at: parent's depth + 1
+		parentDepth := calculateDepthToRoot(c)
+		childDepth := parentDepth + 1
+
+		// The deepest point in the tree after adding this child would be:
+		// child's depth + child's subtree depth
+		childSubtreeDepth := calculateComponentDepth(childImpl)
+		maxDepthAfterAdd := childDepth + childSubtreeDepth
+
+		if maxDepthAfterAdd > MaxComponentDepth {
+			return &MaxDepthError{
+				ComponentName: child.Name(),
+				CurrentDepth:  maxDepthAfterAdd,
+				MaxDepth:      MaxComponentDepth,
+			}
+		}
+	}
+
 	c.childrenMu.Lock()
 	defer c.childrenMu.Unlock()
 
@@ -74,6 +123,20 @@ func (c *componentImpl) AddChild(child Component) error {
 	}
 
 	return nil
+}
+
+// calculateDepthToRoot calculates the depth from this component to the root.
+// Returns 0 if this component is the root (no parent).
+func calculateDepthToRoot(c *componentImpl) int {
+	if c.parent == nil {
+		return 0
+	}
+
+	if parentImpl, ok := (*c.parent).(*componentImpl); ok {
+		return calculateDepthToRoot(parentImpl) + 1
+	}
+
+	return 0
 }
 
 // RemoveChild removes a child component from this component and clears its parent reference.
