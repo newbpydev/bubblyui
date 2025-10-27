@@ -2,6 +2,7 @@ package bubbly
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -118,7 +119,8 @@ type componentImpl struct {
 	children []Component // Child components
 
 	// Event system
-	handlers map[string][]EventHandler // Event name -> handlers
+	handlersMu sync.RWMutex              // Protects handlers map
+	handlers   map[string][]EventHandler // Event name -> handlers
 
 	// Lifecycle
 	//nolint:unused // Will be used in Task 1.3
@@ -168,22 +170,28 @@ func (c *componentImpl) Props() interface{} {
 }
 
 // Emit sends an event with associated data.
-// Currently a minimal implementation that will be expanded in later tasks.
+// It creates an Event struct with metadata (timestamp, source) and
+// calls all registered handlers for the event.
+//
+// Example:
+//
+//	component.Emit("submit", FormData{Username: "user"})
 func (c *componentImpl) Emit(event string, data interface{}) {
-	// Minimal implementation - will be expanded in Task 4.2
-	if handlers, ok := c.handlers[event]; ok {
-		for _, handler := range handlers {
-			handler(data)
-		}
-	}
+	c.emitEvent(event, data)
 }
 
-// On registers an event handler.
+// On registers an event handler for the specified event name.
+// Multiple handlers can be registered for the same event.
+//
+// Example:
+//
+//	component.On("click", func(data interface{}) {
+//	    // Handle click event
+//	})
 func (c *componentImpl) On(event string, handler EventHandler) {
-	if c.handlers == nil {
-		c.handlers = make(map[string][]EventHandler)
-	}
-	c.handlers[event] = append(c.handlers[event], handler)
+	c.registerHandler(event, handler)
+	// Track listener for debugging/testing
+	globalEventRegistry.trackEventListener(event)
 }
 
 // Init implements tea.Model.Init().

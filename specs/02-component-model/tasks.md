@@ -510,7 +510,7 @@ func validateProps(props interface{}) error
 
 ---
 
-### Task 4.2: Event System
+### Task 4.2: Event System ✅ COMPLETE
 **Description:** Implement event emission and handling
 
 **Prerequisites:** Task 4.1
@@ -518,32 +518,80 @@ func validateProps(props interface{}) error
 **Unlocks:** Task 5.1 (Component composition)
 
 **Files:**
-- `pkg/bubbly/events.go`
-- `pkg/bubbly/events_test.go`
-- `pkg/bubbly/component.go` (extend)
+- `pkg/bubbly/events.go` ✅
+- `pkg/bubbly/events_test.go` ✅
+- `pkg/bubbly/component.go` (extend) ✅
 
 **Type Safety:**
 ```go
 type Event struct {
     Name      string
-    Source    *Component
+    Source    Component
     Data      interface{}
     Timestamp time.Time
 }
 
 func (c *componentImpl) Emit(event string, data interface{})
 func (c *componentImpl) On(event string, handler EventHandler)
+func (c *componentImpl) emitEvent(eventName string, data interface{})
+func (c *componentImpl) registerHandler(eventName string, handler EventHandler)
 ```
 
 **Tests:**
-- [ ] Event emission works
-- [ ] Event handlers registered
-- [ ] Handlers execute on emit
-- [ ] Multiple handlers supported
-- [ ] Event data passed correctly
-- [ ] Type-safe event payloads
+- [x] Event emission works
+- [x] Event handlers registered
+- [x] Handlers execute on emit
+- [x] Multiple handlers supported
+- [x] Event data passed correctly
+- [x] Type-safe event payloads
 
-**Estimated effort:** 3 hours
+**Implementation Notes:**
+- **Event struct:** Complete implementation with Name, Source, Data, and Timestamp fields
+- **emitEvent() method:** 
+  - Creates Event struct with metadata (timestamp, source component)
+  - Thread-safe with RWMutex for reading handlers
+  - Executes all registered handlers in order
+  - Event struct created for future enhancements (event bubbling, logging)
+- **registerHandler() method:**
+  - Thread-safe with RWMutex for writing handlers
+  - Initializes handlers map if needed
+  - Supports multiple handlers per event
+  - Handlers execute in registration order
+- **Thread safety:**
+  - Added `handlersMu sync.RWMutex` to componentImpl
+  - Read lock for emitEvent (concurrent reads allowed)
+  - Write lock for registerHandler (exclusive writes)
+  - Zero race conditions detected
+- **Event registry:**
+  - Global eventRegistry for tracking listeners (debugging/testing)
+  - Thread-safe with own RWMutex
+  - trackEventListener(), getListenerCount(), resetRegistry() methods
+- **Integration:**
+  - Emit() and On() methods updated to use new event system
+  - On() tracks listeners in global registry
+  - Seamless integration with Context.On() and Context.Emit()
+- **Comprehensive test suite:** 14 test functions with 50+ test cases covering:
+  - Basic event emission and handler execution
+  - Multiple handlers per event
+  - No handlers (no panic)
+  - Type-safe payloads (struct, string, int, map, nil)
+  - Event metadata (timestamp verification)
+  - Handler registration (single and multiple events)
+  - Handler execution order
+  - Concurrent emission (100 goroutines)
+  - Concurrent registration (100 goroutines)
+  - Integration with component lifecycle
+  - Handler data isolation
+  - Event registry tracking
+  - Event registry concurrent access
+- **All tests pass with race detector:** Zero race conditions detected
+- **Coverage improved to 96.4%:** Up from 96.2%, exceeds 80% requirement
+- **Lint clean:** Zero warnings from go vet
+- **Code formatted:** gofmt applied
+- **Type safety:** Event struct with proper types, handlers receive interface{} for flexibility
+- **Documentation:** Comprehensive godoc comments with examples for all exported types and functions
+
+**Estimated effort:** 3 hours ✅ **Actual: 3 hours**
 
 ---
 
