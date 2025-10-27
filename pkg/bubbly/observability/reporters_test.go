@@ -525,7 +525,7 @@ func TestConsoleReporter_Concurrent(t *testing.T) {
 			// Concurrent reporting
 			done := make(chan bool)
 			for i := 0; i < tt.goroutines; i++ {
-				go func(id int) {
+				go func() {
 					for j := 0; j < tt.operations; j++ {
 						reporter.ReportPanic(
 							&HandlerPanicError{
@@ -540,7 +540,7 @@ func TestConsoleReporter_Concurrent(t *testing.T) {
 						)
 					}
 					done <- true
-				}(i)
+				}()
 			}
 
 			// Wait for all goroutines

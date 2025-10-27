@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
@@ -27,22 +28,22 @@ type TUIReporter struct {
 func (r *TUIReporter) ReportPanic(err *observability.HandlerPanicError, ctx *observability.ErrorContext) {
 	DebugLog("PANIC", "ReportPanic called: component=%s, event=%s, panic=%v", ctx.ComponentName, ctx.EventName, err.PanicValue)
 	msg := fmt.Sprintf("Panic in '%s.%s': %v", ctx.ComponentName, ctx.EventName, err.PanicValue)
-	
+
 	r.mu.Lock()
 	r.pendingErrors = append(r.pendingErrors, msg)
 	r.mu.Unlock()
-	
+
 	DebugLog("PANIC", "Error stored in pending queue")
 }
 
 func (r *TUIReporter) ReportError(err error, ctx *observability.ErrorContext) {
 	DebugLog("ERROR", "ReportError called: component=%s, error=%v", ctx.ComponentName, err)
 	msg := fmt.Sprintf("Error in '%s': %v", ctx.ComponentName, err)
-	
+
 	r.mu.Lock()
 	r.pendingErrors = append(r.pendingErrors, msg)
 	r.mu.Unlock()
-	
+
 	DebugLog("ERROR", "Error stored in pending queue")
 }
 
@@ -50,15 +51,15 @@ func (r *TUIReporter) ReportError(err error, ctx *observability.ErrorContext) {
 func (r *TUIReporter) GetPendingErrors() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if len(r.pendingErrors) == 0 {
 		return nil
 	}
-	
+
 	errors := make([]string, len(r.pendingErrors))
 	copy(errors, r.pendingErrors)
 	r.pendingErrors = nil
-	
+
 	return errors
 }
 
@@ -80,7 +81,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	DebugLog("UPDATE", "Update called with msg type: %T", msg)
-	
+
 	switch msg := msg.(type) {
 	case errorMsg:
 		DebugLog("UPDATE", "Received errorMsg: %s", msg.message)
@@ -144,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			DebugLog("KEY", "About to call Emit('panic', nil)")
 			m.calculator.Emit("panic", nil)
 			DebugLog("KEY", "Emit('panic', nil) returned successfully")
-			
+
 			// Check for pending errors after Emit
 			if errors := m.reporter.GetPendingErrors(); len(errors) > 0 {
 				DebugLog("KEY", "Found %d pending errors", len(errors))
@@ -156,14 +157,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	DebugLog("UPDATE", "Update returning with no action")
-	
+
 	// Always check for pending errors before returning
 	if errors := m.reporter.GetPendingErrors(); len(errors) > 0 {
 		DebugLog("UPDATE", "Found %d pending errors at end of Update", len(errors))
 		m.lastError = errors[0]
 		m.errorVisible = true
 	}
-	
+
 	return m, nil
 }
 
@@ -242,7 +243,7 @@ func createCalculator() (bubbly.Component, error) {
 				// Extract data from Event struct
 				event := data.(*bubbly.Event)
 				digit := event.Data.(string)
-				
+
 				currentDisplay := display.Get().(string)
 				isNew := newNumber.Get().(bool)
 

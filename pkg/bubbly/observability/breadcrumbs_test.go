@@ -449,7 +449,7 @@ func TestBreadcrumbs_GetReturnsDefensiveCopy(t *testing.T) {
 
 			// Modify returned slice
 			breadcrumbs1[0].Message = "modified"
-			breadcrumbs1 = append(breadcrumbs1, Breadcrumb{Message: "added"})
+			_ = append(breadcrumbs1, Breadcrumb{Message: "added"})
 
 			// Get breadcrumbs again
 			breadcrumbs2 := GetBreadcrumbs()

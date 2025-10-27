@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
@@ -22,9 +23,9 @@ type FileReporter struct {
 	mu       sync.Mutex
 	errors   []ErrorReport
 	// Privacy filters
-	emailRegex    *regexp.Regexp
-	phoneRegex    *regexp.Regexp
-	ssnRegex      *regexp.Regexp
+	emailRegex      *regexp.Regexp
+	phoneRegex      *regexp.Regexp
+	ssnRegex        *regexp.Regexp
 	creditCardRegex *regexp.Regexp
 }
 
@@ -363,7 +364,7 @@ func createPaymentForm() (bubbly.Component, error) {
 							EventName:     "trigger-error",
 							Timestamp:     time.Now(),
 							Tags: map[string]string{
-								"environment": "production",
+								"environment":  "production",
 								"payment_type": "credit_card",
 							},
 							Extra: map[string]interface{}{

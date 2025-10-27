@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
@@ -213,11 +214,11 @@ func createForm() (bubbly.Component, error) {
 				submitCount.Set(count + 1)
 
 				observability.RecordBreadcrumb("user", "Form submission attempted", map[string]interface{}{
-					"valid":        valid,
-					"submitCount":  count + 1,
-					"usernameLen":  len(username.Get().(string)),
-					"emailLen":     len(email.Get().(string)),
-					"passwordLen":  len(password.Get().(string)),
+					"valid":       valid,
+					"submitCount": count + 1,
+					"usernameLen": len(username.Get().(string)),
+					"emailLen":    len(email.Get().(string)),
+					"passwordLen": len(password.Get().(string)),
 				})
 
 				if !valid {

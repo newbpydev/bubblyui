@@ -36,7 +36,7 @@ func (d *DebugLogger) Log(level, message string, args ...interface{}) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	msg := fmt.Sprintf(message, args...)
 	line := fmt.Sprintf("[%s] [%s] %s\n", timestamp, level, msg)
-	
+
 	d.file.WriteString(line)
 	d.file.Sync() // Ensure it's written immediately
 }
@@ -51,9 +51,9 @@ func (d *DebugLogger) LogWithStack(level, message string, args ...interface{}) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	msg := fmt.Sprintf(message, args...)
 	stack := string(debug.Stack())
-	
+
 	line := fmt.Sprintf("[%s] [%s] %s\nStack:\n%s\n", timestamp, level, msg, stack)
-	
+
 	d.file.WriteString(line)
 	d.file.Sync()
 }
@@ -64,7 +64,7 @@ func (d *DebugLogger) Close() {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	d.file.WriteString(fmt.Sprintf("[%s] [DEBUG] Closing debug logger\n", time.Now().Format("2006-01-02 15:04:05.000")))
 	d.file.Close()
 }
