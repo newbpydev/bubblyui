@@ -266,15 +266,4 @@ func (c *componentImpl) View() string {
 }
 
 // Context is now defined in context.go (Task 3.1)
-
-// RenderContext provides the API available during template rendering.
-// It will be fully implemented in Task 3.2.
-//
-// The component field will be used to provide read-only access to:
-//   - Component state (Get)
-//   - Props (Props)
-//   - Children (Children, RenderChild)
-type RenderContext struct {
-	//nolint:unused // Will be used in Task 3.2
-	component *componentImpl
-}
+// RenderContext is now defined in render_context.go (Task 3.2)
