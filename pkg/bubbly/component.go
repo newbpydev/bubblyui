@@ -125,6 +125,7 @@ type componentImpl struct {
 	handlers   map[string][]EventHandler // Event name -> handlers
 
 	// Lifecycle
+	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
 	mounted bool // Whether component has been initialized
 }

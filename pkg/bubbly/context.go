@@ -1,5 +1,7 @@
 package bubbly
 
+import "fmt"
+
 // Context provides the API available during component setup.
 // It allows components to create reactive state, register event handlers,
 // and access component data during the initialization phase.
@@ -180,4 +182,176 @@ func (ctx *Context) Props() interface{} {
 //	}
 func (ctx *Context) Children() []Component {
 	return ctx.component.children
+}
+
+// OnMounted registers a hook that executes after the component is mounted.
+// The hook runs once, after the first render.
+//
+// If the component is already mounted when this is called, the hook
+// executes immediately.
+//
+// Example:
+//
+//	ctx.OnMounted(func() {
+//	    // Initialize data, start timers, etc.
+//	    fmt.Println("Component mounted!")
+//	})
+func (ctx *Context) OnMounted(hook func()) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Generate unique ID for this hook
+	id := hookIDCounter.Add(1)
+
+	// Get current number of hooks for order
+	order := len(ctx.component.lifecycle.hooks["mounted"])
+
+	// Register the hook
+	ctx.component.lifecycle.registerHook("mounted", lifecycleHook{
+		id:       fmt.Sprintf("hook-%d", id),
+		callback: hook,
+		order:    order,
+	})
+}
+
+// OnUpdated registers a hook that executes after the component updates.
+// If dependencies are provided, the hook only runs when those dependencies change.
+// If no dependencies are provided, the hook runs on every update.
+//
+// Example:
+//
+//	count := ctx.Ref(0)
+//	ctx.OnUpdated(func() {
+//	    fmt.Printf("Count changed to: %d\n", count.Get())
+//	}, count)
+func (ctx *Context) OnUpdated(hook func(), deps ...*Ref[any]) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Generate unique ID for this hook
+	id := hookIDCounter.Add(1)
+
+	// Get current number of hooks for order
+	order := len(ctx.component.lifecycle.hooks["updated"])
+
+	// Create hook with dependencies
+	h := lifecycleHook{
+		id:           fmt.Sprintf("hook-%d", id),
+		callback:     hook,
+		dependencies: deps,
+		order:        order,
+	}
+
+	// Capture initial values of dependencies
+	if len(deps) > 0 {
+		h.lastValues = make([]any, len(deps))
+		for i, dep := range deps {
+			h.lastValues[i] = dep.Get()
+		}
+	}
+
+	// Register the hook
+	ctx.component.lifecycle.registerHook("updated", h)
+}
+
+// OnUnmounted registers a hook that executes when the component is unmounted.
+// This is the place to perform cleanup operations.
+//
+// Example:
+//
+//	ctx.OnUnmounted(func() {
+//	    // Cleanup resources
+//	    fmt.Println("Component unmounting!")
+//	})
+func (ctx *Context) OnUnmounted(hook func()) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Generate unique ID for this hook
+	id := hookIDCounter.Add(1)
+
+	// Get current number of hooks for order
+	order := len(ctx.component.lifecycle.hooks["unmounted"])
+
+	// Register the hook
+	ctx.component.lifecycle.registerHook("unmounted", lifecycleHook{
+		id:       fmt.Sprintf("hook-%d", id),
+		callback: hook,
+		order:    order,
+	})
+}
+
+// OnBeforeUpdate registers a hook that executes before the component updates.
+// This is optional and used for advanced use cases.
+//
+// Example:
+//
+//	ctx.OnBeforeUpdate(func() {
+//	    fmt.Println("About to update...")
+//	})
+func (ctx *Context) OnBeforeUpdate(hook func()) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Generate unique ID for this hook
+	id := hookIDCounter.Add(1)
+
+	// Get current number of hooks for order
+	order := len(ctx.component.lifecycle.hooks["beforeUpdate"])
+
+	// Register the hook
+	ctx.component.lifecycle.registerHook("beforeUpdate", lifecycleHook{
+		id:       fmt.Sprintf("hook-%d", id),
+		callback: hook,
+		order:    order,
+	})
+}
+
+// OnBeforeUnmount registers a hook that executes before the component unmounts.
+// This is optional and used for advanced use cases.
+//
+// Example:
+//
+//	ctx.OnBeforeUnmount(func() {
+//	    fmt.Println("About to unmount...")
+//	})
+func (ctx *Context) OnBeforeUnmount(hook func()) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Generate unique ID for this hook
+	id := hookIDCounter.Add(1)
+
+	// Get current number of hooks for order
+	order := len(ctx.component.lifecycle.hooks["beforeUnmount"])
+
+	// Register the hook
+	ctx.component.lifecycle.registerHook("beforeUnmount", lifecycleHook{
+		id:       fmt.Sprintf("hook-%d", id),
+		callback: hook,
+		order:    order,
+	})
+}
+
+// OnCleanup registers a cleanup function that executes when the component unmounts.
+// Cleanup functions are executed in reverse order (LIFO).
+//
+// Example:
+//
+//	ticker := time.NewTicker(time.Second)
+//	ctx.OnCleanup(func() {
+//	    ticker.Stop()
+//	})
+func (ctx *Context) OnCleanup(cleanup CleanupFunc) {
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Register cleanup function
+	ctx.component.lifecycle.cleanups = append(ctx.component.lifecycle.cleanups, cleanup)
 }

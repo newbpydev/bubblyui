@@ -1,5 +1,10 @@
 package bubbly
 
+import "sync/atomic"
+
+// hookIDCounter is an atomic counter for generating unique hook IDs.
+var hookIDCounter atomic.Uint64
+
 // CleanupFunc is a function that performs cleanup operations.
 // It is called when a component is unmounted to release resources,
 // cancel subscriptions, or perform other cleanup tasks.
@@ -115,4 +120,20 @@ func newLifecycleManager(c *componentImpl) *LifecycleManager {
 		unmounting:  false,
 		updateCount: 0,
 	}
+}
+
+// registerHook registers a lifecycle hook of the specified type.
+// Hooks are stored in registration order and will be executed in that order.
+//
+// Hook types: "mounted", "beforeUpdate", "updated", "beforeUnmount", "unmounted"
+//
+// Example:
+//
+//	lm.registerHook("mounted", lifecycleHook{
+//	    id:       "hook-1",
+//	    callback: func() { fmt.Println("mounted") },
+//	    order:    0,
+//	})
+func (lm *LifecycleManager) registerHook(hookType string, hook lifecycleHook) {
+	lm.hooks[hookType] = append(lm.hooks[hookType], hook)
 }
