@@ -57,3 +57,131 @@ func NewComponent(name string) *ComponentBuilder {
 		errors:    []error{},
 	}
 }
+
+// Props sets the component's props (configuration data).
+// Props are immutable from the component's perspective and are
+// passed down from parent components.
+//
+// The props parameter accepts any type, allowing for flexible
+// component configuration. Common patterns include:
+//   - Struct types for structured props
+//   - Primitive types for simple configuration
+//   - Maps for dynamic key-value pairs
+//
+// Example:
+//
+//	type ButtonProps struct {
+//	    Label    string
+//	    Disabled bool
+//	}
+//
+//	builder := NewComponent("Button").
+//	    Props(ButtonProps{
+//	        Label:    "Click me",
+//	        Disabled: false,
+//	    })
+//
+// Parameters:
+//   - props: The props value (can be any type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Props(props interface{}) *ComponentBuilder {
+	b.component.props = props
+	return b
+}
+
+// Setup sets the component's setup function.
+// The setup function is called once during component initialization (Init phase)
+// and is where you should:
+//   - Create reactive state using ctx.Ref() and ctx.Computed()
+//   - Register event handlers using ctx.On()
+//   - Set up watchers using ctx.Watch()
+//   - Expose state to the template using ctx.Expose()
+//
+// Example:
+//
+//	builder := NewComponent("Counter").
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.Expose("count", count)
+//	        ctx.On("increment", func(data interface{}) {
+//	            count.Set(count.Get() + 1)
+//	        })
+//	    })
+//
+// Parameters:
+//   - fn: The setup function (SetupFunc type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Setup(fn SetupFunc) *ComponentBuilder {
+	b.component.setup = fn
+	return b
+}
+
+// Template sets the component's template function.
+// The template function generates the component's visual output and is called
+// on every View() cycle.
+//
+// The template function should:
+//   - Access state using ctx.Get()
+//   - Access props using ctx.Props()
+//   - Render children using ctx.RenderChild()
+//   - Use Lipgloss for styling
+//   - Return a string representing the UI
+//   - Be pure (no side effects, same input produces same output)
+//
+// Example:
+//
+//	builder := NewComponent("Button").
+//	    Template(func(ctx RenderContext) string {
+//	        props := ctx.Props().(ButtonProps)
+//	        style := lipgloss.NewStyle().Bold(true)
+//	        return style.Render(props.Label)
+//	    })
+//
+// Parameters:
+//   - fn: The template function (RenderFunc type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Template(fn RenderFunc) *ComponentBuilder {
+	b.component.template = fn
+	return b
+}
+
+// Children sets the component's child components.
+// Children are nested components that are managed by the parent component's
+// lifecycle and can be rendered within the parent's template.
+//
+// The method accepts a variadic parameter, allowing you to pass:
+//   - No children (empty component)
+//   - A single child
+//   - Multiple children
+//
+// Example:
+//
+//	child1 := NewComponent("Child1").Template(...).Build()
+//	child2 := NewComponent("Child2").Template(...).Build()
+//
+//	parent := NewComponent("Parent").
+//	    Children(child1, child2).
+//	    Template(func(ctx RenderContext) string {
+//	        // Render children
+//	        outputs := []string{}
+//	        for _, child := range ctx.Children() {
+//	            outputs = append(outputs, ctx.RenderChild(child))
+//	        }
+//	        return strings.Join(outputs, "\n")
+//	    })
+//
+// Parameters:
+//   - children: Variadic Component parameters
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
+	b.component.children = children
+	return b
+}
