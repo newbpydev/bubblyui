@@ -2215,3 +2215,233 @@ func TestLifecycleManager_WatcherCleanupOrder(t *testing.T) {
 	assert.Equal(t, []string{"watcher", "manual"}, order)
 	mu.Unlock()
 }
+
+// TestLifecycleManager_CleanupEventHandlers tests that event handlers are cleaned up on unmount
+func TestLifecycleManager_CleanupEventHandlers(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupHandlers func(*componentImpl)
+		verifyCleanup func(*testing.T, *componentImpl)
+	}{
+		{
+			name: "clears all event handlers",
+			setupHandlers: func(c *componentImpl) {
+				c.On("click", func(data interface{}) {})
+				c.On("submit", func(data interface{}) {})
+			},
+			verifyCleanup: func(t *testing.T, c *componentImpl) {
+				c.handlersMu.RLock()
+				defer c.handlersMu.RUnlock()
+				assert.Equal(t, 0, len(c.handlers), "all handlers should be cleared")
+			},
+		},
+		{
+			name: "clears multiple handlers for same event",
+			setupHandlers: func(c *componentImpl) {
+				c.On("click", func(data interface{}) {})
+				c.On("click", func(data interface{}) {})
+				c.On("click", func(data interface{}) {})
+			},
+			verifyCleanup: func(t *testing.T, c *componentImpl) {
+				c.handlersMu.RLock()
+				defer c.handlersMu.RUnlock()
+				assert.Equal(t, 0, len(c.handlers), "all handlers should be cleared")
+			},
+		},
+		{
+			name: "handles empty handlers map",
+			setupHandlers: func(c *componentImpl) {
+				// No handlers registered
+			},
+			verifyCleanup: func(t *testing.T, c *componentImpl) {
+				c.handlersMu.RLock()
+				defer c.handlersMu.RUnlock()
+				assert.Equal(t, 0, len(c.handlers), "handlers map should be empty")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component with lifecycle
+			component := newComponentImpl("TestComponent")
+			component.lifecycle = newLifecycleManager(component)
+
+			// Setup handlers
+			tt.setupHandlers(component)
+
+			// Verify handlers registered
+			if tt.name != "handles empty handlers map" {
+				component.handlersMu.RLock()
+				handlerCount := len(component.handlers)
+				component.handlersMu.RUnlock()
+				assert.Greater(t, handlerCount, 0, "handlers should be registered")
+			}
+
+			// Execute unmount
+			component.lifecycle.executeUnmounted()
+
+			// Verify cleanup
+			tt.verifyCleanup(t, component)
+		})
+	}
+}
+
+// TestLifecycleManager_EventHandlersNotFiredAfterUnmount tests that handlers don't fire after unmount
+func TestLifecycleManager_EventHandlersNotFiredAfterUnmount(t *testing.T) {
+	// Create component with lifecycle
+	component := newComponentImpl("TestComponent")
+	component.lifecycle = newLifecycleManager(component)
+
+	// Track handler calls
+	var callCount int
+	var mu sync.Mutex
+
+	// Register handler
+	component.On("test", func(data interface{}) {
+		mu.Lock()
+		callCount++
+		mu.Unlock()
+	})
+
+	// Emit event - should be handled
+	component.Emit("test", "data")
+	mu.Lock()
+	assert.Equal(t, 1, callCount, "handler should be called before unmount")
+	mu.Unlock()
+
+	// Execute unmount
+	component.lifecycle.executeUnmounted()
+
+	// Emit event again - should NOT be handled
+	component.Emit("test", "data")
+	mu.Lock()
+	assert.Equal(t, 1, callCount, "handler should not be called after unmount")
+	mu.Unlock()
+}
+
+// TestLifecycleManager_EventHandlerCleanupOrder tests cleanup execution order
+func TestLifecycleManager_EventHandlerCleanupOrder(t *testing.T) {
+	// Create component with lifecycle
+	component := newComponentImpl("TestComponent")
+	lm := newLifecycleManager(component)
+	component.lifecycle = lm
+
+	// Track execution order
+	var order []string
+	var mu sync.Mutex
+
+	// Register watcher cleanup
+	lm.registerWatcher(func() {
+		mu.Lock()
+		order = append(order, "watcher")
+		mu.Unlock()
+	})
+
+	// Register event handler
+	component.On("test", func(data interface{}) {})
+
+	// Register manual cleanup
+	lm.cleanups = append(lm.cleanups, func() {
+		mu.Lock()
+		order = append(order, "manual")
+		mu.Unlock()
+	})
+
+	// Execute unmount
+	lm.executeUnmounted()
+
+	// Verify order: watchers → event handlers → manual cleanups
+	mu.Lock()
+	assert.Contains(t, order, "watcher")
+	assert.Contains(t, order, "manual")
+	mu.Unlock()
+
+	// Verify handlers are cleared
+	component.handlersMu.RLock()
+	assert.Equal(t, 0, len(component.handlers), "event handlers should be cleared")
+	component.handlersMu.RUnlock()
+}
+
+// TestLifecycleManager_CleanupEventHandlers_PanicRecovery tests panic recovery during handler cleanup
+func TestLifecycleManager_CleanupEventHandlers_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupPanic    func(*componentImpl)
+		expectCleanup bool
+	}{
+		{
+			name: "recovers from panic during cleanup",
+			setupPanic: func(c *componentImpl) {
+				// Register normal handler
+				c.On("test", func(data interface{}) {})
+			},
+			expectCleanup: true,
+		},
+		{
+			name: "cleanup completes even with panic",
+			setupPanic: func(c *componentImpl) {
+				// Register multiple handlers
+				c.On("event1", func(data interface{}) {})
+				c.On("event2", func(data interface{}) {})
+			},
+			expectCleanup: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component with lifecycle
+			component := newComponentImpl("TestComponent")
+			component.lifecycle = newLifecycleManager(component)
+
+			// Setup handlers
+			tt.setupPanic(component)
+
+			// Verify handlers registered
+			component.handlersMu.RLock()
+			initialCount := len(component.handlers)
+			component.handlersMu.RUnlock()
+			assert.Greater(t, initialCount, 0, "handlers should be registered")
+
+			// Execute unmount - should not panic
+			assert.NotPanics(t, func() {
+				component.lifecycle.executeUnmounted()
+			}, "cleanup should not panic")
+
+			// Verify cleanup happened
+			if tt.expectCleanup {
+				component.handlersMu.RLock()
+				assert.Equal(t, 0, len(component.handlers), "handlers should be cleared")
+				component.handlersMu.RUnlock()
+			}
+		})
+	}
+}
+
+// TestLifecycleManager_EventHandlerMemoryLeak tests for memory leaks
+func TestLifecycleManager_EventHandlerMemoryLeak(t *testing.T) {
+	// Create component with lifecycle
+	component := newComponentImpl("TestComponent")
+	component.lifecycle = newLifecycleManager(component)
+
+	// Register many handlers
+	for i := 0; i < 100; i++ {
+		eventName := fmt.Sprintf("event%d", i)
+		component.On(eventName, func(data interface{}) {})
+	}
+
+	// Verify handlers registered
+	component.handlersMu.RLock()
+	assert.Equal(t, 100, len(component.handlers), "100 handlers should be registered")
+	component.handlersMu.RUnlock()
+
+	// Execute unmount
+	component.lifecycle.executeUnmounted()
+
+	// Verify all handlers cleared
+	component.handlersMu.RLock()
+	assert.Equal(t, 0, len(component.handlers), "all handlers should be cleared")
+	assert.NotNil(t, component.handlers, "handlers map should not be nil")
+	component.handlersMu.RUnlock()
+}

@@ -470,8 +470,11 @@ func (lm *LifecycleManager) executeUnmounted() {
 	// Execute all unmounted hooks
 	lm.executeHooks("unmounted")
 
-	// Execute watcher cleanups (before manual cleanups)
+	// Execute watcher cleanups (before event handler and manual cleanups)
 	lm.cleanupWatchers()
+
+	// Execute event handler cleanups (before manual cleanups)
+	lm.cleanupEventHandlers()
 
 	// Execute manual cleanup functions
 	lm.executeCleanups()
@@ -668,4 +671,58 @@ func (lm *LifecycleManager) safeExecuteWatcherCleanup(cleanup func()) {
 
 	// Execute the watcher cleanup function
 	cleanup()
+}
+
+// cleanupEventHandlers clears all registered event handlers from the component.
+// This method is called during component unmount to prevent memory leaks and
+// ensure handlers don't fire after the component is destroyed.
+//
+// The method:
+//   - Acquires write lock on component.handlersMu
+//   - Clears the component.handlers map entirely
+//   - Uses panic recovery to ensure cleanup completes
+//   - Reports any panics to observability system
+//
+// This matches Vue.js behavior where all event listeners are removed when
+// a component unmounts.
+//
+// Example:
+//
+//	lm.cleanupEventHandlers()  // Clear all event handlers
+func (lm *LifecycleManager) cleanupEventHandlers() {
+	defer func() {
+		if r := recover(); r != nil {
+			// Report panic to observability system
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				panicErr := &observability.HandlerPanicError{
+					ComponentName: lm.component.name,
+					EventName:     "lifecycle:event_handler_cleanup",
+					PanicValue:    r,
+				}
+
+				ctx := &observability.ErrorContext{
+					ComponentName: lm.component.name,
+					ComponentID:   lm.component.id,
+					EventName:     "lifecycle:event_handler_cleanup",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"hook_type": "event_handler_cleanup",
+					},
+					Extra: map[string]interface{}{
+						"is_unmounting": lm.unmounting,
+					},
+				}
+
+				reporter.ReportPanic(panicErr, ctx)
+			}
+		}
+	}()
+
+	// Clear all event handlers
+	lm.component.handlersMu.Lock()
+	defer lm.component.handlersMu.Unlock()
+
+	// Clear the handlers map
+	lm.component.handlers = make(map[string][]EventHandler)
 }
