@@ -13,6 +13,14 @@ import (
 // hookIDCounter is an atomic counter for generating unique hook IDs.
 var hookIDCounter atomic.Uint64
 
+// maxUpdateDepth is the maximum number of consecutive update cycles allowed
+// before an infinite loop is detected. This prevents runaway updates where
+// onUpdated hooks continuously trigger more updates.
+//
+// The value of 100 is chosen to be high enough for legitimate use cases
+// but low enough to catch infinite loops quickly.
+const maxUpdateDepth = 100
+
 // CleanupFunc is a function that performs cleanup operations.
 // It is called when a component is unmounted to release resources,
 // cancel subscriptions, or perform other cleanup tasks.
@@ -310,7 +318,9 @@ func (lm *LifecycleManager) safeExecuteHook(hookType string, hook lifecycleHook)
 // This method should be called after the component updates (after state changes).
 //
 // The method:
+//   - Checks for infinite loop (max update depth exceeded)
 //   - Checks if component is mounted (returns early if not)
+//   - Increments update counter for loop detection
 //   - Iterates through all "updated" hooks in registration order
 //   - For hooks with dependencies: checks if any dependency changed
 //   - For hooks without dependencies: always executes
@@ -323,14 +333,50 @@ func (lm *LifecycleManager) safeExecuteHook(hookType string, hook lifecycleHook)
 //   - Uses reflect.DeepEqual for value comparison
 //   - Updates lastValues after successful execution
 //
+// Infinite loop detection:
+//   - Tracks update count to detect infinite loops
+//   - Returns early with error if max depth (100) exceeded
+//   - Reports error to observability system for monitoring
+//
 // Example:
 //
 //	lm.executeUpdated()  // Execute all onUpdated hooks
 func (lm *LifecycleManager) executeUpdated() {
+	// Check for infinite loop (max update depth exceeded)
+	if err := lm.checkUpdateDepth(); err != nil {
+		// Report error to observability system
+		if reporter := observability.GetErrorReporter(); reporter != nil {
+			ctx := &observability.ErrorContext{
+				ComponentName: lm.component.name,
+				ComponentID:   lm.component.id,
+				EventName:     "lifecycle:max_update_depth",
+				Timestamp:     time.Now(),
+				StackTrace:    debug.Stack(),
+				Tags: map[string]string{
+					"error_type":   "max_update_depth",
+					"update_count": fmt.Sprintf("%d", lm.updateCount),
+				},
+				Extra: map[string]interface{}{
+					"max_depth":    maxUpdateDepth,
+					"update_count": lm.updateCount,
+					"is_mounted":   lm.mounted,
+				},
+			}
+
+			// Report as a generic error (not a panic)
+			reporter.ReportError(err, ctx)
+		}
+		// Stop execution to prevent infinite loop
+		return
+	}
+
 	// Only execute if component is mounted
 	if !lm.IsMounted() {
 		return
 	}
+
+	// Increment update count for infinite loop detection
+	lm.updateCount++
 
 	// Get updated hooks
 	hooks, exists := lm.hooks["updated"]
@@ -500,4 +546,36 @@ func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
 
 	// Execute the cleanup function
 	cleanup()
+}
+
+// checkUpdateDepth checks if the update count has exceeded the maximum depth.
+// Returns an error if the maximum depth is exceeded, indicating a potential
+// infinite loop.
+//
+// This method is called at the beginning of executeUpdated() to prevent
+// runaway updates where onUpdated hooks continuously trigger more updates.
+//
+// Example scenario that would trigger this:
+//
+//	ctx.OnUpdated(func() {
+//	    count.Set(count.Get() + 1)  // Infinite loop!
+//	})
+//
+// Returns ErrMaxUpdateDepth if the limit is exceeded.
+func (lm *LifecycleManager) checkUpdateDepth() error {
+	if lm.updateCount > maxUpdateDepth {
+		return ErrMaxUpdateDepth
+	}
+	return nil
+}
+
+// resetUpdateCount resets the update counter to zero.
+// This should be called periodically to prevent false positives,
+// or manually when recovering from an infinite loop error.
+//
+// Example:
+//
+//	lm.resetUpdateCount()  // Reset counter
+func (lm *LifecycleManager) resetUpdateCount() {
+	lm.updateCount = 0
 }

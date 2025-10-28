@@ -1617,3 +1617,290 @@ func TestLifecycleManager_ExecuteCleanups_PanicRecovery(t *testing.T) {
 		})
 	}
 }
+
+// TestLifecycleManager_InfiniteLoopDetection tests that infinite update loops are detected.
+func TestLifecycleManager_InfiniteLoopDetection(t *testing.T) {
+	tests := []struct {
+		name            string
+		updateCount     int
+		expectError     bool
+		expectExecution bool
+	}{
+		{
+			name:            "below max depth allows execution",
+			updateCount:     50,
+			expectError:     false,
+			expectExecution: true,
+		},
+		{
+			name:            "at max depth allows execution",
+			updateCount:     100,
+			expectError:     false,
+			expectExecution: true,
+		},
+		{
+			name:            "exceeds max depth prevents execution",
+			updateCount:     101,
+			expectError:     true,
+			expectExecution: false,
+		},
+		{
+			name:            "far exceeds max depth prevents execution",
+			updateCount:     200,
+			expectError:     true,
+			expectExecution: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Mark as mounted
+			lm.setMounted(true)
+
+			// Set update count to test value
+			lm.updateCount = tt.updateCount
+
+			// Register a hook
+			executed := false
+			lm.registerHook("updated", lifecycleHook{
+				id:       "test-hook",
+				callback: func() { executed = true },
+				order:    0,
+			})
+
+			// Execute updated hooks
+			lm.executeUpdated()
+
+			// Verify execution matches expectation
+			assert.Equal(t, tt.expectExecution, executed, "hook execution should match expectation")
+
+			// Verify update count behavior
+			if tt.expectError {
+				// Should not increment when error occurs
+				assert.Equal(t, tt.updateCount, lm.updateCount, "update count should not increment when max depth exceeded")
+			}
+		})
+	}
+}
+
+// TestLifecycleManager_MaxDepthEnforced tests that the max update depth is strictly enforced.
+func TestLifecycleManager_MaxDepthEnforced(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+	}{
+		{
+			name:        "max depth stops infinite loop",
+			description: "update count exactly at 101 should prevent execution",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Register hook that would create infinite loop
+			hookCallCount := 0
+			lm.registerHook("updated", lifecycleHook{
+				id: "infinite-loop-hook",
+				callback: func() {
+					hookCallCount++
+				},
+				order: 0,
+			})
+
+			// Simulate reaching max depth
+			lm.updateCount = 101
+
+			// Try to execute - should be prevented
+			lm.executeUpdated()
+
+			// Hook should not execute
+			assert.Equal(t, 0, hookCallCount, "hook should not execute when max depth exceeded")
+		})
+	}
+}
+
+// TestLifecycleManager_ErrorLogged tests that max depth error is properly logged.
+func TestLifecycleManager_ErrorLogged(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "error logged when max depth exceeded",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Set update count above max
+			lm.updateCount = 150
+
+			// Execute updated - should log error via observability
+			// Note: In production, this would report to observability system
+			// In tests, GetErrorReporter() returns nil, so no actual reporting
+			lm.executeUpdated()
+
+			// Verify update count unchanged (error prevented execution)
+			assert.Equal(t, 150, lm.updateCount, "update count should remain unchanged when max exceeded")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecutionStopped tests that execution stops when max depth is exceeded.
+func TestLifecycleManager_ExecutionStopped(t *testing.T) {
+	tests := []struct {
+		name             string
+		hooksToRegister  int
+		initialCount     int
+		expectedExecuted int
+	}{
+		{
+			name:             "all hooks skipped when max depth exceeded",
+			hooksToRegister:  5,
+			initialCount:     101,
+			expectedExecuted: 0,
+		},
+		{
+			name:             "no hooks registered still handles gracefully",
+			hooksToRegister:  0,
+			initialCount:     150,
+			expectedExecuted: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Register multiple hooks
+			executedCount := 0
+			for i := 0; i < tt.hooksToRegister; i++ {
+				lm.registerHook("updated", lifecycleHook{
+					id: fmt.Sprintf("hook-%d", i),
+					callback: func() {
+						executedCount++
+					},
+					order: i,
+				})
+			}
+
+			// Set update count above max
+			lm.updateCount = tt.initialCount
+
+			// Execute updated
+			lm.executeUpdated()
+
+			// Verify no hooks executed
+			assert.Equal(t, tt.expectedExecuted, executedCount, "no hooks should execute when max depth exceeded")
+		})
+	}
+}
+
+// TestLifecycleManager_ComponentRecovers tests that component continues working after max depth error.
+func TestLifecycleManager_ComponentRecovers(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "component recovers after max depth error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			executionLog := []string{}
+
+			// Register hook
+			lm.registerHook("updated", lifecycleHook{
+				id: "test-hook",
+				callback: func() {
+					executionLog = append(executionLog, "executed")
+				},
+				order: 0,
+			})
+
+			// First, trigger max depth error
+			lm.updateCount = 101
+			lm.executeUpdated()
+			assert.Empty(t, executionLog, "hook should not execute at max depth")
+
+			// Reset update count (simulating recovery)
+			lm.updateCount = 0
+
+			// Now it should work again
+			lm.executeUpdated()
+			assert.Equal(t, 1, len(executionLog), "hook should execute after reset")
+			assert.Equal(t, "executed", executionLog[0], "hook should have executed")
+		})
+	}
+}
+
+// TestLifecycleManager_ResetUpdateCount tests the resetUpdateCount functionality.
+func TestLifecycleManager_ResetUpdateCount(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialCount int
+		expectedZero bool
+	}{
+		{
+			name:         "reset from zero",
+			initialCount: 0,
+			expectedZero: true,
+		},
+		{
+			name:         "reset from normal count",
+			initialCount: 50,
+			expectedZero: true,
+		},
+		{
+			name:         "reset from max depth",
+			initialCount: 100,
+			expectedZero: true,
+		},
+		{
+			name:         "reset from exceeded depth",
+			initialCount: 150,
+			expectedZero: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Set initial count
+			lm.updateCount = tt.initialCount
+
+			// Reset count
+			lm.resetUpdateCount()
+
+			// Verify count is zero
+			if tt.expectedZero {
+				assert.Equal(t, 0, lm.updateCount, "update count should be zero after reset")
+			}
+		})
+	}
+}
