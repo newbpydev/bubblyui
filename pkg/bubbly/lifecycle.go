@@ -1,8 +1,13 @@
 package bubbly
 
 import (
+	"fmt"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // hookIDCounter is an atomic counter for generating unique hook IDs.
@@ -251,13 +256,14 @@ func (lm *LifecycleManager) executeHooks(hookType string) {
 }
 
 // safeExecuteHook executes a single hook with panic recovery.
-// If the hook panics, the panic is caught, logged, and execution continues.
+// If the hook panics, the panic is caught, reported to observability, and execution continues.
 // This ensures that one failing hook doesn't crash the component or prevent
 // other hooks from executing.
 //
 // The method:
 //   - Uses defer/recover to catch panics
-//   - Logs panic information (would integrate with error reporting)
+//   - Reports panic to observability system (Sentry, console, etc.)
+//   - Captures stack trace and context for debugging
 //   - Allows execution to continue normally
 //
 // Example:
@@ -266,11 +272,33 @@ func (lm *LifecycleManager) executeHooks(hookType string) {
 func (lm *LifecycleManager) safeExecuteHook(hookType string, hook lifecycleHook) {
 	defer func() {
 		if r := recover(); r != nil {
-			// Panic recovered - in production, this would be logged
-			// or reported to an error tracking service
-			// For now, we silently recover to allow tests to verify behavior
-			_ = hookType // Use hookType to avoid unused variable warning
-			_ = r        // Use r to avoid unused variable warning
+			// Report panic to observability system
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				panicErr := &observability.HandlerPanicError{
+					ComponentName: lm.component.name,
+					EventName:     fmt.Sprintf("lifecycle:%s", hookType),
+					PanicValue:    r,
+				}
+
+				ctx := &observability.ErrorContext{
+					ComponentName: lm.component.name,
+					ComponentID:   lm.component.id,
+					EventName:     fmt.Sprintf("lifecycle:%s", hookType),
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"hook_type": hookType,
+						"hook_id":   hook.id,
+					},
+					Extra: map[string]interface{}{
+						"hook_order":       hook.order,
+						"has_dependencies": len(hook.dependencies) > 0,
+						"dependency_count": len(hook.dependencies),
+					},
+				}
+
+				reporter.ReportPanic(panicErr, ctx)
+			}
 		}
 	}()
 
@@ -427,12 +455,13 @@ func (lm *LifecycleManager) executeCleanups() {
 }
 
 // safeExecuteCleanup executes a single cleanup function with panic recovery.
-// If the cleanup panics, the panic is caught, logged, and execution continues.
+// If the cleanup panics, the panic is caught, reported to observability, and execution continues.
 // This ensures that one failing cleanup doesn't prevent other cleanups from executing.
 //
 // The method:
 //   - Uses defer/recover to catch panics
-//   - Logs panic information (would integrate with error reporting)
+//   - Reports panic to observability system (Sentry, console, etc.)
+//   - Captures stack trace and context for debugging
 //   - Allows execution to continue normally
 //
 // Example:
@@ -441,10 +470,31 @@ func (lm *LifecycleManager) executeCleanups() {
 func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
 	defer func() {
 		if r := recover(); r != nil {
-			// Panic recovered - in production, this would be logged
-			// or reported to an error tracking service
-			// For now, we silently recover to allow tests to verify behavior
-			_ = r // Use r to avoid unused variable warning
+			// Report panic to observability system
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				panicErr := &observability.HandlerPanicError{
+					ComponentName: lm.component.name,
+					EventName:     "lifecycle:cleanup",
+					PanicValue:    r,
+				}
+
+				ctx := &observability.ErrorContext{
+					ComponentName: lm.component.name,
+					ComponentID:   lm.component.id,
+					EventName:     "lifecycle:cleanup",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"hook_type": "cleanup",
+					},
+					Extra: map[string]interface{}{
+						"cleanup_count": len(lm.cleanups),
+						"is_unmounting": lm.unmounting,
+					},
+				}
+
+				reporter.ReportPanic(panicErr, ctx)
+			}
 		}
 	}()
 
