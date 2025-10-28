@@ -2,6 +2,7 @@ package bubbly
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1856,51 +1857,361 @@ func TestLifecycleManager_ComponentRecovers(t *testing.T) {
 	}
 }
 
-// TestLifecycleManager_ResetUpdateCount tests the resetUpdateCount functionality.
 func TestLifecycleManager_ResetUpdateCount(t *testing.T) {
 	tests := []struct {
-		name         string
-		initialCount int
-		expectedZero bool
+		name          string
+		initialCount  int
+		expectedAfter int
 	}{
 		{
-			name:         "reset from zero",
-			initialCount: 0,
-			expectedZero: true,
+			name:          "reset from zero",
+			initialCount:  0,
+			expectedAfter: 0,
 		},
 		{
-			name:         "reset from normal count",
-			initialCount: 50,
-			expectedZero: true,
+			name:          "reset from positive",
+			initialCount:  50,
+			expectedAfter: 0,
 		},
 		{
-			name:         "reset from max depth",
-			initialCount: 100,
-			expectedZero: true,
+			name:          "reset from max depth",
+			initialCount:  maxUpdateDepth,
+			expectedAfter: 0,
 		},
 		{
-			name:         "reset from exceeded depth",
-			initialCount: 150,
-			expectedZero: true,
+			name:          "reset from over max depth",
+			initialCount:  maxUpdateDepth + 10,
+			expectedAfter: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create component and lifecycle manager
-			c := newComponentImpl("TestComponent")
-			lm := newLifecycleManager(c)
+			// Create lifecycle manager
+			component := &componentImpl{
+				name: "TestComponent",
+				id:   "test-1",
+			}
+			lm := newLifecycleManager(component)
 
-			// Set initial count
+			// Set initial update count
 			lm.updateCount = tt.initialCount
 
-			// Reset count
+			// Reset
 			lm.resetUpdateCount()
 
-			// Verify count is zero
-			if tt.expectedZero {
-				assert.Equal(t, 0, lm.updateCount, "update count should be zero after reset")
-			}
+			// Verify count is reset
+			assert.Equal(t, tt.expectedAfter, lm.updateCount)
 		})
 	}
+}
+
+// TestLifecycleManager_RegisterWatcher tests that watchers are registered correctly
+func TestLifecycleManager_RegisterWatcher(t *testing.T) {
+	tests := []struct {
+		name          string
+		numWatchers   int
+		expectedCount int
+	}{
+		{
+			name:          "register single watcher",
+			numWatchers:   1,
+			expectedCount: 1,
+		},
+		{
+			name:          "register multiple watchers",
+			numWatchers:   5,
+			expectedCount: 5,
+		},
+		{
+			name:          "register no watchers",
+			numWatchers:   0,
+			expectedCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			component := &componentImpl{
+				name: "TestComponent",
+				id:   "test-1",
+			}
+			lm := newLifecycleManager(component)
+
+			// Register watchers
+			for i := 0; i < tt.numWatchers; i++ {
+				cleanup := func() {}
+				lm.registerWatcher(cleanup)
+			}
+
+			// Verify watcher count
+			assert.Equal(t, tt.expectedCount, len(lm.watchers))
+		})
+	}
+}
+
+// TestLifecycleManager_CleanupWatchers tests that all watchers are cleaned up
+func TestLifecycleManager_CleanupWatchers(t *testing.T) {
+	tests := []struct {
+		name          string
+		numWatchers   int
+		expectedCalls int
+	}{
+		{
+			name:          "cleanup single watcher",
+			numWatchers:   1,
+			expectedCalls: 1,
+		},
+		{
+			name:          "cleanup multiple watchers",
+			numWatchers:   5,
+			expectedCalls: 5,
+		},
+		{
+			name:          "cleanup no watchers",
+			numWatchers:   0,
+			expectedCalls: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			component := &componentImpl{
+				name: "TestComponent",
+				id:   "test-1",
+			}
+			lm := newLifecycleManager(component)
+
+			// Track cleanup calls
+			cleanupCalls := 0
+			var mu sync.Mutex
+
+			// Register watchers
+			for i := 0; i < tt.numWatchers; i++ {
+				cleanup := func() {
+					mu.Lock()
+					cleanupCalls++
+					mu.Unlock()
+				}
+				lm.registerWatcher(cleanup)
+			}
+
+			// Execute cleanup
+			lm.cleanupWatchers()
+
+			// Verify all cleanups were called
+			mu.Lock()
+			assert.Equal(t, tt.expectedCalls, cleanupCalls)
+			mu.Unlock()
+		})
+	}
+}
+
+// TestLifecycleManager_CleanupWatchers_PanicRecovery tests panic recovery in watcher cleanup
+func TestLifecycleManager_CleanupWatchers_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name          string
+		panicIndex    int
+		totalWatchers int
+		expectedCalls int
+	}{
+		{
+			name:          "panic in first watcher",
+			panicIndex:    0,
+			totalWatchers: 3,
+			expectedCalls: 3, // All should be attempted
+		},
+		{
+			name:          "panic in middle watcher",
+			panicIndex:    1,
+			totalWatchers: 3,
+			expectedCalls: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create lifecycle manager
+			component := &componentImpl{
+				name: "TestComponent",
+				id:   "test-1",
+			}
+			lm := newLifecycleManager(component)
+
+			// Track cleanup calls
+			cleanupCalls := 0
+			var mu sync.Mutex
+
+			// Register watchers
+			for i := 0; i < tt.totalWatchers; i++ {
+				idx := i
+				cleanup := func() {
+					mu.Lock()
+					cleanupCalls++
+					mu.Unlock()
+					if idx == tt.panicIndex {
+						panic("cleanup panic")
+					}
+				}
+				lm.registerWatcher(cleanup)
+			}
+
+			// Execute cleanup (should not panic)
+			assert.NotPanics(t, func() {
+				lm.cleanupWatchers()
+			})
+
+			// Verify all cleanups were attempted
+			mu.Lock()
+			assert.Equal(t, tt.expectedCalls, cleanupCalls)
+			mu.Unlock()
+		})
+	}
+}
+
+// TestContext_Watch_AutoCleanup tests that Context.Watch registers cleanup with lifecycle
+func TestContext_Watch_AutoCleanup(t *testing.T) {
+	// Create component with lifecycle
+	component := &componentImpl{
+		name:      "TestComponent",
+		id:        "test-1",
+		state:     make(map[string]interface{}),
+		lifecycle: nil,
+	}
+	ctx := &Context{component: component}
+
+	// Create a ref (interface{} type to match Context.Watch signature)
+	ref := NewRef[interface{}](0)
+
+	// Track callback calls
+	callbackCalls := 0
+	var mu sync.Mutex
+
+	// Watch the ref through context
+	cleanup := ctx.Watch(ref, func(newVal, oldVal interface{}) {
+		mu.Lock()
+		callbackCalls++
+		mu.Unlock()
+	})
+
+	// Verify cleanup function returned
+	assert.NotNil(t, cleanup)
+
+	// Verify lifecycle manager was created
+	assert.NotNil(t, component.lifecycle)
+
+	// Verify watcher was registered
+	assert.Equal(t, 1, len(component.lifecycle.watchers))
+
+	// Change ref value - callback should be called
+	ref.Set(1)
+	mu.Lock()
+	assert.Equal(t, 1, callbackCalls)
+	mu.Unlock()
+
+	// Execute unmount - should cleanup watchers
+	component.lifecycle.executeUnmounted()
+
+	// Change ref value again - callback should NOT be called (watcher cleaned up)
+	ref.Set(2)
+	mu.Lock()
+	assert.Equal(t, 1, callbackCalls) // Still 1, not incremented
+	mu.Unlock()
+}
+
+// TestContext_Watch_MultipleWatchers tests multiple watchers auto-cleanup
+func TestContext_Watch_MultipleWatchers(t *testing.T) {
+	// Create component with lifecycle
+	component := &componentImpl{
+		name:      "TestComponent",
+		id:        "test-1",
+		state:     make(map[string]interface{}),
+		lifecycle: nil,
+	}
+	ctx := &Context{component: component}
+
+	// Create refs (interface{} type to match Context.Watch signature)
+	ref1 := NewRef[interface{}](0)
+	ref2 := NewRef[interface{}]("hello")
+
+	// Track callback calls
+	calls1 := 0
+	calls2 := 0
+	var mu sync.Mutex
+
+	// Watch both refs
+	cleanup1 := ctx.Watch(ref1, func(newVal, oldVal interface{}) {
+		mu.Lock()
+		calls1++
+		mu.Unlock()
+	})
+	cleanup2 := ctx.Watch(ref2, func(newVal, oldVal interface{}) {
+		mu.Lock()
+		calls2++
+		mu.Unlock()
+	})
+
+	// Verify cleanups returned
+	assert.NotNil(t, cleanup1)
+	assert.NotNil(t, cleanup2)
+
+	// Verify both watchers registered
+	assert.Equal(t, 2, len(component.lifecycle.watchers))
+
+	// Change values - callbacks should be called
+	ref1.Set(1)
+	ref2.Set("world")
+	mu.Lock()
+	assert.Equal(t, 1, calls1)
+	assert.Equal(t, 1, calls2)
+	mu.Unlock()
+
+	// Execute unmount - should cleanup all watchers
+	component.lifecycle.executeUnmounted()
+
+	// Change values again - callbacks should NOT be called
+	ref1.Set(2)
+	ref2.Set("!")
+	mu.Lock()
+	assert.Equal(t, 1, calls1) // Still 1
+	assert.Equal(t, 1, calls2) // Still 1
+	mu.Unlock()
+}
+
+// TestLifecycleManager_WatcherCleanupOrder tests that watchers cleanup before manual cleanups
+func TestLifecycleManager_WatcherCleanupOrder(t *testing.T) {
+	// Create lifecycle manager
+	component := &componentImpl{
+		name: "TestComponent",
+		id:   "test-1",
+	}
+	lm := newLifecycleManager(component)
+
+	// Track execution order
+	var order []string
+	var mu sync.Mutex
+
+	// Register watcher cleanup
+	lm.registerWatcher(func() {
+		mu.Lock()
+		order = append(order, "watcher")
+		mu.Unlock()
+	})
+
+	// Register manual cleanup
+	lm.cleanups = append(lm.cleanups, func() {
+		mu.Lock()
+		order = append(order, "manual")
+		mu.Unlock()
+	})
+
+	// Execute unmount
+	lm.executeUnmounted()
+
+	// Verify order: watchers before manual cleanups
+	mu.Lock()
+	assert.Equal(t, []string{"watcher", "manual"}, order)
+	mu.Unlock()
 }

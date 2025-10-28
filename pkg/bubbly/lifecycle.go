@@ -63,10 +63,9 @@ type lifecycleHook struct {
 }
 
 // watcherCleanup represents a watcher that needs cleanup on unmount.
-// This will be used in Task 4.1 for auto-cleanup integration.
+// It stores the cleanup function that will be called when the component unmounts.
 type watcherCleanup struct {
 	// cleanup is the function to call to stop watching
-	//nolint:unused // Will be used in Task 4.1 (Watcher auto-cleanup)
 	cleanup func()
 }
 
@@ -471,7 +470,10 @@ func (lm *LifecycleManager) executeUnmounted() {
 	// Execute all unmounted hooks
 	lm.executeHooks("unmounted")
 
-	// Execute cleanup functions
+	// Execute watcher cleanups (before manual cleanups)
+	lm.cleanupWatchers()
+
+	// Execute manual cleanup functions
 	lm.executeCleanups()
 }
 
@@ -578,4 +580,92 @@ func (lm *LifecycleManager) checkUpdateDepth() error {
 //	lm.resetUpdateCount()  // Reset counter
 func (lm *LifecycleManager) resetUpdateCount() {
 	lm.updateCount = 0
+}
+
+// registerWatcher registers a watcher cleanup function for auto-cleanup on unmount.
+// The cleanup function will be called when the component unmounts to stop watching
+// and prevent memory leaks.
+//
+// This method is called internally by Context.Watch() to automatically register
+// watchers for cleanup.
+//
+// Example:
+//
+//	cleanup := Watch(ref, callback)
+//	lm.registerWatcher(cleanup)  // Auto-cleanup on unmount
+func (lm *LifecycleManager) registerWatcher(cleanup func()) {
+	lm.watchers = append(lm.watchers, watcherCleanup{
+		cleanup: cleanup,
+	})
+}
+
+// cleanupWatchers executes all registered watcher cleanup functions.
+// This method is called during component unmount to stop all watchers
+// and prevent memory leaks.
+//
+// The method:
+//   - Iterates through all registered watcher cleanups
+//   - Executes each cleanup with panic recovery
+//   - Continues execution even if individual cleanups panic
+//   - Guarantees all cleanups are attempted
+//
+// Panic recovery ensures that one failing watcher cleanup doesn't prevent
+// other watchers from being cleaned up.
+//
+// Example:
+//
+//	lm.cleanupWatchers()  // Stop all watchers
+func (lm *LifecycleManager) cleanupWatchers() {
+	// Execute each watcher cleanup
+	for _, watcher := range lm.watchers {
+		lm.safeExecuteWatcherCleanup(watcher.cleanup)
+	}
+}
+
+// safeExecuteWatcherCleanup executes a single watcher cleanup function with panic recovery.
+// If the cleanup panics, the panic is caught, reported to observability, and execution continues.
+// This ensures that one failing watcher cleanup doesn't prevent other cleanups from executing.
+//
+// The method:
+//   - Uses defer/recover to catch panics
+//   - Reports panic to observability system (Sentry, console, etc.)
+//   - Captures stack trace and context for debugging
+//   - Allows execution to continue normally
+//
+// Example:
+//
+//	lm.safeExecuteWatcherCleanup(cleanup)
+func (lm *LifecycleManager) safeExecuteWatcherCleanup(cleanup func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Report panic to observability system
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				panicErr := &observability.HandlerPanicError{
+					ComponentName: lm.component.name,
+					EventName:     "lifecycle:watcher_cleanup",
+					PanicValue:    r,
+				}
+
+				ctx := &observability.ErrorContext{
+					ComponentName: lm.component.name,
+					ComponentID:   lm.component.id,
+					EventName:     "lifecycle:watcher_cleanup",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"hook_type": "watcher_cleanup",
+					},
+					Extra: map[string]interface{}{
+						"watcher_count": len(lm.watchers),
+						"is_unmounting": lm.unmounting,
+					},
+				}
+
+				reporter.ReportPanic(panicErr, ctx)
+			}
+		}
+	}()
+
+	// Execute the watcher cleanup function
+	cleanup()
 }
