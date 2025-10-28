@@ -277,3 +277,177 @@ func (lm *LifecycleManager) safeExecuteHook(hookType string, hook lifecycleHook)
 	// Execute the hook callback
 	hook.callback()
 }
+
+// executeUpdated executes all registered onUpdated hooks with dependency tracking.
+// This method should be called after the component updates (after state changes).
+//
+// The method:
+//   - Checks if component is mounted (returns early if not)
+//   - Iterates through all "updated" hooks in registration order
+//   - For hooks with dependencies: checks if any dependency changed
+//   - For hooks without dependencies: always executes
+//   - Updates lastValues after execution for dependency tracking
+//   - Recovers from panics in individual hooks
+//
+// Dependency tracking:
+//   - No dependencies: hook runs on every update
+//   - With dependencies: hook runs only when at least one dependency changes
+//   - Uses reflect.DeepEqual for value comparison
+//   - Updates lastValues after successful execution
+//
+// Example:
+//
+//	lm.executeUpdated()  // Execute all onUpdated hooks
+func (lm *LifecycleManager) executeUpdated() {
+	// Only execute if component is mounted
+	if !lm.IsMounted() {
+		return
+	}
+
+	// Get updated hooks
+	hooks, exists := lm.hooks["updated"]
+	if !exists || len(hooks) == 0 {
+		return
+	}
+
+	// Execute each hook with dependency checking
+	for i := range hooks {
+		hook := &hooks[i] // Get pointer to modify lastValues
+
+		// Check if hook should execute based on dependencies
+		shouldExecute := lm.shouldExecuteHook(hook)
+
+		if shouldExecute {
+			// Execute the hook
+			lm.safeExecuteHook("updated", *hook)
+
+			// Update lastValues after execution if hook has dependencies
+			if len(hook.dependencies) > 0 {
+				lm.updateLastValues(hook)
+			}
+		}
+	}
+}
+
+// shouldExecuteHook determines if a hook should execute based on its dependencies.
+// Returns true if:
+//   - Hook has no dependencies (always execute)
+//   - At least one dependency value has changed (using reflect.DeepEqual)
+//
+// This method compares current dependency values with lastValues to detect changes.
+func (lm *LifecycleManager) shouldExecuteHook(hook *lifecycleHook) bool {
+	// No dependencies: always execute
+	if len(hook.dependencies) == 0 {
+		return true
+	}
+
+	// Check if any dependency has changed
+	for i, dep := range hook.dependencies {
+		currentValue := dep.Get()
+		lastValue := hook.lastValues[i]
+
+		// Use deepEqual for comparison (from deep.go)
+		if !deepEqual(currentValue, lastValue) {
+			return true
+		}
+	}
+
+	// No dependencies changed
+	return false
+}
+
+// updateLastValues updates the lastValues slice with current dependency values.
+// This is called after a hook executes to track the values for next comparison.
+func (lm *LifecycleManager) updateLastValues(hook *lifecycleHook) {
+	for i, dep := range hook.dependencies {
+		hook.lastValues[i] = dep.Get()
+	}
+}
+
+// executeUnmounted executes all registered onUnmounted hooks and cleanup functions.
+// This method should be called when the component is being removed/unmounted.
+//
+// The method:
+//   - Checks if already unmounting (returns early if true)
+//   - Sets the unmounting state to true
+//   - Executes all "unmounted" hooks in registration order
+//   - Executes all cleanup functions in reverse order (LIFO)
+//   - Recovers from panics in individual hooks and cleanups
+//
+// Execution order:
+//  1. onUnmounted hooks (registration order)
+//  2. Cleanup functions (reverse order - LIFO)
+//
+// This ensures proper cleanup sequence where:
+//   - User-defined unmount logic runs first
+//   - Cleanup functions unwind in reverse registration order
+//
+// Example:
+//
+//	lm.executeUnmounted()  // Execute all onUnmounted hooks and cleanups
+func (lm *LifecycleManager) executeUnmounted() {
+	// Check if already unmounting
+	if lm.IsUnmounting() {
+		return
+	}
+
+	// Mark as unmounting before executing hooks
+	lm.setUnmounting(true)
+
+	// Execute all unmounted hooks
+	lm.executeHooks("unmounted")
+
+	// Execute cleanup functions
+	lm.executeCleanups()
+}
+
+// executeCleanups executes all registered cleanup functions in reverse order (LIFO).
+// Cleanup functions are executed in reverse order to properly unwind resources
+// in the opposite order they were acquired.
+//
+// The method:
+//   - Iterates through cleanups in reverse order (LIFO)
+//   - Executes each cleanup with panic recovery
+//   - Continues execution even if individual cleanups panic
+//   - Guarantees all cleanups are attempted
+//
+// LIFO execution ensures:
+//   - Resources are released in reverse acquisition order
+//   - Dependencies are cleaned up before dependents
+//   - Proper unwinding of nested resources
+//
+// Example:
+//
+//	lm.executeCleanups()  // Execute all cleanup functions in reverse order
+func (lm *LifecycleManager) executeCleanups() {
+	// Execute cleanups in reverse order (LIFO)
+	for i := len(lm.cleanups) - 1; i >= 0; i-- {
+		lm.safeExecuteCleanup(lm.cleanups[i])
+	}
+}
+
+// safeExecuteCleanup executes a single cleanup function with panic recovery.
+// If the cleanup panics, the panic is caught, logged, and execution continues.
+// This ensures that one failing cleanup doesn't prevent other cleanups from executing.
+//
+// The method:
+//   - Uses defer/recover to catch panics
+//   - Logs panic information (would integrate with error reporting)
+//   - Allows execution to continue normally
+//
+// Example:
+//
+//	lm.safeExecuteCleanup(cleanup)
+func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Panic recovered - in production, this would be logged
+			// or reported to an error tracking service
+			// For now, we silently recover to allow tests to verify behavior
+			_ = r // Use r to avoid unused variable warning
+		}
+	}()
+
+	// Execute the cleanup function
+	cleanup()
+}

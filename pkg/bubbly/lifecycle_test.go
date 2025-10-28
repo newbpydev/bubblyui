@@ -920,3 +920,700 @@ func TestComponent_View_OnlyTriggersOnce(t *testing.T) {
 		})
 	}
 }
+
+// TestLifecycleManager_ExecuteUpdated tests the executeUpdated method.
+func TestLifecycleManager_ExecuteUpdated(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupHooks    func(*LifecycleManager, *int)
+		expectedCount int
+		description   string
+	}{
+		{
+			name: "no hooks registered",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				// No hooks registered
+			},
+			expectedCount: 0,
+			description:   "should not execute any hooks when none registered",
+		},
+		{
+			name: "single hook no dependencies",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				lm.registerHook("updated", lifecycleHook{
+					id:       "hook-1",
+					callback: func() { *count++ },
+					order:    0,
+				})
+			},
+			expectedCount: 1,
+			description:   "should execute hook without dependencies",
+		},
+		{
+			name: "multiple hooks no dependencies",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				lm.registerHook("updated", lifecycleHook{
+					id:       "hook-1",
+					callback: func() { *count++ },
+					order:    0,
+				})
+				lm.registerHook("updated", lifecycleHook{
+					id:       "hook-2",
+					callback: func() { *count++ },
+					order:    1,
+				})
+				lm.registerHook("updated", lifecycleHook{
+					id:       "hook-3",
+					callback: func() { *count++ },
+					order:    2,
+				})
+			},
+			expectedCount: 3,
+			description:   "should execute all hooks without dependencies",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true) // Mark as mounted
+
+			// Setup hooks
+			executionCount := 0
+			tt.setupHooks(lm, &executionCount)
+
+			// Execute updated hooks
+			lm.executeUpdated()
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUpdated_WithDependencies tests dependency tracking.
+func TestLifecycleManager_ExecuteUpdated_WithDependencies(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupHook     func(*LifecycleManager, *int, *Ref[any])
+		changeValue   bool
+		expectedCount int
+		description   string
+	}{
+		{
+			name: "single dependency - value changed",
+			setupHook: func(lm *LifecycleManager, count *int, ref *Ref[any]) {
+				// Capture initial value
+				initialValue := ref.Get()
+				lm.registerHook("updated", lifecycleHook{
+					id:           "hook-1",
+					callback:     func() { *count++ },
+					dependencies: []*Ref[any]{ref},
+					lastValues:   []any{initialValue},
+					order:        0,
+				})
+			},
+			changeValue:   true,
+			expectedCount: 1,
+			description:   "should execute when dependency changes",
+		},
+		{
+			name: "single dependency - value unchanged",
+			setupHook: func(lm *LifecycleManager, count *int, ref *Ref[any]) {
+				// Capture initial value
+				initialValue := ref.Get()
+				lm.registerHook("updated", lifecycleHook{
+					id:           "hook-1",
+					callback:     func() { *count++ },
+					dependencies: []*Ref[any]{ref},
+					lastValues:   []any{initialValue},
+					order:        0,
+				})
+			},
+			changeValue:   false,
+			expectedCount: 0,
+			description:   "should not execute when dependency unchanged",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Create ref with initial value (using any type)
+			ref := NewRef[any](10)
+
+			// Setup hook
+			executionCount := 0
+			tt.setupHook(lm, &executionCount, ref)
+
+			// Change value if needed
+			if tt.changeValue {
+				ref.Set(20)
+			}
+
+			// Execute updated hooks
+			lm.executeUpdated()
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUpdated_MultipleDependencies tests multiple dependencies.
+func TestLifecycleManager_ExecuteUpdated_MultipleDependencies(t *testing.T) {
+	tests := []struct {
+		name          string
+		changeFirst   bool
+		changeSecond  bool
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "both dependencies unchanged",
+			changeFirst:   false,
+			changeSecond:  false,
+			expectedCount: 0,
+			description:   "should not execute when no dependencies change",
+		},
+		{
+			name:          "first dependency changed",
+			changeFirst:   true,
+			changeSecond:  false,
+			expectedCount: 1,
+			description:   "should execute when first dependency changes",
+		},
+		{
+			name:          "second dependency changed",
+			changeFirst:   false,
+			changeSecond:  true,
+			expectedCount: 1,
+			description:   "should execute when second dependency changes",
+		},
+		{
+			name:          "both dependencies changed",
+			changeFirst:   true,
+			changeSecond:  true,
+			expectedCount: 1,
+			description:   "should execute once when both dependencies change",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Create refs with initial values (using any type)
+			ref1 := NewRef[any](10)
+			ref2 := NewRef[any]("hello")
+
+			// Setup hook with multiple dependencies
+			executionCount := 0
+			lm.registerHook("updated", lifecycleHook{
+				id:       "hook-1",
+				callback: func() { executionCount++ },
+				dependencies: []*Ref[any]{
+					ref1,
+					ref2,
+				},
+				lastValues: []any{ref1.Get(), ref2.Get()},
+				order:      0,
+			})
+
+			// Change values if needed
+			if tt.changeFirst {
+				ref1.Set(20)
+			}
+			if tt.changeSecond {
+				ref2.Set("world")
+			}
+
+			// Execute updated hooks
+			lm.executeUpdated()
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUpdated_Order tests execution order.
+func TestLifecycleManager_ExecuteUpdated_Order(t *testing.T) {
+	tests := []struct {
+		name     string
+		numHooks int
+	}{
+		{
+			name:     "three hooks execute in order",
+			numHooks: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Track execution order
+			var executionOrder []int
+
+			// Register hooks in order
+			for i := 0; i < tt.numHooks; i++ {
+				hookNum := i
+				lm.registerHook("updated", lifecycleHook{
+					id:       fmt.Sprintf("hook-%d", i),
+					callback: func() { executionOrder = append(executionOrder, hookNum) },
+					order:    i,
+				})
+			}
+
+			// Execute updated hooks
+			lm.executeUpdated()
+
+			// Verify execution order
+			assert.Equal(t, []int{0, 1, 2}, executionOrder, "hooks should execute in registration order")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUpdated_PanicRecovery tests panic recovery.
+func TestLifecycleManager_ExecuteUpdated_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name          string
+		panicInFirst  bool
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "first hook panics, second still executes",
+			panicInFirst:  true,
+			expectedCount: 1,
+			description:   "second hook should execute even if first panics",
+		},
+		{
+			name:          "no panics, both execute",
+			panicInFirst:  false,
+			expectedCount: 2,
+			description:   "both hooks should execute normally",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Track execution count
+			executionCount := 0
+
+			// First hook - may panic
+			lm.registerHook("updated", lifecycleHook{
+				id: "hook-1",
+				callback: func() {
+					if tt.panicInFirst {
+						panic("test panic")
+					}
+					executionCount++
+				},
+				order: 0,
+			})
+
+			// Second hook - always executes
+			lm.registerHook("updated", lifecycleHook{
+				id:       "hook-2",
+				callback: func() { executionCount++ },
+				order:    1,
+			})
+
+			// Execute updated hooks (should not panic)
+			assert.NotPanics(t, func() {
+				lm.executeUpdated()
+			}, "executeUpdated should not panic")
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUnmounted tests the executeUnmounted method.
+func TestLifecycleManager_ExecuteUnmounted(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupHooks    func(*LifecycleManager, *int)
+		expectedCount int
+		description   string
+	}{
+		{
+			name: "no hooks registered",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				// No hooks registered
+			},
+			expectedCount: 0,
+			description:   "should not execute any hooks when none registered",
+		},
+		{
+			name: "single onUnmounted hook",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				lm.registerHook("unmounted", lifecycleHook{
+					id:       "hook-1",
+					callback: func() { *count++ },
+					order:    0,
+				})
+			},
+			expectedCount: 1,
+			description:   "should execute single unmounted hook",
+		},
+		{
+			name: "multiple onUnmounted hooks",
+			setupHooks: func(lm *LifecycleManager, count *int) {
+				lm.registerHook("unmounted", lifecycleHook{
+					id:       "hook-1",
+					callback: func() { *count++ },
+					order:    0,
+				})
+				lm.registerHook("unmounted", lifecycleHook{
+					id:       "hook-2",
+					callback: func() { *count++ },
+					order:    1,
+				})
+				lm.registerHook("unmounted", lifecycleHook{
+					id:       "hook-3",
+					callback: func() { *count++ },
+					order:    2,
+				})
+			},
+			expectedCount: 3,
+			description:   "should execute all unmounted hooks",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Setup hooks
+			executionCount := 0
+			tt.setupHooks(lm, &executionCount)
+
+			// Execute unmounted hooks
+			lm.executeUnmounted()
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+
+			// Verify unmounting flag is set
+			assert.True(t, lm.IsUnmounting(), "should be marked as unmounting")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUnmounted_OnlyOnce tests that unmount only happens once.
+func TestLifecycleManager_ExecuteUnmounted_OnlyOnce(t *testing.T) {
+	tests := []struct {
+		name          string
+		callCount     int
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "called once",
+			callCount:     1,
+			expectedCount: 1,
+			description:   "should execute hooks once",
+		},
+		{
+			name:          "called multiple times",
+			callCount:     3,
+			expectedCount: 1,
+			description:   "should execute hooks only once even when called multiple times",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Register hook
+			executionCount := 0
+			lm.registerHook("unmounted", lifecycleHook{
+				id:       "hook-1",
+				callback: func() { executionCount++ },
+				order:    0,
+			})
+
+			// Call executeUnmounted multiple times
+			for i := 0; i < tt.callCount; i++ {
+				lm.executeUnmounted()
+			}
+
+			// Verify hook executed only once
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUnmounted_Order tests execution order.
+func TestLifecycleManager_ExecuteUnmounted_Order(t *testing.T) {
+	tests := []struct {
+		name     string
+		numHooks int
+	}{
+		{
+			name:     "three hooks execute in order",
+			numHooks: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Track execution order
+			var executionOrder []int
+
+			// Register hooks in order
+			for i := 0; i < tt.numHooks; i++ {
+				hookNum := i
+				lm.registerHook("unmounted", lifecycleHook{
+					id:       fmt.Sprintf("hook-%d", i),
+					callback: func() { executionOrder = append(executionOrder, hookNum) },
+					order:    i,
+				})
+			}
+
+			// Execute unmounted hooks
+			lm.executeUnmounted()
+
+			// Verify execution order
+			assert.Equal(t, []int{0, 1, 2}, executionOrder, "hooks should execute in registration order")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteUnmounted_PanicRecovery tests panic recovery.
+func TestLifecycleManager_ExecuteUnmounted_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name          string
+		panicInFirst  bool
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "first hook panics, second still executes",
+			panicInFirst:  true,
+			expectedCount: 1,
+			description:   "second hook should execute even if first panics",
+		},
+		{
+			name:          "no panics, both execute",
+			panicInFirst:  false,
+			expectedCount: 2,
+			description:   "both hooks should execute normally",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+			lm.setMounted(true)
+
+			// Track execution count
+			executionCount := 0
+
+			// First hook - may panic
+			lm.registerHook("unmounted", lifecycleHook{
+				id: "hook-1",
+				callback: func() {
+					if tt.panicInFirst {
+						panic("test panic")
+					}
+					executionCount++
+				},
+				order: 0,
+			})
+
+			// Second hook - always executes
+			lm.registerHook("unmounted", lifecycleHook{
+				id:       "hook-2",
+				callback: func() { executionCount++ },
+				order:    1,
+			})
+
+			// Execute unmounted hooks (should not panic)
+			assert.NotPanics(t, func() {
+				lm.executeUnmounted()
+			}, "executeUnmounted should not panic")
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteCleanups tests cleanup function execution.
+func TestLifecycleManager_ExecuteCleanups(t *testing.T) {
+	tests := []struct {
+		name          string
+		numCleanups   int
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "no cleanups registered",
+			numCleanups:   0,
+			expectedCount: 0,
+			description:   "should handle no cleanups gracefully",
+		},
+		{
+			name:          "single cleanup",
+			numCleanups:   1,
+			expectedCount: 1,
+			description:   "should execute single cleanup",
+		},
+		{
+			name:          "multiple cleanups",
+			numCleanups:   3,
+			expectedCount: 3,
+			description:   "should execute all cleanups",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Register cleanups
+			executionCount := 0
+			for i := 0; i < tt.numCleanups; i++ {
+				lm.cleanups = append(lm.cleanups, func() {
+					executionCount++
+				})
+			}
+
+			// Execute cleanups
+			lm.executeCleanups()
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteCleanups_ReverseOrder tests LIFO execution.
+func TestLifecycleManager_ExecuteCleanups_ReverseOrder(t *testing.T) {
+	tests := []struct {
+		name        string
+		numCleanups int
+	}{
+		{
+			name:        "three cleanups execute in reverse order",
+			numCleanups: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution order
+			var executionOrder []int
+
+			// Register cleanups in order
+			for i := 0; i < tt.numCleanups; i++ {
+				cleanupNum := i
+				lm.cleanups = append(lm.cleanups, func() {
+					executionOrder = append(executionOrder, cleanupNum)
+				})
+			}
+
+			// Execute cleanups
+			lm.executeCleanups()
+
+			// Verify reverse order (LIFO)
+			assert.Equal(t, []int{2, 1, 0}, executionOrder, "cleanups should execute in reverse order (LIFO)")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteCleanups_PanicRecovery tests panic recovery in cleanups.
+func TestLifecycleManager_ExecuteCleanups_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name          string
+		panicInFirst  bool
+		expectedCount int
+		description   string
+	}{
+		{
+			name:          "first cleanup panics, second still executes",
+			panicInFirst:  true,
+			expectedCount: 1,
+			description:   "second cleanup should execute even if first panics",
+		},
+		{
+			name:          "no panics, both execute",
+			panicInFirst:  false,
+			expectedCount: 2,
+			description:   "both cleanups should execute normally",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution count
+			executionCount := 0
+
+			// Register cleanups (reverse order due to LIFO)
+			// Second cleanup (executes first due to LIFO)
+			lm.cleanups = append(lm.cleanups, func() { executionCount++ })
+
+			// First cleanup (executes second due to LIFO) - may panic
+			lm.cleanups = append(lm.cleanups, func() {
+				if tt.panicInFirst {
+					panic("test panic")
+				}
+				executionCount++
+			})
+
+			// Execute cleanups (should not panic)
+			assert.NotPanics(t, func() {
+				lm.executeCleanups()
+			}, "executeCleanups should not panic")
+
+			// Verify execution count
+			assert.Equal(t, tt.expectedCount, executionCount, tt.description)
+		})
+	}
+}
