@@ -1,7 +1,11 @@
 package bubbly
 
 import (
+	"runtime/debug"
 	"sync"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // WatchEffect runs an effect function immediately and automatically tracks its reactive dependencies.
@@ -112,9 +116,27 @@ func (e *watchEffect) run() {
 		// Recover from panics in effect
 		defer func() {
 			if r := recover(); r != nil {
-				// Log or handle panic, but don't crash
-				// In production, you might want to log this
-				_ = r // Suppress unused variable warning
+				// Report panic to observability system
+				if reporter := observability.GetErrorReporter(); reporter != nil {
+					panicErr := &observability.HandlerPanicError{
+						ComponentName: "WatchEffect",
+						EventName:     "effect:execution",
+						PanicValue:    r,
+					}
+
+					ctx := &observability.ErrorContext{
+						ComponentName: "WatchEffect",
+						EventName:     "effect:execution",
+						Timestamp:     time.Now(),
+						StackTrace:    debug.Stack(),
+						Tags: map[string]string{
+							"effect_type": "watch_effect",
+							"tracking":    "failed",
+						},
+					}
+
+					reporter.ReportPanic(panicErr, ctx)
+				}
 			}
 		}()
 
@@ -127,9 +149,27 @@ func (e *watchEffect) run() {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				// Effect panicked, but we still want to track dependencies
-				// and allow future runs
-				_ = r // Suppress unused variable warning
+				// Report panic to observability system
+				if reporter := observability.GetErrorReporter(); reporter != nil {
+					panicErr := &observability.HandlerPanicError{
+						ComponentName: "WatchEffect",
+						EventName:     "effect:execution",
+						PanicValue:    r,
+					}
+
+					ctx := &observability.ErrorContext{
+						ComponentName: "WatchEffect",
+						EventName:     "effect:execution",
+						Timestamp:     time.Now(),
+						StackTrace:    debug.Stack(),
+						Tags: map[string]string{
+							"effect_type": "watch_effect",
+							"tracking":    "active",
+						},
+					}
+
+					reporter.ReportPanic(panicErr, ctx)
+				}
 			}
 		}()
 		e.effect()
