@@ -42,8 +42,10 @@ Implement a Vue-inspired component system that wraps Bubbletea's Model-Update-Vi
 4.1. Components can emit custom events  
 4.2. Parent components can listen to child events  
 4.3. Type-safe event payloads  
-4.4. Event bubbling (optional)  
+4.4. Event bubbling from child to parent  
 4.5. Event handlers registered via `On(eventName, handler)`  
+4.6. Event propagation control (stop bubbling)  
+4.7. Event metadata includes source component and timestamp  
 
 ### 5. Template Rendering
 5.1. Template as Go function: `func(ctx RenderContext) string`  
@@ -126,6 +128,9 @@ Implement a Vue-inspired component system that wraps Bubbletea's Model-Update-Vi
 - [ ] Event payloads type-safe
 - [ ] Multiple listeners per event
 - [ ] Event handlers execute correctly
+- [ ] Events bubble from child to parent
+- [ ] Event propagation can be stopped
+- [ ] Event metadata includes source and timestamp
 
 ### Template Rendering
 - [ ] Template function renders to string
@@ -337,9 +342,28 @@ func NewCounter() *Component {
 }
 ```
 
+## Future Requirements (Not in current scope)
+
+### 9. Error Tracking & Observability (Optional Enhancement)
+
+9.1. Pluggable error reporter interface  
+9.2. Report panics from event handlers to external services  
+9.3. Include rich error context (component, event, stack trace)  
+9.4. Built-in Console reporter for development  
+9.5. Built-in Sentry reporter for production  
+9.6. Breadcrumb collection for debugging  
+9.7. Privacy-aware (PII filtering via hooks)  
+9.8. Zero overhead when not configured  
+9.9. Async error reporting (non-blocking)  
+
+**Priority:** MEDIUM - Useful for production debugging but not critical  
+**Estimated Effort:** 15 hours (2 days)  
+**See:** `designs.md` "Error Tracking & Observability" section for full design
+
 ## Open Questions
 1. Should components support async initialization?
 2. How to handle component-level error boundaries?
 3. Should we support component slots (like Vue)?
 4. Optimal strategy for large component trees?
 5. How to debug component hierarchies?
+6. Which error tracking services should have built-in support? (Sentry, Rollbar, Bugsnag?)

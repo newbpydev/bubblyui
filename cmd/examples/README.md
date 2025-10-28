@@ -1,8 +1,46 @@
 # BubblyUI Examples
 
-This directory contains example applications demonstrating the BubblyUI reactivity system integrated with Bubbletea.
+This directory contains example applications demonstrating BubblyUI features organized by functionality.
 
-## Examples
+## Directory Structure
+
+- **[01-reactivity-system/](./01-reactivity-system/)** - Examples demonstrating reactive primitives (Ref, Computed, Watch, WatchEffect)
+- **[02-component-model/](./02-component-model/)** - Examples demonstrating component architecture (Components, Props, Events, Composition)
+
+## Feature 01: Reactivity System Examples
+
+See [01-reactivity-system/README.md](./01-reactivity-system/README.md) for details on:
+- Reactive Counter - Basic Ref and Computed
+- Reactive Todo - Complex state management
+- Form Validation - Multiple reactive fields
+- Async Data - Watchers for side effects
+- Watch Computed - Watching computed values
+- Watch Effect - Automatic dependency tracking
+
+## Feature 02: Component Model Examples
+
+See [02-component-model/README.md](./02-component-model/README.md) for details on:
+- Button - Basic component with props and events
+- Counter - State management with Setup
+- Form - Props, events, and validation
+- Nested - Component composition and communication
+- Todo - Complete application showcasing all features
+
+## Quick Start
+
+### Run a Reactivity Example
+```bash
+cd 01-reactivity-system/reactive-counter
+go run main.go
+```
+
+### Run a Component Example
+```bash
+cd 02-component-model/button
+go run main.go
+```
+
+## Legacy Examples (Now Organized)
 
 ### 1. Reactive Counter (`reactive-counter/`)
 

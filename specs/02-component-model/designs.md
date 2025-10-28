@@ -532,6 +532,139 @@ func (c *componentImpl) Emit(event string, data interface{}) {
 }
 ```
 
+### Event Bubbling Architecture
+
+**Purpose**: Events automatically propagate from child components up through parent components until handled or reaching the root.
+
+**Design Pattern**: Follows Vue.js and DOM event bubbling model for familiar, predictable behavior.
+
+#### Bubbling Flow
+```
+Child Component (emits "submit")
+    ↓
+Parent Component (listens for "submit" or bubbles up)
+    ↓
+Grandparent Component (listens or bubbles up)
+    ↓
+Root Component (final opportunity to handle)
+```
+
+#### Implementation Design
+
+```go
+type Event struct {
+    Name      string
+    Source    Component    // Original emitter
+    Data      interface{}
+    Timestamp time.Time
+    Stopped   bool         // Flag to stop propagation
+}
+
+// Emit with automatic bubbling
+func (c *componentImpl) Emit(event string, data interface{}) {
+    evt := Event{
+        Name:      event,
+        Source:    c,
+        Data:      data,
+        Timestamp: time.Now(),
+        Stopped:   false,
+    }
+    
+    c.bubbleEvent(evt)
+}
+
+// bubbleEvent propagates event up the component tree
+func (c *componentImpl) bubbleEvent(evt Event) {
+    // Skip if event propagation was stopped
+    if evt.Stopped {
+        return
+    }
+    
+    // Execute local handlers first
+    c.handlersMu.RLock()
+    handlers, ok := c.handlers[evt.Name]
+    c.handlersMu.RUnlock()
+    
+    if ok {
+        for _, handler := range handlers {
+            handler(evt.Data)
+            // Note: handlers can call StopPropagation()
+            // to set evt.Stopped = true
+        }
+    }
+    
+    // Bubble to parent if not stopped and parent exists
+    if !evt.Stopped && c.parent != nil {
+        c.parent.(*componentImpl).bubbleEvent(evt)
+    }
+}
+
+// StopPropagation prevents event from bubbling further
+func (e *Event) StopPropagation() {
+    e.Stopped = true
+}
+```
+
+#### Event Handler with Stop Propagation
+
+```go
+// Child component
+child := NewComponent("Button").
+    Setup(func(ctx *Context) {
+        ctx.On("click", func(data interface{}) {
+            // Handle locally
+            fmt.Println("Button clicked")
+            
+            // Emit custom event that will bubble
+            ctx.Emit("buttonClicked", map[string]interface{}{
+                "timestamp": time.Now(),
+                "buttonId": "submit",
+            })
+        })
+    }).
+    Build()
+
+// Parent component - handles bubbled events
+parent := NewComponent("Form").
+    Children(child).
+    Setup(func(ctx *Context) {
+        // Listen for child's buttonClicked event
+        ctx.On("buttonClicked", func(data interface{}) {
+            eventData := data.(map[string]interface{})
+            fmt.Printf("Form received button click: %v\n", eventData)
+            
+            // Stop propagation to prevent grandparent from seeing it
+            // (Implementation detail: handler can set stop flag)
+        })
+    }).
+    Build()
+```
+
+#### Use Cases
+
+1. **Form Submission**: Button click bubbles up to form for validation
+2. **Menu Selection**: Item selection bubbles to menu container
+3. **List Actions**: Item actions bubble to list for coordinated updates
+4. **Error Handling**: Errors bubble up for centralized handling
+5. **Analytics**: All events bubble to root for logging
+
+#### Performance Considerations
+
+- **Efficient Path**: O(depth) where depth is component tree depth
+- **Early Exit**: Handlers can stop propagation to prevent unnecessary traversal
+- **No Overhead**: If no parent, bubbling stops immediately
+- **Thread-Safe**: Uses existing handlersMu for concurrent access
+
+#### Comparison with DOM Event Bubbling
+
+| Feature | DOM Events | BubblyUI Events |
+|---------|------------|-----------------|
+| Direction | Bottom-up | Bottom-up |
+| Stop Propagation | `event.stopPropagation()` | Event.Stopped flag |
+| Capture Phase | Yes | No (not needed in TUI) |
+| Default Prevention | `event.preventDefault()` | Not applicable |
+| Event Object | Full DOM Event | Event struct with metadata |
+
 ---
 
 ## Integration with Reactivity System
@@ -775,3 +908,294 @@ wrapped := NewComponent("Legacy").
 4. **Higher-Order Components:** Wrap components with behavior
 5. **Component Registry:** Global component registration
 6. **Dev Tools:** Inspect component tree at runtime
+7. **Error Tracking & Observability:** Integration with error tracking services (see below)
+
+---
+
+## Error Tracking & Observability
+
+### Problem Statement
+
+**Current State:**
+- Component errors (panics in event handlers) are recovered but silently discarded
+- `HandlerPanicError` created in `events.go:101` but assigned to `_` (unused)
+- No mechanism to report errors to external services (Sentry, Rollbar, custom backends)
+- Production debugging difficult without error visibility
+- No context about component state when errors occur
+
+**User Need:**
+Developers need to:
+- Know when production errors occur
+- See error context (component name, event, panic value, stack trace)
+- Track error frequency and patterns
+- Debug issues users encounter
+- Monitor application health
+
+### Solution Design
+
+**Architecture:** Hook-based error reporting system inspired by Sentry Go SDK
+
+#### Type Definitions
+
+```go
+// ErrorReporter interface for pluggable error tracking backends
+type ErrorReporter interface {
+    // ReportPanic reports a panic that occurred in an event handler
+    ReportPanic(err *HandlerPanicError, ctx *ErrorContext)
+    
+    // ReportError reports a general error
+    ReportError(err error, ctx *ErrorContext)
+    
+    // Flush ensures all pending errors are sent before shutdown
+    Flush(timeout time.Duration) error
+}
+
+// ErrorContext provides rich context about where/when error occurred
+type ErrorContext struct {
+    ComponentName  string
+    ComponentID    string
+    EventName      string
+    Timestamp      time.Time
+    Tags           map[string]string
+    Extra          map[string]interface{}
+    Breadcrumbs    []Breadcrumb
+    StackTrace     []byte
+}
+
+// Breadcrumb represents a navigation trail or action leading to error
+type Breadcrumb struct {
+    Type      string
+    Category  string
+    Message   string
+    Level     string
+    Timestamp time.Time
+    Data      map[string]interface{}
+}
+
+// Global error reporter (can be set by application)
+var globalErrorReporter ErrorReporter
+
+// SetErrorReporter configures the global error reporter
+func SetErrorReporter(reporter ErrorReporter)
+
+// GetErrorReporter returns the current error reporter (or nil)
+func GetErrorReporter() ErrorReporter
+```
+
+#### Integration Points
+
+**1. Event Handler Panic Recovery** (already in `events.go`)
+```go
+// Current code (events.go:96-107)
+func() {
+    defer func() {
+        if r := recover(); r != nil {
+            panicErr := &HandlerPanicError{
+                ComponentName: c.name,
+                EventName:     event.Name,
+                PanicValue:    r,
+            }
+            
+            // NEW: Report to error tracking service if configured
+            if reporter := GetErrorReporter(); reporter != nil {
+                reporter.ReportPanic(panicErr, &ErrorContext{
+                    ComponentName: c.name,
+                    ComponentID:   c.id,
+                    EventName:     event.Name,
+                    Timestamp:     time.Now(),
+                    StackTrace:    debug.Stack(),
+                })
+            }
+        }
+    }()
+    handler(event)
+}()
+```
+
+**2. Component Builder Validation Errors**
+```go
+// Option: Report validation errors during development
+func (b *ComponentBuilder) Build() (Component, error) {
+    if len(b.errors) > 0 {
+        validationErr := &ValidationError{...}
+        
+        // Report in development mode
+        if reporter := GetErrorReporter(); reporter != nil && IsDevelopment() {
+            reporter.ReportError(validationErr, &ErrorContext{...})
+        }
+        
+        return nil, validationErr
+    }
+    return b.component, nil
+}
+```
+
+**3. Breadcrumb Collection**
+```go
+// Automatic breadcrumbs for component lifecycle
+func (c *componentImpl) Init() tea.Cmd {
+    recordBreadcrumb("component.init", c.name)
+    // ... existing code
+}
+
+func (c *componentImpl) Emit(event string, data interface{}) {
+    recordBreadcrumb("component.event", event)
+    // ... existing code
+}
+```
+
+#### Built-in Reporters
+
+**Console Reporter (Development)**
+```go
+type ConsoleReporter struct {
+    verbose bool
+}
+
+func (r *ConsoleReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext) {
+    log.Printf("[ERROR] Panic in component '%s' event '%s': %v\n",
+        ctx.ComponentName, ctx.EventName, err.PanicValue)
+    if r.verbose {
+        log.Printf("Stack trace:\n%s", ctx.StackTrace)
+    }
+}
+```
+
+**Sentry Reporter (Production)**
+```go
+type SentryReporter struct {
+    hub *sentry.Hub
+}
+
+func NewSentryReporter(dsn string) (*SentryReporter, error) {
+    err := sentry.Init(sentry.ClientOptions{
+        Dsn: dsn,
+        BeforeSend: func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+            // Filter or modify events before sending
+            return event
+        },
+    })
+    if err != nil {
+        return nil, err
+    }
+    
+    return &SentryReporter{
+        hub: sentry.CurrentHub(),
+    }, nil
+}
+
+func (r *SentryReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext) {
+    r.hub.WithScope(func(scope *sentry.Scope) {
+        scope.SetTag("component", ctx.ComponentName)
+        scope.SetTag("event", ctx.EventName)
+        scope.SetExtra("panic_value", err.PanicValue)
+        
+        // Add breadcrumbs
+        for _, bc := range ctx.Breadcrumbs {
+            scope.AddBreadcrumb(&sentry.Breadcrumb{
+                Type:      bc.Type,
+                Category:  bc.Category,
+                Message:   bc.Message,
+                Timestamp: bc.Timestamp,
+                Data:      bc.Data,
+            }, 100)
+        }
+        
+        r.hub.CaptureException(fmt.Errorf("%w: %v", ErrHandlerPanic, err.PanicValue))
+    })
+}
+```
+
+#### Usage Example
+
+```go
+// Application setup
+func main() {
+    // Development: Console reporter
+    if os.Getenv("ENV") == "development" {
+        bubbly.SetErrorReporter(&bubbly.ConsoleReporter{verbose: true})
+    } else {
+        // Production: Sentry reporter
+        reporter, err := bubbly.NewSentryReporter(os.Getenv("SENTRY_DSN"))
+        if err != nil {
+            log.Fatal(err)
+        }
+        defer reporter.Flush(5 * time.Second)
+        bubbly.SetErrorReporter(reporter)
+    }
+    
+    // Create application
+    app := bubbly.NewComponent("App").
+        Setup(func(ctx *bubbly.Context) {
+            // Component setup
+            ctx.On("risky-operation", func(data interface{}) {
+                // If this panics, it's automatically reported to Sentry
+                processRiskyData(data)
+            })
+        }).
+        Template(func(ctx bubbly.RenderContext) string {
+            return "App"
+        }).
+        Build()
+    
+    p := tea.NewProgram(app)
+    p.Run()
+}
+```
+
+### Benefits
+
+1. **Production Visibility:** Know when errors occur in production
+2. **Context-Rich:** Full component state, event info, breadcrumbs
+3. **Pluggable:** Support any error tracking service (Sentry, Rollbar, custom)
+4. **Zero Impact:** If no reporter configured, zero overhead
+5. **Development Friendly:** Console reporter for local debugging
+6. **Privacy Aware:** BeforeSend hooks to filter sensitive data
+
+### Performance Considerations
+
+- **No Reporter:** Zero overhead (nil check, no allocation)
+- **With Reporter:** Minimal overhead (single interface call)
+- **Async Reporting:** Errors sent in background (non-blocking)
+- **Buffering:** Batch errors to reduce network calls
+- **Sampling:** Support for error sampling in high-traffic apps
+
+### Privacy & Security
+
+1. **PII Filtering:** BeforeSend hooks to remove sensitive data
+2. **Opt-in:** Error tracking disabled by default
+3. **User Control:** Application controls what data is sent
+4. **Stack Traces:** Optional (can disable for privacy)
+5. **Data Retention:** Controlled by external service
+
+### Known Limitations
+
+1. **External Dependency:** Requires error tracking service
+2. **Network Required:** Errors buffered if offline
+3. **Configuration Required:** Application must set up reporter
+4. **Not Real-time:** Errors sent asynchronously
+5. **Overhead:** Small performance cost for error reporting
+
+### Priority
+
+**MEDIUM** - Useful for production debugging but not critical for framework functionality
+
+### Implementation Estimate
+
+- **Error Reporter Interface:** 2 hours
+- **Console Reporter:** 1 hour  
+- **Sentry Reporter:** 3 hours
+- **Integration with existing error handling:** 2 hours
+- **Breadcrumb system:** 2 hours
+- **Tests:** 3 hours
+- **Documentation:** 2 hours
+- **Total:** ~15 hours (2 days)
+
+### Future Enhancements (Error Tracking)
+
+1. **Custom Reporters:** Easy to add support for Rollbar, Bugsnag, etc.
+2. **Local Storage:** Buffer errors offline, send when connection restored
+3. **Error Grouping:** Smart grouping of similar errors
+4. **User Context:** Track which user encountered error
+5. **Performance Monitoring:** Extend to track component render times
+6. **Session Replay:** Record user interactions leading to error

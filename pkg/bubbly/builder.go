@@ -1,0 +1,280 @@
+package bubbly
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+// Validation errors returned by Build().
+var (
+	// ErrMissingTemplate is returned when Build() is called without setting a template.
+	ErrMissingTemplate = errors.New("template is required")
+)
+
+// ValidationError represents one or more validation errors encountered during Build().
+// It provides detailed information about what went wrong during component validation.
+type ValidationError struct {
+	// ComponentName is the name of the component that failed validation.
+	ComponentName string
+
+	// Errors is the list of validation errors encountered.
+	Errors []error
+}
+
+// Error implements the error interface for ValidationError.
+// It formats the error message to include the component name and all validation errors.
+func (e *ValidationError) Error() string {
+	var errMsgs []string
+	for _, err := range e.Errors {
+		errMsgs = append(errMsgs, err.Error())
+	}
+	return fmt.Sprintf("component '%s' validation failed: %s",
+		e.ComponentName,
+		strings.Join(errMsgs, "; "))
+}
+
+// ComponentBuilder provides a fluent API for creating components.
+// It implements the builder pattern to make component creation
+// readable and type-safe.
+//
+// The builder:
+//   - Stores a reference to the component being built
+//   - Tracks validation errors during configuration
+//   - Provides chainable methods for setting component properties
+//   - Validates configuration before building the final component
+//
+// Example:
+//
+//	component := NewComponent("Button").
+//	    Props(ButtonProps{Label: "Click me"}).
+//	    Setup(func(ctx *Context) {
+//	        // Initialize state
+//	    }).
+//	    Template(func(ctx RenderContext) string {
+//	        return "Hello"
+//	    }).
+//	    Build()
+type ComponentBuilder struct {
+	// component is the component being built.
+	// It's created immediately in NewComponent() and configured
+	// through the builder methods.
+	component *componentImpl
+
+	// errors tracks validation errors encountered during configuration.
+	// Errors are accumulated and checked in Build().
+	errors []error
+}
+
+// NewComponent creates a new ComponentBuilder for building a component.
+// This is the entry point for creating components using the fluent API.
+//
+// The function:
+//   - Creates a new component instance with the given name
+//   - Initializes the builder with empty error tracking
+//   - Returns the builder ready for method chaining
+//
+// Example:
+//
+//	builder := NewComponent("Button")
+//	// Now chain configuration methods...
+//	builder.Props(...).Setup(...).Template(...).Build()
+//
+// Parameters:
+//   - name: The component name (e.g., "Button", "Counter", "Form")
+//
+// Returns:
+//   - *ComponentBuilder: A builder instance ready for configuration
+func NewComponent(name string) *ComponentBuilder {
+	return &ComponentBuilder{
+		component: newComponentImpl(name),
+		errors:    []error{},
+	}
+}
+
+// Props sets the component's props (configuration data).
+// Props are immutable from the component's perspective and are
+// passed down from parent components.
+//
+// The props parameter accepts any type, allowing for flexible
+// component configuration. Common patterns include:
+//   - Struct types for structured props
+//   - Primitive types for simple configuration
+//   - Maps for dynamic key-value pairs
+//
+// Example:
+//
+//	type ButtonProps struct {
+//	    Label    string
+//	    Disabled bool
+//	}
+//
+//	builder := NewComponent("Button").
+//	    Props(ButtonProps{
+//	        Label:    "Click me",
+//	        Disabled: false,
+//	    })
+//
+// Parameters:
+//   - props: The props value (can be any type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Props(props interface{}) *ComponentBuilder {
+	b.component.props = props
+	return b
+}
+
+// Setup sets the component's setup function.
+// The setup function is called once during component initialization (Init phase)
+// and is where you should:
+//   - Create reactive state using ctx.Ref() and ctx.Computed()
+//   - Register event handlers using ctx.On()
+//   - Set up watchers using ctx.Watch()
+//   - Expose state to the template using ctx.Expose()
+//
+// Example:
+//
+//	builder := NewComponent("Counter").
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.Expose("count", count)
+//	        ctx.On("increment", func(data interface{}) {
+//	            count.Set(count.Get() + 1)
+//	        })
+//	    })
+//
+// Parameters:
+//   - fn: The setup function (SetupFunc type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Setup(fn SetupFunc) *ComponentBuilder {
+	b.component.setup = fn
+	return b
+}
+
+// Template sets the component's template function.
+// The template function generates the component's visual output and is called
+// on every View() cycle.
+//
+// The template function should:
+//   - Access state using ctx.Get()
+//   - Access props using ctx.Props()
+//   - Render children using ctx.RenderChild()
+//   - Use Lipgloss for styling
+//   - Return a string representing the UI
+//   - Be pure (no side effects, same input produces same output)
+//
+// Example:
+//
+//	builder := NewComponent("Button").
+//	    Template(func(ctx RenderContext) string {
+//	        props := ctx.Props().(ButtonProps)
+//	        style := lipgloss.NewStyle().Bold(true)
+//	        return style.Render(props.Label)
+//	    })
+//
+// Parameters:
+//   - fn: The template function (RenderFunc type)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Template(fn RenderFunc) *ComponentBuilder {
+	b.component.template = fn
+	return b
+}
+
+// Children sets the component's child components.
+// Children are nested components that are managed by the parent component's
+// lifecycle and can be rendered within the parent's template.
+//
+// The method accepts a variadic parameter, allowing you to pass:
+//   - No children (empty component)
+//   - A single child
+//   - Multiple children
+//
+// Example:
+//
+//	child1 := NewComponent("Child1").Template(...).Build()
+//	child2 := NewComponent("Child2").Template(...).Build()
+//
+//	parent := NewComponent("Parent").
+//	    Children(child1, child2).
+//	    Template(func(ctx RenderContext) string {
+//	        // Render children
+//	        outputs := []string{}
+//	        for _, child := range ctx.Children() {
+//	            outputs = append(outputs, ctx.RenderChild(child))
+//	        }
+//	        return strings.Join(outputs, "\n")
+//	    })
+//
+// Parameters:
+//   - children: Variadic Component parameters
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
+	b.component.children = children
+
+	// Set parent reference for each child
+	parent := Component(b.component)
+	for _, child := range children {
+		if childImpl, ok := child.(*componentImpl); ok {
+			childImpl.parent = &parent
+		}
+	}
+
+	return b
+}
+
+// Build validates the component configuration and returns the final Component.
+// This is the terminal method in the builder chain that performs validation
+// and creates the component instance.
+//
+// Validation rules:
+//   - Template is required (components must have a render function)
+//   - All accumulated errors are checked and reported
+//
+// If validation fails, Build returns nil and an error describing what's wrong.
+// If validation succeeds, Build returns the configured Component ready for use.
+//
+// Example:
+//
+//	component, err := NewComponent("Button").
+//	    Props(ButtonProps{Label: "Click me"}).
+//	    Template(func(ctx RenderContext) string {
+//	        props := ctx.Props().(ButtonProps)
+//	        return props.Label
+//	    }).
+//	    Build()
+//
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// Use component with Bubbletea
+//	p := tea.NewProgram(component)
+//	p.Run()
+//
+// Returns:
+//   - Component: The built component (nil if validation fails)
+//   - error: Validation error (nil if validation succeeds)
+func (b *ComponentBuilder) Build() (Component, error) {
+	// Validate required fields
+	if b.component.template == nil {
+		b.errors = append(b.errors, ErrMissingTemplate)
+	}
+
+	// Check for accumulated errors
+	if len(b.errors) > 0 {
+		return nil, &ValidationError{
+			ComponentName: b.component.name,
+			Errors:        b.errors,
+		}
+	}
+
+	// Return the component (implements Component interface)
+	return b.component, nil
+}

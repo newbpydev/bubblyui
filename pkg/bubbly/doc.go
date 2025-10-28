@@ -61,6 +61,157 @@ Bubbly integrates naturally with Bubbletea's Update/View cycle:
 	    return fmt.Sprintf("Count: %d", m.count.Get())
 	}
 
+# Component Model
+
+BubblyUI provides a Vue-inspired component system that wraps Bubbletea's Model-Update-View
+pattern with a declarative, composable API. Components encapsulate state, behavior, and
+presentation into reusable units.
+
+# Creating Components
+
+Use the ComponentBuilder fluent API to create components:
+
+	component, err := bubbly.NewComponent("Button").
+	    Props(ButtonProps{Label: "Click me"}).
+	    Setup(func(ctx *bubbly.Context) {
+	        // Initialize state and handlers
+	    }).
+	    Template(func(ctx bubbly.RenderContext) string {
+	        return "[Button]"
+	    }).
+	    Build()
+
+The builder validates configuration and returns an error if required fields are missing.
+
+# Props System
+
+Props are immutable configuration data passed to components:
+
+	type ButtonProps struct {
+	    Label    string
+	    Disabled bool
+	}
+
+	component, _ := bubbly.NewComponent("Button").
+	    Props(ButtonProps{Label: "Submit", Disabled: false}).
+	    Template(func(ctx bubbly.RenderContext) string {
+	        props := ctx.Props().(ButtonProps)
+	        return props.Label
+	    }).
+	    Build()
+
+Props are read-only from the component's perspective. Use reactive state (Ref) for mutable data.
+
+# Setup Function
+
+The Setup function initializes component state and registers event handlers:
+
+	Setup(func(ctx *bubbly.Context) {
+	    // Create reactive state
+	    count := ctx.Ref(0)
+
+	    // Expose to template
+	    ctx.Expose("count", count)
+
+	    // Register event handler
+	    ctx.On("increment", func(data interface{}) {
+	        count.Set(count.Get().(int) + 1)
+	    })
+	})
+
+The Setup function runs once during component initialization (Init() call).
+
+# Template Function
+
+The Template function defines how the component renders:
+
+	Template(func(ctx bubbly.RenderContext) string {
+	    // Access exposed state
+	    count := ctx.Get("count").(*bubbly.Ref[interface{}])
+
+	    // Access props
+	    props := ctx.Props().(ButtonProps)
+
+	    // Render children
+	    for _, child := range ctx.Children() {
+	        output += ctx.RenderChild(child)
+	    }
+
+	    return fmt.Sprintf("Count: %d", count.Get().(int))
+	})
+
+Templates are called on every View() invocation and should be pure functions.
+
+# Event System
+
+Components communicate through events:
+
+Emitting events:
+
+	component.Emit("buttonClicked", map[string]interface{}{
+	    "timestamp": time.Now(),
+	})
+
+Handling events:
+
+	component.On("buttonClicked", func(data interface{}) {
+	    fmt.Println("Button was clicked!")
+	})
+
+Events bubble up from child to parent components automatically.
+
+# Component Composition
+
+Nest components to build complex UIs:
+
+	child := bubbly.NewComponent("Child").
+	    Template(func(ctx bubbly.RenderContext) string {
+	        return "Child"
+	    }).
+	    Build()
+
+	parent := bubbly.NewComponent("Parent").
+	    Children(child).
+	    Template(func(ctx bubbly.RenderContext) string {
+	        output := "Parent:\n"
+	        for _, c := range ctx.Children() {
+	            output += ctx.RenderChild(c) + "\n"
+	        }
+	        return output
+	    }).
+	    Build()
+
+Children are initialized and updated automatically by the parent component.
+
+# Complete Component Example
+
+A stateful counter component:
+
+	counter, _ := bubbly.NewComponent("Counter").
+	    Setup(func(ctx *bubbly.Context) {
+	        // Reactive state
+	        count := ctx.Ref(0)
+	        ctx.Expose("count", count)
+
+	        // Event handlers
+	        ctx.On("increment", func(data interface{}) {
+	            count.Set(count.Get().(int) + 1)
+	        })
+	        ctx.On("decrement", func(data interface{}) {
+	            count.Set(count.Get().(int) - 1)
+	        })
+	    }).
+	    Template(func(ctx bubbly.RenderContext) string {
+	        count := ctx.Get("count").(*bubbly.Ref[interface{}])
+	        return fmt.Sprintf("Count: %d", count.Get().(int))
+	    }).
+	    Build()
+
+	// Use with Bubbletea
+	counter.Init()
+	counter.Emit("increment", nil)
+	fmt.Println(counter.View()) // "Count: 1"
+
 # Advanced Features
 
 Deep Watching:
