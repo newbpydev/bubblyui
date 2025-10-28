@@ -284,12 +284,18 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //
 // The View method is called whenever the UI needs to be rendered.
 // It:
+//   - Executes onMounted hooks on first render
 //   - Creates a RenderContext for the template
 //   - Calls the template function with the context
 //   - Returns the rendered string
 //
 // If no template is provided, it returns an empty string.
 func (c *componentImpl) View() string {
+	// Execute onMounted hooks on first render
+	if c.lifecycle != nil && !c.lifecycle.IsMounted() {
+		c.lifecycle.executeMounted()
+	}
+
 	if c.template == nil {
 		return ""
 	}

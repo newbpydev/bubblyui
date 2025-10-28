@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -611,6 +612,311 @@ func TestLifecycleManager_StatePersistence(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				assert.True(t, lm.IsUnmounting(), "unmounting state should persist")
 			}
+		})
+	}
+}
+
+// ============================================================================
+// Task 2.1: onMounted Execution Tests
+// ============================================================================
+
+// TestLifecycleManager_ExecuteMounted tests the executeMounted method.
+func TestLifecycleManager_ExecuteMounted(t *testing.T) {
+	tests := []struct {
+		name           string
+		hookCount      int
+		expectExecuted bool
+	}{
+		{
+			name:           "executes single onMounted hook",
+			hookCount:      1,
+			expectExecuted: true,
+		},
+		{
+			name:           "executes multiple onMounted hooks",
+			hookCount:      3,
+			expectExecuted: true,
+		},
+		{
+			name:           "handles no hooks gracefully",
+			hookCount:      0,
+			expectExecuted: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution
+			executionCount := 0
+
+			// Register hooks
+			for i := 0; i < tt.hookCount; i++ {
+				hook := lifecycleHook{
+					id:       fmt.Sprintf("hook-%d", i),
+					callback: func() { executionCount++ },
+					order:    i,
+				}
+				lm.registerHook("mounted", hook)
+			}
+
+			// Execute mounted hooks
+			lm.executeMounted()
+
+			// Verify execution
+			if tt.expectExecuted {
+				assert.Equal(t, tt.hookCount, executionCount, "all hooks should execute")
+			} else {
+				assert.Equal(t, 0, executionCount, "no hooks should execute")
+			}
+
+			// Verify mounted state is set
+			assert.True(t, lm.IsMounted(), "component should be marked as mounted")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteMounted_OnlyOnce tests that onMounted hooks only execute once.
+func TestLifecycleManager_ExecuteMounted_OnlyOnce(t *testing.T) {
+	tests := []struct {
+		name      string
+		callCount int
+	}{
+		{
+			name:      "executes only once when called multiple times",
+			callCount: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution
+			executionCount := 0
+
+			// Register hook
+			hook := lifecycleHook{
+				id:       "hook-1",
+				callback: func() { executionCount++ },
+				order:    0,
+			}
+			lm.registerHook("mounted", hook)
+
+			// Call executeMounted multiple times
+			for i := 0; i < tt.callCount; i++ {
+				lm.executeMounted()
+			}
+
+			// Verify hook executed only once
+			assert.Equal(t, 1, executionCount, "hook should execute only once")
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteMounted_Order tests that hooks execute in registration order.
+func TestLifecycleManager_ExecuteMounted_Order(t *testing.T) {
+	tests := []struct {
+		name      string
+		hookCount int
+	}{
+		{
+			name:      "executes hooks in registration order",
+			hookCount: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution order
+			var executionOrder []int
+
+			// Register hooks
+			for i := 0; i < tt.hookCount; i++ {
+				index := i // Capture loop variable
+				hook := lifecycleHook{
+					id:       fmt.Sprintf("hook-%d", i),
+					callback: func() { executionOrder = append(executionOrder, index) },
+					order:    i,
+				}
+				lm.registerHook("mounted", hook)
+			}
+
+			// Execute mounted hooks
+			lm.executeMounted()
+
+			// Verify execution order
+			assert.Len(t, executionOrder, tt.hookCount, "all hooks should execute")
+			for i := 0; i < tt.hookCount; i++ {
+				assert.Equal(t, i, executionOrder[i], "hooks should execute in registration order")
+			}
+		})
+	}
+}
+
+// TestLifecycleManager_ExecuteMounted_PanicRecovery tests panic recovery in hooks.
+func TestLifecycleManager_ExecuteMounted_PanicRecovery(t *testing.T) {
+	tests := []struct {
+		name           string
+		panicHookIndex int
+		totalHooks     int
+	}{
+		{
+			name:           "recovers from panic in first hook",
+			panicHookIndex: 0,
+			totalHooks:     3,
+		},
+		{
+			name:           "recovers from panic in middle hook",
+			panicHookIndex: 1,
+			totalHooks:     3,
+		},
+		{
+			name:           "recovers from panic in last hook",
+			panicHookIndex: 2,
+			totalHooks:     3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component and lifecycle manager
+			c := newComponentImpl("TestComponent")
+			lm := newLifecycleManager(c)
+
+			// Track execution
+			executionCount := 0
+
+			// Register hooks
+			for i := 0; i < tt.totalHooks; i++ {
+				index := i
+				hook := lifecycleHook{
+					id:    fmt.Sprintf("hook-%d", i),
+					order: i,
+				}
+
+				if index == tt.panicHookIndex {
+					// This hook will panic
+					hook.callback = func() {
+						executionCount++
+						panic("test panic")
+					}
+				} else {
+					// Normal hook
+					hook.callback = func() {
+						executionCount++
+					}
+				}
+
+				lm.registerHook("mounted", hook)
+			}
+
+			// Execute mounted hooks - should not panic
+			assert.NotPanics(t, func() {
+				lm.executeMounted()
+			}, "executeMounted should recover from panics")
+
+			// Verify all hooks were attempted
+			assert.Equal(t, tt.totalHooks, executionCount, "all hooks should be attempted despite panic")
+
+			// Verify component is still marked as mounted
+			assert.True(t, lm.IsMounted(), "component should be marked as mounted despite panic")
+		})
+	}
+}
+
+// TestComponent_View_TriggersMounted tests that View() triggers onMounted hooks.
+func TestComponent_View_TriggersMounted(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "first View() call triggers onMounted",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Track execution
+			executed := false
+
+			// Create component with setup and template
+			c, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					ctx.OnMounted(func() {
+						executed = true
+					})
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+			assert.NoError(t, err, "component build should not error")
+
+			// Initialize component
+			c.Init()
+
+			// Verify hook not executed yet
+			assert.False(t, executed, "hook should not execute before View()")
+
+			// Call View() - should trigger onMounted
+			c.View()
+
+			// Verify hook executed
+			assert.True(t, executed, "hook should execute on first View()")
+		})
+	}
+}
+
+// TestComponent_View_OnlyTriggersOnce tests that onMounted only triggers on first View().
+func TestComponent_View_OnlyTriggersOnce(t *testing.T) {
+	tests := []struct {
+		name      string
+		viewCalls int
+	}{
+		{
+			name:      "onMounted triggers only on first View() call",
+			viewCalls: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Track execution count
+			executionCount := 0
+
+			// Create component with setup and template
+			c, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					ctx.OnMounted(func() {
+						executionCount++
+					})
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+			assert.NoError(t, err, "component build should not error")
+
+			// Initialize component
+			c.Init()
+
+			// Call View() multiple times
+			for i := 0; i < tt.viewCalls; i++ {
+				c.View()
+			}
+
+			// Verify hook executed only once
+			assert.Equal(t, 1, executionCount, "hook should execute only once")
 		})
 	}
 }
