@@ -14,16 +14,26 @@ import (
 // tickMsg is sent on each timer tick
 type tickMsg time.Time
 
+// tickCmd returns a command that waits for the next timer tick
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 // model wraps the timer component
 type model struct {
 	component bubbly.Component
 }
 
 func (m model) Init() tea.Cmd {
-	return m.component.Init()
+	// Start both component init and timer tick
+	return tea.Batch(m.component.Init(), tickCmd())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -37,11 +47,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		// Forward tick to component
 		m.component.Emit("tick", time.Time(msg))
+		// Return next tick command to keep timer running
+		cmds = append(cmds, tickCmd())
 	}
 
 	updatedComponent, cmd := m.component.Update(msg)
 	m.component = updatedComponent.(bubbly.Component)
-	return m, cmd
+	
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
@@ -74,8 +91,6 @@ func createTimerDemo() (bubbly.Component, error) {
 			running := ctx.Ref(false)
 			tickCount := ctx.Ref(0)
 			events := ctx.Ref([]string{})
-			var ticker *time.Ticker
-			var done chan bool
 
 			// Helper to add event
 			addEvent := func(event string) {
@@ -91,37 +106,7 @@ func createTimerDemo() (bubbly.Component, error) {
 			ctx.OnMounted(func() {
 				addEvent("✅ onMounted: Component mounted")
 				addEvent("⏱️  Starting timer...")
-
-				ticker = time.NewTicker(time.Second)
-				done = make(chan bool)
 				running.Set(true)
-
-				// Register cleanup for timer
-				ctx.OnCleanup(func() {
-					if ticker != nil {
-						ticker.Stop()
-						addEvent("🧹 Cleanup: Timer stopped")
-					}
-					if done != nil {
-						close(done)
-						addEvent("🧹 Cleanup: Timer goroutine stopped")
-					}
-				})
-
-				// Start timer goroutine
-				go func() {
-					for {
-						select {
-						case t := <-ticker.C:
-							if running.Get().(bool) {
-								ctx.Emit("tick", t)
-							}
-						case <-done:
-							return
-						}
-					}
-				}()
-
 				addEvent("✅ Timer started")
 			})
 
