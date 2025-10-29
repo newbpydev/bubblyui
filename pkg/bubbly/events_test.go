@@ -18,10 +18,8 @@ func TestEmit_BasicEmission(t *testing.T) {
 
 	c.On("test-event", func(data interface{}) {
 		called = true
-		// Handlers now receive *Event, extract the data
-		if event, ok := data.(*Event); ok {
-			receivedData = event.Data
-		}
+		// Handlers receive the data directly, not wrapped in Event
+		receivedData = data
 	})
 
 	testData := "test data"
@@ -41,23 +39,17 @@ func TestEmit_MultipleHandlers(t *testing.T) {
 	// Register multiple handlers
 	c.On("test-event", func(data interface{}) {
 		callCount++
-		if event, ok := data.(*Event); ok {
-			receivedData = append(receivedData, event.Data)
-		}
+		receivedData = append(receivedData, data)
 	})
 
 	c.On("test-event", func(data interface{}) {
 		callCount++
-		if event, ok := data.(*Event); ok {
-			receivedData = append(receivedData, event.Data)
-		}
+		receivedData = append(receivedData, data)
 	})
 
 	c.On("test-event", func(data interface{}) {
 		callCount++
-		if event, ok := data.(*Event); ok {
-			receivedData = append(receivedData, event.Data)
-		}
+		receivedData = append(receivedData, data)
 	})
 
 	testData := "shared data"
@@ -144,9 +136,7 @@ func TestEmit_TypeSafePayloads(t *testing.T) {
 
 			var receivedData interface{}
 			c.On("test-event", func(data interface{}) {
-				if event, ok := data.(*Event); ok {
-					receivedData = event.Data
-				}
+				receivedData = data
 			})
 
 			c.Emit("test-event", tt.data)
@@ -296,9 +286,7 @@ func TestEmit_IntegrationWithComponent(t *testing.T) {
 	component, err := NewComponent("TestComponent").
 		Setup(func(ctx *Context) {
 			ctx.On("custom-event", func(data interface{}) {
-				if event, ok := data.(*Event); ok {
-					emittedData = event.Data.(string)
-				}
+				emittedData = data.(string)
 			})
 		}).
 		Template(func(ctx RenderContext) string {
@@ -324,21 +312,15 @@ func TestEmit_HandlerDataIsolation(t *testing.T) {
 	var data1, data2, data3 interface{}
 
 	c.On("test-event", func(data interface{}) {
-		if event, ok := data.(*Event); ok {
-			data1 = event.Data
-		}
+		data1 = data
 	})
 
 	c.On("test-event", func(data interface{}) {
-		if event, ok := data.(*Event); ok {
-			data2 = event.Data
-		}
+		data2 = data
 	})
 
 	c.On("test-event", func(data interface{}) {
-		if event, ok := data.(*Event); ok {
-			data3 = event.Data
-		}
+		data3 = data
 	})
 
 	testData := "shared data"

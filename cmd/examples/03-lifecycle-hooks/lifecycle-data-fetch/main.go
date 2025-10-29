@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
+
+var debugLog *log.Logger
 
 // User represents fetched user data
 type User struct {
@@ -30,26 +33,50 @@ type model struct {
 }
 
 func (m model) Init() tea.Cmd {
-	return m.component.Init()
+	debugLog.Println("=== model.Init() called ===")
+	// Initialize component and trigger initial fetch
+	cmd := tea.Batch(m.component.Init(), fetchUserCmd())
+	debugLog.Println("=== model.Init() returning batch command ===")
+	return cmd
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	debugLog.Printf("=== model.Update() received msg: %T %+v ===\n", msg, msg)
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		debugLog.Printf("    KeyMsg: %s\n", msg.String())
 		switch msg.String() {
 		case "ctrl+c", "q":
+			debugLog.Println("    Quitting...")
 			return m, tea.Quit
 		case "r":
+			debugLog.Println("    Refetch triggered")
 			m.component.Emit("refetch", nil)
+			// Trigger fetch command
+			cmds = append(cmds, fetchUserCmd())
+			debugLog.Println("    Added fetchUserCmd to commands")
 		}
 	case fetchUserMsg:
+		debugLog.Printf("    fetchUserMsg received: user=%+v, err=%v\n", msg.user, msg.err)
 		// Forward fetch result to component
 		m.component.Emit("user-fetched", msg)
+		debugLog.Println("    Emitted 'user-fetched' event to component")
+	default:
+		debugLog.Printf("    Unknown message type: %T\n", msg)
 	}
 
 	updatedComponent, cmd := m.component.Update(msg)
 	m.component = updatedComponent.(bubbly.Component)
-	return m, cmd
+	
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+		debugLog.Println("    Component returned a command")
+	}
+	
+	debugLog.Printf("=== model.Update() returning %d commands ===\n", len(cmds))
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
@@ -75,7 +102,10 @@ func (m model) View() string {
 
 // fetchUserCmd simulates async data fetching
 func fetchUserCmd() tea.Cmd {
+	debugLog.Println("*** fetchUserCmd() called - returning command function ***")
 	return func() tea.Msg {
+		debugLog.Println("*** fetchUserCmd function executing (async) ***")
+		debugLog.Println("*** Sleeping for 1.5 seconds... ***")
 		// Simulate network delay
 		time.Sleep(1500 * time.Millisecond)
 
@@ -86,20 +116,24 @@ func fetchUserCmd() tea.Cmd {
 			Email: "alice@example.com",
 		}
 
+		debugLog.Printf("*** fetchUserCmd returning fetchUserMsg: %+v ***\n", user)
 		return fetchUserMsg{user: user, err: nil}
 	}
 }
 
 // createDataFetchDemo creates a component demonstrating data fetching with lifecycle hooks
 func createDataFetchDemo() (bubbly.Component, error) {
+	debugLog.Println(">>> createDataFetchDemo() called <<<")
 	return bubbly.NewComponent("DataFetchDemo").
 		Setup(func(ctx *bubbly.Context) {
+			debugLog.Println(">>> SETUP FUNCTION EXECUTING <<<")
 			// State
 			user := ctx.Ref((*User)(nil))
 			loading := ctx.Ref(false)
 			errorRef := ctx.Ref((error)(nil))
 			fetchCount := ctx.Ref(0)
 			events := ctx.Ref([]string{})
+			debugLog.Println("    State initialized")
 
 			// Helper to add event
 			addEvent := func(event string) {
@@ -118,11 +152,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 				loading.Set(true)
 				count := fetchCount.Get().(int)
 				fetchCount.Set(count + 1)
-
-				// Trigger async fetch via Bubbletea command
-				// In real app, this would be sent through the Update loop
-				// For demo, we'll handle it via event
-				ctx.Emit("start-fetch", nil)
+				// Note: Fetch is triggered by model.Init() via Bubbletea command
 			})
 
 			// onUpdated: React to loading state changes
@@ -137,9 +167,11 @@ func createDataFetchDemo() (bubbly.Component, error) {
 
 			// onUpdated: React to user data changes
 			ctx.OnUpdated(func() {
-				userData := user.Get().(*User)
+				userData := user.Get()
 				if userData != nil {
-					addEvent(fmt.Sprintf("👤 User loaded: %s", userData.Name))
+					if userObj, ok := userData.(*User); ok && userObj != nil {
+						addEvent(fmt.Sprintf("👤 User loaded: %s", userObj.Name))
+					}
 				}
 			}, user)
 
@@ -161,35 +193,36 @@ func createDataFetchDemo() (bubbly.Component, error) {
 			ctx.Expose("events", events)
 
 			// Event handlers
-			ctx.On("start-fetch", func(data interface{}) {
-				// This would normally send a tea.Cmd
-				// For demo purposes, we'll simulate the fetch completing
-				go func() {
-					time.Sleep(1500 * time.Millisecond)
-					ctx.Emit("user-fetched", fetchUserMsg{
-						user: &User{
-							ID:    123,
-							Name:  "Alice Johnson",
-							Email: "alice@example.com",
-						},
-						err: nil,
-					})
-				}()
-			})
+			// Note: Actual fetching is handled by Bubbletea commands in the model
+			// The component just manages state based on received messages
+			debugLog.Println("    Registering 'user-fetched' event handler...")
 
 			ctx.On("user-fetched", func(data interface{}) {
-				msg := data.(fetchUserMsg)
+				debugLog.Println("!!! EVENT HANDLER 'user-fetched' CALLED !!!")
+				debugLog.Printf("    data type: %T, value: %+v\n", data, data)
+				
+				msg, ok := data.(fetchUserMsg)
+				if !ok {
+					debugLog.Printf("    ERROR: Type assertion failed! Expected fetchUserMsg, got %T\n", data)
+					return
+				}
+				debugLog.Printf("    Handler received: %+v\n", msg)
 				loading.Set(false)
+				debugLog.Println("    Set loading to false")
 
 				if msg.err != nil {
 					errorRef.Set(msg.err)
 					addEvent(fmt.Sprintf("❌ Error: %v", msg.err))
 				} else {
 					user.Set(msg.user)
+					debugLog.Printf("    Set user to: %+v\n", msg.user)
 					errorRef.Set(nil)
 				}
+				debugLog.Println("!!! EVENT HANDLER 'user-fetched' COMPLETE !!!")
 			})
+			debugLog.Println("    'user-fetched' handler registered")
 
+			debugLog.Println("    Registering 'refetch' event handler...")
 			ctx.On("refetch", func(data interface{}) {
 				addEvent("🔄 Refetching data...")
 				user.Set(nil)
@@ -197,9 +230,10 @@ func createDataFetchDemo() (bubbly.Component, error) {
 				errorRef.Set(nil)
 				count := fetchCount.Get().(int)
 				fetchCount.Set(count + 1)
-
-				ctx.Emit("start-fetch", nil)
+				// Note: Fetch is triggered by model.Update() via Bubbletea command
 			})
+			debugLog.Println("    'refetch' handler registered")
+			debugLog.Println(">>> SETUP FUNCTION COMPLETE <<<")
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get state
@@ -238,12 +272,19 @@ func createDataFetchDemo() (bubbly.Component, error) {
 			} else {
 				userData := user.Get()
 				if userData != nil {
-					userObj := userData.(*User)
-					statusStyle = statusStyle.
-						Foreground(lipgloss.Color("15")).
-						Background(lipgloss.Color("35")).
-						BorderForeground(lipgloss.Color("99"))
-					statusBox = statusStyle.Render(fmt.Sprintf("✅ User: %s", userObj.Name))
+					userObj, ok := userData.(*User)
+					if ok && userObj != nil {
+						statusStyle = statusStyle.
+							Foreground(lipgloss.Color("15")).
+							Background(lipgloss.Color("35")).
+							BorderForeground(lipgloss.Color("99"))
+						statusBox = statusStyle.Render(fmt.Sprintf("✅ User: %s", userObj.Name))
+					} else {
+						statusStyle = statusStyle.
+							Foreground(lipgloss.Color("241")).
+							BorderForeground(lipgloss.Color("240"))
+						statusBox = statusStyle.Render("No data")
+					}
 				} else {
 					statusStyle = statusStyle.
 						Foreground(lipgloss.Color("241")).
@@ -263,18 +304,22 @@ func createDataFetchDemo() (bubbly.Component, error) {
 			var userBox string
 			userData := user.Get()
 			if userData != nil {
-				userObj := userData.(*User)
-				userBox = userStyle.Render(fmt.Sprintf(
-					"User Details:\n\n"+
-						"ID:    %d\n"+
-						"Name:  %s\n"+
-						"Email: %s\n\n"+
-						"Fetch Count: %d",
-					userObj.ID,
-					userObj.Name,
-					userObj.Email,
-					fetchCountVal,
-				))
+				userObj, ok := userData.(*User)
+				if ok && userObj != nil {
+					userBox = userStyle.Render(fmt.Sprintf(
+						"User Details:\n\n"+
+							"ID:    %d\n"+
+							"Name:  %s\n"+
+							"Email: %s\n\n"+
+							"Fetch Count: %d",
+						userObj.ID,
+						userObj.Name,
+						userObj.Email,
+						fetchCountVal,
+					))
+				} else {
+					userBox = userStyle.Render("No user data loaded yet")
+				}
 			} else {
 				userBox = userStyle.Render("No user data loaded yet")
 			}
@@ -308,18 +353,36 @@ func createDataFetchDemo() (bubbly.Component, error) {
 }
 
 func main() {
+	// Initialize debug logger to file
+	logFile, err := os.OpenFile("/tmp/lifecycle-data-fetch-debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Printf("Error creating debug log: %v\n", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+	debugLog = log.New(logFile, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+	
+	debugLog.Println("========================================")
+	debugLog.Println("=== Application Starting ===")
+	debugLog.Println("========================================")
+
 	component, err := createDataFetchDemo()
 	if err != nil {
+		debugLog.Printf("Error creating component: %v\n", err)
 		fmt.Printf("Error creating component: %v\n", err)
 		os.Exit(1)
 	}
+	debugLog.Println("Component created successfully")
 
-	component.Init()
-
+	// DON'T call component.Init() manually - Bubbletea will call model.Init() which calls it
+	// Calling it here would mark the component as mounted before Bubbletea starts
+	
 	m := model{component: component}
 
+	debugLog.Println("Starting Bubbletea program...")
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
+		debugLog.Printf("Error running program: %v\n", err)
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
@@ -327,6 +390,12 @@ func main() {
 	// Unmount component for cleanup demonstration
 	if impl, ok := component.(interface{ Unmount() }); ok {
 		impl.Unmount()
+		debugLog.Println("Component unmounted")
 		fmt.Println("\n✅ Component unmounted - cleanup hooks executed")
 	}
+	
+	debugLog.Println("========================================")
+	debugLog.Println("=== Application Exiting ===")
+	debugLog.Println("========================================")
+	fmt.Println("\n📝 Debug log written to: /tmp/lifecycle-data-fetch-debug.log")
 }

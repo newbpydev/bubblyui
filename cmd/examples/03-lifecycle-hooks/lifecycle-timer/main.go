@@ -289,7 +289,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	component.Init()
+	// Don't call component.Init() manually - Bubbletea will call model.Init()
 
 	m := model{component: component}
 
