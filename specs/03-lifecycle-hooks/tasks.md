@@ -1160,27 +1160,147 @@ func Example_lifecycleStateSync()
 
 ---
 
-### Task 6.2: Example Applications
+### Task 6.2: Example Applications ✅ COMPLETE
 **Description:** Create example apps demonstrating lifecycle hooks
 
-**Prerequisites:** Task 6.1
+**Prerequisites:** Task 6.1 ✅
 
 **Unlocks:** Documentation examples
 
 **Files:**
-- `cmd/examples/lifecycle-basic/main.go`
-- `cmd/examples/lifecycle-data-fetch/main.go`
-- `cmd/examples/lifecycle-subscription/main.go`
-- `cmd/examples/lifecycle-timer/main.go`
+- `cmd/examples/03-lifecycle-hooks/lifecycle-basic/main.go` ✅
+- `cmd/examples/03-lifecycle-hooks/lifecycle-data-fetch/main.go` ✅
+- `cmd/examples/03-lifecycle-hooks/lifecycle-subscription/main.go` ✅
+- `cmd/examples/03-lifecycle-hooks/lifecycle-timer/main.go` ✅
 
 **Examples:**
-- [ ] Basic hooks (mount, update, unmount)
-- [ ] Data fetching on mount
-- [ ] Event subscription with cleanup
-- [ ] Timer/interval management
-- [ ] Conditional updates
+- [x] Basic hooks (mount, update, unmount)
+- [x] Data fetching on mount
+- [x] Event subscription with cleanup
+- [x] Timer/interval management
+- [x] Conditional updates (included in basic example)
 
-**Estimated effort:** 4 hours
+**Implementation Notes:**
+
+**1. lifecycle-basic (220 lines)**
+- Demonstrates all core lifecycle hooks in one component
+- **Features:**
+  - onMounted: Multiple hooks execute in order
+  - onUpdated: Both with and without dependencies
+  - onUnmounted: Cleanup on component removal
+  - OnCleanup: Manual cleanup registration
+  - Event tracking with visual log
+- **UI Elements:**
+  - Update counter with styled box
+  - Lifecycle events log (last 10 events)
+  - Info box explaining hooks
+- **Interactions:**
+  - Space/Enter: Trigger update
+  - R: Reset state
+  - Q: Quit (triggers unmount)
+- **Key Demonstrations:**
+  - Hook execution order
+  - Dependency tracking (milestone at every 5 updates)
+  - LIFO cleanup execution
+  - Component unmount with cleanup message
+
+**2. lifecycle-data-fetch (330 lines)**
+- Demonstrates async data fetching with lifecycle hooks
+- **Features:**
+  - onMounted: Fetch data on component mount
+  - onUpdated with deps: React to loading state changes
+  - onUpdated with deps: React to user data changes
+  - OnCleanup: Cancel pending requests
+  - Simulated async fetch (1.5s delay)
+- **UI Elements:**
+  - Status box (loading/error/success states)
+  - User data display box
+  - Lifecycle events log
+  - Color-coded status indicators
+- **Interactions:**
+  - R: Refetch data
+  - Q: Quit
+- **Key Demonstrations:**
+  - Async operations in lifecycle hooks
+  - Loading state management
+  - Error handling patterns
+  - Fetch count tracking
+  - Conditional rendering based on state
+
+**3. lifecycle-subscription (310 lines)**
+- Demonstrates event subscription with automatic cleanup
+- **Features:**
+  - onMounted: Subscribe to events and register cleanup
+  - OnCleanup: Unsubscribe on unmount
+  - Simulated event stream (message every 2 seconds)
+  - Goroutine management with cleanup
+- **UI Elements:**
+  - Subscription status indicator
+  - Received messages log (last 10)
+  - Lifecycle events log
+  - Color-coded active/inactive states
+- **Interactions:**
+  - S: Toggle subscription
+  - Q: Quit (triggers cleanup)
+- **Key Demonstrations:**
+  - Event subscription patterns
+  - Goroutine cleanup
+  - Channel management
+  - Resubscription capability
+  - Proper resource cleanup
+
+**4. lifecycle-timer (280 lines)**
+- Demonstrates timer/interval management with lifecycle hooks
+- **Features:**
+  - onMounted: Start timer and register cleanup
+  - OnCleanup: Stop timer and goroutine
+  - onUpdated with deps: Track running state changes
+  - onUpdated with deps: Milestone tracking (every 10 seconds)
+  - Ticker with goroutine management
+- **UI Elements:**
+  - Large timer display (MM:SS format)
+  - Timer statistics box
+  - Lifecycle events log
+  - Usage info box
+  - Play/pause indicators
+- **Interactions:**
+  - Space: Toggle timer (pause/resume)
+  - R: Reset timer
+  - Q: Quit (triggers cleanup)
+- **Key Demonstrations:**
+  - Ticker management
+  - Goroutine cleanup with done channel
+  - State-driven updates
+  - Pause/resume functionality
+  - Proper timer cleanup
+
+**Common Patterns Across All Examples:**
+- Lipgloss styling for beautiful TUI
+- Event logging for lifecycle visibility
+- Type-safe component unmounting
+- Cleanup message after quit
+- Consistent help text
+- Alt screen mode for full-screen experience
+- Error-free compilation and execution
+
+**Quality Gates:**
+- ✅ All examples build successfully
+- ✅ Zero lint warnings
+- ✅ Code formatted with gofmt
+- ✅ Proper error handling
+- ✅ Resource cleanup demonstrated
+- ✅ Beautiful UI with Lipgloss
+- ✅ Interactive and educational
+
+**Key Learnings:**
+- Ref type syntax: `ctx.Ref((*Type)(nil))` for pointer types
+- Error variable naming: Avoid `error` keyword, use `errorRef`
+- Goroutine cleanup: Use done channels and defer
+- Type assertions: Component unmount requires interface assertion
+- Event flow: Emit events for async operations
+- State management: Expose state for template access
+
+**Estimated effort:** 4 hours ✅ (Actual: ~3 hours)
 
 ---
 
