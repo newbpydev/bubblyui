@@ -65,14 +65,19 @@ BubblyUI is a Vue-inspired TUI (Terminal User Interface) framework for Go that b
 - **04-composition-api**: Composables, provide/inject, shared logic patterns
 - **05-directives**: Template helpers (`If`, `ForEach`, `Show`, `Bind`, `On`)
 - **06-built-in-components**: Production-ready component library (atoms → templates)
+- **07-router**: Navigation and routing for multi-screen applications
 
-### Future Considerations (Phase 4+)
-- **Router**: Navigation and routing for multi-screen applications
-- **Dev tools**: Debugging, component inspector, state viewer
-- **Performance profiler**: Rendering performance analysis
-- **Theme system**: Consistent styling and theming
+### Ecosystem Layer (Phase 4)
+- **08-automatic-reactive-bridge**: Eliminates manual bridge pattern, automatic command generation
+- **09-dev-tools**: Component inspector, state viewer, event tracker, performance monitor
+- **10-testing-utilities**: Component testing framework, mocks, assertions, snapshots
+- **11-performance-profiler**: CPU/memory profiling, bottleneck detection, optimization recommendations
+
+### Future Considerations (Post-Phase 4)
+- **Theme system**: Advanced theming and style customization
 - **Animation system**: Smooth transitions and effects
-- **Testing utilities**: Component testing helpers
+- **Plugin system**: Extensibility framework
+- **Visual builder**: Component design tools
 
 ## User Stories
 
@@ -222,6 +227,7 @@ BubblyUI is a Vue-inspired TUI (Terminal User Interface) framework for Go that b
 
 ### Feature Dependencies
 ```
+Phase 1: Foundation
 00-project-setup (foundation)
     ↓
 01-reactivity-system
@@ -230,17 +236,29 @@ BubblyUI is a Vue-inspired TUI (Terminal User Interface) framework for Go that b
     ↓
 03-lifecycle-hooks
     ↓
+Phase 2-3: Advanced
 04-composition-api → 05-directives
     ↓                      ↓
     └──────→ 06-built-in-components
+                ↓
+           07-router (multi-screen apps)
+                ↓
+Phase 4: Ecosystem
+08-automatic-reactive-bridge (DX improvement)
+    ↓
+09-dev-tools (debugging)
+    ↓
+10-testing-utilities (quality assurance)
+    ↓
+11-performance-profiler (optimization)
 ```
 
 ## Edge Cases
 
 ### 1. Reactivity and Bubbletea Integration
 **Challenge**: Vue's automatic re-rendering vs. Bubbletea's message-passing  
-**Solution**: Reactive state changes generate Bubbletea commands (Phase 4 enhancement)  
-**Current**: Manual bridge pattern (emit events + commands)
+**Solution**: Feature 08 (Automatic Reactive Bridge) - reactive state changes generate Bubbletea commands automatically  
+**Implementation**: Phase 4 - eliminates manual bridge pattern, 30-50% code reduction
 
 ### 2. Component Lifecycle and Goroutines
 **Challenge**: Components can't use goroutines directly (Bubbletea constraint)  
@@ -312,23 +330,27 @@ BubblyUI is a Vue-inspired TUI (Terminal User Interface) framework for Go that b
 
 ## Scope Boundaries
 
-### In Scope (MVP)
-- Core reactivity system
-- Component model with props/events
-- Lifecycle hooks
-- Composition API patterns
-- Template directives
-- Essential built-in components
-- Documentation and examples
+### In Scope (v1.0)
+- Core reactivity system (Features 01)
+- Component model with props/events (Feature 02)
+- Lifecycle hooks (Feature 03)
+- Composition API patterns (Feature 04)
+- Template directives (Feature 05)
+- Built-in component library (Feature 06)
+- Router system (Feature 07)
+- Automatic reactive bridge (Feature 08)
+- Dev tools (Feature 09)
+- Testing utilities (Feature 10)
+- Performance profiler (Feature 11)
+- Comprehensive documentation and examples
 
-### Out of Scope (Post-MVP)
-- Router (future consideration)
-- Advanced animations
-- Dev tools GUI
-- Plugin system
+### Out of Scope (Post-v1.0)
+- Advanced animations framework
+- Plugin marketplace
 - Theme marketplace
 - Visual component builder
 - SSR for TUI (if applicable)
+- Multi-language support
 
 ## Related Projects
 
@@ -373,17 +395,20 @@ docs/
 ## Version Strategy
 
 ### Pre-1.0 (Current)
-- v0.1.x: Foundation features (01-03)
-- v0.2.x: Advanced features (04-05)
-- v0.3.x: Built-in components (06)
-- v0.4.x: Polish and refinement
+- v0.1.x: Foundation features (00-03)
+- v0.2.x: Advanced features (04-06)
+- v0.3.x: Ecosystem features (07-08)
+- v0.4.x: Developer tools (09-11)
+- v0.5.x: Polish and refinement
 
 ### 1.0 Release
-- All MVP features complete
-- API stable
-- Production-ready
+- All 12 features complete (00-11)
+- API stable and documented
+- Production-ready quality
 - Comprehensive documentation
-- Real-world examples
+- Real-world examples and tutorials
+- Full test coverage
+- Performance benchmarked
 
 ### Post-1.0
 - Semantic versioning
