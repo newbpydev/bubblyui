@@ -278,6 +278,9 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Execute onUpdated hooks after child updates
 		if c.lifecycle != nil {
 			c.lifecycle.executeUpdated()
+			// Reset update counter after each Update() cycle completes
+			// This prevents false positives from accumulating across updates
+			c.lifecycle.resetUpdateCount()
 		}
 
 		return c, tea.Batch(cmds...)
@@ -286,6 +289,9 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Execute onUpdated hooks for components without children
 	if c.lifecycle != nil {
 		c.lifecycle.executeUpdated()
+		// Reset update counter after each Update() cycle completes
+		// This prevents false positives from accumulating across updates
+		c.lifecycle.resetUpdateCount()
 	}
 
 	return c, nil
