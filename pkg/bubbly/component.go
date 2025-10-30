@@ -349,6 +349,13 @@ func (c *componentImpl) Unmount() {
 		c.lifecycle.executeUnmounted()
 	}
 
+	// CRITICAL FIX: Always clean up event handlers, even if no lifecycle
+	// Event handlers are registered on the component, not the lifecycle
+	// So they must be cleaned up regardless of whether lifecycle hooks exist
+	c.handlersMu.Lock()
+	c.handlers = make(map[string][]EventHandler)
+	c.handlersMu.Unlock()
+
 	// Unmount children recursively
 	for _, child := range c.children {
 		if impl, ok := child.(*componentImpl); ok {

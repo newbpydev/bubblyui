@@ -1370,10 +1370,13 @@ func Example_lifecycleStateSync()
 - Goroutines are properly cleaned up with done channels
 - Watchers auto-cleanup works correctly
 - Memory is efficiently managed and released
-- **Potential Issue**: Event handlers may still fire after unmount (needs investigation)
-  - `cleanupEventHandlers()` clears the map but Emit() may still work
-  - Logged as warning, not blocking production readiness
-  - May be expected behavior if Emit() is called on unmounted component
+- **Critical Bug Fixed**: Event handlers were not being cleaned up on unmount
+  - Root Cause: `cleanupEventHandlers()` only called when `lifecycle != nil`
+  - Event handlers stored on component, not lifecycle manager
+  - Components without lifecycle hooks (only event handlers) wouldn't cleanup
+  - Fix: Always clear handlers in `Unmount()`, regardless of lifecycle existence
+  - Added direct cleanup in `component.go` line 355-357
+  - All tests now pass, handlers correctly cleaned up ✅
 
 **Memory Characteristics:**
 - Component creation: ~1-2 KB overhead

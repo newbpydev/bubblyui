@@ -359,21 +359,15 @@ func TestMemoryLeak_EventHandlerCleanup(t *testing.T) {
 	oldHandlerCount := handlerCount
 	handlerCount = 0
 
-	// Try to emit events again - handlers should not execute
+	// Try to emit events again - handlers should NOT execute
 	for _, c := range components {
 		if emitter, ok := c.(interface{ Emit(string, interface{}) }); ok {
 			emitter.Emit("event1", nil)
 		}
 	}
 
-	// Verify handlers didn't execute after unmount
-	// Note: This test found that handlers may still execute after unmount
-	// This appears to be a limitation of the current implementation
-	// TODO: Investigate why cleanupEventHandlers() doesn't prevent Emit() from working
-	if handlerCount != 0 {
-		t.Logf("WARNING: Handlers still executed after unmount (count: %d). This may indicate incomplete cleanup.", handlerCount)
-		t.Logf("Event handler cleanup may need additional investigation")
-	}
+	// Verify handlers didn't execute after unmount (FIXED)
+	assert.Equal(t, 0, handlerCount, "handlers should NOT execute after unmount")
 
 	// Memory growth should be minimal
 	// Use int64 to handle negative growth (which is good!)
