@@ -18,14 +18,47 @@ type messageReceivedMsg struct {
 
 // model wraps the subscription component
 type model struct {
-	component bubbly.Component
+	component    bubbly.Component
+	subscription *Subscription
 }
 
 func (m model) Init() tea.Cmd {
-	return m.component.Init()
+	initCmd := m.component.Init()
+	// Get subscription reference and start listening
+	m.getSubscriptionFromComponent()
+	return tea.Batch(initCmd, m.listenForMessage())
+}
+
+// Helper to create message listener command
+func (m model) listenForMessage() tea.Cmd {
+	if m.subscription == nil {
+		return nil
+	}
+	
+	return func() tea.Msg {
+		msg, ok := <-m.subscription.Messages()
+		if !ok {
+			return nil // Channel closed
+		}
+		return messageReceivedMsg{message: msg}
+	}
+}
+
+// Helper to get subscription from component
+func (m *model) getSubscriptionFromComponent() {
+	// Try to get the subscription reference from the component
+	if getter, ok := m.component.(interface{ GetExposed(string) interface{} }); ok {
+		if fn := getter.GetExposed("getSubscription"); fn != nil {
+			if getFn, ok := fn.(func() *Subscription); ok {
+				m.subscription = getFn()
+			}
+		}
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -33,15 +66,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "s":
 			m.component.Emit("toggle-subscription", nil)
+			// Update subscription reference after toggle
+			m.getSubscriptionFromComponent()
+			// Start listening if subscription is active
+			cmds = append(cmds, m.listenForMessage())
 		}
 	case messageReceivedMsg:
 		// Forward message to component
 		m.component.Emit("message-received", msg.message)
+		// Listen for next message
+		cmds = append(cmds, m.listenForMessage())
 	}
 
 	updatedComponent, cmd := m.component.Update(msg)
 	m.component = updatedComponent.(bubbly.Component)
-	return m, cmd
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
@@ -149,13 +192,7 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 					}
 				})
 
-				// Start listening for messages
-				go func() {
-					for msg := range subscription.Messages() {
-						ctx.Emit("message-received", msg)
-					}
-				}()
-
+				// Note: Subscription will be picked up by the main Update loop
 				addEvent("✅ Subscribed successfully")
 			})
 
@@ -214,15 +251,14 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 						}
 					})
 
-					// Start listening
-					go func() {
-						for msg := range subscription.Messages() {
-							ctx.Emit("message-received", msg)
-						}
-					}()
-
+					// Note: Subscription will be picked up by the main Update loop
 					addEvent("🟢 Resubscribed")
 				}
+			})
+
+			// Helper to get current subscription
+			ctx.Expose("getSubscription", func() *Subscription {
+				return subscription
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
