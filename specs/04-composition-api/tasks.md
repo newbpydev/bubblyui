@@ -102,7 +102,7 @@ func (c *componentImpl) inject(key string, defaultValue interface{}) interface{}
 
 ---
 
-### Task 1.3: Provide/Inject Type Safety Helpers
+### Task 1.3: Provide/Inject Type Safety Helpers ✅ COMPLETE
 **Description:** Create type-safe provide/inject helpers using generics
 
 **Prerequisites:** Task 1.2
@@ -110,8 +110,8 @@ func (c *componentImpl) inject(key string, defaultValue interface{}) interface{}
 **Unlocks:** Task 2.1 (Standard composables)
 
 **Files:**
-- `pkg/bubbly/provide_inject.go`
-- `pkg/bubbly/provide_inject_test.go` (extend)
+- `pkg/bubbly/provide_inject.go` ✅
+- `pkg/bubbly/provide_inject_test.go` ✅
 
 **Type Safety:**
 ```go
@@ -125,13 +125,46 @@ func InjectTyped[T any](ctx *Context, key ProvideKey[T], defaultValue T) T
 ```
 
 **Tests:**
-- [ ] Type-safe provide
-- [ ] Type-safe inject
-- [ ] Compile-time type checking
-- [ ] Key generation works
-- [ ] Type mismatch caught
+- [x] Type-safe provide
+- [x] Type-safe inject
+- [x] Compile-time type checking
+- [x] Key generation works
+- [x] Type mismatch caught
 
-**Estimated effort:** 3 hours
+**Implementation Notes:**
+- Created `ProvideKey[T any]` struct with unexported key field for type safety
+- Implemented `NewProvideKey[T any]` constructor for creating typed keys
+- Implemented `ProvideTyped[T any]` - type-safe wrapper around `ctx.Provide()`
+- Implemented `InjectTyped[T any]` - type-safe wrapper around `ctx.Inject()` with automatic type assertion
+- Comprehensive godoc with usage examples for all types
+- 8 test functions covering: simple types, complex types, Refs, structs, parent-child injection, defaults
+- Compile-time type safety verified - wrong types caught at compile time
+- No runtime overhead - generics compile to concrete types
+- All tests pass with race detector
+- Coverage: 96.1% (exceeds 80% requirement)
+
+**Usage Example:**
+```go
+// Define typed keys
+var ThemeKey = NewProvideKey[string]("theme")
+var CountKey = NewProvideKey[*Ref[int]]("count")
+
+// Provider component
+func setupProvider(ctx *Context) {
+    ProvideTyped(ctx, ThemeKey, "dark")
+    count := ctx.Ref(0)
+    ProvideTyped(ctx, CountKey, count)
+}
+
+// Consumer component - no type assertions needed!
+func setupConsumer(ctx *Context) {
+    theme := InjectTyped(ctx, ThemeKey, "light")  // Returns string
+    count := InjectTyped(ctx, CountKey, ctx.Ref(0))  // Returns *Ref[int]
+    count.Set(count.Get() + 1)  // Direct access, type-safe
+}
+```
+
+**Estimated effort:** 3 hours (actual: ~2 hours)
 
 ---
 
