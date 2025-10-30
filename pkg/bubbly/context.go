@@ -373,3 +373,52 @@ func (ctx *Context) OnCleanup(cleanup CleanupFunc) {
 	// Register cleanup function
 	ctx.component.lifecycle.cleanups = append(ctx.component.lifecycle.cleanups, cleanup)
 }
+
+// Provide stores a value in the component's provides map, making it available
+// for injection by child components via Inject().
+//
+// This implements the provide/inject pattern for dependency injection,
+// allowing parent components to share values with descendants without
+// prop drilling.
+//
+// Provided values can be of any type, including reactive Refs and Computed values.
+// When a reactive value is provided, all injecting components share the same
+// instance and see updates automatically.
+//
+// Example:
+//
+//	// Parent provides theme
+//	theme := ctx.Ref("dark")
+//	ctx.Provide("theme", theme)
+//
+//	// Child injects theme
+//	theme := ctx.Inject("theme", ctx.Ref("light")).(*Ref[interface{}])
+func (ctx *Context) Provide(key string, value interface{}) {
+	ctx.component.providesMu.Lock()
+	ctx.component.provides[key] = value
+	ctx.component.providesMu.Unlock()
+}
+
+// Inject retrieves a value provided by an ancestor component.
+// It walks up the component tree looking for the first component that
+// provided the specified key.
+//
+// If the key is not found in any ancestor, the defaultValue is returned.
+// This allows components to work standalone with sensible defaults.
+//
+// The nearest provider wins - if both a parent and grandparent provide
+// the same key, the parent's value is returned.
+//
+// Example:
+//
+//	// Inject with default
+//	theme := ctx.Inject("theme", "light")
+//
+//	// Inject reactive Ref
+//	themeRef := ctx.Inject("theme", ctx.Ref("light")).(*Ref[interface{}])
+//
+//	// Inject with nil default (optional dependency)
+//	user := ctx.Inject("currentUser", nil)
+func (ctx *Context) Inject(key string, defaultValue interface{}) interface{} {
+	return ctx.component.inject(key, defaultValue)
+}

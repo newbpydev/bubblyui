@@ -501,3 +501,270 @@ func TestContext_Integration(t *testing.T) {
 		assert.Equal(t, 1, exposedCount.Get(), "Exposed count should match")
 	})
 }
+
+// TestContext_Provide tests that Context.Provide stores values
+func TestContext_Provide(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value interface{}
+	}{
+		{
+			name:  "provide string value",
+			key:   "theme",
+			value: "dark",
+		},
+		{
+			name:  "provide int value",
+			key:   "count",
+			value: 42,
+		},
+		{
+			name:  "provide ref value",
+			key:   "user",
+			value: NewRef[interface{}]("John"),
+		},
+		{
+			name:  "provide nil value",
+			key:   "optional",
+			value: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			ctx := &Context{component: c}
+
+			// Act
+			ctx.Provide(tt.key, tt.value)
+
+			// Assert
+			c.providesMu.RLock()
+			stored, exists := c.provides[tt.key]
+			c.providesMu.RUnlock()
+
+			assert.True(t, exists, "Key should exist in provides map")
+			assert.Equal(t, tt.value, stored, "Stored value should match provided value")
+		})
+	}
+}
+
+// TestContext_Provide_Overwrite tests that providing same key overwrites
+func TestContext_Provide_Overwrite(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	ctx := &Context{component: c}
+
+	// Act
+	ctx.Provide("theme", "dark")
+	ctx.Provide("theme", "light") // Overwrite
+
+	// Assert
+	c.providesMu.RLock()
+	value := c.provides["theme"]
+	c.providesMu.RUnlock()
+
+	assert.Equal(t, "light", value, "Second provide should overwrite first")
+}
+
+// TestContext_Inject_FromSelf tests injecting from same component
+func TestContext_Inject_FromSelf(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		providedVal interface{}
+		defaultVal  interface{}
+		expectedVal interface{}
+	}{
+		{
+			name:        "inject provided string",
+			key:         "theme",
+			providedVal: "dark",
+			defaultVal:  "light",
+			expectedVal: "dark",
+		},
+		{
+			name:        "inject provided ref",
+			key:         "count",
+			providedVal: NewRef[interface{}](42),
+			defaultVal:  NewRef[interface{}](0),
+			expectedVal: NewRef[interface{}](42),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			ctx := &Context{component: c}
+			ctx.Provide(tt.key, tt.providedVal)
+
+			// Act
+			result := ctx.Inject(tt.key, tt.defaultVal)
+
+			// Assert
+			assert.Equal(t, tt.providedVal, result, "Should return provided value")
+		})
+	}
+}
+
+// TestContext_Inject_NotFound tests inject with no provider
+func TestContext_Inject_NotFound(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		defaultVal interface{}
+	}{
+		{
+			name:       "inject with string default",
+			key:        "theme",
+			defaultVal: "light",
+		},
+		{
+			name:       "inject with int default",
+			key:        "count",
+			defaultVal: 0,
+		},
+		{
+			name:       "inject with nil default",
+			key:        "optional",
+			defaultVal: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			ctx := &Context{component: c}
+
+			// Act
+			result := ctx.Inject(tt.key, tt.defaultVal)
+
+			// Assert
+			assert.Equal(t, tt.defaultVal, result, "Should return default when not found")
+		})
+	}
+}
+
+// TestContext_Inject_FromParent tests inject from parent component
+func TestContext_Inject_FromParent(t *testing.T) {
+	// Arrange
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+	child.parent = parent
+
+	parentCtx := &Context{component: parent}
+	childCtx := &Context{component: child}
+
+	// Parent provides value
+	parentCtx.Provide("theme", "dark")
+
+	// Act
+	result := childCtx.Inject("theme", "light")
+
+	// Assert
+	assert.Equal(t, "dark", result, "Child should receive parent's provided value")
+}
+
+// TestContext_Inject_NearestWins tests that nearest provider wins
+func TestContext_Inject_NearestWins(t *testing.T) {
+	// Arrange
+	grandparent := newComponentImpl("Grandparent")
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+
+	parent.parent = grandparent
+	child.parent = parent
+
+	grandparentCtx := &Context{component: grandparent}
+	parentCtx := &Context{component: parent}
+	childCtx := &Context{component: child}
+
+	// Both provide same key with different values
+	grandparentCtx.Provide("theme", "dark")
+	parentCtx.Provide("theme", "light")
+
+	// Act
+	result := childCtx.Inject("theme", "default")
+
+	// Assert
+	assert.Equal(t, "light", result, "Nearest provider (parent) should win over grandparent")
+}
+
+// TestContext_Inject_DeepTree tests inject across multiple levels
+func TestContext_Inject_DeepTree(t *testing.T) {
+	// Arrange - Create 4-level tree
+	root := newComponentImpl("Root")
+	level1 := newComponentImpl("Level1")
+	level2 := newComponentImpl("Level2")
+	level3 := newComponentImpl("Level3")
+
+	level1.parent = root
+	level2.parent = level1
+	level3.parent = level2
+
+	rootCtx := &Context{component: root}
+	level3Ctx := &Context{component: level3}
+
+	// Root provides value
+	rootCtx.Provide("config", "production")
+
+	// Act - Level3 injects
+	result := level3Ctx.Inject("config", "development")
+
+	// Assert
+	assert.Equal(t, "production", result, "Should find value from root through deep tree")
+}
+
+// TestContext_Inject_MultipleKeys tests multiple provide/inject keys
+func TestContext_Inject_MultipleKeys(t *testing.T) {
+	// Arrange
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+	child.parent = parent
+
+	parentCtx := &Context{component: parent}
+	childCtx := &Context{component: child}
+
+	// Parent provides multiple values
+	parentCtx.Provide("theme", "dark")
+	parentCtx.Provide("user", "John")
+	parentCtx.Provide("count", 42)
+
+	// Act & Assert
+	assert.Equal(t, "dark", childCtx.Inject("theme", "light"))
+	assert.Equal(t, "John", childCtx.Inject("user", "Guest"))
+	assert.Equal(t, 42, childCtx.Inject("count", 0))
+	assert.Equal(t, "default", childCtx.Inject("missing", "default"))
+}
+
+// TestContext_Inject_ReactiveValues tests providing/injecting reactive refs
+func TestContext_Inject_ReactiveValues(t *testing.T) {
+	// Arrange
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+	child.parent = parent
+
+	parentCtx := &Context{component: parent}
+	childCtx := &Context{component: child}
+
+	// Parent provides a Ref
+	themeRef := NewRef[interface{}]("dark")
+	parentCtx.Provide("theme", themeRef)
+
+	// Act
+	injectedRef := childCtx.Inject("theme", NewRef[interface{}]("light")).(*Ref[interface{}])
+
+	// Assert
+	assert.Equal(t, themeRef, injectedRef, "Should inject same Ref instance")
+	assert.Equal(t, "dark", injectedRef.Get(), "Injected ref should have correct value")
+
+	// Modify parent's ref
+	themeRef.Set("light")
+
+	// Child should see the change (same ref instance)
+	assert.Equal(t, "light", injectedRef.Get(), "Child should see reactive changes")
+}

@@ -149,15 +149,11 @@ func (c *componentImpl) hasAncestor(ancestor Component) bool {
 		return false
 	}
 
-	// Check if immediate parent is the ancestor
-	if *c.parent == ancestor {
+	// Check if immediate parent is the ancestor (compare as Component interface)
+	if Component(c.parent) == ancestor {
 		return true
 	}
 
 	// Recursively check parent's ancestors
-	if parentImpl, ok := (*c.parent).(*componentImpl); ok {
-		return parentImpl.hasAncestor(ancestor)
-	}
-
-	return false
+	return c.parent.hasAncestor(ancestor)
 }

@@ -145,10 +145,7 @@ func (c *componentImpl) bubbleEvent(event *Event) {
 
 	// Bubble to parent if not stopped and parent exists
 	if !event.Stopped && c.parent != nil {
-		// Type assert parent to *componentImpl to access bubbleEvent
-		if parentImpl, ok := (*c.parent).(*componentImpl); ok {
-			parentImpl.bubbleEvent(event)
-		}
+		c.parent.bubbleEvent(event)
 	}
 }
 

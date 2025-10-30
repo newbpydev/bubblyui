@@ -219,10 +219,9 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	b.component.children = children
 
 	// Set parent reference for each child
-	parent := Component(b.component)
 	for _, child := range children {
 		if childImpl, ok := child.(*componentImpl); ok {
-			childImpl.parent = &parent
+			childImpl.parent = b.component
 		}
 	}
 

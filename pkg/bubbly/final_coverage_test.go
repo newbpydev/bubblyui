@@ -88,8 +88,7 @@ func TestChildren_DepthCalculation(t *testing.T) {
 		parent := newComponentImpl("Parent")
 		child := newComponentImpl("Child")
 
-		var parentComp Component = parent
-		child.parent = &parentComp
+		child.parent = parent
 
 		depth := calculateDepthToRoot(child)
 		assert.Equal(t, 1, depth, "direct child should have depth 1")
@@ -100,10 +99,8 @@ func TestChildren_DepthCalculation(t *testing.T) {
 		parent := newComponentImpl("Parent")
 		child := newComponentImpl("Child")
 
-		var grandparentComp Component = grandparent
-		var parentComp Component = parent
-		parent.parent = &grandparentComp
-		child.parent = &parentComp
+		parent.parent = grandparent
+		child.parent = parent
 
 		depth := calculateDepthToRoot(child)
 		assert.Equal(t, 2, depth, "grandchild should have depth 2")
