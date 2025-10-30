@@ -123,15 +123,17 @@ func ExampleContext_OnUpdated_withDependencies() {
 				fmt.Printf("Saving data: %s\n", data.Get().(string))
 			}, data)
 
-			ctx.On("setData", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					data.Set(e.Data.(string))
+			ctx.On("setData", func(payload interface{}) {
+				// Handlers receive data payload directly
+				if str, ok := payload.(string); ok {
+					data.Set(str)
 				}
 			})
 
-			ctx.On("setTheme", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					theme.Set(e.Data.(string))
+			ctx.On("setTheme", func(payload interface{}) {
+				// Handlers receive data payload directly
+				if str, ok := payload.(string); ok {
+					theme.Set(str)
 				}
 			})
 		}).
@@ -176,16 +178,14 @@ func ExampleContext_OnUpdated_multipleDependencies() {
 				fmt.Println("Syncing to backend")
 			}, user, settings)
 
-			ctx.On("setUser", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					user.Set(e.Data)
-				}
+			ctx.On("setUser", func(payload interface{}) {
+				// Handlers receive data payload directly
+				user.Set(payload)
 			})
 
-			ctx.On("setSettings", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					settings.Set(e.Data)
-				}
+			ctx.On("setSettings", func(payload interface{}) {
+				// Handlers receive data payload directly
+				settings.Set(payload)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -495,9 +495,10 @@ func Example_lifecycleConditionalHooks() {
 				}, data)
 			}
 
-			ctx.On("setData", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					data.Set(e.Data.(string))
+			ctx.On("setData", func(payload interface{}) {
+				// Handlers receive data payload directly
+				if str, ok := payload.(string); ok {
+					data.Set(str)
 				}
 			})
 		}).
@@ -660,10 +661,9 @@ func Example_lifecycleStateSync() {
 					userData["name"], userData["age"])
 			}, user)
 
-			ctx.On("updateUser", func(event interface{}) {
-				if e, ok := event.(*bubbly.Event); ok {
-					user.Set(e.Data)
-				}
+			ctx.On("updateUser", func(payload interface{}) {
+				// Handlers receive data payload directly
+				user.Set(payload)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {

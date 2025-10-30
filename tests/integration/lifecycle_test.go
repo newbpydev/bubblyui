@@ -488,12 +488,12 @@ func TestLifecycleIntegration_DependencyTracking(t *testing.T) {
 			// Get refs - check if they exist first
 			countVal := getExposed(c, "count")
 			nameVal := getExposed(c, "name")
-			
+
 			if countVal == nil || nameVal == nil {
 				t.Skip("Component does not expose state - skipping test")
 				return
 			}
-			
+
 			count := countVal.(*bubbly.Ref[int])
 			name := nameVal.(*bubbly.Ref[string])
 
@@ -521,11 +521,11 @@ func TestLifecycleIntegration_DependencyTracking(t *testing.T) {
 // TestLifecycleIntegration_Performance tests that lifecycle operations meet performance targets.
 func TestLifecycleIntegration_Performance(t *testing.T) {
 	tests := []struct {
-		name           string
-		hookCount      int
-		updateCount    int
-		maxDuration    time.Duration
-		description    string
+		name        string
+		hookCount   int
+		updateCount int
+		maxDuration time.Duration
+		description string
 	}{
 		{
 			name:        "10 hooks with 100 updates should complete quickly",

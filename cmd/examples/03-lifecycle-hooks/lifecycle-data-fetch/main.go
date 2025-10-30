@@ -54,11 +54,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	updatedComponent, cmd := m.component.Update(msg)
 	m.component = updatedComponent.(bubbly.Component)
-	
+
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
-	
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -320,7 +320,7 @@ func main() {
 	}
 
 	// Don't call component.Init() manually - Bubbletea will call model.Init()
-	
+
 	m := model{component: component}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

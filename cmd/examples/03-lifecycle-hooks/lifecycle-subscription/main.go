@@ -34,7 +34,7 @@ func (m model) listenForMessage() tea.Cmd {
 	if m.subscription == nil {
 		return nil
 	}
-	
+
 	return func() tea.Msg {
 		msg, ok := <-m.subscription.Messages()
 		if !ok {
@@ -58,7 +58,7 @@ func (m *model) getSubscriptionFromComponent() {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -83,7 +83,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
-	
+
 	return m, tea.Batch(cmds...)
 }
 

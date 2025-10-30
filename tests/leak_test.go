@@ -58,7 +58,7 @@ func TestMemoryLeak_LongRunningComponent(t *testing.T) {
 	// Create component with lifecycle hooks
 	updateCount := 0
 	var count *bubbly.Ref[interface{}] // Store ref in test scope
-	
+
 	c, err := bubbly.NewComponent("LongRunningTest").
 		Setup(func(ctx *bubbly.Context) {
 			count = ctx.Ref(0) // Assign to outer scope
