@@ -257,10 +257,11 @@ func (c *componentImpl) Init() tea.Cmd {
 // It:
 //   - Processes the incoming message
 //   - Updates child components with the message
+//   - Executes onUpdated lifecycle hooks
 //   - Returns the updated model and batched commands
 //
-// Currently, this is a minimal implementation that will be expanded in later tasks
-// to handle component-specific messages and event routing.
+// The onUpdated hooks execute after child updates to ensure state changes
+// from children are reflected before hook execution.
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update child components
 	if len(c.children) > 0 {
@@ -273,7 +274,24 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmds[i] = cmd
 		}
+
+		// Execute onUpdated hooks after child updates
+		if c.lifecycle != nil {
+			c.lifecycle.executeUpdated()
+			// Reset update counter after each Update() cycle completes
+			// This prevents false positives from accumulating across updates
+			c.lifecycle.resetUpdateCount()
+		}
+
 		return c, tea.Batch(cmds...)
+	}
+
+	// Execute onUpdated hooks for components without children
+	if c.lifecycle != nil {
+		c.lifecycle.executeUpdated()
+		// Reset update counter after each Update() cycle completes
+		// This prevents false positives from accumulating across updates
+		c.lifecycle.resetUpdateCount()
 	}
 
 	return c, nil
@@ -302,6 +320,48 @@ func (c *componentImpl) View() string {
 
 	ctx := RenderContext{component: c}
 	return c.template(ctx)
+}
+
+// Unmount cleans up the component and its children.
+// It executes onUnmounted hooks, cleanup functions, and recursively unmounts children.
+//
+// The Unmount method should be called when the component is being removed from the UI.
+// It:
+//   - Executes onUnmounted lifecycle hooks
+//   - Executes registered cleanup functions in reverse order (LIFO)
+//   - Recursively unmounts all child components
+//   - Ensures proper resource cleanup
+//
+// Cleanup order:
+//  1. Parent onUnmounted hooks execute
+//  2. Parent cleanup functions execute (reverse order)
+//  3. Child components unmount recursively
+//
+// This ensures that parent cleanup logic runs before children are unmounted,
+// allowing parents to perform any necessary coordination before child cleanup.
+//
+// Example:
+//
+//	component.Unmount()  // Clean up component and children
+func (c *componentImpl) Unmount() {
+	// Execute lifecycle cleanup (onUnmounted hooks + cleanup functions)
+	if c.lifecycle != nil {
+		c.lifecycle.executeUnmounted()
+	}
+
+	// CRITICAL FIX: Always clean up event handlers, even if no lifecycle
+	// Event handlers are registered on the component, not the lifecycle
+	// So they must be cleaned up regardless of whether lifecycle hooks exist
+	c.handlersMu.Lock()
+	c.handlers = make(map[string][]EventHandler)
+	c.handlersMu.Unlock()
+
+	// Unmount children recursively
+	for _, child := range c.children {
+		if impl, ok := child.(*componentImpl); ok {
+			impl.Unmount()
+		}
+	}
 }
 
 // Context is now defined in context.go (Task 3.1)

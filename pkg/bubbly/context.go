@@ -73,15 +73,33 @@ func (ctx *Context) Computed(fn func() interface{}) *Computed[interface{}] {
 
 // Watch registers a callback that is called whenever the given Ref changes.
 // The callback receives the new and old values.
+// Returns a cleanup function that stops watching when called.
+//
+// The watcher is automatically registered with the lifecycle manager for
+// auto-cleanup when the component unmounts, preventing memory leaks.
 //
 // Example:
 //
 //	count := ctx.Ref(0)
-//	ctx.Watch(count, func(newVal, oldVal interface{}) {
+//	cleanup := ctx.Watch(count, func(newVal, oldVal interface{}) {
 //	    log.Printf("Count: %v -> %v", oldVal, newVal)
 //	})
-func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interface{}]) {
-	Watch(ref, callback)
+//	// Watcher will be automatically cleaned up on unmount
+//	// Or manually: cleanup()
+func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interface{}]) WatchCleanup {
+	// Create lifecycle manager if it doesn't exist
+	if ctx.component.lifecycle == nil {
+		ctx.component.lifecycle = newLifecycleManager(ctx.component)
+	}
+
+	// Create watcher using global Watch function
+	cleanup := Watch(ref, callback)
+
+	// Register cleanup with lifecycle manager for auto-cleanup
+	ctx.component.lifecycle.registerWatcher(cleanup)
+
+	// Return cleanup function for manual cleanup if needed
+	return cleanup
 }
 
 // Expose stores a value in the component's state map, making it accessible

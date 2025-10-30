@@ -459,11 +459,9 @@ func Example_parentChildCommunication() {
 			// Listen to child events
 			children := ctx.Children()
 			if len(children) > 0 {
-				children[0].On("action", func(data interface{}) {
-					// Handlers receive Event struct
-					if event, ok := data.(*bubbly.Event); ok {
-						fmt.Println("Parent received:", event.Data)
-					}
+				children[0].On("action", func(payload interface{}) {
+					// Handlers receive data payload directly
+					fmt.Println("Parent received:", payload)
 				})
 			}
 		}).
@@ -739,17 +737,17 @@ func Example_formComponent() {
 			})
 			ctx.Expose("isValid", isValid)
 
-			ctx.On("setEmail", func(data interface{}) {
-				// Handlers receive Event struct
-				if event, ok := data.(*bubbly.Event); ok {
-					email.Set(event.Data.(string))
+			ctx.On("setEmail", func(payload interface{}) {
+				// Handlers receive data payload directly
+				if str, ok := payload.(string); ok {
+					email.Set(str)
 				}
 			})
 
-			ctx.On("setPassword", func(data interface{}) {
-				// Handlers receive Event struct
-				if event, ok := data.(*bubbly.Event); ok {
-					password.Set(event.Data.(string))
+			ctx.On("setPassword", func(payload interface{}) {
+				// Handlers receive data payload directly
+				if str, ok := payload.(string); ok {
+					password.Set(str)
 				}
 			})
 		}).

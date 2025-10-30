@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -580,4 +581,445 @@ func TestComponentChildrenLifecycle(t *testing.T) {
 		assert.NotNil(t, parent.children)
 		_ = cmd // Command will be batched
 	})
+}
+
+// ========== Task 5.1: Component Integration Tests ==========
+
+// TestComponent_Integration_FullLifecycle tests the complete component lifecycle
+// including all lifecycle hooks integration with Bubbletea methods.
+func TestComponent_Integration_FullLifecycle(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "full_lifecycle_integration",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Track lifecycle events
+			var events []string
+
+			// Create component with full lifecycle
+			c := newComponentImpl("TestComponent")
+			c.setup = func(ctx *Context) {
+				events = append(events, "setup")
+
+				// Register lifecycle hooks
+				ctx.OnMounted(func() {
+					events = append(events, "onMounted")
+				})
+
+				ctx.OnUpdated(func() {
+					events = append(events, "onUpdated")
+				})
+
+				ctx.OnUnmounted(func() {
+					events = append(events, "onUnmounted")
+				})
+
+				ctx.OnCleanup(func() {
+					events = append(events, "cleanup")
+				})
+			}
+
+			c.template = func(ctx RenderContext) string {
+				events = append(events, "view")
+				return "rendered"
+			}
+
+			// Phase 1: Init
+			c.Init()
+			assert.Contains(t, events, "setup", "Setup should execute during Init")
+
+			// Phase 2: First View (triggers onMounted)
+			view := c.View()
+			assert.Equal(t, "rendered", view)
+			assert.Contains(t, events, "onMounted", "onMounted should execute on first View")
+
+			// Phase 3: Update (triggers onUpdated)
+			c.Update(tea.KeyMsg{})
+			assert.Contains(t, events, "onUpdated", "onUpdated should execute after Update")
+
+			// Phase 4: Unmount (triggers onUnmounted and cleanup)
+			c.Unmount()
+			assert.Contains(t, events, "onUnmounted", "onUnmounted should execute during Unmount")
+			assert.Contains(t, events, "cleanup", "cleanup should execute during Unmount")
+
+			// Verify order: setup → onMounted → view → onUpdated → onUnmounted → cleanup
+			// Note: onMounted executes BEFORE template rendering in View()
+			expectedOrder := []string{"setup", "onMounted", "view", "onUpdated", "onUnmounted", "cleanup"}
+			for i, event := range expectedOrder {
+				idx := -1
+				for j, e := range events {
+					if e == event {
+						idx = j
+						break
+					}
+				}
+				assert.NotEqual(t, -1, idx, "Event %s should be present", event)
+				if i > 0 && idx != -1 {
+					prevEvent := expectedOrder[i-1]
+					prevIdx := -1
+					for j, e := range events {
+						if e == prevEvent {
+							prevIdx = j
+							break
+						}
+					}
+					if prevIdx != -1 {
+						assert.Less(t, prevIdx, idx, "%s should come before %s", prevEvent, event)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestComponent_Integration_UpdateTriggersOnUpdated tests that Update() method
+// correctly triggers onUpdated lifecycle hooks.
+func TestComponent_Integration_UpdateTriggersOnUpdated(t *testing.T) {
+	tests := []struct {
+		name         string
+		updateCount  int
+		expectedExec int
+	}{
+		{
+			name:         "single_update",
+			updateCount:  1,
+			expectedExec: 1,
+		},
+		{
+			name:         "multiple_updates",
+			updateCount:  3,
+			expectedExec: 3,
+		},
+		{
+			name:         "no_updates",
+			updateCount:  0,
+			expectedExec: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			execCount := 0
+
+			c := newComponentImpl("TestComponent")
+			c.setup = func(ctx *Context) {
+				ctx.OnUpdated(func() {
+					execCount++
+				})
+			}
+
+			// Init and mount
+			c.Init()
+			c.View()
+
+			// Perform updates
+			for i := 0; i < tt.updateCount; i++ {
+				c.Update(tea.KeyMsg{})
+			}
+
+			assert.Equal(t, tt.expectedExec, execCount,
+				"onUpdated should execute %d times for %d updates", tt.expectedExec, tt.updateCount)
+		})
+	}
+}
+
+// TestComponent_Integration_UnmountWorks tests that Unmount() method
+// correctly executes all cleanup operations.
+func TestComponent_Integration_UnmountWorks(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "unmount_executes_hooks_and_cleanup",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var executed []string
+
+			c := newComponentImpl("TestComponent")
+			c.setup = func(ctx *Context) {
+				ctx.OnUnmounted(func() {
+					executed = append(executed, "onUnmounted")
+				})
+
+				ctx.OnCleanup(func() {
+					executed = append(executed, "cleanup1")
+				})
+
+				ctx.OnCleanup(func() {
+					executed = append(executed, "cleanup2")
+				})
+			}
+
+			// Init and mount
+			c.Init()
+			c.View()
+
+			// Unmount
+			c.Unmount()
+
+			// Verify all hooks executed
+			assert.Contains(t, executed, "onUnmounted")
+			assert.Contains(t, executed, "cleanup1")
+			assert.Contains(t, executed, "cleanup2")
+
+			// Verify order: onUnmounted before cleanups
+			unmountedIdx := -1
+			cleanup1Idx := -1
+			cleanup2Idx := -1
+
+			for i, e := range executed {
+				switch e {
+				case "onUnmounted":
+					unmountedIdx = i
+				case "cleanup1":
+					cleanup1Idx = i
+				case "cleanup2":
+					cleanup2Idx = i
+				}
+			}
+
+			assert.NotEqual(t, -1, unmountedIdx)
+			assert.NotEqual(t, -1, cleanup1Idx)
+			assert.NotEqual(t, -1, cleanup2Idx)
+			assert.Less(t, unmountedIdx, cleanup1Idx, "onUnmounted should execute before cleanup1")
+			assert.Less(t, unmountedIdx, cleanup2Idx, "onUnmounted should execute before cleanup2")
+
+			// Verify cleanups execute in LIFO order (cleanup2 before cleanup1)
+			assert.Less(t, cleanup2Idx, cleanup1Idx, "Cleanups should execute in LIFO order")
+		})
+	}
+}
+
+// TestComponent_Integration_ChildrenLifecycleManagement tests that parent components
+// properly manage child component lifecycle including unmounting.
+func TestComponent_Integration_ChildrenLifecycleManagement(t *testing.T) {
+	tests := []struct {
+		name          string
+		childrenCount int
+	}{
+		{
+			name:          "single_child",
+			childrenCount: 1,
+		},
+		{
+			name:          "multiple_children",
+			childrenCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var parentEvents []string
+			childUnmountCounts := make([]int, tt.childrenCount)
+
+			// Create parent
+			parent := newComponentImpl("Parent")
+			parent.setup = func(ctx *Context) {
+				ctx.OnMounted(func() {
+					parentEvents = append(parentEvents, "parent_mounted")
+				})
+
+				ctx.OnUnmounted(func() {
+					parentEvents = append(parentEvents, "parent_unmounted")
+				})
+			}
+
+			// Create children
+			for i := 0; i < tt.childrenCount; i++ {
+				childIdx := i
+				child := newComponentImpl(fmt.Sprintf("Child%d", i))
+				child.setup = func(ctx *Context) {
+					ctx.OnUnmounted(func() {
+						childUnmountCounts[childIdx]++
+					})
+				}
+				parent.children = append(parent.children, child)
+			}
+
+			// Init parent and children
+			parent.Init()
+			for _, child := range parent.children {
+				child.Init()
+			}
+
+			// Mount parent (triggers children mount)
+			parent.View()
+
+			assert.Contains(t, parentEvents, "parent_mounted")
+
+			// Unmount parent (should unmount children)
+			parent.Unmount()
+
+			assert.Contains(t, parentEvents, "parent_unmounted")
+
+			// Verify all children were unmounted exactly once
+			for i, count := range childUnmountCounts {
+				assert.Equal(t, 1, count,
+					"Child %d should be unmounted exactly once", i)
+			}
+		})
+	}
+}
+
+// TestComponent_Integration_LifecycleWithState tests lifecycle integration
+// with reactive state (Refs) to ensure state changes trigger appropriate hooks.
+func TestComponent_Integration_LifecycleWithState(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "state_changes_trigger_onUpdated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var count *Ref[interface{}]
+			updateCount := 0
+
+			c := newComponentImpl("TestComponent")
+			c.setup = func(ctx *Context) {
+				count = ctx.Ref(0)
+
+				// OnUpdated with dependency on count
+				ctx.OnUpdated(func() {
+					updateCount++
+				}, count)
+			}
+
+			// Init and mount
+			c.Init()
+			c.View()
+
+			// Initial update count should be 0
+			initialCount := updateCount
+
+			// Change state and trigger update
+			count.Set(1)
+			c.Update(tea.KeyMsg{})
+
+			// OnUpdated should have executed once
+			assert.Equal(t, initialCount+1, updateCount,
+				"onUpdated should execute when dependency changes")
+
+			// Change state again
+			count.Set(2)
+			c.Update(tea.KeyMsg{})
+
+			assert.Equal(t, initialCount+2, updateCount,
+				"onUpdated should execute on subsequent dependency changes")
+
+			// Update without state change (no execution expected due to dependencies)
+			c.Update(tea.KeyMsg{})
+
+			assert.Equal(t, initialCount+2, updateCount,
+				"onUpdated should not execute when dependencies haven't changed")
+		})
+	}
+}
+
+// TestComponent_Integration_NestedComponentsLifecycle tests lifecycle
+// coordination between nested components (parent → child → grandchild).
+func TestComponent_Integration_NestedComponentsLifecycle(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "three_level_nesting",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var events []string
+
+			// Create grandchild
+			grandchild := newComponentImpl("Grandchild")
+			grandchild.setup = func(ctx *Context) {
+				ctx.OnMounted(func() {
+					events = append(events, "grandchild_mounted")
+				})
+				ctx.OnUnmounted(func() {
+					events = append(events, "grandchild_unmounted")
+				})
+			}
+
+			// Create child
+			child := newComponentImpl("Child")
+			child.setup = func(ctx *Context) {
+				ctx.OnMounted(func() {
+					events = append(events, "child_mounted")
+				})
+				ctx.OnUnmounted(func() {
+					events = append(events, "child_unmounted")
+				})
+			}
+			child.children = []Component{grandchild}
+
+			// Create parent
+			parent := newComponentImpl("Parent")
+			parent.setup = func(ctx *Context) {
+				ctx.OnMounted(func() {
+					events = append(events, "parent_mounted")
+				})
+				ctx.OnUnmounted(func() {
+					events = append(events, "parent_unmounted")
+				})
+			}
+			parent.children = []Component{child}
+
+			// Init all
+			parent.Init()
+			child.Init()
+			grandchild.Init()
+
+			// Mount parent (children mount independently in Bubbletea)
+			parent.View()
+			child.View()
+			grandchild.View()
+
+			assert.Contains(t, events, "parent_mounted")
+			assert.Contains(t, events, "child_mounted")
+			assert.Contains(t, events, "grandchild_mounted")
+
+			// Unmount parent (should cascade to children)
+			parent.Unmount()
+
+			assert.Contains(t, events, "parent_unmounted")
+			assert.Contains(t, events, "child_unmounted")
+			assert.Contains(t, events, "grandchild_unmounted")
+
+			// Verify parent unmounts before children
+			parentUnmountIdx := -1
+			childUnmountIdx := -1
+			grandchildUnmountIdx := -1
+
+			for i, e := range events {
+				switch e {
+				case "parent_unmounted":
+					parentUnmountIdx = i
+				case "child_unmounted":
+					childUnmountIdx = i
+				case "grandchild_unmounted":
+					grandchildUnmountIdx = i
+				}
+			}
+
+			assert.NotEqual(t, -1, parentUnmountIdx)
+			assert.NotEqual(t, -1, childUnmountIdx)
+			assert.NotEqual(t, -1, grandchildUnmountIdx)
+			assert.Less(t, parentUnmountIdx, childUnmountIdx,
+				"Parent should unmount before child")
+			assert.Less(t, childUnmountIdx, grandchildUnmountIdx,
+				"Child should unmount before grandchild")
+		})
+	}
 }

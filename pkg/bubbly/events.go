@@ -131,8 +131,9 @@ func (c *componentImpl) bubbleEvent(event *Event) {
 					}
 				}()
 
-				// Pass Event pointer to handler so it can call StopPropagation
-				handler(event)
+				// Pass event data to handler (not the Event struct itself)
+				// Handlers receive the data payload, not the Event wrapper
+				handler(event.Data)
 			}()
 
 			// Check if handler stopped propagation

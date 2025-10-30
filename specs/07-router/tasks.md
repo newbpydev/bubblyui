@@ -1,0 +1,977 @@
+# Implementation Tasks: Router System
+
+## Task Breakdown (Atomic Level)
+
+### Prerequisites
+- [x] 01-reactivity-system completed
+- [x] 02-component-model completed
+- [x] 03-lifecycle-hooks completed
+- [x] 04-composition-api completed
+- [ ] Route data structures defined
+- [ ] Test framework configured for routing tests
+
+---
+
+## Phase 1: Core Route Matching (5 tasks, 15 hours)
+
+### Task 1.1: Route Pattern Compilation
+**Description**: Implement path-to-pattern compilation for route matching
+
+**Prerequisites**: None
+
+**Unlocks**: Task 1.2 (Route Matching Algorithm)
+
+**Files**:
+- `pkg/bubbly/router/pattern.go`
+- `pkg/bubbly/router/pattern_test.go`
+
+**Type Safety**:
+```go
+type RoutePattern struct {
+    segments []Segment
+    regex    *regexp.Regexp
+}
+
+type Segment struct {
+    Kind  SegmentKind  // static, param, optional, wildcard
+    Name  string       // param name
+    Value string       // static value
+}
+```
+
+**Tests**:
+- [ ] Static segments compile correctly
+- [ ] Dynamic params (:id) compile correctly
+- [ ] Optional params (:id?) compile correctly
+- [ ] Wildcards (:path*) compile correctly
+- [ ] Invalid patterns return errors
+- [ ] Regex is generated correctly
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 1.2: Route Matching Algorithm
+**Description**: Implement path matching with parameter extraction
+
+**Prerequisites**: Task 1.1
+
+**Unlocks**: Task 1.3 (Route Registry)
+
+**Files**:
+- `pkg/bubbly/router/matcher.go`
+- `pkg/bubbly/router/matcher_test.go`
+
+**Type Safety**:
+```go
+type RouteMatcher struct {
+    routes []*RouteRecord
+}
+
+func (rm *RouteMatcher) Match(path string) (*RouteMatch, error)
+
+type RouteMatch struct {
+    Route  *RouteRecord
+    Params map[string]string
+    Score  matchScore
+}
+```
+
+**Tests**:
+- [ ] Static routes match correctly
+- [ ] Dynamic params are extracted
+- [ ] Optional params work
+- [ ] Wildcards match correctly
+- [ ] Most specific route wins
+- [ ] 404 when no match
+- [ ] Benchmark: < 100μs per match
+
+**Estimated Effort**: 4 hours
+
+---
+
+### Task 1.3: Route Registry
+**Description**: Implement route registration and lookup
+
+**Prerequisites**: Task 1.2
+
+**Unlocks**: Task 2.1 (Router Core)
+
+**Files**:
+- `pkg/bubbly/router/registry.go`
+- `pkg/bubbly/router/registry_test.go`
+
+**Type Safety**:
+```go
+type RouteRegistry struct {
+    routes   []*RouteRecord
+    byName   map[string]*RouteRecord
+    byPath   map[string]*RouteRecord
+    mu       sync.RWMutex
+}
+
+type RouteRecord struct {
+    Path      string
+    Name      string
+    Component bubbly.Component
+    Children  []*RouteRecord
+    Meta      map[string]interface{}
+    pattern   *RoutePattern
+}
+```
+
+**Tests**:
+- [ ] Routes register correctly
+- [ ] Named routes accessible
+- [ ] Nested routes register
+- [ ] Duplicate paths rejected
+- [ ] Duplicate names rejected
+- [ ] Thread-safe registration
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 1.4: Query String Parser
+**Description**: Parse and handle URL query strings
+
+**Prerequisites**: None
+
+**Unlocks**: Task 1.5 (Route Object)
+
+**Files**:
+- `pkg/bubbly/router/query.go`
+- `pkg/bubbly/router/query_test.go`
+
+**Type Safety**:
+```go
+type QueryParser struct{}
+
+func (qp *QueryParser) Parse(queryString string) map[string]string
+
+func (qp *QueryParser) Build(params map[string]string) string
+```
+
+**Tests**:
+- [ ] Simple queries parse: ?key=value
+- [ ] Multiple params: ?a=1&b=2
+- [ ] URL encoding handled
+- [ ] Empty values: ?key=
+- [ ] No value: ?key
+- [ ] Build from map
+- [ ] Round-trip consistency
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 1.5: Route Object
+**Description**: Define current route state structure
+
+**Prerequisites**: Task 1.3, Task 1.4
+
+**Unlocks**: Task 2.1 (Router Core)
+
+**Files**:
+- `pkg/bubbly/router/route.go`
+- `pkg/bubbly/router/route_test.go`
+
+**Type Safety**:
+```go
+type Route struct {
+    Path     string
+    Name     string
+    Params   map[string]string
+    Query    map[string]string
+    Hash     string
+    Meta     map[string]interface{}
+    Matched  []*RouteRecord
+    FullPath string
+}
+```
+
+**Tests**:
+- [ ] Route creation
+- [ ] Immutability (defensive copies)
+- [ ] FullPath generation
+- [ ] Matched route chain
+- [ ] Meta field access
+
+**Estimated Effort**: 3 hours
+
+---
+
+## Phase 2: Router Core (6 tasks, 18 hours)
+
+### Task 2.1: Router Structure
+**Description**: Implement main Router singleton
+
+**Prerequisites**: Task 1.3, Task 1.5
+
+**Unlocks**: Task 2.2 (Navigation)
+
+**Files**:
+- `pkg/bubbly/router/router.go`
+- `pkg/bubbly/router/router_test.go`
+
+**Type Safety**:
+```go
+type Router struct {
+    registry       *RouteRegistry
+    matcher        *RouteMatcher
+    history        *History
+    currentRoute   *Route
+    beforeHooks    []NavigationGuard
+    afterHooks     []AfterNavigationHook
+    mu             sync.RWMutex
+}
+
+func NewRouter() *RouterBuilder
+func (r *Router) CurrentRoute() *Route
+```
+
+**Tests**:
+- [ ] Router creation
+- [ ] Singleton behavior
+- [ ] Thread-safe access
+- [ ] Current route tracking
+- [ ] Component retrieval
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 2.2: Navigation Implementation
+**Description**: Implement Push, Replace navigation methods
+
+**Prerequisites**: Task 2.1
+
+**Unlocks**: Task 2.3 (Navigation Guards)
+
+**Files**:
+- `pkg/bubbly/router/navigation.go`
+- `pkg/bubbly/router/navigation_test.go`
+
+**Type Safety**:
+```go
+type NavigationTarget struct {
+    Path   string
+    Name   string
+    Params map[string]string
+    Query  map[string]string
+    Hash   string
+}
+
+func (r *Router) Push(target *NavigationTarget) tea.Cmd
+func (r *Router) Replace(target *NavigationTarget) tea.Cmd
+```
+
+**Tests**:
+- [ ] Push creates history entry
+- [ ] Replace doesn't create history
+- [ ] Target validation
+- [ ] Command generation
+- [ ] Route change messages
+- [ ] Error handling
+
+**Estimated Effort**: 4 hours
+
+---
+
+### Task 2.3: Navigation Guards
+**Description**: Implement guard execution system
+
+**Prerequisites**: Task 2.2
+
+**Unlocks**: Task 2.4 (Guard Flow Control)
+
+**Files**:
+- `pkg/bubbly/router/guards.go`
+- `pkg/bubbly/router/guards_test.go`
+
+**Type Safety**:
+```go
+type NavigationGuard func(to, from *Route, next NextFunc)
+type NextFunc func(target *NavigationTarget)
+type AfterNavigationHook func(to, from *Route)
+
+func (r *Router) BeforeEach(guard NavigationGuard)
+func (r *Router) AfterEach(hook AfterNavigationHook)
+```
+
+**Tests**:
+- [ ] Global guards execute
+- [ ] Route guards execute
+- [ ] Execution order correct
+- [ ] next() allows navigation
+- [ ] next(false) cancels
+- [ ] next(path) redirects
+
+**Estimated Effort**: 4 hours
+
+---
+
+### Task 2.4: Guard Flow Control
+**Description**: Implement next() function logic and guard chaining
+
+**Prerequisites**: Task 2.3
+
+**Unlocks**: Task 3.1 (History Management)
+
+**Files**:
+- `pkg/bubbly/router/guard_flow.go`
+- `pkg/bubbly/router/guard_flow_test.go`
+
+**Type Safety**:
+```go
+type guardResult struct {
+    action guardAction
+    target *NavigationTarget
+    err    error
+}
+
+type guardAction int
+
+const (
+    guardContinue guardAction = iota
+    guardCancel
+    guardRedirect
+)
+```
+
+**Tests**:
+- [ ] Guard chain execution
+- [ ] Early termination on cancel
+- [ ] Redirect starts new navigation
+- [ ] Error handling
+- [ ] Circular redirect detection
+- [ ] Timeout handling
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 2.5: Router Builder API
+**Description**: Fluent API for router configuration
+
+**Prerequisites**: Task 2.1
+
+**Unlocks**: Task 3.1 (History Management)
+
+**Files**:
+- `pkg/bubbly/router/builder.go`
+- `pkg/bubbly/router/builder_test.go`
+
+**Type Safety**:
+```go
+type RouterBuilder struct {
+    routes      []*RouteRecord
+    beforeHooks []NavigationGuard
+    afterHooks  []AfterNavigationHook
+}
+
+func (rb *RouterBuilder) Route(path string, component bubbly.Component, opts ...RouteOption) *RouterBuilder
+func (rb *RouterBuilder) BeforeEach(guard NavigationGuard) *RouterBuilder
+func (rb *RouterBuilder) Build() (*Router, error)
+```
+
+**Tests**:
+- [ ] Fluent API works
+- [ ] Route registration
+- [ ] Guard registration
+- [ ] Validation on Build()
+- [ ] Error reporting
+- [ ] Nested routes
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 2.6: Route Options
+**Description**: Implement route configuration options
+
+**Prerequisites**: Task 2.5
+
+**Unlocks**: Task 3.1 (History Management)
+
+**Files**:
+- `pkg/bubbly/router/options.go`
+- `pkg/bubbly/router/options_test.go`
+
+**Type Safety**:
+```go
+type RouteOption func(*RouteRecord)
+
+func WithName(name string) RouteOption
+func WithMeta(meta map[string]interface{}) RouteOption
+func WithGuard(guard NavigationGuard) RouteOption
+func WithChildren(children ...*RouteRecord) RouteOption
+```
+
+**Tests**:
+- [ ] Name option works
+- [ ] Meta option works
+- [ ] Guard option works
+- [ ] Children option works
+- [ ] Multiple options combine
+
+**Estimated Effort**: 2 hours
+
+---
+
+## Phase 3: History Management (3 tasks, 9 hours)
+
+### Task 3.1: History Stack
+**Description**: Implement history stack data structure
+
+**Prerequisites**: Task 2.4, Task 2.5, Task 2.6
+
+**Unlocks**: Task 3.2 (History Navigation)
+
+**Files**:
+- `pkg/bubbly/router/history.go`
+- `pkg/bubbly/router/history_test.go`
+
+**Type Safety**:
+```go
+type History struct {
+    entries []*HistoryEntry
+    current int
+    maxSize int
+    mu      sync.Mutex
+}
+
+type HistoryEntry struct {
+    Route *Route
+    State interface{}
+}
+
+func (h *History) Push(route *Route)
+func (h *History) Replace(route *Route)
+```
+
+**Tests**:
+- [ ] Push adds entry
+- [ ] Replace updates entry
+- [ ] Forward history truncated on push
+- [ ] Max size enforced
+- [ ] Thread-safe operations
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 3.2: History Navigation
+**Description**: Implement Back, Forward, Go methods
+
+**Prerequisites**: Task 3.1
+
+**Unlocks**: Task 4.1 (Nested Routes)
+
+**Files**:
+- `pkg/bubbly/router/history_nav.go`
+- `pkg/bubbly/router/history_nav_test.go`
+
+**Type Safety**:
+```go
+func (r *Router) Back() tea.Cmd
+func (r *Router) Forward() tea.Cmd
+func (r *Router) Go(n int) tea.Cmd
+
+func (h *History) CanGoBack() bool
+func (h *History) CanGoForward() bool
+```
+
+**Tests**:
+- [ ] Back moves to previous
+- [ ] Forward moves to next
+- [ ] Go(n) moves n steps
+- [ ] Bounds checking
+- [ ] No-op on boundaries
+- [ ] Commands generated
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 3.3: History State Preservation
+**Description**: Save/restore arbitrary state with history entries
+
+**Prerequisites**: Task 3.2
+
+**Unlocks**: Task 4.1 (Nested Routes)
+
+**Files**:
+- `pkg/bubbly/router/history_state.go`
+- `pkg/bubbly/router/history_state_test.go`
+
+**Type Safety**:
+```go
+func (h *History) PushWithState(route *Route, state interface{})
+func (h *History) CurrentState() interface{}
+```
+
+**Tests**:
+- [ ] State saved with entry
+- [ ] State restored on navigation
+- [ ] State type safety
+- [ ] nil state handled
+
+**Estimated Effort**: 3 hours
+
+---
+
+## Phase 4: Nested Routes & Advanced (5 tasks, 15 hours)
+
+### Task 4.1: Nested Route Definition
+**Description**: Support parent-child route relationships
+
+**Prerequisites**: Task 3.2, Task 3.3
+
+**Unlocks**: Task 4.2 (RouterView Component)
+
+**Files**:
+- `pkg/bubbly/router/nested.go`
+- `pkg/bubbly/router/nested_test.go`
+
+**Type Safety**:
+```go
+func Child(path string, component bubbly.Component, opts ...RouteOption) *RouteRecord
+
+type RouteRecord struct {
+    // ... existing fields
+    Parent   *RouteRecord
+    Children []*RouteRecord
+}
+```
+
+**Tests**:
+- [ ] Child routes register
+- [ ] Parent-child links
+- [ ] Path resolution
+- [ ] Matched array correct
+- [ ] Nested params
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 4.2: RouterView Component
+**Description**: Component that renders current route's component
+
+**Prerequisites**: Task 4.1
+
+**Unlocks**: Task 5.1 (Composables)
+
+**Files**:
+- `pkg/bubbly/router/router_view.go`
+- `pkg/bubbly/router/router_view_test.go`
+
+**Type Safety**:
+```go
+type RouterView struct {
+    router *Router
+    depth  int
+}
+
+func NewRouterView(depth int) *RouterView
+func (rv *RouterView) View() string
+```
+
+**Tests**:
+- [ ] Renders current component
+- [ ] Handles depth for nesting
+- [ ] Updates on route change
+- [ ] Handles no match
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 4.3: Component Navigation Guards
+**Description**: BeforeRouteEnter, BeforeRouteUpdate, BeforeRouteLeave
+
+**Prerequisites**: Task 4.2
+
+**Unlocks**: Task 5.1 (Composables)
+
+**Files**:
+- `pkg/bubbly/router/component_guards.go`
+- `pkg/bubbly/router/component_guards_test.go`
+
+**Type Safety**:
+```go
+type ComponentGuards interface {
+    BeforeRouteEnter(to, from *Route, next NextFunc)
+    BeforeRouteUpdate(to, from *Route, next NextFunc)
+    BeforeRouteLeave(to, from *Route, next NextFunc)
+}
+```
+
+**Tests**:
+- [ ] BeforeRouteEnter executes
+- [ ] BeforeRouteUpdate executes
+- [ ] BeforeRouteLeave executes
+- [ ] Execution order correct
+- [ ] Integration with component lifecycle
+
+**Estimated Effort**: 4 hours
+
+---
+
+### Task 4.4: Route Meta Fields
+**Description**: Attach arbitrary metadata to routes
+
+**Prerequisites**: Task 4.1
+
+**Unlocks**: Task 5.1 (Composables)
+
+**Files**: (Integrated in existing files)
+
+**Type Safety**:
+```go
+type RouteRecord struct {
+    // ... existing fields
+    Meta map[string]interface{}
+}
+
+func (r *Route) GetMeta(key string) (interface{}, bool)
+```
+
+**Tests**:
+- [ ] Meta fields set
+- [ ] Meta fields accessible
+- [ ] Type assertions work
+- [ ] Inherited from parent
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 4.5: Route Name Navigation
+**Description**: Navigate by route name instead of path
+
+**Prerequisites**: Task 4.1
+
+**Unlocks**: Task 5.1 (Composables)
+
+**Files**:
+- `pkg/bubbly/router/named_routes.go`
+- `pkg/bubbly/router/named_routes_test.go`
+
+**Type Safety**:
+```go
+func (r *Router) PushNamed(name string, params, query map[string]string) tea.Cmd
+
+func (r *Router) BuildPath(name string, params, query map[string]string) string
+```
+
+**Tests**:
+- [ ] Named navigation works
+- [ ] Params injected correctly
+- [ ] Query string added
+- [ ] Invalid name handled
+- [ ] Path building utility
+
+**Estimated Effort**: 3 hours
+
+---
+
+## Phase 5: Composables & Context Integration (3 tasks, 9 hours)
+
+### Task 5.1: useRouter Composable
+**Description**: Provide router instance to components
+
+**Prerequisites**: Task 4.2, Task 4.3, Task 4.4, Task 4.5
+
+**Unlocks**: Task 5.2 (useRoute)
+
+**Files**:
+- `pkg/bubbly/router/composables.go`
+- `pkg/bubbly/router/composables_test.go`
+
+**Type Safety**:
+```go
+func UseRouter(ctx *bubbly.Context) *Router
+```
+
+**Tests**:
+- [ ] Router accessible
+- [ ] Panic if not provided
+- [ ] Context injection works
+- [ ] Multiple components share instance
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 5.2: useRoute Composable
+**Description**: Reactive access to current route
+
+**Prerequisites**: Task 5.1
+
+**Unlocks**: Task 5.3 (Router Provider)
+
+**Files**: (Integrated in composables.go)
+
+**Type Safety**:
+```go
+func UseRoute(ctx *bubbly.Context) *bubbly.Ref[*Route]
+```
+
+**Tests**:
+- [ ] Route accessible
+- [ ] Updates reactively
+- [ ] Params accessible
+- [ ] Query accessible
+- [ ] Meta accessible
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 5.3: Router Provider
+**Description**: Inject router into component tree
+
+**Prerequisites**: Task 5.2
+
+**Unlocks**: Task 6.1 (Integration Testing)
+
+**Files**:
+- `pkg/bubbly/router/provider.go`
+- `pkg/bubbly/router/provider_test.go`
+
+**Type Safety**:
+```go
+func ProvideRouter(ctx *bubbly.Context, router *Router)
+```
+
+**Tests**:
+- [ ] Router provided
+- [ ] Child components access router
+- [ ] Nested components work
+- [ ] Multiple routers (different trees)
+
+**Estimated Effort**: 4 hours
+
+---
+
+## Phase 6: Integration & Polish (4 tasks, 12 hours)
+
+### Task 6.1: Bubbletea Message Integration
+**Description**: Route change messages and command generation
+
+**Prerequisites**: Task 5.3
+
+**Unlocks**: Task 6.2 (Error Handling)
+
+**Files**:
+- `pkg/bubbly/router/messages.go`
+- `pkg/bubbly/router/messages_test.go`
+
+**Type Safety**:
+```go
+type RouteChangedMsg struct {
+    To   *Route
+    From *Route
+}
+
+type NavigationErrorMsg struct {
+    Error error
+    From  *Route
+    To    *NavigationTarget
+}
+```
+
+**Tests**:
+- [ ] Messages generated correctly
+- [ ] Commands return messages
+- [ ] Integration with Update()
+- [ ] Error messages work
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 6.2: Error Handling & Observability
+**Description**: Production-grade error handling
+
+**Prerequisites**: Task 6.1
+
+**Unlocks**: Task 6.3 (Documentation)
+
+**Files**:
+- `pkg/bubbly/router/errors.go`
+- `pkg/bubbly/router/errors_test.go`
+
+**Type Safety**:
+```go
+type RouterError struct {
+    Code    ErrorCode
+    Message string
+    From    *Route
+    To      *NavigationTarget
+    Cause   error
+}
+
+type ErrorCode int
+
+const (
+    ErrRouteNotFound ErrorCode = iota
+    ErrInvalidPath
+    ErrGuardRejected
+    ErrCircularRedirect
+)
+```
+
+**Tests**:
+- [ ] Errors categorized correctly
+- [ ] Observability integration
+- [ ] Stack traces captured
+- [ ] Error recovery
+- [ ] Clear error messages
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 6.3: Documentation & Examples
+**Description**: API documentation and usage examples
+
+**Prerequisites**: Task 6.2
+
+**Unlocks**: Task 6.4 (Performance Testing)
+
+**Files**:
+- `docs/router/README.md`
+- `docs/router/guides/*.md`
+- `cmd/examples/07-router/basic/main.go`
+- `cmd/examples/07-router/guards/main.go`
+- `cmd/examples/07-router/nested/main.go`
+
+**Content**:
+- API documentation
+- Getting started guide
+- Navigation guards guide
+- Nested routes guide
+- Example applications
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 6.4: Performance & Benchmarks
+**Description**: Optimize and benchmark router operations
+
+**Prerequisites**: Task 6.3
+
+**Unlocks**: Feature complete
+
+**Files**:
+- `pkg/bubbly/router/benchmarks_test.go`
+
+**Benchmarks**:
+- [ ] Route matching < 100μs
+- [ ] Navigation < 1ms overhead
+- [ ] History operations < 50μs
+- [ ] Memory per route < 1KB
+- [ ] Guard execution < 10μs
+
+**Optimizations**:
+- Route match caching
+- Pattern compilation caching
+- Guard execution pooling
+
+**Estimated Effort**: 3 hours
+
+---
+
+## Task Dependency Graph
+
+```
+Prerequisites (Features 01-04)
+    ↓
+Phase 1: Core Matching
+    1.1 Pattern → 1.2 Matcher → 1.3 Registry
+    1.4 Query Parser → 1.5 Route Object
+    ↓
+Phase 2: Router Core
+    2.1 Router → 2.2 Navigation → 2.3 Guards → 2.4 Guard Flow
+    2.5 Builder → 2.6 Options
+    ↓
+Phase 3: History
+    3.1 History Stack → 3.2 History Nav → 3.3 History State
+    ↓
+Phase 4: Advanced
+    4.1 Nested → 4.2 RouterView → 4.3 Component Guards
+    4.4 Meta → 4.5 Named Routes
+    ↓
+Phase 5: Composables
+    5.1 useRouter → 5.2 useRoute → 5.3 Provider
+    ↓
+Phase 6: Polish
+    6.1 Messages → 6.2 Errors → 6.3 Docs → 6.4 Performance
+```
+
+---
+
+## Validation Checklist
+
+### Core Functionality
+- [ ] Routes match correctly
+- [ ] Navigation works
+- [ ] Guards execute in order
+- [ ] History stack works
+- [ ] Nested routes render
+- [ ] Composables accessible
+
+### Type Safety
+- [ ] All types generic where appropriate
+- [ ] No untyped interfaces without docs
+- [ ] Compile-time checking
+- [ ] Clear type assertions
+- [ ] Generic constraints used
+
+### Performance
+- [ ] All benchmarks pass targets
+- [ ] No memory leaks
+- [ ] Thread-safe operations
+- [ ] Efficient route matching
+- [ ] Minimal overhead
+
+### Integration
+- [ ] Works with all BubblyUI features
+- [ ] Bubbletea integration clean
+- [ ] Composables work
+- [ ] Context injection works
+- [ ] Example apps work
+
+### Quality
+- [ ] >80% test coverage
+- [ ] All tests pass with -race
+- [ ] Zero lint warnings
+- [ ] Documentation complete
+- [ ] Error handling production-grade
+
+---
+
+## Estimated Total Effort
+
+- Phase 1: 15 hours
+- Phase 2: 18 hours
+- Phase 3: 9 hours
+- Phase 4: 15 hours
+- Phase 5: 9 hours
+- Phase 6: 12 hours
+
+**Total**: ~78 hours (approximately 2 weeks)
+
+---
+
+## Priority
+
+**HIGH** - Critical for multi-screen applications
+
+**Timeline**: Feature 07 should be implemented after Features 04-06 are complete, as it depends on composition API and benefits from built-in components.
+
+**Unlocks**: Multi-screen applications, authentication flows, complex UIs, dev tools integration

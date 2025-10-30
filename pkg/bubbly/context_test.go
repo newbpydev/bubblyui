@@ -284,10 +284,8 @@ func TestContext_On(t *testing.T) {
 		// Act
 		ctx.On("test-event", func(data interface{}) {
 			called = true
-			// Extract data from Event
-			if event, ok := data.(*Event); ok {
-				receivedData = event.Data
-			}
+			// Handlers receive data payload directly
+			receivedData = data
 		})
 
 		// Trigger the event
@@ -334,10 +332,8 @@ func TestContext_Emit(t *testing.T) {
 
 		var receivedData interface{}
 		ctx.On("submit", func(data interface{}) {
-			// Extract data from Event
-			if event, ok := data.(*Event); ok {
-				receivedData = event.Data
-			}
+			// Handlers receive data payload directly
+			receivedData = data
 		})
 
 		// Act
