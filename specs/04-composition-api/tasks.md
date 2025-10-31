@@ -990,27 +990,115 @@ func SetParent(child, parent *Context)
 
 ---
 
-### Task 4.3: Example Composables
+### Task 4.3: Example Composables ✅ COMPLETE
 **Description:** Create example composables demonstrating patterns
 
-**Prerequisites:** Task 4.2
+**Prerequisites:** Task 4.2 ✅
 
 **Unlocks:** Task 5.1 (Performance)
 
 **Files:**
-- `cmd/examples/composables/counter.go`
-- `cmd/examples/composables/async-data.go`
-- `cmd/examples/composables/form.go`
-- `cmd/examples/composables/provide-inject.go`
+- `cmd/examples/04-composables/counter/main.go` ✅
+- `cmd/examples/04-composables/async-data/main.go` ✅
+- `cmd/examples/04-composables/form/main.go` ✅
+- `cmd/examples/04-composables/provide-inject/main.go` ✅
+- `cmd/examples/04-composables/README.md` ✅
 
 **Examples:**
-- [ ] UseCounter (basic pattern)
-- [ ] UseAsync (data fetching)
-- [ ] UseForm (complex state)
-- [ ] Provide/Inject (dependency injection)
-- [ ] Composable chains
+- [x] UseCounter (basic pattern)
+- [x] UseAsync (data fetching)
+- [x] UseForm (complex state)
+- [x] Provide/Inject (dependency injection)
+- [x] Composable chains
 
-**Estimated effort:** 4 hours
+**Implementation Notes:**
+
+**Example 1: Counter (counter/main.go)**
+- **Custom Composable:** `UseCounter` wraps `UseState` with counter operations
+- **Composable Chain:** `UseDoubleCounter` → `UseCounter` → `UseState` → `Ref`
+- **Pattern Demonstrated:** Composable composition and reuse
+- **Operations:** Increment, Decrement, Double, Reset
+- **Features:** Two independent counters, sync operation, coordinated reset
+- **Bubbletea Integration:** Standard model wrapper, event emission
+- **Styling:** Beautiful Lipgloss boxes with color-coded counters
+- **Educational:** Clear comments explaining composable chains
+
+**Example 2: Async Data (async-data/main.go)**
+- **Composable Used:** `UseAsync` for data fetching
+- **Pattern Demonstrated:** Async operations with loading/error states
+- **Bubbletea Integration:** Uses `tea.Tick` for periodic UI updates
+  - CRITICAL: Goroutine updates Refs, but Bubbletea needs messages to redraw
+  - Solution: Tick every 100ms while loading to trigger Update()
+  - Stops ticking when loading completes
+- **Features:** Simulated API call (2s delay), refetch button, loading spinner
+- **State Management:** Data, Loading, Error refs managed by UseAsync
+- **Educational:** Explains goroutine + Bubbletea integration pattern
+
+**Example 3: Form (form/main.go)**
+- **Composable Used:** `UseForm` for complex state management
+- **Pattern Demonstrated:** Form validation and field management
+- **Form Structure:** LoginForm with Username, Email, Password
+- **Validation:** Real-time validation with custom rules
+  - Username: min 3 characters
+  - Email: must contain @
+  - Password: min 6 characters
+- **Features:** Field navigation (tab), character input, backspace, submit, reset
+- **State Tracking:** Dirty state, valid state, errors map
+- **Visual Feedback:** Focused field indicator, validation errors, submit status
+- **Educational:** Shows SetField usage and validation integration
+
+**Example 4: Provide/Inject (provide-inject/main.go)**
+- **Pattern Demonstrated:** Dependency injection across component tree
+- **Architecture:** Parent component with 3 child components
+- **Provided Values:** Theme (dark/light/blue), Size (small/medium/large)
+- **Injection:** Children inject values with default fallbacks
+- **Propagation:** Changes in parent automatically update all children
+- **Features:** Theme toggle, size toggle, reactive updates
+- **Visual:** Children styled based on injected theme/size
+- **Component Tree:** Parent → Child A, Child B, Child C
+- **Educational:** Shows tree traversal and value inheritance
+
+**Common Patterns Across All Examples:**
+- ✅ Proper Bubbletea integration (no manual Init() calls)
+- ✅ Model wraps component pattern
+- ✅ Event emission and handling
+- ✅ Beautiful Lipgloss styling
+- ✅ Educational comments explaining patterns
+- ✅ Runnable examples with clear instructions
+- ✅ Help text for user interaction
+
+**Bubbletea Integration Lessons:**
+- **Synchronous operations:** Direct state updates work immediately (counter, form)
+- **Asynchronous operations:** Use `tea.Tick` to trigger periodic redraws (async-data)
+- **Event handling:** Use `component.Emit()` and `ctx.On()` pattern
+- **Lifecycle:** Use `ctx.OnMounted()` for initialization
+- **CRITICAL:** Never call `component.Init()` manually - let Bubbletea call it
+
+**Quality Metrics:**
+- ✅ All examples compile successfully
+- ✅ Zero vet warnings
+- ✅ Code formatted with gofmt
+- ✅ Well-commented and educational
+- ✅ Beautiful TUI with Lipgloss
+- ✅ Comprehensive README.md with usage instructions
+- ✅ Demonstrates all required patterns
+
+**Running Examples:**
+```bash
+# Counter
+go run cmd/examples/04-composables/counter/main.go
+
+# Async Data
+go run cmd/examples/04-composables/async-data/main.go
+
+# Form
+go run cmd/examples/04-composables/form/main.go
+
+# Provide/Inject
+go run cmd/examples/04-composables/provide-inject/main.go
+```
+
+**Estimated effort:** 4 hours ✅ **Actual: ~4 hours**
 
 ---
 
