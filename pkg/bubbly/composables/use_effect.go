@@ -51,11 +51,11 @@ type UseEffectCleanup func()
 //	    data := fetchData()
 //	    dataRef.Set(data)
 //	    return nil
-//	}, []*bubbly.Ref[any]{}...) // Empty deps = run once
+//	}, []bubbly.Dependency{}...) // Empty deps = run once
 //
 // Example - Run on dependency change:
 //
-//	userId := bubbly.NewRef(1)
+//	userId := bubbly.NewDependency(1)
 //	UseEffect(ctx, func() UseEffectCleanup {
 //	    user := fetchUser(userId.Get())
 //	    userRef.Set(user)
@@ -68,7 +68,7 @@ type UseEffectCleanup func()
 //	    ticker := time.NewTicker(time.Second)
 //	    go func() {
 //	        for range ticker.C {
-//	            count.Set(count.Get() + 1)
+//	            count.Set(count.GetTyped() + 1)
 //	        }
 //	    }()
 //
@@ -95,7 +95,7 @@ type UseEffectCleanup func()
 // UseEffect has minimal overhead as it delegates to the existing lifecycle
 // hook system. The performance characteristics match those of OnMounted,
 // OnUpdated, and OnUnmounted hooks.
-func UseEffect(ctx *bubbly.Context, effect func() UseEffectCleanup, deps ...*bubbly.Ref[any]) {
+func UseEffect(ctx *bubbly.Context, effect func() UseEffectCleanup, deps ...bubbly.Dependency) {
 	// Store the cleanup function from the last effect execution
 	var cleanup UseEffectCleanup
 

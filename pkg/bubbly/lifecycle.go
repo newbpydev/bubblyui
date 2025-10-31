@@ -167,11 +167,11 @@ type lifecycleHook struct {
 	//nolint:unused // Will be used in Task 2.1 (Hook execution)
 	callback func()
 
-	// dependencies are the Refs that this hook depends on.
+	// dependencies are the reactive values (Ref or Computed) that this hook depends on.
 	// The hook only executes if one of these dependencies changes.
 	// Empty slice means the hook runs on every trigger.
 	//nolint:unused // Will be used in Task 2.2 (Dependency tracking)
-	dependencies []*Ref[any]
+	dependencies []Dependency
 
 	// lastValues stores the previous values of dependencies
 	// for change detection

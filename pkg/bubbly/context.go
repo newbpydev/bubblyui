@@ -241,9 +241,9 @@ func (ctx *Context) OnMounted(hook func()) {
 //
 //	count := ctx.Ref(0)
 //	ctx.OnUpdated(func() {
-//	    fmt.Printf("Count changed to: %d\n", count.Get())
+//	    fmt.Printf("Count changed to: %d\n", count.GetTyped())
 //	}, count)
-func (ctx *Context) OnUpdated(hook func(), deps ...*Ref[any]) {
+func (ctx *Context) OnUpdated(hook func(), deps ...Dependency) {
 	if ctx.component.lifecycle == nil {
 		ctx.component.lifecycle = newLifecycleManager(ctx.component)
 	}

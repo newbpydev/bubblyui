@@ -77,7 +77,7 @@ func UseState[T any](ctx *bubbly.Context, initial T) UseStateReturn[T] {
 			value.Set(v)
 		},
 		Get: func() T {
-			return value.Get()
+			return value.GetTyped()
 		},
 	}
 }

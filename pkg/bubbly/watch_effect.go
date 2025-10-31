@@ -221,6 +221,12 @@ type invalidationWatcher struct {
 	effect *watchEffect
 }
 
+// Get implements Dependency interface (returns nil for watchers)
+func (iw *invalidationWatcher) Get() any {
+	// Watchers don't have a value to return
+	return nil
+}
+
 // Invalidate is called when a watched dependency changes
 func (iw *invalidationWatcher) Invalidate() {
 	iw.effect.run()
