@@ -8,6 +8,7 @@ import (
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/composables/reflectcache"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
@@ -212,6 +213,12 @@ func UseForm[T any](
 	initial T,
 	validate func(T) map[string]string,
 ) UseFormReturn[T] {
+	// Record metrics if monitoring is enabled
+	start := time.Now()
+	defer func() {
+		monitoring.GetGlobalMetrics().RecordComposableCreation("UseForm", time.Since(start))
+	}()
+
 	// Create reactive state for form values
 	values := bubbly.NewRef(initial)
 

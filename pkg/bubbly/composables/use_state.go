@@ -1,6 +1,11 @@
 package composables
 
-import "github.com/newbpydev/bubblyui/pkg/bubbly"
+import (
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
+)
 
 // UseStateReturn is the return type for the UseState composable.
 // It provides a reactive state value with convenient getter and setter methods.
@@ -67,6 +72,12 @@ type UseStateReturn[T any] struct {
 //	counter2 := UseState(ctx, 0)
 //	counter1.Set(10)  // counter2 remains 0
 func UseState[T any](ctx *bubbly.Context, initial T) UseStateReturn[T] {
+	// Record metrics if monitoring is enabled
+	start := time.Now()
+	defer func() {
+		monitoring.GetGlobalMetrics().RecordComposableCreation("UseState", time.Since(start))
+	}()
+
 	// Create the underlying reactive reference
 	value := bubbly.NewRef(initial)
 

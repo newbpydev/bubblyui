@@ -39,6 +39,8 @@ import (
 	"reflect"
 	"sync"
 	"sync/atomic"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
 )
 
 // FieldCacheEntry stores cached field information for a struct type.
@@ -201,11 +203,13 @@ func (fc *FieldCache) GetFieldIndex(t reflect.Type, fieldName string) (int, bool
 	entry, cached := fc.cache[t]
 	fc.mu.RUnlock()
 
-	// Track hit/miss
+	// Track hit/miss and record metrics
 	if cached {
 		fc.hits.Add(1)
+		monitoring.GetGlobalMetrics().RecordCacheHit("reflection")
 	} else {
 		fc.misses.Add(1)
+		monitoring.GetGlobalMetrics().RecordCacheMiss("reflection")
 		// Cache miss - populate cache
 		entry = fc.CacheType(t)
 	}
@@ -251,11 +255,13 @@ func (fc *FieldCache) GetFieldType(t reflect.Type, fieldName string) (reflect.Ty
 	entry, cached := fc.cache[t]
 	fc.mu.RUnlock()
 
-	// Track hit/miss
+	// Track hit/miss and record metrics
 	if cached {
 		fc.hits.Add(1)
+		monitoring.GetGlobalMetrics().RecordCacheHit("reflection")
 	} else {
 		fc.misses.Add(1)
+		monitoring.GetGlobalMetrics().RecordCacheMiss("reflection")
 		// Cache miss - populate cache
 		entry = fc.CacheType(t)
 	}

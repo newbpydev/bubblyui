@@ -1,6 +1,11 @@
 package composables
 
-import "github.com/newbpydev/bubblyui/pkg/bubbly"
+import (
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
+)
 
 // UseAsyncReturn is the return type for the UseAsync composable.
 // It provides reactive state management for asynchronous operations with
@@ -134,6 +139,12 @@ type UseAsyncReturn[T any] struct {
 // UseAsync creates three Ref instances and two closure functions. The overhead
 // is minimal (< 1μs) and well within the performance target for composables.
 func UseAsync[T any](ctx *bubbly.Context, fetcher func() (*T, error)) UseAsyncReturn[T] {
+	// Record metrics if monitoring is enabled
+	start := time.Now()
+	defer func() {
+		monitoring.GetGlobalMetrics().RecordComposableCreation("UseAsync", time.Since(start))
+	}()
+
 	// Create reactive state for data, loading, and error
 	data := bubbly.NewRef[*T](nil)
 	loading := bubbly.NewRef(false)
