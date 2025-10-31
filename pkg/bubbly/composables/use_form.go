@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/composables/reflectcache"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
@@ -256,7 +257,20 @@ func UseForm[T any](
 
 		// Use reflection to update the field
 		v := reflect.ValueOf(&currentValues).Elem()
-		fieldValue := v.FieldByName(field)
+
+		// Fast path: Use reflection cache if enabled
+		var fieldValue reflect.Value
+		if reflectcache.GlobalCache != nil {
+			formType := reflect.TypeOf(currentValues)
+			if idx, ok := reflectcache.GlobalCache.GetFieldIndex(formType, field); ok {
+				fieldValue = v.Field(idx)
+			}
+		}
+
+		// Fallback: Use FieldByName if cache disabled or not found
+		if !fieldValue.IsValid() {
+			fieldValue = v.FieldByName(field)
+		}
 
 		// Check if field exists and is settable
 		if !fieldValue.IsValid() {
