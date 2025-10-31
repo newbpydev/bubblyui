@@ -1,0 +1,134 @@
+# .github/workflows/benchmark.yml
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  # Allow manual runs
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comparison
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+      
+      - name: Run benchmarks
+        run: |
+          echo "Running benchmarks with statistical significance (count=10)..."
+          go test -bench=. -benchmem -benchtime=1s -count=10 ./pkg/bubbly/composables/ | tee new-benchmarks.txt
+      
+      - name: Check if baseline exists
+        id: check_baseline
+        run: |
+          if [ -f benchmarks/baseline.txt ]; then
+            echo "baseline_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "baseline_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No baseline found. This is expected for the first run."
+          fi
+      
+      - name: Compare with baseline
+        if: steps.check_baseline.outputs.baseline_exists == 'true'
+        run: |
+          echo "📊 Comparing with baseline..."
+          echo ""
+          benchstat benchmarks/baseline.txt new-benchmarks.txt | tee benchmark-comparison.txt
+      
+      - name: Check for performance regressions
+        if: steps.check_baseline.outputs.baseline_exists == 'true'
+        run: |
+          echo "🔍 Checking for performance regressions (>10% slower)..."
+          echo ""
+          
+          # Extract comparison results with statistical significance
+          if benchstat -delta-test=ttest benchmarks/baseline.txt new-benchmarks.txt | grep -E '\+[1-9][0-9]\.[0-9]+%' | grep -v '~'; then
+            echo ""
+            echo "❌ Performance regression detected (>10% slower with statistical significance)"
+            echo ""
+            echo "📋 Full comparison:"
+            cat benchmark-comparison.txt
+            echo ""
+            echo "ℹ️  See benchmarks/README.md for how to update the baseline if this regression is acceptable."
+            exit 1
+          else
+            echo "✅ No significant performance regressions detected"
+            echo ""
+            echo "📋 Full comparison:"
+            cat benchmark-comparison.txt
+          fi
+      
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: |
+            new-benchmarks.txt
+            benchmark-comparison.txt
+          retention-days: 30
+      
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && steps.check_baseline.outputs.baseline_exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comparison = '';
+            
+            if (fs.existsSync('benchmark-comparison.txt')) {
+              comparison = fs.readFileSync('benchmark-comparison.txt', 'utf8');
+            } else {
+              comparison = 'No comparison available (baseline not found)';
+            }
+            
+            const body = `## 📊 Performance Benchmark Results
+            
+            <details>
+            <summary>Benchmark Comparison (click to expand)</summary>
+            
+            \`\`\`
+            ${comparison}
+            \`\`\`
+            
+            </details>
+            
+            **Interpretation Guide:**
+            - **~**: No statistically significant change
+            - **+X%**: Performance degradation (slower)
+            - **-X%**: Performance improvement (faster)
+            - Regressions >10% will fail the check
+            
+            See \`benchmarks/README.md\` for more details.
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
