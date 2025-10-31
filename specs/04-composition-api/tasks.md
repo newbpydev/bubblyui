@@ -1958,9 +1958,21 @@ Phase 7: Dependency Interface (Quality of Life)
     ├─> Task 7.5: Update Watch (optional)
     ├─> Task 7.6: Documentation
     ├─> Task 7.7: Migration guide
-    └─> Task 7.8: Integration testing
+    ├─> Task 7.8: Integration testing
+    └─> Task 7.9: Codebase migration
     ↓
-Complete: Ready for Features 05, 06
+Phase 8: Performance Optimization & Monitoring (Optional)
+    ├─> Task 8.1: Timer pool implementation
+    ├─> Task 8.2: Reflection cache implementation
+    ├─> Task 8.3: Metrics collection interface
+    ├─> Task 8.4: Prometheus metrics implementation
+    ├─> Task 8.5: Metrics integration points
+    ├─> Task 8.6: Performance regression CI
+    ├─> Task 8.7: Profiling utilities
+    ├─> Task 8.8: Enhanced benchmark suite
+    └─> Task 8.9: Monitoring documentation
+    ↓
+Complete: Ready for Features 05, 06 + Production Monitoring
 ```
 
 ---
@@ -2781,6 +2793,458 @@ sed -i 's/\[\]\*Ref\[any\]/[]Dependency/g' lifecycle_test.go lifecycle_bench_tes
 
 ---
 
+## Phase 8: Performance Optimization & Monitoring (Optional Enhancements)
+
+### Task 8.1: Timer Pool Implementation
+**Description:** Implement optional timer pooling for UseDebounce/UseThrottle to reduce allocation overhead
+
+**Prerequisites:** Task 6.3 (Performance validation complete)
+
+**Unlocks:** Production optimization for heavy debounce/throttle usage
+
+**Files:**
+- `pkg/bubbly/composables/timerpool/pool.go`
+- `pkg/bubbly/composables/timerpool/pool_test.go`
+- `pkg/bubbly/composables/timerpool/stats.go`
+
+**Type Safety:**
+```go
+type TimerPool struct {
+    pool   *sync.Pool
+    active map[*time.Timer]bool
+    mu     sync.RWMutex
+}
+
+type TimerPoolStats struct {
+    Active int64
+    Hits   int64
+    Misses int64
+}
+
+func NewTimerPool() *TimerPool
+func (tp *TimerPool) Acquire(d time.Duration) *time.Timer
+func (tp *TimerPool) Release(timer *time.Timer)
+func (tp *TimerPool) Stats() TimerPoolStats
+func EnableGlobalPool()
+```
+
+**Tests:**
+- [ ] Pool correctly creates and reuses timers
+- [ ] Acquire/Release cycle works correctly
+- [ ] Thread-safe concurrent access
+- [ ] Statistics tracking accurate
+- [ ] No timer leaks on component unmount
+- [ ] Performance improvement verified (865ns → ~450ns)
+- [ ] Zero allocations after warmup
+
+**Integration:**
+- Update UseDebounce to optionally use timer pool
+- Update UseThrottle to optionally use timer pool
+- Opt-in via `timerpool.EnableGlobalPool()`
+- Maintain backward compatibility (pool disabled by default)
+
+**Benchmarks:**
+```go
+BenchmarkUseDebounce_WithPool
+BenchmarkUseDebounce_WithoutPool
+BenchmarkUseThrottle_WithPool
+BenchmarkUseThrottle_WithoutPool
+BenchmarkTimerPool_Acquire
+BenchmarkTimerPool_Release
+```
+
+**Estimated effort:** 6 hours
+
+**Priority:** LOW (current performance already acceptable)
+
+---
+
+### Task 8.2: Reflection Cache Implementation
+**Description:** Implement optional reflection caching for UseForm to reduce SetField overhead
+
+**Prerequisites:** Task 6.3
+
+**Unlocks:** Production optimization for heavy form usage
+
+**Files:**
+- `pkg/bubbly/composables/reflectcache/cache.go`
+- `pkg/bubbly/composables/reflectcache/cache_test.go`
+- `pkg/bubbly/composables/reflectcache/stats.go`
+
+**Type Safety:**
+```go
+type FieldCache struct {
+    cache map[reflect.Type]*FieldCacheEntry
+    mu    sync.RWMutex
+}
+
+type FieldCacheEntry struct {
+    Indices map[string]int
+    Types   map[string]reflect.Type
+}
+
+type CacheStats struct {
+    TypesCached int
+    HitRate     float64
+    Hits        int64
+    Misses      int64
+}
+
+func NewFieldCache() *FieldCache
+func (fc *FieldCache) GetFieldIndex(t reflect.Type, field string) (int, bool)
+func (fc *FieldCache) GetFieldType(t reflect.Type, field string) (reflect.Type, bool)
+func (fc *FieldCache) CacheType(t reflect.Type) *FieldCacheEntry
+func (fc *FieldCache) WarmUp(v interface{})
+func EnableGlobalCache()
+```
+
+**Tests:**
+- [ ] Cache correctly stores field indices
+- [ ] Cache hit returns correct index
+- [ ] Cache miss triggers type caching
+- [ ] Thread-safe concurrent access
+- [ ] WarmUp pre-caches types
+- [ ] Statistics accurate (hit rate > 95%)
+- [ ] Performance improvement verified (422ns → ~300ns)
+
+**Integration:**
+- Update UseForm.SetField to use cache
+- Opt-in via `reflectcache.EnableGlobalCache()`
+- Maintain backward compatibility (cache disabled by default)
+
+**Benchmarks:**
+```go
+BenchmarkUseForm_SetField_WithCache
+BenchmarkUseForm_SetField_WithoutCache
+BenchmarkReflectionCache_Hit
+BenchmarkReflectionCache_Miss
+```
+
+**Estimated effort:** 6 hours
+
+**Priority:** LOW (current performance already acceptable)
+
+---
+
+### Task 8.3: Metrics Collection Interface
+**Description:** Define pluggable metrics interface for production monitoring
+
+**Prerequisites:** Task 6.3
+
+**Unlocks:** Task 8.4 (Prometheus implementation)
+
+**Files:**
+- `pkg/bubbly/monitoring/metrics.go`
+- `pkg/bubbly/monitoring/metrics_test.go`
+- `pkg/bubbly/monitoring/noop.go`
+
+**Type Safety:**
+```go
+type ComposableMetrics interface {
+    RecordComposableCreation(name string, duration time.Duration)
+    RecordProvideInjectDepth(depth int)
+    RecordAllocationBytes(composable string, bytes int64)
+    RecordCacheHit(cache string)
+    RecordCacheMiss(cache string)
+}
+
+// NoOp implementation (default)
+type NoOpMetrics struct{}
+
+var globalMetrics ComposableMetrics = &NoOpMetrics{}
+
+func SetGlobalMetrics(m ComposableMetrics)
+func GetGlobalMetrics() ComposableMetrics
+```
+
+**Tests:**
+- [ ] Interface methods defined correctly
+- [ ] NoOp implementation safe (nil checks)
+- [ ] Global metrics getter/setter thread-safe
+- [ ] Zero overhead when NoOp
+- [ ] Multiple implementations supported
+
+**Estimated effort:** 3 hours
+
+**Priority:** MEDIUM (enables production monitoring)
+
+---
+
+### Task 8.4: Prometheus Metrics Implementation
+**Description:** Implement Prometheus metrics backend
+
+**Prerequisites:** Task 8.3
+
+**Unlocks:** Production monitoring with Prometheus
+
+**Files:**
+- `pkg/bubbly/monitoring/prometheus.go`
+- `pkg/bubbly/monitoring/prometheus_test.go`
+- `pkg/bubbly/monitoring/example_prometheus_test.go`
+
+**Type Safety:**
+```go
+type PrometheusMetrics struct {
+    composableCreations *prometheus.CounterVec
+    provideInjectDepth  prometheus.Histogram
+    allocationBytes     *prometheus.HistogramVec
+    cacheHits           *prometheus.CounterVec
+    registry            prometheus.Registerer
+}
+
+func NewPrometheusMetrics(reg prometheus.Registerer) *PrometheusMetrics
+```
+
+**Metrics Exposed:**
+- `bubblyui_composable_creations_total{name="UseState"}`
+- `bubblyui_provide_inject_depth_seconds`
+- `bubblyui_cache_hits_total{cache="timer|reflection"}`
+- `bubblyui_cache_misses_total{cache="timer|reflection"}`
+- `bubblyui_allocation_bytes{composable="UseForm"}`
+
+**Tests:**
+- [ ] All metrics registered correctly
+- [ ] Metrics increment properly
+- [ ] Histogram buckets appropriate
+- [ ] Custom registry supported
+- [ ] Example code works
+- [ ] Documentation complete
+
+**Estimated effort:** 5 hours
+
+**Priority:** MEDIUM (valuable for production)
+
+---
+
+### Task 8.5: Metrics Integration Points
+**Description:** Integrate metrics collection into composables (opt-in)
+
+**Prerequisites:** Task 8.4
+
+**Unlocks:** Production metrics collection
+
+**Files:**
+- `pkg/bubbly/composables/use_state.go` (update)
+- `pkg/bubbly/composables/use_async.go` (update)
+- `pkg/bubbly/composables/use_form.go` (update)
+- `pkg/bubbly/context.go` (update Inject for depth tracking)
+
+**Integration Pattern:**
+```go
+func UseState[T any](ctx *Context, initial T) UseStateReturn[T] {
+    start := time.Now()
+    defer func() {
+        if metrics := monitoring.GetGlobalMetrics(); metrics != nil {
+            metrics.RecordComposableCreation("UseState", time.Since(start))
+        }
+    }()
+    // ... existing implementation
+}
+```
+
+**Tests:**
+- [ ] Metrics collected when enabled
+- [ ] Zero overhead when disabled (NoOp)
+- [ ] No performance regression
+- [ ] All composables instrumented
+- [ ] Tree depth tracking works
+- [ ] Cache metrics integrated
+
+**Estimated effort:** 4 hours
+
+**Priority:** MEDIUM
+
+---
+
+### Task 8.6: Performance Regression CI
+**Description:** Set up automated performance regression testing in CI/CD
+
+**Prerequisites:** Task 6.3
+
+**Unlocks:** Continuous performance monitoring
+
+**Files:**
+- `.github/workflows/benchmark.yml`
+- `benchmarks/baseline.txt`
+- `benchmarks/README.md`
+
+**Workflow Configuration:**
+```yaml
+name: Performance Benchmarks
+on: [pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem -count=10 ./pkg/bubbly/composables/
+      - name: Compare with baseline
+        run: benchstat baseline.txt new.txt
+      - name: Fail on regression > 10%
+        run: benchstat -delta-test=ttest baseline.txt new.txt | grep -E '\+[0-9]{2}\.' && exit 1 || exit 0
+```
+
+**Tests:**
+- [ ] Workflow runs on PRs
+- [ ] Baseline comparison works
+- [ ] Regression detection accurate
+- [ ] Baseline update process documented
+- [ ] Statistical significance (count=10)
+- [ ] Integration with GitHub Actions
+
+**Documentation:**
+- How to update baseline
+- How to interpret results
+- When to approve regressions
+- Benchmark best practices
+
+**Estimated effort:** 4 hours
+
+**Priority:** HIGH (prevents regressions)
+
+---
+
+### Task 8.7: Profiling Utilities
+**Description:** Create utilities for production profiling
+
+**Prerequisites:** None
+
+**Unlocks:** Production debugging capabilities
+
+**Files:**
+- `pkg/bubbly/monitoring/profiling.go`
+- `pkg/bubbly/monitoring/profiling_test.go`
+- `docs/guides/production-profiling.md`
+
+**Type Safety:**
+```go
+type ComposableProfile struct {
+    Start time.Time
+    End   time.Time
+    Calls map[string]*CallStats
+}
+
+type CallStats struct {
+    Count        int64
+    TotalTime    time.Duration
+    AverageTime  time.Duration
+    Allocations  int64
+}
+
+func EnableProfiling(addr string) error
+func ProfileComposables(duration time.Duration) *ComposableProfile
+```
+
+**Features:**
+- HTTP pprof endpoint (opt-in)
+- CPU profiling
+- Memory profiling  
+- Goroutine profiling
+- Custom composable profiling
+- Flame graph generation
+
+**Documentation:**
+- How to enable profiling in production
+- Security considerations (localhost only)
+- How to capture profiles
+- How to analyze profiles
+- Flame graph interpretation
+
+**Estimated effort:** 5 hours
+
+**Priority:** MEDIUM (useful for debugging)
+
+---
+
+### Task 8.8: Enhanced Benchmark Suite
+**Description:** Add comprehensive benchmark coverage with statistical analysis
+
+**Prerequisites:** Task 6.3
+
+**Unlocks:** Better performance insights
+
+**Files:**
+- `pkg/bubbly/composables/composables_bench_test.go` (extend)
+- `pkg/bubbly/composables/benchmark_utils.go`
+
+**New Benchmarks:**
+```go
+// Multi-CPU scaling tests
+BenchmarkUseState/cpu=1
+BenchmarkUseState/cpu=2
+BenchmarkUseState/cpu=4
+BenchmarkUseState/cpu=6
+
+// Memory growth tests
+BenchmarkMemoryGrowth_LongRunning
+BenchmarkMemoryGrowth_ManyComposables
+
+// Statistical analysis helpers
+func RunWithStats(b *testing.B, fn func())
+func CompareResults(baseline, current string) *BenchmarkComparison
+```
+
+**Tests:**
+- [ ] Multi-CPU benchmarks work
+- [ ] Memory growth tests detect leaks
+- [ ] Statistical helpers accurate
+- [ ] Comparison tools useful
+- [ ] Documentation complete
+
+**Estimated effort:** 4 hours
+
+**Priority:** LOW (nice to have)
+
+---
+
+### Task 8.9: Monitoring Documentation
+**Description:** Comprehensive documentation for optimization and monitoring
+
+**Prerequisites:** Tasks 8.1-8.8
+
+**Unlocks:** Production-ready monitoring
+
+**Files:**
+- `docs/guides/performance-optimization.md`
+- `docs/guides/production-monitoring.md`
+- `docs/guides/profiling-guide.md`
+- `docs/guides/benchmark-guide.md`
+
+**Documentation Topics:**
+1. **Performance Optimization Guide**
+   - When to enable timer pooling
+   - When to enable reflection caching
+   - Performance targets and trade-offs
+   - Benchmarking methodology
+
+2. **Production Monitoring Guide**
+   - Setting up Prometheus metrics
+   - Grafana dashboard configuration
+   - Alerting rules
+   - Monitoring best practices
+   - Tree depth tracking
+
+3. **Profiling Guide**
+   - Enabling profiling endpoints
+   - Capturing CPU/memory profiles
+   - Analyzing flame graphs
+   - Production profiling safety
+   - Interpreting results
+
+4. **Benchmark Guide**
+   - Running benchmarks locally
+   - CI/CD integration
+   - Statistical analysis with benchstat
+   - Updating baselines
+   - Regression investigation
+
+**Estimated effort:** 6 hours
+
+**Priority:** MEDIUM (enables proper usage)
+
+---
+
 ## Validation Checklist
 
 ### Code Quality
@@ -2825,16 +3289,18 @@ sed -i 's/\[\]\*Ref\[any\]/[]Dependency/g' lifecycle_test.go lifecycle_bench_tes
 
 ## Time Estimates
 
-| Phase | Tasks | Estimated Time |
-|-------|-------|----------------|
-| Phase 1: Context Extension | 3 | 9 hours |
-| Phase 2: Standard Composables | 5 | 15 hours |
-| Phase 3: Complex Composables | 3 | 12 hours |
-| Phase 4: Integration & Utilities | 3 | 9 hours |
-| Phase 5: Performance & Polish | 3 | 12 hours |
-| Phase 6: Testing & Validation | 3 | 14 hours |
-| Phase 7: Dependency Interface (QoL) | 8 | 16 hours |
-| **Total** | **28 tasks** | **87 hours (~2.2 weeks)** |
+| Phase | Tasks | Estimated Time | Status |
+|-------|-------|----------------|--------|
+| Phase 1: Context Extension | 3 | 9 hours | ✅ Complete |
+| Phase 2: Standard Composables | 5 | 15 hours | ✅ Complete |
+| Phase 3: Complex Composables | 3 | 12 hours | ✅ Complete |
+| Phase 4: Integration & Utilities | 3 | 9 hours | ✅ Complete |
+| Phase 5: Performance & Polish | 3 | 12 hours | ✅ Complete |
+| Phase 6: Testing & Validation | 3 | 14 hours | ✅ Complete |
+| Phase 7: Dependency Interface (QoL) | 9 | 20 hours | ✅ Complete |
+| **Phase 8: Optimization & Monitoring (Optional)** | **9** | **43 hours (~1 week)** | **Pending** |
+| **Total (Phases 1-7)** | **29 tasks** | **91 hours (~2.3 weeks)** | **✅ Complete** |
+| **Total (with Phase 8)** | **38 tasks** | **134 hours (~3.4 weeks)** | **In Progress** |
 
 ---
 
@@ -2849,10 +3315,16 @@ sed -i 's/\[\]\*Ref\[any\]/[]Dependency/g' lifecycle_test.go lifecycle_bench_tes
 - Day 3: Phase 4 (Integration)
 - Days 4-5: Phase 5 & 6 (Polish and validation)
 
-### Week 3: Quality of Life Enhancement (Optional)
-- Days 1-2: Phase 7.1-7.4 (Dependency interface core)
-- Day 3: Phase 7.5-7.7 (Watch update, docs, migration)
-- Day 4: Phase 7.8 (Integration testing)
+### Week 3: Quality of Life Enhancement
+- Days 1-2: Phase 7.1-7.4 (Dependency interface core) ✅
+- Day 3: Phase 7.5-7.7 (Watch update, docs, migration) ✅
+- Days 4-5: Phase 7.8-7.9 (Integration testing, codebase migration) ✅
+
+### Week 4: Performance Optimization & Monitoring (Optional)
+- Days 1-2: Phase 8.1-8.2 (Timer pool, reflection cache)
+- Day 3: Phase 8.3-8.5 (Metrics interface, Prometheus, integration)
+- Day 4: Phase 8.6 (Performance regression CI - HIGH priority)
+- Day 5: Phase 8.7-8.9 (Profiling, benchmarks, documentation)
 
 ---
 
@@ -2928,9 +3400,21 @@ sed -i 's/\[\]\*Ref\[any\]/[]Dependency/g' lifecycle_test.go lifecycle_bench_tes
 - Enables watching Computed values
 - Backwards compatible API improvement
 
-### Future Enhancements (Post-Phase 7)
+### Phase 8 Enhancements (Optional - In Spec)
+- **Timer pooling** for UseDebounce/UseThrottle (Task 8.1)
+- **Reflection caching** for UseForm (Task 8.2)
+- **Production monitoring** with Prometheus (Tasks 8.3-8.5)
+- **Performance regression CI** (Task 8.6 - HIGH priority)
+- **Profiling utilities** for production debugging (Task 8.7)
+- **Enhanced benchmarks** with statistical analysis (Task 8.8)
+- **Monitoring documentation** (Task 8.9)
+
+### Future Enhancements (Post-Phase 8)
 - Composable registry for discoverability
 - Async composables (suspense-like patterns)
 - Dev tools integration
 - Hot reload support
 - Testing utilities expansion
+- StatsD metrics backend (alternative to Prometheus)
+- Custom metrics exporters
+- Advanced profiling dashboards
