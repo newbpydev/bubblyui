@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestUseAsync_ExecuteTriggersFetch verifies that calling Execute triggers the fetcher function
