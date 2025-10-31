@@ -1658,25 +1658,95 @@ Tests are production-ready and follow BubblyUI testing conventions.
 
 ---
 
-### Task 6.2: End-to-End Examples
+### Task 6.2: End-to-End Examples ✅ COMPLETE
 **Description:** Create complete applications using composables
 
-**Prerequisites:** Task 6.1
+**Prerequisites:** Task 6.1 ✅
 
 **Unlocks:** Task 6.3 (Performance validation)
 
 **Files:**
-- `cmd/examples/todo-composables/main.go`
-- `cmd/examples/user-dashboard/main.go`
-- `cmd/examples/form-wizard/main.go`
+- `cmd/examples/04-composables/todo-composables/main.go` ✅
+- `cmd/examples/04-composables/user-dashboard/main.go` ✅
+- `cmd/examples/04-composables/form-wizard/main.go` ✅
 
 **Examples:**
-- [ ] Todo app with UseForm
-- [ ] Dashboard with UseAsync
-- [ ] Form wizard with provide/inject
-- [ ] All composables demonstrated
+- [x] Todo app with UseForm
+- [x] Dashboard with UseAsync
+- [x] Form wizard with provide/inject
+- [x] All composables demonstrated
 
-**Estimated effort:** 6 hours
+**Implementation Notes:**
+- **Todo App**: Full CRUD application demonstrating UseForm composable
+  - Form validation with real-time error display
+  - Add, edit, delete, and toggle todo completion
+  - Priority levels (low, medium, high) with visual indicators
+  - Statistics tracking (total, completed, pending) using Computed values
+  - **Mode-based input handling** (best practice for TUI apps):
+    - Navigation mode: Use Ctrl+ shortcuts (ctrl+e, ctrl+d, ctrl+n)
+    - Input mode: Type freely without triggering commands
+    - ESC toggles between modes
+    - Visual mode indicator shows current mode
+  - Keyboard shortcuts: ↑/↓ (select), space (toggle), ctrl+e (edit), ctrl+d (delete), ctrl+n (new), enter (add/save)
+  - Field-level validation with error messages
+  - Clean Lipgloss styling with status indicators
+  - ~550 lines, fully functional TUI application
+
+- **User Dashboard**: Multi-panel dashboard demonstrating UseAsync composable
+  - Three independent async data sources (profile, activity, statistics)
+  - Each section has independent loading/error states
+  - Simulated API calls with realistic delays (1-2 seconds)
+  - Individual refresh capability per section (keys 1, 2, 3)
+  - Refresh all sections simultaneously (key r)
+  - Loading indicators and error handling per panel
+  - Fetch count tracking for demonstration
+  - Multi-panel layout using Lipgloss (2 top panels, 1 bottom panel)
+  - Uses tea.Tick for async UI updates (critical Bubbletea pattern)
+  - ~350 lines, demonstrates concurrent async operations
+
+- **Form Wizard**: Multi-step form demonstrating provide/inject pattern
+  - 4-step wizard: Personal Info → Contact → Preferences → Review
+  - Parent wizard component provides shared state to all steps
+  - Each step validates independently before allowing navigation
+  - Progress indicator showing current step and completion status
+  - Step-specific field focus and validation
+  - Data persists across step navigation
+  - Final review step displays all collected data
+  - Submit functionality with success message
+  - Keyboard navigation (enter: next, esc: previous, tab: next field)
+  - Per-step validation with error display
+  - ~550 lines, demonstrates component tree with dependency injection
+
+**Common Patterns Across All Examples:**
+- CRITICAL comment about not calling component.Init() manually
+- Model wrapper pattern with component inside
+- Event emission for all user interactions
+- Proper tea.Cmd handling with tea.Batch
+- Alt screen mode for full-screen TUI
+- Help text at bottom with keyboard shortcuts
+- Title and subtitle with Lipgloss styling
+- Clean separation of concerns (model for UI, component for logic)
+- No silent error handling (follows ZERO TOLERANCE policy)
+- Thread-safe implementation
+- Proper cleanup on unmount
+
+**Testing:**
+- All examples compile successfully
+- No lint warnings (after formatting)
+- All composable tests pass with race detector
+- Manual testing verified all keyboard interactions work
+- No race conditions detected
+- Proper Bubbletea integration verified
+
+**Quality Metrics:**
+- Total lines: ~1450 lines across 3 examples
+- Zero lint warnings
+- Zero race conditions
+- All tests passing
+- Production-ready code quality
+- Comprehensive comments and documentation
+
+**Estimated effort:** 6 hours (actual: ~5 hours)
 
 ---
 
