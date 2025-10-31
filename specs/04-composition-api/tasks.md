@@ -1215,6 +1215,99 @@ UseEffect(ctx, func() UseEffectCleanup {
 
 ---
 
+### Task 7.9: Codebase Migration - Get() to GetTyped()
+**Description:** Migrate all existing `.Get()` calls to `.GetTyped()` for type-safe access
+
+**Prerequisites:** Tasks 7.2, 7.3, 7.4 complete
+
+**Unlocks:** Full codebase compilation and test suite passing
+
+**Files:**
+- **390+ call sites across 35 files** need updating:
+  - `pkg/bubbly/*_test.go` (all test files)
+  - `pkg/bubbly/composables/*.go`
+  - `cmd/examples/**/*.go` (all examples)
+  - `tests/integration/*.go`
+  - Internal files: `context.go`, `lifecycle.go`, `watch.go`, etc.
+
+**Migration Strategy:**
+```go
+// BEFORE (now returns any):
+value := ref.Get()
+result := computed.Get()
+
+// AFTER (type-safe):
+value := ref.GetTyped()
+result := computed.GetTyped()
+
+// For Dependency interface usage (keep as-is):
+deps := []Dependency{ref, computed}
+value := deps[0].Get()  // Returns any - this is correct
+```
+
+**Automated Approach:**
+```bash
+# Option 1: sed replacement (careful with false positives)
+find ./pkg/bubbly -name "*.go" -type f -exec sed -i 's/\.Get()/\.GetTyped()/g' {} +
+find ./cmd/examples -name "*.go" -type f -exec sed -i 's/\.Get()/\.GetTyped()/g' {} +
+find ./tests -name "*.go" -type f -exec sed -i 's/\.Get()/\.GetTyped()/g' {} +
+
+# Option 2: Go AST-based tool (more precise)
+# Create migration tool that:
+# 1. Parses Go files
+# 2. Finds method calls on *Ref[T] and *Computed[T]
+# 3. Renames .Get() to .GetTyped()
+# 4. Preserves .Get() on Dependency interface usage
+```
+
+**Manual Review Required For:**
+- Dependency interface usage (should stay as `.Get()`)
+- Generic code that uses type parameters
+- Code that explicitly needs `any` return type
+- Watch callbacks and UseEffect closures
+
+**Tests:**
+- [ ] All existing tests compile
+- [ ] All existing tests pass
+- [ ] No new type assertion errors
+- [ ] Race detector passes
+- [ ] All examples compile and run
+- [ ] Integration tests pass
+- [ ] Benchmark tests pass
+
+**Validation Steps:**
+1. Run migration script/tool
+2. Compile: `go build ./...`
+3. Test: `go test ./...`
+4. Race: `go test -race ./...`
+5. Lint: `make lint`
+6. Examples: Test all example applications
+7. Manual review of critical paths
+
+**Estimated effort:** 4-6 hours
+- 1 hour: Create/test migration script
+- 2-3 hours: Run migration and fix edge cases
+- 1-2 hours: Comprehensive testing and validation
+
+**Priority:** CRITICAL - Blocks all other work until complete
+
+**Implementation Notes:**
+- **Scope:** 390+ matches across 35 files
+- **Risk:** High - touches entire codebase
+- **Mitigation:** Automated tool + comprehensive testing
+- **Rollback:** Git revert if issues found
+- **Timeline:** Should be done immediately after Tasks 7.2-7.4
+
+**Success Criteria:**
+- ✅ Zero compilation errors
+- ✅ All tests pass (100% passing rate maintained)
+- ✅ No new race conditions
+- ✅ All examples work
+- ✅ Performance unchanged
+- ✅ Zero tech debt introduced
+
+---
+
 ## Validation Checklist
 
 ### Code Quality
