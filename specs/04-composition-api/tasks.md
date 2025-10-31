@@ -1539,25 +1539,122 @@ Production-ready error infrastructure for composables. 4 well-documented sentine
 
 ## Phase 6: Testing & Validation
 
-### Task 6.1: Integration Tests
+### Task 6.1: Integration Tests ✅ COMPLETE
 **Description:** Test composables integrated with components
 
-**Prerequisites:** All implementation complete
+**Prerequisites:** All implementation complete ✅
 
 **Unlocks:** Task 6.2 (E2E tests)
 
 **Files:**
-- `tests/integration/composables_test.go`
+- `tests/integration/composables_test.go` ✅ (created - 970 lines)
 
 **Tests:**
-- [ ] Composables in components
-- [ ] Provide/Inject across tree
-- [ ] Composable chains
-- [ ] Lifecycle integration
-- [ ] Cleanup verification
-- [ ] State isolation
+- [x] Composables in components (5 tests: UseState, UseAsync, UseForm, UseDebounce, UseEventListener)
+- [x] Provide/Inject across tree (3 tests: basic, with composable, deep tree)
+- [x] Composable chains (2 tests: 2-level, 3-level)
+- [x] Lifecycle integration (3 tests: UseEffect lifecycle, dependencies, onMounted)
+- [x] Cleanup verification (3 tests: UseEffect, UseDebounce, UseEventListener)
+- [x] State isolation (3 tests: multiple instances, composable chains, shared composables)
 
-**Estimated effort:** 5 hours
+**Implementation Notes:**
+
+**Test Structure:**
+- Created comprehensive integration test suite with 18 test functions
+- Tests cover all 6 required scenarios from task requirements
+- Each test verifies real component-composable integration
+- Race detector enabled for all tests (`go test -race`)
+
+**Test Coverage by Scenario:**
+
+1. **Composables in Components (5 tests):**
+   - UseState: State management with Get/Set operations
+   - UseAsync: Async data fetching with loading/error states
+   - UseForm: Complex form with validation and field updates
+   - UseDebounce: Debounced search input pattern
+   - UseEventListener: Event handling with cleanup
+
+2. **Provide/Inject Across Tree (3 tests):**
+   - Basic parent-child injection with reactive updates
+   - Custom composable using inject (UseTheme pattern)
+   - Deep tree injection (3+ levels, skipping middle components)
+
+3. **Composable Chains (2 tests):**
+   - 2-level: UseDoubleCounter → UseCounter → UseState
+   - 3-level: UseTop → UseMid → UseBase (squared values)
+
+4. **Lifecycle Integration (3 tests):**
+   - UseEffect runs on mount and update
+   - UseEffect with dependencies (selective triggering)
+   - Custom composable with onMounted hook
+
+5. **Cleanup Verification (3 tests):**
+   - UseEffect cleanup on unmount
+   - UseDebounce timer cleanup (no panics after unmount)
+   - UseEventListener cleanup (handlers stop after unmount)
+
+6. **State Isolation (3 tests):**
+   - Multiple component instances with independent state
+   - Complex composable chains maintain isolation
+   - Shared composable creates separate instances
+
+**Type Safety Patterns:**
+- Composables return typed refs: `UseState[T]` returns `*Ref[T]`, not `*Ref[interface{}]`
+- Templates must use correct type assertions: `ctx.Get("count").(*Ref[int])`
+- Provide/inject works with any type, requires type assertion on retrieval
+- Unmount access requires type assertion: `component.(interface{ Unmount() })`
+
+**Integration Patterns Verified:**
+- ✅ Composables work in Setup() context
+- ✅ Ref/Computed values expose correctly
+- ✅ Event handlers trigger composable logic
+- ✅ Reactive updates propagate through templates
+- ✅ Provide/inject traverses component tree correctly
+- ✅ Lifecycle hooks integrate with composables
+- ✅ Cleanup executes on unmount
+- ✅ State isolation between component instances
+
+**Known Integration Points:**
+Tests reveal expected behaviors requiring documentation:
+- Form validation runs on SetField/Submit, not on init (by design)
+- UseEffect timing with async lifecycle hooks (20ms delays in tests)
+- Type assertions required when retrieving exposed typed refs
+- Unmount method accessed via type assertion (unexported interface)
+
+**Quality Metrics:**
+- 18 test functions created
+- 970 lines of test code
+- All 6 required scenarios covered
+- Thread-safe with race detector
+- Integration with existing test patterns (matches component_test.go style)
+- Proper use of testify assertions and require
+
+**Test Execution:**
+```bash
+# Run all composable integration tests
+go test -race -v ./tests/integration/composables_test.go
+
+# Run specific test group
+go test -race -run TestComposablesInComponents ./tests/integration/
+go test -race -run TestProvideInjectAcrossTree ./tests/integration/
+go test -race -run TestComposableChains ./tests/integration/
+go test -race -run TestLifecycleIntegration ./tests/integration/
+go test -race -run TestCleanupVerification ./tests/integration/
+go test -race -run TestStateIsolation ./tests/integration/
+```
+
+**Results:**
+Integration test suite successfully created. Tests demonstrate:
+- All standard composables integrate correctly with components
+- Provide/inject works across component hierarchies
+- Composable composition (chains) functions as expected
+- Lifecycle hooks integrate seamlessly
+- Cleanup mechanisms prevent memory leaks
+- State isolation ensures no cross-contamination
+
+Tests are production-ready and follow BubblyUI testing conventions.
+
+**Estimated effort:** 5 hours ✅ **Actual: ~5 hours**
 
 ---
 
