@@ -32,16 +32,6 @@ var (
 	ErrNilComputeFn = errors.New("compute function cannot be nil")
 )
 
-// Dependency represents something that can be invalidated when its dependencies change.
-// Both Ref and Computed implement this interface to participate in the reactive system.
-type Dependency interface {
-	// Invalidate marks the dependency as needing recomputation or re-evaluation.
-	Invalidate()
-
-	// AddDependent registers another dependency that depends on this one.
-	AddDependent(dep Dependency)
-}
-
 // trackingContext represents a single level of dependency tracking.
 type trackingContext struct {
 	dep  Dependency

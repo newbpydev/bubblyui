@@ -21,6 +21,10 @@ func newMockDependency(id string) *mockDependency {
 	return &mockDependency{id: id}
 }
 
+func (m *mockDependency) Get() any {
+	return m.id
+}
+
 func (m *mockDependency) Invalidate() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
