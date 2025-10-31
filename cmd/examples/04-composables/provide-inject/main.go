@@ -84,13 +84,13 @@ func createChildComponent(name string) (bubbly.Component, error) {
 			ctx.Expose("name", name)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
-			// Get injected values
-			theme := ctx.Get("theme")
-			size := ctx.Get("size")
+			// Get injected values (these are Refs provided by parent)
+			theme := ctx.Get("theme").(*bubbly.Ref[interface{}])
+			size := ctx.Get("size").(*bubbly.Ref[interface{}])
 			name := ctx.Get("name").(string)
 
-			themeVal := theme.(string)
-			sizeVal := size.(string)
+			themeVal := theme.GetTyped().(string)
+			sizeVal := size.GetTyped().(string)
 
 			// Style based on injected theme
 			var bgColor, fgColor, borderColor lipgloss.Color
