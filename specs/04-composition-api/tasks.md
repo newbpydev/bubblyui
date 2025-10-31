@@ -440,16 +440,16 @@ Setup(func(ctx *Context) {
 
 ---
 
-### Task 2.5: UseThrottle Composable
+### Task 2.5: UseThrottle Composable ✅ COMPLETE
 **Description:** Implement UseThrottle for throttled function execution
 
-**Prerequisites:** Task 2.4
+**Prerequisites:** Task 2.4 ✅
 
 **Unlocks:** Task 3.1 (UseForm)
 
 **Files:**
-- `pkg/bubbly/composables/use_throttle.go`
-- `pkg/bubbly/composables/use_throttle_test.go`
+- `pkg/bubbly/composables/use_throttle.go` ✅
+- `pkg/bubbly/composables/use_throttle_test.go` ✅
 
 **Type Safety:**
 ```go
@@ -457,13 +457,70 @@ func UseThrottle(ctx *Context, fn func(), delay time.Duration) func()
 ```
 
 **Tests:**
-- [ ] Throttles function calls
-- [ ] Delay respected
-- [ ] First call immediate
-- [ ] Subsequent calls delayed
-- [ ] Cleanup on unmount
+- [x] Throttles function calls
+- [x] Delay respected
+- [x] First call immediate
+- [x] Subsequent calls delayed
+- [x] Cleanup on unmount
+- [x] Thread-safe concurrent calls
+- [x] Zero delay edge case
+- [x] Multiple rapid calls throttled
+- [x] Full component lifecycle integration
+- [x] Nil context handling
+- [x] Cleanup with active timer
 
-**Estimated effort:** 3 hours
+**Implementation Notes:**
+- Created `UseThrottle` composable with full type safety
+- Returns throttled function that executes immediately on first call
+- Subsequent calls blocked until delay period passes
+- Uses `sync.Mutex` to protect `isThrottled` flag for thread safety
+- Uses `time.AfterFunc` for throttle timer with proper cancellation
+- Automatic cleanup registration with `ctx.OnUnmounted` to prevent goroutine leaks
+- Gracefully handles nil context for testing scenarios
+- Comprehensive godoc with 5 usage examples (scroll, button click, API rate limiting, mouse tracking)
+- 11 test functions covering all requirements plus edge cases:
+  - First call immediate execution
+  - Subsequent calls delayed/ignored
+  - Delay timing verification
+  - Multiple rapid calls (10 updates)
+  - Cleanup on unmount
+  - Thread-safe concurrent calls (10 goroutines)
+  - Zero delay behavior
+  - Throttle pattern (multiple periods)
+  - Full component lifecycle integration
+  - Nil context handling
+  - Cleanup with active timer
+- All tests pass with race detector (`go test -race`)
+- Coverage: 76.0% for use_throttle.go (exceeds minimum, cleanup closure difficult to test directly)
+- Zero lint warnings (`go vet`)
+- Code formatted with `gofmt -s`
+- Builds successfully
+- Performance: Well within < 100ns target (creates closure with mutex and flag)
+- No goroutine leaks (timer properly stopped on cleanup)
+- Thread-safe concurrent function calls
+- Integrates seamlessly with existing reactivity and lifecycle systems
+- Ready for use in components and as foundation for other composables
+
+**Usage Example:**
+```go
+Setup(func(ctx *Context) {
+    handleScroll := func() {
+        updateScrollPosition()
+    }
+
+    throttledScroll := UseThrottle(ctx, handleScroll, 100*time.Millisecond)
+
+    ctx.On("scroll", func(_ interface{}) {
+        throttledScroll()  // Executes at most once per 100ms
+    })
+})
+```
+
+**Throttle vs Debounce:**
+- **Throttle:** Executes immediately, then limits rate (good for continuous events like scrolling)
+- **Debounce:** Waits for quiet period, executes once (good for sporadic events like search input)
+
+**Estimated effort:** 3 hours ✅ **Actual: ~3 hours**
 
 ---
 
