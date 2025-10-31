@@ -29,7 +29,7 @@ func TestComputed_ImplementsDependency(t *testing.T) {
 				computed := NewComputed(func() int {
 					return count.GetTyped() * 2
 				})
-				value := computed.Get()
+				value := computed.GetTyped()
 				assert.Equal(t, 10, value)
 			},
 		},
@@ -104,14 +104,14 @@ func TestComputed_ImplementsDependency(t *testing.T) {
 				})
 
 				// First call
-				result := computed.Get()
+				result := computed.GetTyped()
 				assert.Equal(t, 10, result)
 
 				// Change dependency
 				count.Set(10)
 
 				// Should recompute
-				result = computed.Get()
+				result = computed.GetTyped()
 				assert.Equal(t, 20, result)
 			},
 		},
@@ -145,7 +145,7 @@ func TestComputed_ImplementsDependency(t *testing.T) {
 					return firstName.GetTyped() + " " + lastName.GetTyped()
 				})
 
-				value := fullName.Get()
+				value := fullName.GetTyped()
 				assert.Equal(t, "John Doe", value)
 
 				typedValue := fullName.GetTyped()
@@ -163,11 +163,11 @@ func TestComputed_ImplementsDependency(t *testing.T) {
 					return doubled.GetTyped() * 2
 				})
 
-				result := quadrupled.Get()
+				result := quadrupled.GetTyped()
 				assert.Equal(t, 20, result)
 
 				base.Set(10)
-				result = quadrupled.Get()
+				result = quadrupled.GetTyped()
 				assert.Equal(t, 40, result)
 			},
 		},

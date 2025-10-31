@@ -66,7 +66,7 @@ func (s *CallbackScheduler) flush() int {
 //	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    switch msg := msg.(type) {
 //	    case someMsg:
-//	        m.count.Set(m.count.Get() + 1)  // Queued if using WithFlush("post")
+//	        m.count.Set(m.count.GetTyped() + 1)  // Queued if using WithFlush("post")
 //	    }
 //
 //	    // Execute all queued callbacks before returning

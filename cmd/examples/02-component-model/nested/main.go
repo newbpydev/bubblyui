@@ -104,7 +104,7 @@ func createContainer() (bubbly.Component, error) {
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get selected ID
 			selectedID := ctx.Get("selectedID").(*bubbly.Ref[interface{}])
-			selected := selectedID.Get().(int)
+			selected := selectedID.GetTyped().(int)
 
 			// Container style
 			containerStyle := lipgloss.NewStyle().

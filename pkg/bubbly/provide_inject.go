@@ -96,7 +96,7 @@ func ProvideTyped[T any](ctx *Context, key ProvideKey[T], value T) {
 //	// Inject reactive Ref - no type assertion needed
 //	countKey := NewProvideKey[*Ref[int]]("count")
 //	count := InjectTyped(ctx, countKey, ctx.Ref(0))
-//	count.Set(count.Get() + 1)  // Direct access, no casting
+//	count.Set(count.GetTyped() + 1)  // Direct access, no casting
 //
 //	// Inject optional dependency with nil default
 //	userKey := NewProvideKey[*User]("currentUser")

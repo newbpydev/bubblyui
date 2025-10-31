@@ -168,7 +168,7 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 
 			// Helper to add event
 			addEvent := func(event string) {
-				current := events.Get().([]string)
+				current := events.GetTyped().([]string)
 				if len(current) >= 8 {
 					current = current[1:]
 				}
@@ -198,7 +198,7 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 
 			// onUpdated: Track subscription state changes
 			ctx.OnUpdated(func() {
-				isSubscribed := subscribed.Get().(bool)
+				isSubscribed := subscribed.GetTyped().(bool)
 				if isSubscribed {
 					addEvent("🟢 Subscription active")
 				} else {
@@ -219,7 +219,7 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 			// Event handlers
 			ctx.On("message-received", func(data interface{}) {
 				msg := data.(string)
-				current := messages.Get().([]string)
+				current := messages.GetTyped().([]string)
 				// Keep last 10 messages
 				if len(current) >= 10 {
 					current = current[1:]
@@ -230,7 +230,7 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 			})
 
 			ctx.On("toggle-subscription", func(data interface{}) {
-				isSubscribed := subscribed.Get().(bool)
+				isSubscribed := subscribed.GetTyped().(bool)
 				if isSubscribed {
 					// Unsubscribe
 					if subscription != nil {
@@ -267,9 +267,9 @@ func createSubscriptionDemo() (bubbly.Component, error) {
 			subscribed := ctx.Get("subscribed").(*bubbly.Ref[interface{}])
 			events := ctx.Get("events").(*bubbly.Ref[interface{}])
 
-			messagesVal := messages.Get().([]string)
-			subscribedVal := subscribed.Get().(bool)
-			eventsVal := events.Get().([]string)
+			messagesVal := messages.GetTyped().([]string)
+			subscribedVal := subscribed.GetTyped().(bool)
+			eventsVal := events.GetTyped().([]string)
 
 			// Status box
 			statusStyle := lipgloss.NewStyle().

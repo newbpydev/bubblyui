@@ -17,7 +17,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			lastValue = count.Get()
+			lastValue = count.GetTyped()
 		})
 		defer cleanup()
 
@@ -43,7 +43,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			fullName = firstName.Get() + " " + lastName.Get()
+			fullName = firstName.GetTyped() + " " + lastName.GetTyped()
 		})
 		defer cleanup()
 
@@ -64,7 +64,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 	t.Run("computed dependency", func(t *testing.T) {
 		count := NewRef(5)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var callCount int
@@ -72,7 +72,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			lastValue = doubled.Get()
+			lastValue = doubled.GetTyped()
 		})
 		defer cleanup()
 
@@ -88,7 +88,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 		count := NewRef(2)
 		multiplier := NewRef(3)
 		result := NewComputed(func() int {
-			return count.Get() * multiplier.Get()
+			return count.GetTyped() * multiplier.GetTyped()
 		})
 
 		var callCount int
@@ -96,7 +96,7 @@ func TestWatchEffect_AutomaticDependencyDiscovery(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			lastResult = result.Get()
+			lastResult = result.GetTyped()
 		})
 		defer cleanup()
 
@@ -125,10 +125,10 @@ func TestWatchEffect_ConditionalDependencies(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			if toggle.Get() {
-				result = valueA.Get()
+			if toggle.GetTyped() {
+				result = valueA.GetTyped()
 			} else {
-				result = valueB.Get()
+				result = valueB.GetTyped()
 			}
 		})
 		defer cleanup()
@@ -171,7 +171,7 @@ func TestWatchEffect_Cleanup(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			_ = count.Get()
+			_ = count.GetTyped()
 		})
 
 		assert.Equal(t, 1, callCount)
@@ -194,8 +194,8 @@ func TestWatchEffect_Cleanup(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			_ = ref1.Get()
-			_ = ref2.Get()
+			_ = ref1.GetTyped()
+			_ = ref2.GetTyped()
 		})
 
 		assert.Equal(t, 1, callCount)
@@ -233,7 +233,7 @@ func TestWatchEffect_Concurrency(t *testing.T) {
 
 	cleanup := WatchEffect(func() {
 		callCount.Add(1)
-		_ = count.Get()
+		_ = count.GetTyped()
 	})
 	defer cleanup()
 
@@ -269,12 +269,12 @@ func TestWatchEffect_NestedEffects(t *testing.T) {
 
 	cleanup1 := WatchEffect(func() {
 		outerCalls++
-		_ = outer.Get()
+		_ = outer.GetTyped()
 
 		// Nested effect
 		cleanup2 := WatchEffect(func() {
 			innerCalls++
-			_ = inner.Get()
+			_ = inner.GetTyped()
 		})
 		defer cleanup2()
 	})
@@ -302,7 +302,7 @@ func TestWatchEffect_ErrorHandling(t *testing.T) {
 
 		cleanup := WatchEffect(func() {
 			callCount++
-			_ = count.Get()
+			_ = count.GetTyped()
 			if callCount == 2 {
 				// This should be recovered
 				panic("test panic")
@@ -327,10 +327,10 @@ func TestWatchEffect_ErrorHandling(t *testing.T) {
 func TestWatchEffect_ChainedComputed(t *testing.T) {
 	count := NewRef(2)
 	doubled := NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 	quadrupled := NewComputed(func() int {
-		return doubled.Get() * 2
+		return doubled.GetTyped() * 2
 	})
 
 	var callCount int
@@ -338,7 +338,7 @@ func TestWatchEffect_ChainedComputed(t *testing.T) {
 
 	cleanup := WatchEffect(func() {
 		callCount++
-		result = quadrupled.Get()
+		result = quadrupled.GetTyped()
 	})
 	defer cleanup()
 

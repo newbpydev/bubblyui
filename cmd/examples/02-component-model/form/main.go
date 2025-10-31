@@ -135,7 +135,7 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 
 			// Validation computed values
 			emailValid := ctx.Computed(func() interface{} {
-				e := email.Get().(string)
+				e := email.GetTyped().(string)
 				props := ctx.Props().(FormProps)
 				if !props.RequireEmail {
 					return true
@@ -144,13 +144,13 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			})
 
 			passwordValid := ctx.Computed(func() interface{} {
-				p := password.Get().(string)
+				p := password.GetTyped().(string)
 				props := ctx.Props().(FormProps)
 				return len(p) >= props.MinPassword
 			})
 
 			formValid := ctx.Computed(func() interface{} {
-				return emailValid.Get().(bool) && passwordValid.Get().(bool)
+				return emailValid.GetTyped().(bool) && passwordValid.GetTyped().(bool)
 			})
 
 			// Expose state
@@ -165,26 +165,26 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			ctx.On("typeEmail", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
 					char := event.Data.(string)
-					email.Set(email.Get().(string) + char)
+					email.Set(email.GetTyped().(string) + char)
 				}
 			})
 
 			ctx.On("typePassword", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
 					char := event.Data.(string)
-					password.Set(password.Get().(string) + char)
+					password.Set(password.GetTyped().(string) + char)
 				}
 			})
 
 			ctx.On("deleteEmail", func(data interface{}) {
-				e := email.Get().(string)
+				e := email.GetTyped().(string)
 				if len(e) > 0 {
 					email.Set(e[:len(e)-1])
 				}
 			})
 
 			ctx.On("deletePassword", func(data interface{}) {
-				p := password.Get().(string)
+				p := password.GetTyped().(string)
 				if len(p) > 0 {
 					password.Set(p[:len(p)-1])
 				}
@@ -203,8 +203,8 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			})
 
 			ctx.On("submit", func(data interface{}) {
-				if formValid.Get().(bool) {
-					onSubmit(email.Get().(string), password.Get().(string))
+				if formValid.GetTyped().(bool) {
+					onSubmit(email.GetTyped().(string), password.GetTyped().(string))
 				}
 			})
 		}).
@@ -217,9 +217,9 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			passwordValid := ctx.Get("passwordValid").(*bubbly.Computed[interface{}])
 			formValid := ctx.Get("formValid").(*bubbly.Computed[interface{}])
 
-			emailVal := email.Get().(string)
-			passwordVal := password.Get().(string)
-			focused := focusedField.Get().(int)
+			emailVal := email.GetTyped().(string)
+			passwordVal := password.GetTyped().(string)
+			focused := focusedField.GetTyped().(int)
 
 			// Form container
 			formStyle := lipgloss.NewStyle().
@@ -251,10 +251,10 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			}
 
 			emailLabel := "Email:"
-			if !emailValid.Get().(bool) && len(emailVal) > 0 {
+			if !emailValid.GetTyped().(bool) && len(emailVal) > 0 {
 				emailLabel += " ✗ Invalid"
 				emailStyle = emailStyle.BorderForeground(lipgloss.Color("196"))
-			} else if emailValid.Get().(bool) && len(emailVal) > 0 {
+			} else if emailValid.GetTyped().(bool) && len(emailVal) > 0 {
 				emailLabel += " ✓"
 			}
 
@@ -279,10 +279,10 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 			}
 
 			passwordLabel := fmt.Sprintf("Password (min %d chars):", props.MinPassword)
-			if !passwordValid.Get().(bool) && len(passwordVal) > 0 {
+			if !passwordValid.GetTyped().(bool) && len(passwordVal) > 0 {
 				passwordLabel += " ✗ Too short"
 				passwordStyle = passwordStyle.BorderForeground(lipgloss.Color("196"))
-			} else if passwordValid.Get().(bool) && len(passwordVal) > 0 {
+			} else if passwordValid.GetTyped().(bool) && len(passwordVal) > 0 {
 				passwordLabel += " ✓"
 			}
 
@@ -299,7 +299,7 @@ func createForm(props FormProps, onSubmit func(email, password string)) (bubbly.
 				Border(lipgloss.RoundedBorder()).
 				MarginTop(1)
 
-			if formValid.Get().(bool) {
+			if formValid.GetTyped().(bool) {
 				buttonStyle = buttonStyle.
 					Bold(true).
 					Foreground(lipgloss.Color("15")).

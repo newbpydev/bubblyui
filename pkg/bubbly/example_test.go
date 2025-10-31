@@ -11,7 +11,7 @@ func ExampleNewRef() {
 	// Create a reactive reference with an initial value
 	count := bubbly.NewRef(0)
 
-	fmt.Println("Initial:", count.Get())
+	fmt.Println("Initial:", count.GetTyped())
 
 	// Output:
 	// Initial: 0
@@ -22,7 +22,7 @@ func ExampleRef_Get() {
 	count := bubbly.NewRef(42)
 
 	// Get returns the current value
-	value := count.Get()
+	value := count.GetTyped()
 	fmt.Println("Value:", value)
 
 	// Output:
@@ -33,11 +33,11 @@ func ExampleRef_Get() {
 func ExampleRef_Set() {
 	count := bubbly.NewRef(0)
 
-	fmt.Println("Before:", count.Get())
+	fmt.Println("Before:", count.GetTyped())
 
 	// Set updates the value
 	count.Set(10)
-	fmt.Println("After:", count.Get())
+	fmt.Println("After:", count.GetTyped())
 
 	// Output:
 	// Before: 0
@@ -50,13 +50,13 @@ func ExampleNewComputed() {
 
 	// Computed value automatically updates when count changes
 	doubled := bubbly.NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 
-	fmt.Println("Doubled:", doubled.Get())
+	fmt.Println("Doubled:", doubled.GetTyped())
 
 	count.Set(20)
-	fmt.Println("Doubled after update:", doubled.Get())
+	fmt.Println("Doubled after update:", doubled.GetTyped())
 
 	// Output:
 	// Doubled: 20
@@ -69,16 +69,16 @@ func ExampleNewComputed_chain() {
 
 	// Chain computed values
 	doubled := bubbly.NewComputed(func() int {
-		return base.Get() * 2
+		return base.GetTyped() * 2
 	})
 
 	quadrupled := bubbly.NewComputed(func() int {
-		return doubled.Get() * 2
+		return doubled.GetTyped() * 2
 	})
 
-	fmt.Println("Base:", base.Get())
-	fmt.Println("Doubled:", doubled.Get())
-	fmt.Println("Quadrupled:", quadrupled.Get())
+	fmt.Println("Base:", base.GetTyped())
+	fmt.Println("Doubled:", doubled.GetTyped())
+	fmt.Println("Quadrupled:", quadrupled.GetTyped())
 
 	// Output:
 	// Base: 5
@@ -240,12 +240,12 @@ func Example_reactiveCounter() {
 
 	// Create computed value
 	doubled := bubbly.NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 
 	// Watch for changes
 	cleanup := bubbly.Watch(count, func(newVal, oldVal int) {
-		fmt.Printf("Count: %d, Doubled: %d\n", newVal, doubled.Get())
+		fmt.Printf("Count: %d, Doubled: %d\n", newVal, doubled.GetTyped())
 	})
 	defer cleanup()
 
@@ -270,7 +270,7 @@ func Example_todoList() {
 	// Computed: count of incomplete todos
 	remaining := bubbly.NewComputed(func() int {
 		count := 0
-		for _, todo := range todos.Get() {
+		for _, todo := range todos.GetTyped() {
 			if !todo.Done {
 				count++
 			}
@@ -284,14 +284,14 @@ func Example_todoList() {
 		{Title: "Build TUI app", Done: false},
 	})
 
-	fmt.Printf("Remaining: %d\n", remaining.Get())
+	fmt.Printf("Remaining: %d\n", remaining.GetTyped())
 
 	// Complete one todo
-	list := todos.Get()
+	list := todos.GetTyped()
 	list[0].Done = true
 	todos.Set(list)
 
-	fmt.Printf("Remaining: %d\n", remaining.Get())
+	fmt.Printf("Remaining: %d\n", remaining.GetTyped())
 
 	// Output:
 	// Remaining: 2
@@ -305,18 +305,18 @@ func Example_formValidation() {
 
 	// Computed: form is valid
 	isValid := bubbly.NewComputed(func() bool {
-		e := email.Get()
-		p := password.Get()
+		e := email.GetTyped()
+		p := password.GetTyped()
 		return len(e) > 0 && len(p) >= 8
 	})
 
-	fmt.Printf("Valid: %v\n", isValid.Get())
+	fmt.Printf("Valid: %v\n", isValid.GetTyped())
 
 	email.Set("user@example.com")
-	fmt.Printf("Valid: %v\n", isValid.Get())
+	fmt.Printf("Valid: %v\n", isValid.GetTyped())
 
 	password.Set("secret123")
-	fmt.Printf("Valid: %v\n", isValid.Get())
+	fmt.Printf("Valid: %v\n", isValid.GetTyped())
 
 	// Output:
 	// Valid: false
@@ -385,7 +385,7 @@ func Example_componentWithSetup() {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			count := ctx.Get("count").(*bubbly.Ref[interface{}])
-			return fmt.Sprintf("Count: %d", count.Get().(int))
+			return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 		}).
 		Build()
 
@@ -407,7 +407,7 @@ func Example_componentWithTemplate() {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			message := ctx.Get("message").(*bubbly.Ref[interface{}])
-			return fmt.Sprintf("Message: %s", message.Get().(string))
+			return fmt.Sprintf("Message: %s", message.GetTyped().(string))
 		}).
 		Build()
 
@@ -555,19 +555,19 @@ func Example_statefulComponent() {
 
 			// Register increment handler
 			ctx.On("increment", func(data interface{}) {
-				current := count.Get().(int)
+				current := count.GetTyped().(int)
 				count.Set(current + 1)
 			})
 
 			// Register decrement handler
 			ctx.On("decrement", func(data interface{}) {
-				current := count.Get().(int)
+				current := count.GetTyped().(int)
 				count.Set(current - 1)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			count := ctx.Get("count").(*bubbly.Ref[interface{}])
-			return fmt.Sprintf("Count: %d", count.Get().(int))
+			return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 		}).
 		Build()
 
@@ -630,7 +630,7 @@ func Example_buttonComponent() {
 			ctx.Expose("clicks", clicks)
 
 			ctx.On("click", func(data interface{}) {
-				current := clicks.Get().(int)
+				current := clicks.GetTyped().(int)
 				clicks.Set(current + 1)
 			})
 		}).
@@ -644,7 +644,7 @@ func Example_buttonComponent() {
 			}
 
 			return fmt.Sprintf("%s%s ] (clicked: %d times)",
-				prefix, props.Label, clicks.Get().(int))
+				prefix, props.Label, clicks.GetTyped().(int))
 		}).
 		Build()
 
@@ -672,11 +672,11 @@ func Example_counterComponent() {
 			ctx.Expose("count", count)
 
 			ctx.On("increment", func(data interface{}) {
-				count.Set(count.Get().(int) + 1)
+				count.Set(count.GetTyped().(int) + 1)
 			})
 
 			ctx.On("decrement", func(data interface{}) {
-				count.Set(count.Get().(int) - 1)
+				count.Set(count.GetTyped().(int) - 1)
 			})
 
 			ctx.On("reset", func(data interface{}) {
@@ -685,7 +685,7 @@ func Example_counterComponent() {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			count := ctx.Get("count").(*bubbly.Ref[interface{}])
-			return fmt.Sprintf("Count: %d", count.Get().(int))
+			return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 		}).
 		Build()
 
@@ -726,8 +726,8 @@ func Example_formComponent() {
 
 			// Computed: form is valid
 			isValid := ctx.Computed(func() interface{} {
-				e := email.Get().(string)
-				p := password.Get().(string)
+				e := email.GetTyped().(string)
+				p := password.GetTyped().(string)
 				props := ctx.Props().(FormProps)
 
 				if props.Required {
@@ -757,12 +757,12 @@ func Example_formComponent() {
 			isValid := ctx.Get("isValid").(*bubbly.Computed[interface{}])
 
 			status := "Invalid"
-			if isValid.Get().(bool) {
+			if isValid.GetTyped().(bool) {
 				status = "Valid"
 			}
 
 			return fmt.Sprintf("Form: email=%s, password=%s, status=%s",
-				email.Get().(string), password.Get().(string), status)
+				email.GetTyped().(string), password.GetTyped().(string), status)
 		}).
 		Build()
 
@@ -861,12 +861,12 @@ func ExampleContext_Ref() {
 			// Create a reactive reference
 			count := ctx.Ref(42)
 
-			fmt.Printf("Initial value: %d\n", count.Get().(int))
+			fmt.Printf("Initial value: %d\n", count.GetTyped().(int))
 
 			// Modify the value
 			count.Set(100)
 
-			fmt.Printf("New value: %d\n", count.Get().(int))
+			fmt.Printf("New value: %d\n", count.GetTyped().(int))
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			return "Example"
@@ -892,7 +892,7 @@ func ExampleContext_Expose() {
 		Template(func(ctx bubbly.RenderContext) string {
 			// Access exposed state
 			message := ctx.Get("message").(*bubbly.Ref[interface{}])
-			return fmt.Sprintf("Message: %s", message.Get().(string))
+			return fmt.Sprintf("Message: %s", message.GetTyped().(string))
 		}).
 		Build()
 
@@ -916,7 +916,7 @@ func ExampleRenderContext_Get() {
 			title := ctx.Get("title").(*bubbly.Ref[interface{}])
 			count := ctx.Get("count").(*bubbly.Ref[interface{}])
 
-			return fmt.Sprintf("%s: %d items", title.Get().(string), count.Get().(int))
+			return fmt.Sprintf("%s: %d items", title.GetTyped().(string), count.GetTyped().(int))
 		}).
 		Build()
 

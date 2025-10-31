@@ -41,7 +41,7 @@ func TestUseState_CreatesRefWithInitialValue(t *testing.T) {
 			state := UseState(ctx, tt.initial)
 
 			assert.NotNil(t, state.Value, "Value should not be nil")
-			assert.Equal(t, tt.initial, state.Value.Get(), "Initial value should match")
+			assert.Equal(t, tt.initial, state.Value.GetTyped(), "Initial value should match")
 			assert.Equal(t, tt.initial, state.Get(), "Get() should return initial value")
 		})
 	}
@@ -65,7 +65,7 @@ func TestUseState_SetUpdatesValue(t *testing.T) {
 			state := UseState(ctx, tt.initial)
 			state.Set(tt.newValue)
 
-			assert.Equal(t, tt.newValue, state.Value.Get(), "Value should be updated")
+			assert.Equal(t, tt.newValue, state.Value.GetTyped(), "Value should be updated")
 			assert.Equal(t, tt.newValue, state.Get(), "Get() should return updated value")
 		})
 	}
@@ -138,7 +138,7 @@ func TestUseState_SetAndGetConsistency(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		state.Set(i)
 		assert.Equal(t, i, state.Get(), "Get should return last Set value")
-		assert.Equal(t, i, state.Value.Get(), "Value.Get should match")
+		assert.Equal(t, i, state.Value.GetTyped(), "Value.Get should match")
 	}
 }
 

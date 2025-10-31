@@ -44,7 +44,7 @@ var builderPool = sync.Pool{
 //
 //	    // Use Lipgloss for styling
 //	    style := lipgloss.NewStyle().Bold(true)
-//	    return style.Render(fmt.Sprintf("%s: %d", props.Label, count.Get()))
+//	    return style.Render(fmt.Sprintf("%s: %d", props.Label, count.GetTyped()))
 //	})
 type RenderContext struct {
 	component *componentImpl
@@ -60,7 +60,7 @@ type RenderContext struct {
 // Example:
 //
 //	count := ctx.Get("count").(*Ref[int])
-//	value := count.Get()
+//	value := count.GetTyped()
 //
 //	// Or for non-reactive values:
 //	title := ctx.Get("title").(string)

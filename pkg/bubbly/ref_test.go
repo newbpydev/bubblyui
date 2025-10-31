@@ -48,15 +48,15 @@ func TestNewRef(t *testing.T) {
 			case int:
 				ref := NewRef(v)
 				assert.NotNil(t, ref, "NewRef should return non-nil reference")
-				assert.Equal(t, tt.expected, ref.Get(), "Initial value should match")
+				assert.Equal(t, tt.expected, ref.GetTyped(), "Initial value should match")
 			case string:
 				ref := NewRef(v)
 				assert.NotNil(t, ref, "NewRef should return non-nil reference")
-				assert.Equal(t, tt.expected, ref.Get(), "Initial value should match")
+				assert.Equal(t, tt.expected, ref.GetTyped(), "Initial value should match")
 			case bool:
 				ref := NewRef(v)
 				assert.NotNil(t, ref, "NewRef should return non-nil reference")
-				assert.Equal(t, tt.expected, ref.Get(), "Initial value should match")
+				assert.Equal(t, tt.expected, ref.GetTyped(), "Initial value should match")
 			}
 		})
 	}
@@ -66,13 +66,13 @@ func TestNewRef(t *testing.T) {
 func TestRef_Get(t *testing.T) {
 	t.Run("get integer value", func(t *testing.T) {
 		ref := NewRef(100)
-		value := ref.Get()
+		value := ref.GetTyped()
 		assert.Equal(t, 100, value, "Get should return current value")
 	})
 
 	t.Run("get string value", func(t *testing.T) {
 		ref := NewRef("test")
-		value := ref.Get()
+		value := ref.GetTyped()
 		assert.Equal(t, "test", value, "Get should return current value")
 	})
 
@@ -83,14 +83,14 @@ func TestRef_Get(t *testing.T) {
 		}
 		user := User{Name: "John", Age: 30}
 		ref := NewRef(user)
-		value := ref.Get()
+		value := ref.GetTyped()
 		assert.Equal(t, user, value, "Get should return current struct value")
 	})
 
 	t.Run("get pointer value", func(t *testing.T) {
 		val := 42
 		ref := NewRef(&val)
-		value := ref.Get()
+		value := ref.GetTyped()
 		assert.Equal(t, &val, value, "Get should return current pointer value")
 		assert.Equal(t, 42, *value, "Dereferenced value should be correct")
 	})
@@ -100,27 +100,27 @@ func TestRef_Get(t *testing.T) {
 func TestRef_Set(t *testing.T) {
 	t.Run("set integer value", func(t *testing.T) {
 		ref := NewRef(10)
-		assert.Equal(t, 10, ref.Get(), "Initial value should be 10")
+		assert.Equal(t, 10, ref.GetTyped(), "Initial value should be 10")
 
 		ref.Set(20)
-		assert.Equal(t, 20, ref.Get(), "Value should be updated to 20")
+		assert.Equal(t, 20, ref.GetTyped(), "Value should be updated to 20")
 
 		ref.Set(30)
-		assert.Equal(t, 30, ref.Get(), "Value should be updated to 30")
+		assert.Equal(t, 30, ref.GetTyped(), "Value should be updated to 30")
 	})
 
 	t.Run("set string value", func(t *testing.T) {
 		ref := NewRef("initial")
-		assert.Equal(t, "initial", ref.Get(), "Initial value should be 'initial'")
+		assert.Equal(t, "initial", ref.GetTyped(), "Initial value should be 'initial'")
 
 		ref.Set("updated")
-		assert.Equal(t, "updated", ref.Get(), "Value should be updated to 'updated'")
+		assert.Equal(t, "updated", ref.GetTyped(), "Value should be updated to 'updated'")
 	})
 
 	t.Run("set to zero value", func(t *testing.T) {
 		ref := NewRef(100)
 		ref.Set(0)
-		assert.Equal(t, 0, ref.Get(), "Should be able to set to zero value")
+		assert.Equal(t, 0, ref.GetTyped(), "Should be able to set to zero value")
 	})
 
 	t.Run("set struct value", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestRef_Set(t *testing.T) {
 
 		newUser := User{Name: "Jane", Age: 25}
 		ref.Set(newUser)
-		assert.Equal(t, newUser, ref.Get(), "Struct value should be updated")
+		assert.Equal(t, newUser, ref.GetTyped(), "Struct value should be updated")
 	})
 }
 
@@ -142,14 +142,14 @@ func TestRef_TypeSafety(t *testing.T) {
 		ref := NewRef(42)
 		// This should compile - same type
 		ref.Set(100)
-		assert.Equal(t, 100, ref.Get())
+		assert.Equal(t, 100, ref.GetTyped())
 	})
 
 	t.Run("string ref maintains type", func(t *testing.T) {
 		ref := NewRef("hello")
 		// This should compile - same type
 		ref.Set("world")
-		assert.Equal(t, "world", ref.Get())
+		assert.Equal(t, "world", ref.GetTyped())
 	})
 
 	// Note: Type mismatches are caught at compile time with generics
@@ -164,14 +164,14 @@ func TestRef_MultipleRefs(t *testing.T) {
 	ref2 := NewRef(20)
 	ref3 := NewRef("hello")
 
-	assert.Equal(t, 10, ref1.Get(), "ref1 should have value 10")
-	assert.Equal(t, 20, ref2.Get(), "ref2 should have value 20")
-	assert.Equal(t, "hello", ref3.Get(), "ref3 should have value 'hello'")
+	assert.Equal(t, 10, ref1.GetTyped(), "ref1 should have value 10")
+	assert.Equal(t, 20, ref2.GetTyped(), "ref2 should have value 20")
+	assert.Equal(t, "hello", ref3.GetTyped(), "ref3 should have value 'hello'")
 
 	ref1.Set(100)
-	assert.Equal(t, 100, ref1.Get(), "ref1 should be updated")
-	assert.Equal(t, 20, ref2.Get(), "ref2 should remain unchanged")
-	assert.Equal(t, "hello", ref3.Get(), "ref3 should remain unchanged")
+	assert.Equal(t, 100, ref1.GetTyped(), "ref1 should be updated")
+	assert.Equal(t, 20, ref2.GetTyped(), "ref2 should remain unchanged")
+	assert.Equal(t, "hello", ref3.GetTyped(), "ref3 should remain unchanged")
 }
 
 // TestRef_ZeroValue verifies handling of zero values
@@ -184,21 +184,21 @@ func TestRef_ZeroValue(t *testing.T) {
 			name: "zero int",
 			test: func(t *testing.T) {
 				ref := NewRef(0)
-				assert.Equal(t, 0, ref.Get())
+				assert.Equal(t, 0, ref.GetTyped())
 			},
 		},
 		{
 			name: "zero string",
 			test: func(t *testing.T) {
 				ref := NewRef("")
-				assert.Equal(t, "", ref.Get())
+				assert.Equal(t, "", ref.GetTyped())
 			},
 		},
 		{
 			name: "zero bool",
 			test: func(t *testing.T) {
 				ref := NewRef(false)
-				assert.Equal(t, false, ref.Get())
+				assert.Equal(t, false, ref.GetTyped())
 			},
 		},
 		{
@@ -206,7 +206,7 @@ func TestRef_ZeroValue(t *testing.T) {
 			test: func(t *testing.T) {
 				var ptr *int
 				ref := NewRef(ptr)
-				assert.Nil(t, ref.Get())
+				assert.Nil(t, ref.GetTyped())
 			},
 		},
 		{
@@ -214,7 +214,7 @@ func TestRef_ZeroValue(t *testing.T) {
 			test: func(t *testing.T) {
 				var slice []int
 				ref := NewRef(slice)
-				assert.Nil(t, ref.Get())
+				assert.Nil(t, ref.GetTyped())
 			},
 		},
 	}
@@ -228,20 +228,20 @@ func TestRef_ZeroValue(t *testing.T) {
 func TestRef_ComplexTypes(t *testing.T) {
 	t.Run("slice", func(t *testing.T) {
 		ref := NewRef([]int{1, 2, 3})
-		assert.Equal(t, []int{1, 2, 3}, ref.Get())
+		assert.Equal(t, []int{1, 2, 3}, ref.GetTyped())
 
 		ref.Set([]int{4, 5, 6})
-		assert.Equal(t, []int{4, 5, 6}, ref.Get())
+		assert.Equal(t, []int{4, 5, 6}, ref.GetTyped())
 	})
 
 	t.Run("map", func(t *testing.T) {
 		ref := NewRef(map[string]int{"a": 1, "b": 2})
-		value := ref.Get()
+		value := ref.GetTyped()
 		assert.Equal(t, 1, value["a"])
 		assert.Equal(t, 2, value["b"])
 
 		ref.Set(map[string]int{"c": 3})
-		value = ref.Get()
+		value = ref.GetTyped()
 		assert.Equal(t, 3, value["c"])
 	})
 
@@ -256,11 +256,11 @@ func TestRef_ComplexTypes(t *testing.T) {
 
 		user := User{Name: "John", Address: Address{City: "NYC"}}
 		ref := NewRef(user)
-		assert.Equal(t, "NYC", ref.Get().Address.City)
+		assert.Equal(t, "NYC", ref.GetTyped().Address.City)
 
 		newUser := User{Name: "Jane", Address: Address{City: "LA"}}
 		ref.Set(newUser)
-		assert.Equal(t, "LA", ref.Get().Address.City)
+		assert.Equal(t, "LA", ref.GetTyped().Address.City)
 	})
 }
 
@@ -516,7 +516,7 @@ func TestRef_ConcurrentGet(t *testing.T) {
 		for i := 0; i < numReaders; i++ {
 			go func() {
 				defer wg.Done()
-				value := ref.Get()
+				value := ref.GetTyped()
 				assert.Equal(t, 42, value, "All readers should see the same value")
 			}()
 		}
@@ -534,7 +534,7 @@ func TestRef_ConcurrentGet(t *testing.T) {
 		for i := 0; i < numReaders; i++ {
 			go func() {
 				defer wg.Done()
-				value := stringRef.Get()
+				value := stringRef.GetTyped()
 				assert.Equal(t, "concurrent", value)
 			}()
 		}
@@ -563,7 +563,7 @@ func TestRef_ConcurrentSet(t *testing.T) {
 		wg.Wait()
 
 		// Final value should be one of the written values (0-99)
-		finalValue := ref.Get()
+		finalValue := ref.GetTyped()
 		assert.GreaterOrEqual(t, finalValue, 0)
 		assert.Less(t, finalValue, numWriters)
 	})
@@ -602,7 +602,7 @@ func TestRef_ConcurrentGetSet(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < 10; j++ {
-					_ = ref.Get()
+					_ = ref.GetTyped()
 				}
 			}()
 		}
@@ -620,7 +620,7 @@ func TestRef_ConcurrentGetSet(t *testing.T) {
 		wg.Wait()
 
 		// Should complete without deadlock or panic
-		finalValue := ref.Get()
+		finalValue := ref.GetTyped()
 		assert.GreaterOrEqual(t, finalValue, 0)
 	})
 
@@ -643,7 +643,7 @@ func TestRef_ConcurrentGetSet(t *testing.T) {
 		for i := 0; i < numOperations; i++ {
 			go func() {
 				defer wg.Done()
-				_ = ref.Get()
+				_ = ref.GetTyped()
 			}()
 		}
 
@@ -681,7 +681,7 @@ func TestRef_StressTest(t *testing.T) {
 					if j%2 == 0 {
 						ref.Set(id*opsPerGoroutine + j)
 					} else {
-						_ = ref.Get()
+						_ = ref.GetTyped()
 					}
 				}
 			}(i)
@@ -691,7 +691,7 @@ func TestRef_StressTest(t *testing.T) {
 
 		// Should complete without deadlock, panic, or race conditions
 		assert.NotPanics(t, func() {
-			_ = ref.Get()
+			_ = ref.GetTyped()
 		})
 	})
 
@@ -740,7 +740,7 @@ func BenchmarkRefGet_Concurrent(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = ref.Get()
+			_ = ref.GetTyped()
 		}
 	})
 }
@@ -772,7 +772,7 @@ func BenchmarkRefGetSet_Mixed(b *testing.B) {
 				ref.Set(i)
 			} else {
 				// 80% reads
-				_ = ref.Get()
+				_ = ref.GetTyped()
 			}
 			i++
 		}
@@ -785,7 +785,7 @@ func BenchmarkRefGet(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = ref.Get()
+		_ = ref.GetTyped()
 	}
 }
 
@@ -942,7 +942,7 @@ func TestRef_GetTracking(t *testing.T) {
 		globalTracker = tracker
 		defer func() { globalTracker = &DepTracker{} }()
 
-		_ = ref.Get()
+		_ = ref.GetTyped()
 
 		deps := tracker.EndTracking()
 		assert.Equal(t, 1, len(deps), "Should track ref as dependency")
@@ -957,7 +957,7 @@ func TestRef_GetTracking(t *testing.T) {
 		defer func() { globalTracker = &DepTracker{} }()
 
 		// Get without BeginTracking
-		_ = ref.Get()
+		_ = ref.GetTyped()
 
 		assert.False(t, tracker.IsTracking(), "Should not be tracking")
 	})

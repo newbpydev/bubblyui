@@ -35,7 +35,7 @@ var (
 	//
 	// Example:
 	//	ctx.OnUpdated(func() {
-	//	    count.Set(count.Get() + 1) // Infinite loop!
+	//	    count.Set(count.GetTyped() + 1) // Infinite loop!
 	//	})
 	//	// After 100 iterations, ErrMaxUpdateDepth is returned
 	ErrMaxUpdateDepth = errors.New("max update depth exceeded")

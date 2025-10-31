@@ -31,7 +31,7 @@ func TestComponentLifecycle(t *testing.T) {
 			Template(func(ctx bubbly.RenderContext) string {
 				viewCalled = true
 				count := ctx.Get("count").(*bubbly.Ref[interface{}])
-				return fmt.Sprintf("Count: %d", count.Get().(int))
+				return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 			}).
 			Build()
 
@@ -292,13 +292,13 @@ func TestStateManagement(t *testing.T) {
 				ctx.Expose("count", count)
 
 				ctx.On("increment", func(data interface{}) {
-					c := count.Get().(int)
+					c := count.GetTyped().(int)
 					count.Set(c + 1)
 				})
 			}).
 			Template(func(ctx bubbly.RenderContext) string {
 				count := ctx.Get("count").(*bubbly.Ref[interface{}])
-				return fmt.Sprintf("Count: %d", count.Get().(int))
+				return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 			}).
 			Build()
 
@@ -324,7 +324,7 @@ func TestStateManagement(t *testing.T) {
 			Setup(func(ctx *bubbly.Context) {
 				value := ctx.Ref(10)
 				doubled := ctx.Computed(func() interface{} {
-					return value.Get().(int) * 2
+					return value.GetTyped().(int) * 2
 				})
 
 				ctx.Expose("value", value)
@@ -341,7 +341,7 @@ func TestStateManagement(t *testing.T) {
 				value := ctx.Get("value").(*bubbly.Ref[interface{}])
 				doubled := ctx.Get("doubled").(*bubbly.Computed[interface{}])
 				return fmt.Sprintf("Value: %d, Doubled: %d",
-					value.Get().(int), doubled.Get().(int))
+					value.GetTyped().(int), doubled.GetTyped().(int))
 			}).
 			Build()
 
@@ -372,7 +372,7 @@ func TestStateManagement(t *testing.T) {
 				})
 
 				ctx.On("increment", func(data interface{}) {
-					c := count.Get().(int)
+					c := count.GetTyped().(int)
 					count.Set(c + 1)
 				})
 			}).

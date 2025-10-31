@@ -235,11 +235,11 @@ func TestInjectTyped_ComplexTypes(t *testing.T) {
 		// Assert
 		require.NotNil(t, injectedRef, "Injected ref should not be nil")
 		assert.Equal(t, countRef, injectedRef, "Should be same Ref instance")
-		assert.Equal(t, 42, injectedRef.Get(), "Ref value should be 42")
+		assert.Equal(t, 42, injectedRef.GetTyped(), "Ref value should be 42")
 
 		// Verify reactivity - changes propagate
 		countRef.Set(100)
-		assert.Equal(t, 100, injectedRef.Get(), "Child should see reactive changes")
+		assert.Equal(t, 100, injectedRef.GetTyped(), "Child should see reactive changes")
 	})
 
 	t.Run("inject struct", func(t *testing.T) {

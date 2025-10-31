@@ -87,7 +87,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		// Continue ticking while loading
-		if m.loading.Get() {
+		if m.loading.GetTyped() {
 			return m, tickCmd()
 		}
 		return m, nil
@@ -132,14 +132,14 @@ func (m model) View() string {
 	var content string
 
 	// Show different states based on reactive values
-	if m.loading.Get() {
+	if m.loading.GetTyped() {
 		spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		frame := spinner[time.Now().UnixNano()/100000000%int64(len(spinner))]
 		content = loadingStyle.Render(fmt.Sprintf("%s Loading user data...", frame))
-	} else if m.error.Get() != nil {
-		content = errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'r' to retry", m.error.Get()))
-	} else if m.hasData.Get() {
-		user := m.user.Get()
+	} else if m.error.GetTyped() != nil {
+		content = errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'r' to retry", m.error.GetTyped()))
+	} else if m.hasData.GetTyped() {
+		user := m.user.GetTyped()
 		content = dataStyle.Render(fmt.Sprintf(
 			"User Data:\n\nID:    %d\nName:  %s\nEmail: %s",
 			user.ID,
@@ -190,7 +190,7 @@ func main() {
 
 	// Computed value to check if we have data
 	hasData := bubbly.NewComputed(func() bool {
-		return user.Get() != nil
+		return user.GetTyped() != nil
 	})
 
 	// Watch for loading state changes - demonstrates side effects!

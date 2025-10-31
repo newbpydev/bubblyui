@@ -32,18 +32,18 @@ func TestCircularDependency(t *testing.T) {
 
 		a = NewComputed(func() int {
 			if b != nil {
-				return b.Get() + 1
+				return b.GetTyped() + 1
 			}
 			return 0
 		})
 
 		b = NewComputed(func() int {
-			return a.Get() + 1 // Circular!
+			return a.GetTyped() + 1 // Circular!
 		})
 
 		// Accessing either should detect the cycle
 		assert.Panics(t, func() {
-			a.Get()
+			a.GetTyped()
 		}, "Should panic on circular dependency")
 	})
 
@@ -53,22 +53,22 @@ func TestCircularDependency(t *testing.T) {
 
 		a = NewComputed(func() int {
 			if c != nil {
-				return c.Get() + 1
+				return c.GetTyped() + 1
 			}
 			return 0
 		})
 
 		b = NewComputed(func() int {
-			return a.Get() + 1
+			return a.GetTyped() + 1
 		})
 
 		c = NewComputed(func() int {
-			return b.Get() + 1 // Circular!
+			return b.GetTyped() + 1 // Circular!
 		})
 
 		// Accessing should detect the cycle
 		assert.Panics(t, func() {
-			a.Get()
+			a.GetTyped()
 		}, "Should panic on indirect circular dependency")
 	})
 
@@ -77,14 +77,14 @@ func TestCircularDependency(t *testing.T) {
 
 		self = NewComputed(func() int {
 			if self != nil {
-				return self.Get() + 1 // Self-reference!
+				return self.GetTyped() + 1 // Self-reference!
 			}
 			return 0
 		})
 
 		// Should detect self-reference
 		assert.Panics(t, func() {
-			self.Get()
+			self.GetTyped()
 		}, "Should panic on self-referencing computed")
 	})
 }
@@ -95,20 +95,20 @@ func TestMaxDepthExceeded(t *testing.T) {
 		// Create a chain of exactly MaxDependencyDepth (100) computed values
 		base := NewRef(1)
 		current := NewComputed(func() int {
-			return base.Get()
+			return base.GetTyped()
 		})
 
 		// Create 99 more levels (total 100)
 		for i := 1; i < MaxDependencyDepth; i++ {
 			prev := current
 			current = NewComputed(func() int {
-				return prev.Get() + 1
+				return prev.GetTyped() + 1
 			})
 		}
 
 		// Should work fine
 		assert.NotPanics(t, func() {
-			result := current.Get()
+			result := current.GetTyped()
 			assert.Equal(t, MaxDependencyDepth, result)
 		}, "Should not panic at exactly max depth")
 	})
@@ -117,20 +117,20 @@ func TestMaxDepthExceeded(t *testing.T) {
 		// Create a chain of MaxDependencyDepth + 1 computed values
 		base := NewRef(1)
 		current := NewComputed(func() int {
-			return base.Get()
+			return base.GetTyped()
 		})
 
 		// Create MaxDependencyDepth more levels (total 101)
 		for i := 1; i <= MaxDependencyDepth; i++ {
 			prev := current
 			current = NewComputed(func() int {
-				return prev.Get() + 1
+				return prev.GetTyped() + 1
 			})
 		}
 
 		// Should panic
 		assert.Panics(t, func() {
-			current.Get()
+			current.GetTyped()
 		}, "Should panic when exceeding max depth")
 	})
 }
@@ -189,7 +189,7 @@ func TestNoFalsePositives(t *testing.T) {
 		globalTracker.Reset()
 		assert.NotPanics(t, func() {
 			computed := NewComputed(func() int { return 42 })
-			_ = computed.Get()
+			_ = computed.GetTyped()
 		}, "Valid NewComputed should not panic")
 	})
 
@@ -198,17 +198,17 @@ func TestNoFalsePositives(t *testing.T) {
 		// Create a valid chain without cycles
 		base := NewRef(10)
 		doubled := NewComputed(func() int {
-			return base.Get() * 2
+			return base.GetTyped() * 2
 		})
 		quadrupled := NewComputed(func() int {
-			return doubled.Get() * 2
+			return doubled.GetTyped() * 2
 		})
 		octupled := NewComputed(func() int {
-			return quadrupled.Get() * 2
+			return quadrupled.GetTyped() * 2
 		})
 
 		assert.NotPanics(t, func() {
-			result := octupled.Get()
+			result := octupled.GetTyped()
 			assert.Equal(t, 80, result)
 		}, "Valid dependency chain should not panic")
 	})

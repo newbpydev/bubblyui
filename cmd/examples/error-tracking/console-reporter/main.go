@@ -244,8 +244,8 @@ func createCalculator() (bubbly.Component, error) {
 				event := data.(*bubbly.Event)
 				digit := event.Data.(string)
 
-				currentDisplay := display.Get().(string)
-				isNew := newNumber.Get().(bool)
+				currentDisplay := display.GetTyped().(string)
+				isNew := newNumber.GetTyped().(bool)
 
 				if isNew || currentDisplay == "0" {
 					display.Set(digit)
@@ -255,14 +255,14 @@ func createCalculator() (bubbly.Component, error) {
 				}
 
 				observability.RecordBreadcrumb("state", "Display updated", map[string]interface{}{
-					"display": display.Get().(string),
+					"display": display.GetTyped().(string),
 				})
 			})
 
 			ctx.On("operator", func(data interface{}) {
 				event := data.(*bubbly.Event)
 				op := event.Data.(string)
-				currentOp := operator.Get().(string)
+				currentOp := operator.GetTyped().(string)
 
 				// If there's a pending operation, calculate it first
 				if currentOp != "" {
@@ -271,7 +271,7 @@ func createCalculator() (bubbly.Component, error) {
 
 				// Parse current display value
 				var val float64
-				fmt.Sscanf(display.Get().(string), "%f", &val)
+				fmt.Sscanf(display.GetTyped().(string), "%f", &val)
 				previousValue.Set(val)
 				operator.Set(op)
 				newNumber.Set(true)
@@ -283,14 +283,14 @@ func createCalculator() (bubbly.Component, error) {
 			})
 
 			ctx.On("equals", func(data interface{}) {
-				op := operator.Get().(string)
+				op := operator.GetTyped().(string)
 				if op == "" {
 					return
 				}
 
 				var current, previous float64
-				fmt.Sscanf(display.Get().(string), "%f", &current)
-				previous = previousValue.Get().(float64)
+				fmt.Sscanf(display.GetTyped().(string), "%f", &current)
+				previous = previousValue.GetTyped().(float64)
 
 				var result float64
 				switch op {
@@ -353,8 +353,8 @@ func createCalculator() (bubbly.Component, error) {
 			display := ctx.Get("display").(*bubbly.Ref[interface{}])
 			operator := ctx.Get("operator").(*bubbly.Ref[interface{}])
 
-			displayVal := display.Get().(string)
-			operatorVal := operator.Get().(string)
+			displayVal := display.GetTyped().(string)
+			operatorVal := operator.GetTyped().(string)
 
 			// Display box
 			displayStyle := lipgloss.NewStyle().

@@ -109,7 +109,7 @@ type WatchOption func(*WatchOptions)
 // Example with Computed:
 //
 //	count := NewRef(5)
-//	doubled := NewComputed(func() int { return count.Get() * 2 })
+//	doubled := NewComputed(func() int { return count.GetTyped() * 2 })
 //	cleanup := Watch(doubled, func(newVal, oldVal int) {
 //	    fmt.Printf("Doubled changed: %d → %d\n", oldVal, newVal)
 //	})
@@ -287,8 +287,8 @@ func WithDeepCompare[T any](compareFn DeepCompareFunc[T]) WatchOption {
 //	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    switch msg := msg.(type) {
 //	    case someMsg:
-//	        m.count.Set(m.count.Get() + 1)  // Queued if using WithFlush("post")
-//	        m.count.Set(m.count.Get() + 1)  // Replaces previous (batching)
+//	        m.count.Set(m.count.GetTyped() + 1)  // Queued if using WithFlush("post")
+//	        m.count.Set(m.count.GetTyped() + 1)  // Replaces previous (batching)
 //	    }
 //
 //	    // Execute all queued callbacks before returning

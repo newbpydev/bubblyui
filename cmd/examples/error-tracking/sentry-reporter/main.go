@@ -115,9 +115,9 @@ func createForm() (bubbly.Component, error) {
 
 			// Computed values
 			isValid := ctx.Computed(func() interface{} {
-				u := username.Get().(string)
-				e := email.Get().(string)
-				p := password.Get().(string)
+				u := username.GetTyped().(string)
+				e := email.GetTyped().(string)
+				p := password.GetTyped().(string)
 				return len(u) >= 3 && len(e) >= 5 && len(p) >= 8
 			})
 
@@ -140,46 +140,46 @@ func createForm() (bubbly.Component, error) {
 			ctx.On("input", func(data interface{}) {
 				event := data.(*bubbly.Event)
 				char := event.Data.(string)
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 
 				switch field {
 				case 0:
-					username.Set(username.Get().(string) + char)
+					username.Set(username.GetTyped().(string) + char)
 					observability.RecordBreadcrumb("state", "Username updated", map[string]interface{}{
 						"field":  "username",
-						"length": len(username.Get().(string)),
+						"length": len(username.GetTyped().(string)),
 					})
 				case 1:
-					email.Set(email.Get().(string) + char)
+					email.Set(email.GetTyped().(string) + char)
 					observability.RecordBreadcrumb("state", "Email updated", map[string]interface{}{
 						"field":  "email",
-						"length": len(email.Get().(string)),
+						"length": len(email.GetTyped().(string)),
 					})
 				case 2:
-					password.Set(password.Get().(string) + char)
+					password.Set(password.GetTyped().(string) + char)
 					observability.RecordBreadcrumb("state", "Password updated", map[string]interface{}{
 						"field":  "password",
-						"length": len(password.Get().(string)),
+						"length": len(password.GetTyped().(string)),
 					})
 				}
 			})
 
 			ctx.On("backspace", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 
 				switch field {
 				case 0:
-					u := username.Get().(string)
+					u := username.GetTyped().(string)
 					if len(u) > 0 {
 						username.Set(u[:len(u)-1])
 					}
 				case 1:
-					e := email.Get().(string)
+					e := email.GetTyped().(string)
 					if len(e) > 0 {
 						email.Set(e[:len(e)-1])
 					}
 				case 2:
-					p := password.Get().(string)
+					p := password.GetTyped().(string)
 					if len(p) > 0 {
 						password.Set(p[:len(p)-1])
 					}
@@ -187,7 +187,7 @@ func createForm() (bubbly.Component, error) {
 			})
 
 			ctx.On("next-field", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 				if field < 2 {
 					currentField.Set(field + 1)
 					observability.RecordBreadcrumb("navigation", "Moved to next field", map[string]interface{}{
@@ -198,7 +198,7 @@ func createForm() (bubbly.Component, error) {
 			})
 
 			ctx.On("prev-field", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 				if field > 0 {
 					currentField.Set(field - 1)
 					observability.RecordBreadcrumb("navigation", "Moved to previous field", map[string]interface{}{
@@ -209,16 +209,16 @@ func createForm() (bubbly.Component, error) {
 			})
 
 			ctx.On("submit", func(data interface{}) {
-				valid := isValid.Get().(bool)
-				count := submitCount.Get().(int)
+				valid := isValid.GetTyped().(bool)
+				count := submitCount.GetTyped().(int)
 				submitCount.Set(count + 1)
 
 				observability.RecordBreadcrumb("user", "Form submission attempted", map[string]interface{}{
 					"valid":       valid,
 					"submitCount": count + 1,
-					"usernameLen": len(username.Get().(string)),
-					"emailLen":    len(email.Get().(string)),
-					"passwordLen": len(password.Get().(string)),
+					"usernameLen": len(username.GetTyped().(string)),
+					"emailLen":    len(email.GetTyped().(string)),
+					"passwordLen": len(password.GetTyped().(string)),
 				})
 
 				if !valid {
@@ -239,9 +239,9 @@ func createForm() (bubbly.Component, error) {
 									"valid":       "false",
 								},
 								Extra: map[string]interface{}{
-									"username_length": len(username.Get().(string)),
-									"email_length":    len(email.Get().(string)),
-									"password_length": len(password.Get().(string)),
+									"username_length": len(username.GetTyped().(string)),
+									"email_length":    len(email.GetTyped().(string)),
+									"password_length": len(password.GetTyped().(string)),
 									"submit_count":    count + 1,
 								},
 								Breadcrumbs: observability.GetBreadcrumbs(),
@@ -258,8 +258,8 @@ func createForm() (bubbly.Component, error) {
 
 				errorMessage.Set("Success! Form submitted")
 				observability.RecordBreadcrumb("state", "Form submitted successfully", map[string]interface{}{
-					"username": username.Get().(string),
-					"email":    email.Get().(string),
+					"username": username.GetTyped().(string),
+					"email":    email.GetTyped().(string),
 				})
 			})
 
@@ -286,8 +286,8 @@ func createForm() (bubbly.Component, error) {
 								"test_mode":    true,
 								"current_user": "demo_user",
 								"form_state": map[string]interface{}{
-									"username": username.Get().(string),
-									"email":    email.Get().(string),
+									"username": username.GetTyped().(string),
+									"email":    email.GetTyped().(string),
 								},
 							},
 							Breadcrumbs: observability.GetBreadcrumbs(),
@@ -303,8 +303,8 @@ func createForm() (bubbly.Component, error) {
 				observability.RecordBreadcrumb("debug", "About to trigger panic", map[string]interface{}{
 					"intentional": true,
 					"form_state": map[string]interface{}{
-						"username": username.Get().(string),
-						"email":    email.Get().(string),
+						"username": username.GetTyped().(string),
+						"email":    email.GetTyped().(string),
 					},
 				})
 
@@ -321,12 +321,12 @@ func createForm() (bubbly.Component, error) {
 			errorMessage := ctx.Get("errorMessage").(*bubbly.Ref[interface{}])
 			isValid := ctx.Get("isValid").(*bubbly.Computed[interface{}])
 
-			usernameVal := username.Get().(string)
-			emailVal := email.Get().(string)
-			passwordVal := password.Get().(string)
-			fieldVal := currentField.Get().(int)
-			errorVal := errorMessage.Get().(string)
-			validVal := isValid.Get().(bool)
+			usernameVal := username.GetTyped().(string)
+			emailVal := email.GetTyped().(string)
+			passwordVal := password.GetTyped().(string)
+			fieldVal := currentField.GetTyped().(int)
+			errorVal := errorMessage.GetTyped().(string)
+			validVal := isValid.GetTyped().(bool)
 
 			// Field styles
 			activeStyle := lipgloss.NewStyle().

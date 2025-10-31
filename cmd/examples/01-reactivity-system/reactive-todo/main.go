@@ -51,7 +51,7 @@ func (m model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if m.input != "" {
 			// Add new todo using reactive state
-			todos := m.todos.Get()
+			todos := m.todos.GetTyped()
 			todos = append(todos, Todo{Text: m.input, Completed: false})
 			m.todos.Set(todos)
 			m.input = ""
@@ -78,7 +78,7 @@ func (m model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleNormalMode handles navigation and actions
 func (m model) handleNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	todos := m.todos.Get()
+	todos := m.todos.GetTyped()
 
 	switch msg.String() {
 	case "ctrl+c", "q":
@@ -166,7 +166,7 @@ func (m model) View() string {
 	}
 
 	// Todo list
-	todos := m.todos.Get()
+	todos := m.todos.GetTyped()
 	if len(todos) == 0 {
 		b.WriteString(todoStyle.Render("No todos yet. Press 'a' to add one!"))
 	} else {
@@ -192,9 +192,9 @@ func (m model) View() string {
 	// Stats using computed values - demonstrates reactivity!
 	stats := fmt.Sprintf(
 		"Total: %d | Active: %d | Completed: %d",
-		m.totalCount.Get(),
-		m.activeCount.Get(),
-		m.completedCount.Get(),
+		m.totalCount.GetTyped(),
+		m.activeCount.GetTyped(),
+		m.completedCount.GetTyped(),
 	)
 	b.WriteString("\n")
 	b.WriteString(statsStyle.Render(stats))
@@ -218,12 +218,12 @@ func main() {
 
 	// Create computed values that automatically update
 	totalCount := bubbly.NewComputed(func() int {
-		return len(todos.Get())
+		return len(todos.GetTyped())
 	})
 
 	completedCount := bubbly.NewComputed(func() int {
 		count := 0
-		for _, todo := range todos.Get() {
+		for _, todo := range todos.GetTyped() {
 			if todo.Completed {
 				count++
 			}
@@ -232,7 +232,7 @@ func main() {
 	})
 
 	activeCount := bubbly.NewComputed(func() int {
-		return totalCount.Get() - completedCount.Get()
+		return totalCount.GetTyped() - completedCount.GetTyped()
 	})
 
 	// Create model

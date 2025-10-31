@@ -141,7 +141,7 @@ func createContainer() (bubbly.Component, error) {
 			// Get children and selection state
 			children := ctx.Get("children").([]bubbly.Component)
 			selectedID := ctx.Get("selectedID").(*bubbly.Ref[interface{}])
-			selected := selectedID.Get().(int)
+			selected := selectedID.GetTyped().(int)
 
 			// List header
 			headerStyle := lipgloss.NewStyle().
@@ -230,7 +230,7 @@ func createContainer() (bubbly.Component, error) {
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get selected ID and list child
 			selectedID := ctx.Get("selectedID").(*bubbly.Ref[interface{}])
-			selected := selectedID.Get().(int)
+			selected := selectedID.GetTyped().(int)
 			listChild := ctx.Get("list").(bubbly.Component)
 
 			// Container style

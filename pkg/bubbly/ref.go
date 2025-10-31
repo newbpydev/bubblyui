@@ -70,7 +70,7 @@ func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
 // Example usage:
 //
 //	count := bubbly.NewRef(0)
-//	value := count.Get()  // Read current value
+//	value := count.GetTyped()  // Read current value
 //	count.Set(42)         // Update value and notify watchers
 type Ref[T any] struct {
 	mu         sync.RWMutex

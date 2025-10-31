@@ -24,11 +24,11 @@ import (
 //
 //	count := bubbly.NewRef(5)
 //	doubled := bubbly.NewComputed(func() int {
-//	    return count.Get() * 2  // Automatically tracks count as dependency
+//	    return count.GetTyped() * 2  // Automatically tracks count as dependency
 //	})
-//	value := doubled.Get()  // Computes and caches: 10
+//	value := doubled.GetTyped()  // Computes and caches: 10
 //	count.Set(10)           // Invalidates doubled's cache
-//	value2 := doubled.Get() // Recomputes: 20
+//	value2 := doubled.GetTyped() // Recomputes: 20
 //
 //	// Watch computed value changes (Task 6.2)
 //	Watch(doubled, func(newVal, oldVal int) {
@@ -59,12 +59,12 @@ type Computed[T any] struct {
 //	// Computation using Ref values
 //	count := NewRef(10)
 //	doubled := NewComputed(func() int {
-//	    return count.Get() * 2
+//	    return count.GetTyped() * 2
 //	})
 //
 //	// Chained computed values
 //	quadrupled := NewComputed(func() int {
-//	    return doubled.Get() * 2
+//	    return doubled.GetTyped() * 2
 //	})
 func NewComputed[T any](fn func() T) *Computed[T] {
 	// Validate compute function is not nil
@@ -88,7 +88,7 @@ func NewComputed[T any](fn func() T) *Computed[T] {
 //
 //	count := NewRef(5)
 //	computed := NewComputed(func() int { return count.GetTyped() * 2 })
-//	value := computed.Get().(int)  // Returns 10, requires type assertion
+//	value := computed.GetTyped().(int)  // Returns 10, requires type assertion
 func (c *Computed[T]) Get() any {
 	return c.GetTyped()
 }
@@ -208,7 +208,7 @@ func (c *Computed[T]) Invalidate() {
 	// Task 6.2: If we have watchers, trigger recomputation to notify them
 	// This ensures watchers are called even if no one explicitly calls Get()
 	if hasWatchers {
-		c.Get()
+		c.GetTyped()
 	}
 }
 
@@ -267,7 +267,7 @@ func (c *Computed[T]) addWatcher(w *watcher[T]) {
 		c.mu.Unlock()
 
 		// Evaluate to establish dependencies
-		c.Get()
+		c.GetTyped()
 
 		// Restore watchers
 		c.mu.Lock()

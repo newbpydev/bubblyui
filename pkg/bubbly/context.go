@@ -18,7 +18,7 @@ import "fmt"
 //	    // Create reactive state
 //	    count := ctx.Ref(0)
 //	    doubled := ctx.Computed(func() interface{} {
-//	        return count.Get().(int) * 2
+//	        return count.GetTyped().(int) * 2
 //	    })
 //
 //	    // Expose state to template
@@ -27,7 +27,7 @@ import "fmt"
 //
 //	    // Register event handlers
 //	    ctx.On("increment", func(data interface{}) {
-//	        current := count.Get().(int)
+//	        current := count.GetTyped().(int)
 //	        count.Set(current + 1)
 //	    })
 //
@@ -53,7 +53,7 @@ type Context struct {
 //
 //	count := ctx.Ref(0)
 //	count.Set(42)
-//	value := count.Get()
+//	value := count.GetTyped()
 func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 	return NewRef(value)
 }
@@ -65,7 +65,7 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 //
 //	count := ctx.Ref(10)
 //	doubled := ctx.Computed(func() interface{} {
-//	    return count.Get().(int) * 2
+//	    return count.GetTyped().(int) * 2
 //	})
 func (ctx *Context) Computed(fn func() interface{}) *Computed[interface{}] {
 	return NewComputed(fn)
@@ -103,7 +103,7 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 }
 
 // Expose stores a value in the component's state map, making it accessible
-// in the template function via RenderContext.Get().
+// in the template function via RenderContext.GetTyped().
 //
 // This is the primary way to share state between the setup function
 // and the template function.

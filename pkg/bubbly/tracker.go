@@ -150,7 +150,7 @@ func (dt *DepTracker) BeginTracking(dep Dependency) error {
 }
 
 // Track records a dependency access during evaluation.
-// This is called by Ref.Get() when dependency tracking is active.
+// This is called by Ref.GetTyped() when dependency tracking is active.
 func (dt *DepTracker) Track(dep Dependency) {
 	state := dt.getOrCreateState()
 	state.mu.Lock()
@@ -209,7 +209,7 @@ func (dt *DepTracker) EndTracking() []Dependency {
 //
 // Performance optimization: Uses atomic fast-path check to avoid expensive
 // getGoroutineID() call when no tracking is active anywhere in the system.
-// This reduces Ref.Get() from ~4600ns to ~26ns (178x faster, zero allocations).
+// This reduces Ref.GetTyped() from ~4600ns to ~26ns (178x faster, zero allocations).
 func (dt *DepTracker) IsTracking() bool {
 	// Fast path: if no trackers are active anywhere, return false immediately
 	// This avoids the expensive getGoroutineID() call (runtime.Stack allocation)

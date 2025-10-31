@@ -29,7 +29,7 @@
 //
 //	        // React to changes (with dependencies)
 //	        ctx.OnUpdated(func() {
-//	            saveData(data.Get())
+//	            saveData(data.GetTyped())
 //	        }, data)
 //
 //	        // Cleanup on unmount
@@ -56,12 +56,12 @@
 //
 //	// Runs only when user changes
 //	ctx.OnUpdated(func() {
-//	    saveUser(user.Get())
+//	    saveUser(user.GetTyped())
 //	}, user)
 //
 //	// Runs when either user OR settings change
 //	ctx.OnUpdated(func() {
-//	    sync(user.Get(), settings.Get())
+//	    sync(user.GetTyped(), settings.GetTyped())
 //	}, user, settings)
 //
 //	// No dependencies: runs on EVERY update
@@ -695,7 +695,7 @@ func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
 // Example scenario that would trigger this:
 //
 //	ctx.OnUpdated(func() {
-//	    count.Set(count.Get() + 1)  // Infinite loop!
+//	    count.Set(count.GetTyped() + 1)  // Infinite loop!
 //	})
 //
 // Returns ErrMaxUpdateDepth if the limit is exceeded.

@@ -122,7 +122,7 @@ func BenchmarkComponentRender_WithState(b *testing.B) {
 		}).
 		Template(func(ctx RenderContext) string {
 			count := ctx.Get("count").(*Ref[interface{}])
-			return fmt.Sprintf("Count: %d", count.Get().(int))
+			return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 		}).
 		Build()
 
@@ -176,7 +176,7 @@ func BenchmarkComponentRender_Complex(b *testing.B) {
 		Setup(func(ctx *Context) {
 			value := ctx.Ref("")
 			valid := ctx.Computed(func() interface{} {
-				v := value.Get().(string)
+				v := value.GetTyped().(string)
 				return len(v) > 0
 			})
 			ctx.Expose("value", value)
@@ -190,8 +190,8 @@ func BenchmarkComponentRender_Complex(b *testing.B) {
 			return fmt.Sprintf(
 				"[%s]\nValue: %s\nValid: %v\nMax: %d",
 				props.Title,
-				value.Get().(string),
-				valid.Get().(bool),
+				value.GetTyped().(string),
+				valid.GetTyped().(bool),
 				props.MaxLength,
 			)
 		}).

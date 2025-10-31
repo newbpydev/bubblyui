@@ -14,7 +14,7 @@ import "github.com/newbpydev/bubblyui/pkg/bubbly"
 //
 //	state := UseState(ctx, 0)
 //	state.Set(42)
-//	value := state.Get()  // Returns 42
+//	value := state.GetTyped()  // Returns 42
 type UseStateReturn[T any] struct {
 	// Value is the underlying reactive reference.
 	// Can be used directly for advanced operations like watching.
@@ -47,7 +47,7 @@ type UseStateReturn[T any] struct {
 //	    count := UseState(ctx, 0)
 //
 //	    ctx.On("increment", func(_ interface{}) {
-//	        count.Set(count.Get() + 1)
+//	        count.Set(count.GetTyped() + 1)
 //	    })
 //
 //	    ctx.Expose("count", count.Value)

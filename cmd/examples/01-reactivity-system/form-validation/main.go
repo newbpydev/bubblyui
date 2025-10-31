@@ -51,7 +51,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			// Try to submit if form is valid
-			if m.formValid.Get() {
+			if m.formValid.GetTyped() {
 				m.submitted = true
 				return m, tea.Quit
 			}
@@ -74,11 +74,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *model) handleInput(char string) {
 	switch m.focusedField {
 	case 0:
-		m.email.Set(m.email.Get() + char)
+		m.email.Set(m.email.GetTyped() + char)
 	case 1:
-		m.password.Set(m.password.Get() + char)
+		m.password.Set(m.password.GetTyped() + char)
 	case 2:
-		m.confirmPassword.Set(m.confirmPassword.Get() + char)
+		m.confirmPassword.Set(m.confirmPassword.GetTyped() + char)
 	}
 }
 
@@ -86,15 +86,15 @@ func (m *model) handleInput(char string) {
 func (m *model) handleBackspace() {
 	switch m.focusedField {
 	case 0:
-		if val := m.email.Get(); len(val) > 0 {
+		if val := m.email.GetTyped(); len(val) > 0 {
 			m.email.Set(val[:len(val)-1])
 		}
 	case 1:
-		if val := m.password.Get(); len(val) > 0 {
+		if val := m.password.GetTyped(); len(val) > 0 {
 			m.password.Set(val[:len(val)-1])
 		}
 	case 2:
-		if val := m.confirmPassword.Get(); len(val) > 0 {
+		if val := m.confirmPassword.GetTyped(); len(val) > 0 {
 			m.confirmPassword.Set(val[:len(val)-1])
 		}
 	}
@@ -110,7 +110,7 @@ func (m model) View() string {
 			BorderForeground(lipgloss.Color("86")).
 			Padding(1, 2)
 
-		return successStyle.Render("✓ Registration successful!\n\nEmail: " + m.email.Get())
+		return successStyle.Render("✓ Registration successful!\n\nEmail: " + m.email.GetTyped())
 	}
 
 	// Styles
@@ -163,7 +163,7 @@ func (m model) View() string {
 	// Email field
 	b.WriteString(labelStyle.Render("Email:"))
 	b.WriteString("\n")
-	emailInput := m.email.Get()
+	emailInput := m.email.GetTyped()
 	if m.focusedField == 0 {
 		emailInput += "█"
 		b.WriteString(focusedStyle.Render(emailInput))
@@ -171,8 +171,8 @@ func (m model) View() string {
 		b.WriteString(inputStyle.Render(emailInput))
 	}
 	b.WriteString(" ")
-	if m.email.Get() != "" {
-		if m.emailValid.Get() {
+	if m.email.GetTyped() != "" {
+		if m.emailValid.GetTyped() {
 			b.WriteString(validStyle.Render("✓"))
 		} else {
 			b.WriteString(invalidStyle.Render("✗ Invalid email"))
@@ -183,7 +183,7 @@ func (m model) View() string {
 	// Password field
 	b.WriteString(labelStyle.Render("Password:"))
 	b.WriteString("\n")
-	passwordDisplay := strings.Repeat("•", len(m.password.Get()))
+	passwordDisplay := strings.Repeat("•", len(m.password.GetTyped()))
 	if m.focusedField == 1 {
 		passwordDisplay += "█"
 		b.WriteString(focusedStyle.Render(passwordDisplay))
@@ -191,8 +191,8 @@ func (m model) View() string {
 		b.WriteString(inputStyle.Render(passwordDisplay))
 	}
 	b.WriteString(" ")
-	if m.password.Get() != "" {
-		if m.passwordValid.Get() {
+	if m.password.GetTyped() != "" {
+		if m.passwordValid.GetTyped() {
 			b.WriteString(validStyle.Render("✓"))
 		} else {
 			b.WriteString(invalidStyle.Render("✗ Min 8 characters"))
@@ -203,7 +203,7 @@ func (m model) View() string {
 	// Confirm password field
 	b.WriteString(labelStyle.Render("Confirm Password:"))
 	b.WriteString("\n")
-	confirmDisplay := strings.Repeat("•", len(m.confirmPassword.Get()))
+	confirmDisplay := strings.Repeat("•", len(m.confirmPassword.GetTyped()))
 	if m.focusedField == 2 {
 		confirmDisplay += "█"
 		b.WriteString(focusedStyle.Render(confirmDisplay))
@@ -211,8 +211,8 @@ func (m model) View() string {
 		b.WriteString(inputStyle.Render(confirmDisplay))
 	}
 	b.WriteString(" ")
-	if m.confirmPassword.Get() != "" {
-		if m.passwordsMatch.Get() {
+	if m.confirmPassword.GetTyped() != "" {
+		if m.passwordsMatch.GetTyped() {
 			b.WriteString(validStyle.Render("✓"))
 		} else {
 			b.WriteString(invalidStyle.Render("✗ Passwords don't match"))
@@ -221,7 +221,7 @@ func (m model) View() string {
 	b.WriteString("\n\n")
 
 	// Submit button - demonstrates reactive form validation!
-	if m.formValid.Get() {
+	if m.formValid.GetTyped() {
 		b.WriteString(submitStyle.Render("Submit (Enter)"))
 	} else {
 		b.WriteString(disabledSubmitStyle.Render("Submit (Enter)"))
@@ -245,25 +245,25 @@ func main() {
 	// Email validation - demonstrates computed values with regex
 	emailValid := bubbly.NewComputed(func() bool {
 		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-		return emailRegex.MatchString(email.Get())
+		return emailRegex.MatchString(email.GetTyped())
 	})
 
 	// Password validation - min 8 characters
 	passwordValid := bubbly.NewComputed(func() bool {
-		return len(password.Get()) >= 8
+		return len(password.GetTyped()) >= 8
 	})
 
 	// Password match validation
 	passwordsMatch := bubbly.NewComputed(func() bool {
-		return password.Get() != "" &&
-			password.Get() == confirmPassword.Get()
+		return password.GetTyped() != "" &&
+			password.GetTyped() == confirmPassword.GetTyped()
 	})
 
 	// Overall form validation - demonstrates chaining computed values!
 	formValid := bubbly.NewComputed(func() bool {
-		return emailValid.Get() &&
-			passwordValid.Get() &&
-			passwordsMatch.Get()
+		return emailValid.GetTyped() &&
+			passwordValid.GetTyped() &&
+			passwordsMatch.GetTyped()
 	})
 
 	// Create model

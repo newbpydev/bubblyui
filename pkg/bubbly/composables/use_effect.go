@@ -57,7 +57,7 @@ type UseEffectCleanup func()
 //
 //	userId := bubbly.NewDependency(1)
 //	UseEffect(ctx, func() UseEffectCleanup {
-//	    user := fetchUser(userId.Get())
+//	    user := fetchUser(userId.GetTyped())
 //	    userRef.Set(user)
 //	    return nil
 //	}, userId) // Re-runs when userId changes

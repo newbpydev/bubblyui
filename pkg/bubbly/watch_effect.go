@@ -29,7 +29,7 @@ import (
 //	name := NewRef("John")
 //
 //	cleanup := WatchEffect(func() {
-//	    fmt.Printf("%s: %d\n", name.Get(), count.Get())
+//	    fmt.Printf("%s: %d\n", name.GetTyped(), count.GetTyped())
 //	})
 //	defer cleanup()
 //
@@ -43,10 +43,10 @@ import (
 //	valueB := NewRef(100)
 //
 //	WatchEffect(func() {
-//	    if toggle.Get() {
-//	        fmt.Println(valueA.Get())  // Only tracks valueA when toggle is true
+//	    if toggle.GetTyped() {
+//	        fmt.Println(valueA.GetTyped())  // Only tracks valueA when toggle is true
 //	    } else {
-//	        fmt.Println(valueB.Get())  // Only tracks valueB when toggle is false
+//	        fmt.Println(valueB.GetTyped())  // Only tracks valueB when toggle is false
 //	    }
 //	})
 //
