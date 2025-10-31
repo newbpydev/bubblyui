@@ -180,7 +180,53 @@
 
 **Use Case:** Building abstractions on abstractions
 
-### Scenario D: Form Management with UseForm
+### Scenario D: Using Dependency Interface with UseEffect (Quality of Life Enhancement)
+
+1. **Developer creates typed refs naturally**
+   ```go
+   Setup(func(ctx *Context) {
+       // Create typed refs - no need for Ref[any]
+       count := ctx.Ref(0)        // *Ref[int]
+       name := ctx.Ref("Alice")   // *Ref[string]
+       
+       // UseEffect accepts any Dependency (Ref or Computed)
+       UseEffect(ctx, func() UseEffectCleanup {
+           currentCount := count.Get().(int)
+           currentName := name.Get().(string)
+           fmt.Printf("%s: %d\n", currentName, currentCount)
+           return nil
+       }, count, name)  // Works with typed refs!
+   })
+   ```
+   - System response: No type conversion needed
+   - Developer sees: Clean, ergonomic API
+   - Ready for: Production use
+
+2. **UseEffect with Computed values**
+   ```go
+   Setup(func(ctx *Context) {
+       firstName := ctx.Ref("John")
+       lastName := ctx.Ref("Doe")
+       
+       // Computed implements Dependency interface
+       fullName := ctx.Computed(func() string {
+           return firstName.Get() + " " + lastName.Get()
+       })
+       
+       // Watch computed values directly
+       UseEffect(ctx, func() UseEffectCleanup {
+           fmt.Printf("Name changed: %s\n", fullName.Get())
+           return nil
+       }, fullName)  // Computed as dependency!
+   })
+   ```
+   - System response: Computed values are watchable
+   - Aligns with: Vue 3 behavior
+   - Developer sees: Consistent, flexible API
+
+**Use Case:** Type-safe reactive dependencies without boilerplate
+
+### Scenario E: Form Management with UseForm
 
 1. **Create form with validation**
    ```go

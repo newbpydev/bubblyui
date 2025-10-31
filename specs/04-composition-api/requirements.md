@@ -38,6 +38,7 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 3.3. Context provides lifecycle hook registration  
 3.4. Context provides reactivity primitives  
 3.5. Context is passed to all composables  
+3.6. **Dependency interface** allows typed refs to work with UseEffect (quality of life enhancement)
 
 ### 4. Provide/Inject Pattern
 4.1. Parent components can "provide" values  
@@ -58,6 +59,15 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 6.2. Return Refs and computed values (not plain values)  
 6.3. Return cleanup functions if needed  
 6.4. Destructuring preserves reactivity  
+
+### 7. Reactive Dependency Interface (Enhancement)
+7.1. Define `Dependency` interface for reactive values  
+7.2. Both `Ref[T]` and `Computed[T]` implement Dependency  
+7.3. UseEffect accepts `...Dependency` instead of `...*Ref[any]`  
+7.4. Watch can accept Dependency for monitoring computed values  
+7.5. Interface provides `Get() any` for value access  
+7.6. Enables typed refs (`*Ref[int]`) to work with UseEffect without conversion  
+7.7. Backwards compatible with existing code through interface implementation  
 
 ## Non-Functional Requirements
 
@@ -111,6 +121,15 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 - [ ] Type-safe
 - [ ] Default values work
 - [ ] Reactive values propagate
+
+### Dependency Interface
+- [ ] Dependency interface defined
+- [ ] Ref implements Dependency
+- [ ] Computed implements Dependency
+- [ ] UseEffect accepts Dependency
+- [ ] Watch accepts Dependency
+- [ ] Backwards compatible
+- [ ] Typed refs work seamlessly
 
 ### General
 - [ ] Test coverage > 80%

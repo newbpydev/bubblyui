@@ -761,8 +761,357 @@ Phase 6: Testing & Validation
     ├─> Task 6.2: E2E examples
     └─> Task 6.3: Performance validation
     ↓
+Phase 7: Dependency Interface (Quality of Life)
+    ├─> Task 7.1: Define Dependency interface
+    ├─> Task 7.2: Implement in Ref
+    ├─> Task 7.3: Implement in Computed
+    ├─> Task 7.4: Update UseEffect
+    ├─> Task 7.5: Update Watch (optional)
+    ├─> Task 7.6: Documentation
+    ├─> Task 7.7: Migration guide
+    └─> Task 7.8: Integration testing
+    ↓
 Complete: Ready for Features 05, 06
 ```
+
+---
+
+## Phase 7: Dependency Interface (Quality of Life Enhancement)
+
+### Task 7.1: Define Dependency Interface
+**Description:** Create Dependency interface for reactive values to improve UseEffect ergonomics
+
+**Prerequisites:** Tasks 2.1 (UseState), 2.2 (UseEffect) complete
+
+**Unlocks:** Task 7.2 (Ref implementation)
+
+**Files:**
+- `pkg/bubbly/dependency.go`
+- `pkg/bubbly/dependency_test.go`
+
+**Type Safety:**
+```go
+// Dependency represents a reactive value that can be watched
+type Dependency interface {
+    // Get returns the current value as any
+    Get() any
+    
+    // getDependencyID returns unique ID for tracking (internal)
+    getDependencyID() string
+    
+    // addDependent registers a dependent (internal)
+    addDependent(dep Dependency)
+    
+    // invalidate marks dependency as changed (internal)
+    invalidate()
+}
+```
+
+**Tests:**
+- [ ] Interface defined correctly
+- [ ] Interface methods documented
+- [ ] Example implementation compiles
+- [ ] Godoc generated
+
+**Estimated effort:** 1 hour
+
+**Priority:** MEDIUM - Quality of life enhancement
+
+---
+
+### Task 7.2: Implement Dependency in Ref
+**Description:** Make Ref[T] implement the Dependency interface
+
+**Prerequisites:** Task 7.1
+
+**Unlocks:** Task 7.3 (Computed implementation)
+
+**Files:**
+- `pkg/bubbly/ref.go` (modify)
+- `pkg/bubbly/ref_test.go` (add tests)
+
+**Type Safety:**
+```go
+// Ref[T] already has Get() T method
+// Add interface compatibility:
+func (r *Ref[T]) Get() any {
+    return r.GetTyped()  // or direct implementation
+}
+
+// GetTyped preserves type safety for existing code
+func (r *Ref[T]) GetTyped() T {
+    // existing implementation
+}
+
+// Implement other Dependency methods (may already exist)
+```
+
+**Tests:**
+- [ ] Ref implements Dependency
+- [ ] Get() any works correctly
+- [ ] GetTyped() preserves type safety
+- [ ] Backwards compatible
+- [ ] Type assertion works: value := dep.Get().(int)
+- [ ] No breaking changes
+
+**Estimated effort:** 2 hours
+
+**Priority:** MEDIUM
+
+---
+
+### Task 7.3: Implement Dependency in Computed
+**Description:** Make Computed[T] implement the Dependency interface
+
+**Prerequisites:** Task 7.2
+
+**Unlocks:** Task 7.4 (Update UseEffect)
+
+**Files:**
+- `pkg/bubbly/computed.go` (modify)
+- `pkg/bubbly/computed_test.go` (add tests)
+
+**Type Safety:**
+```go
+// Computed[T] implementation similar to Ref[T]
+func (c *Computed[T]) Get() any {
+    return c.GetTyped()
+}
+
+func (c *Computed[T]) GetTyped() T {
+    // existing implementation
+}
+```
+
+**Tests:**
+- [ ] Computed implements Dependency
+- [ ] Get() any works correctly
+- [ ] GetTyped() preserves type safety
+- [ ] Can be watched via Dependency
+- [ ] Backwards compatible
+- [ ] No breaking changes
+
+**Estimated effort:** 2 hours
+
+**Priority:** MEDIUM
+
+---
+
+### Task 7.4: Update UseEffect to Accept Dependency
+**Description:** Change UseEffect signature to accept Dependency instead of *Ref[any]
+
+**Prerequisites:** Task 7.3
+
+**Unlocks:** Task 7.5 (Update Watch)
+
+**Files:**
+- `pkg/bubbly/composables/use_effect.go` (modify)
+- `pkg/bubbly/composables/use_effect_test.go` (update tests)
+
+**Type Safety:**
+```go
+// Old signature (current):
+func UseEffect(ctx *Context, effect func() UseEffectCleanup, deps ...*Ref[any])
+
+// New signature (enhanced):
+func UseEffect(ctx *Context, effect func() UseEffectCleanup, deps ...Dependency)
+```
+
+**Implementation:**
+```go
+func UseEffect(ctx *Context, effect func() UseEffectCleanup, deps ...Dependency) {
+    var cleanup UseEffectCleanup
+    
+    executeEffect := func() {
+        if cleanup != nil {
+            cleanup()
+        }
+        cleanup = effect()
+    }
+    
+    if len(deps) == 0 {
+        ctx.OnMounted(executeEffect)
+        ctx.OnUpdated(executeEffect)
+    } else {
+        // Convert Dependency to *Ref[any] for lifecycle system
+        refDeps := make([]*Ref[any], len(deps))
+        for i, dep := range deps {
+            // Cast to *Ref[any] - safe because interface implementation
+            refDeps[i] = dep.(*Ref[any])  // or create wrapper
+        }
+        
+        ctx.OnMounted(executeEffect)
+        ctx.OnUpdated(executeEffect, refDeps...)
+    }
+    
+    ctx.OnUnmounted(func() {
+        if cleanup != nil {
+            cleanup()
+        }
+    })
+}
+```
+
+**Tests:**
+- [ ] Works with *Ref[int]
+- [ ] Works with *Ref[string]
+- [ ] Works with *Ref[any]
+- [ ] Works with Computed values
+- [ ] Multiple deps of different types
+- [ ] All existing tests still pass
+- [ ] No type conversion needed in user code
+- [ ] Backwards compatible
+
+**Estimated effort:** 3 hours
+
+**Priority:** MEDIUM
+
+---
+
+### Task 7.5: Update Watch to Accept Dependency (Optional)
+**Description:** Allow Watch to accept Dependency for watching Computed values
+
+**Prerequisites:** Task 7.4
+
+**Unlocks:** Task 7.6 (Documentation)
+
+**Files:**
+- `pkg/bubbly/watch.go` (modify)
+- `pkg/bubbly/watch_test.go` (add tests)
+
+**Type Safety:**
+```go
+// Current: Watch[T any](ref *Ref[T], callback func(T, T))
+// Enhanced: Watch can accept Dependency
+func WatchDependency(dep Dependency, callback func(any, any)) func()
+```
+
+**Tests:**
+- [ ] Can watch Computed values
+- [ ] Callback receives old and new values
+- [ ] Cleanup works correctly
+- [ ] Type assertions in callback work
+- [ ] Multiple watchers on same Computed
+
+**Estimated effort:** 2 hours
+
+**Priority:** LOW - Nice to have
+
+---
+
+### Task 7.6: Update Documentation
+**Description:** Document Dependency interface and new usage patterns
+
+**Prerequisites:** Task 7.4 (or 7.5 if implemented)
+
+**Unlocks:** Task 7.7 (Migration guide)
+
+**Files:**
+- `pkg/bubbly/dependency.go` (godoc)
+- `docs/guides/composition-api.md` (update)
+- `docs/guides/reactive-dependencies.md` (new)
+
+**Documentation:**
+- [ ] Dependency interface explained
+- [ ] Usage examples with typed refs
+- [ ] Usage examples with computed values
+- [ ] Benefits over Ref[any] approach
+- [ ] When to use which approach
+- [ ] Performance implications (minimal)
+
+**Examples:**
+```go
+// Before (verbose):
+count := bubbly.NewRef[any](0)
+UseEffect(ctx, func() UseEffectCleanup {
+    currentCount := count.Get().(int)
+    fmt.Printf("Count: %d\n", currentCount)
+    return nil
+}, count)
+
+// After (ergonomic):
+count := bubbly.NewRef(0)  // *Ref[int]
+UseEffect(ctx, func() UseEffectCleanup {
+    currentCount := count.Get().(int)  // Still need type assertion
+    fmt.Printf("Count: %d\n", currentCount)
+    return nil
+}, count)  // Works directly!
+
+// With Computed:
+fullName := ctx.Computed(func() string {
+    return firstName.Get() + " " + lastName.Get()
+})
+UseEffect(ctx, func() UseEffectCleanup {
+    name := fullName.Get().(string)
+    fmt.Printf("Name: %s\n", name)
+    return nil
+}, fullName)  // Computed as dependency!
+```
+
+**Estimated effort:** 2 hours
+
+**Priority:** MEDIUM
+
+---
+
+### Task 7.7: Create Migration Guide
+**Description:** Guide for migrating from Ref[any] to Dependency pattern
+
+**Prerequisites:** Task 7.6
+
+**Unlocks:** Phase 7 completion
+
+**Files:**
+- `docs/guides/dependency-migration.md`
+
+**Content:**
+- [ ] Why the change was made
+- [ ] What changed (API comparison)
+- [ ] How to migrate (step by step)
+- [ ] Compatibility notes
+- [ ] Common patterns
+- [ ] Troubleshooting
+
+**Migration Steps:**
+1. Existing code continues to work (backwards compatible)
+2. New code can use typed refs directly
+3. Optional: Refactor existing Ref[any] to typed refs
+4. Benefits: Better type inference, cleaner code
+
+**Estimated effort:** 1 hour
+
+**Priority:** MEDIUM
+
+---
+
+### Task 7.8: Integration Testing
+**Description:** Test Dependency interface with real-world scenarios
+
+**Prerequisites:** Task 7.7
+
+**Unlocks:** Phase 7 complete - ready for production
+
+**Files:**
+- `tests/integration/dependency_test.go`
+
+**Tests:**
+- [ ] Complex component with multiple typed deps
+- [ ] Computed values as dependencies
+- [ ] Mixed Ref and Computed deps
+- [ ] Nested composables with deps
+- [ ] Performance comparison (before/after)
+- [ ] Memory leak verification
+- [ ] Backwards compatibility verification
+
+**Scenarios:**
+- Form with validation (multiple typed refs)
+- Dashboard with computed metrics
+- Real-time data updates
+- User preferences with provide/inject
+
+**Estimated effort:** 3 hours
+
+**Priority:** HIGH
 
 ---
 
@@ -818,7 +1167,8 @@ Complete: Ready for Features 05, 06
 | Phase 4: Integration & Utilities | 3 | 9 hours |
 | Phase 5: Performance & Polish | 3 | 12 hours |
 | Phase 6: Testing & Validation | 3 | 14 hours |
-| **Total** | **20 tasks** | **71 hours (~1.8 weeks)** |
+| Phase 7: Dependency Interface (QoL) | 8 | 16 hours |
+| **Total** | **28 tasks** | **87 hours (~2.2 weeks)** |
 
 ---
 
@@ -832,6 +1182,11 @@ Complete: Ready for Features 05, 06
 - Days 1-2: Phase 3 (Complex composables)
 - Day 3: Phase 4 (Integration)
 - Days 4-5: Phase 5 & 6 (Polish and validation)
+
+### Week 3: Quality of Life Enhancement (Optional)
+- Days 1-2: Phase 7.1-7.4 (Dependency interface core)
+- Day 3: Phase 7.5-7.7 (Watch update, docs, migration)
+- Day 4: Phase 7.8 (Integration testing)
 
 ---
 
@@ -901,9 +1256,15 @@ Complete: Ready for Features 05, 06
 - **Performance vs DX:** Slight overhead for better experience
 - **Flexibility vs Convention:** Strong conventions with escape hatches
 
-### Future Enhancements
-- Composable registry
-- Async composables (suspense-like)
+### Planned Enhancements (Phase 7)
+- **Dependency interface** (quality of life for UseEffect)
+- Enables typed refs with UseEffect
+- Enables watching Computed values
+- Backwards compatible API improvement
+
+### Future Enhancements (Post-Phase 7)
+- Composable registry for discoverability
+- Async composables (suspense-like patterns)
 - Dev tools integration
 - Hot reload support
 - Testing utilities expansion
