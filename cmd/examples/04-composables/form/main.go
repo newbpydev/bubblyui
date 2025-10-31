@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,10 +20,18 @@ type LoginForm struct {
 	Password string
 }
 
+// resetMsg is sent after countdown to reset the form
+type resetMsg struct{}
+
+// tickMsg is sent periodically for countdown
+type tickMsg time.Time
+
 // model wraps the form component
 type model struct {
-	component    bubbly.Component
-	focusedField string // Track which field is being edited
+	component       bubbly.Component
+	focusedField    string // Track which field is being edited
+	countdownActive bool   // Track if countdown is active
+	countdownSecs   int    // Seconds remaining in countdown
 }
 
 func (m model) Init() tea.Cmd {
@@ -31,7 +40,29 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
+	case tickMsg:
+		// Handle countdown tick
+		if m.countdownActive {
+			m.countdownSecs--
+			// Update component's countdown state
+			m.component.Emit("updateCountdown", m.countdownSecs)
+
+			if m.countdownSecs <= 0 {
+				// Countdown finished - reset form
+				m.countdownActive = false
+				m.component.Emit("reset", nil)
+				updatedComponent, cmd := m.component.Update(msg)
+				m.component = updatedComponent.(bubbly.Component)
+				return m, cmd
+			}
+			// Continue countdown
+			return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+				return tickMsg(t)
+			})
+		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -42,14 +73,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			// Submit form
 			m.component.Emit("submit", nil)
+			// Check if submission was successful to start countdown
+			// This will be handled by the component's response
 		case "ctrl+r":
 			// Reset form
 			m.component.Emit("reset", nil)
 		default:
-			// Send character to current field
-			if len(msg.String()) == 1 {
-				m.component.Emit("addChar", msg.String())
-			} else if msg.String() == "backspace" {
+			// Handle text input
+			switch msg.Type {
+			case tea.KeyRunes:
+				// Regular character input
+				m.component.Emit("addChar", string(msg.Runes))
+			case tea.KeySpace:
+				m.component.Emit("addChar", " ")
+			case tea.KeyBackspace:
 				m.component.Emit("removeChar", nil)
 			}
 		}
@@ -57,7 +94,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	updatedComponent, cmd := m.component.Update(msg)
 	m.component = updatedComponent.(bubbly.Component)
-	return m, cmd
+
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
+	// Check if we need to start countdown after Enter key (only if form was valid)
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" && !m.countdownActive {
+		// The component has set justSubmitted=true if form was valid
+		// We start the countdown timer here
+		m.countdownActive = true
+		m.countdownSecs = 3
+		cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+			return tickMsg(t)
+		}))
+	}
+
+	if len(cmds) > 0 {
+		return m, tea.Batch(cmds...)
+	}
+	return m, nil
 }
 
 func (m model) View() string {
@@ -93,15 +149,24 @@ func (m model) View() string {
 func validateLoginForm(form LoginForm) map[string]string {
 	errors := make(map[string]string)
 
-	if len(form.Username) < 3 {
+	// Username validation
+	if len(form.Username) == 0 {
+		errors["Username"] = "Username is required"
+	} else if len(form.Username) < 3 {
 		errors["Username"] = "Username must be at least 3 characters"
 	}
 
-	if !strings.Contains(form.Email, "@") {
+	// Email validation
+	if len(form.Email) == 0 {
+		errors["Email"] = "Email is required"
+	} else if !strings.Contains(form.Email, "@") {
 		errors["Email"] = "Email must contain @"
 	}
 
-	if len(form.Password) < 6 {
+	// Password validation
+	if len(form.Password) == 0 {
+		errors["Password"] = "Password is required"
+	} else if len(form.Password) < 6 {
 		errors["Password"] = "Password must be at least 6 characters"
 	}
 
@@ -148,16 +213,19 @@ func createFormDemo() (bubbly.Component, error) {
 				field := focusedField.GetTyped().(string)
 				currentForm := form.Values.GetTyped()
 
+				// Get current field value and append character
+				var newValue string
 				switch field {
 				case "Username":
-					currentForm.Username += char
+					newValue = currentForm.Username + char
 				case "Email":
-					currentForm.Email += char
+					newValue = currentForm.Email + char
 				case "Password":
-					currentForm.Password += char
+					newValue = currentForm.Password + char
 				}
 
-				form.SetField(field, currentForm)
+				// SetField expects field name and field value (not entire form)
+				form.SetField(field, newValue)
 			})
 
 			// Event handler for removing characters
@@ -165,34 +233,65 @@ func createFormDemo() (bubbly.Component, error) {
 				field := focusedField.GetTyped().(string)
 				currentForm := form.Values.GetTyped()
 
+				// Get current field value and remove last character
+				var newValue string
 				switch field {
 				case "Username":
 					if len(currentForm.Username) > 0 {
-						currentForm.Username = currentForm.Username[:len(currentForm.Username)-1]
+						newValue = currentForm.Username[:len(currentForm.Username)-1]
 					}
 				case "Email":
 					if len(currentForm.Email) > 0 {
-						currentForm.Email = currentForm.Email[:len(currentForm.Email)-1]
+						newValue = currentForm.Email[:len(currentForm.Email)-1]
 					}
 				case "Password":
 					if len(currentForm.Password) > 0 {
-						currentForm.Password = currentForm.Password[:len(currentForm.Password)-1]
+						newValue = currentForm.Password[:len(currentForm.Password)-1]
 					}
 				}
 
-				form.SetField(field, currentForm)
+				// SetField expects field name and field value (not entire form)
+				form.SetField(field, newValue)
 			})
+
+			// Track countdown state
+			countdownActive := ctx.Ref(false)
+			countdownSecs := ctx.Ref(0)
+
+			ctx.Expose("countdownActive", countdownActive)
+			ctx.Expose("countdownSecs", countdownSecs)
+
+			// Track if last submit was successful (for countdown trigger)
+			justSubmitted := ctx.Ref(false)
+			ctx.Expose("justSubmitted", justSubmitted)
 
 			// Event handler for form submission
 			ctx.On("submit", func(_ interface{}) {
-				attempts := submitAttempts.GetTyped().(int)
-				submitAttempts.Set(attempts + 1)
+				// Validate form before submission
+				form.Submit()
 
-				// Check if form is valid
+				// Only count as submission attempt if form is valid
 				if form.IsValid.GetTyped() {
+					attempts := submitAttempts.GetTyped().(int)
+					submitAttempts.Set(attempts + 1)
 					lastSubmitSuccess.Set(true)
+					justSubmitted.Set(true)
+
+					// Start countdown for auto-reset
+					countdownActive.Set(true)
+					countdownSecs.Set(3)
 				} else {
+					// Form has errors - don't count as submission
 					lastSubmitSuccess.Set(false)
+					countdownActive.Set(false)
+					justSubmitted.Set(false)
+				}
+			})
+
+			// Event handler for updating countdown
+			ctx.On("updateCountdown", func(data interface{}) {
+				if secs, ok := data.(int); ok {
+					countdownSecs.Set(secs)
 				}
 			})
 
@@ -201,6 +300,9 @@ func createFormDemo() (bubbly.Component, error) {
 				form.Reset()
 				focusedField.Set("Username")
 				lastSubmitSuccess.Set(false)
+				submitAttempts.Set(0)
+				countdownActive.Set(false)
+				countdownSecs.Set(0)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -208,7 +310,8 @@ func createFormDemo() (bubbly.Component, error) {
 			form := ctx.Get("form").(composables.UseFormReturn[LoginForm])
 			focusedField := ctx.Get("focusedField").(*bubbly.Ref[interface{}])
 			submitAttempts := ctx.Get("submitAttempts").(*bubbly.Ref[interface{}])
-			lastSubmitSuccess := ctx.Get("lastSubmitSuccess").(*bubbly.Ref[interface{}])
+			countdownActive := ctx.Get("countdownActive").(*bubbly.Ref[interface{}])
+			countdownSecs := ctx.Get("countdownSecs").(*bubbly.Ref[interface{}])
 
 			currentForm := form.Values.GetTyped()
 			errors := form.Errors.GetTyped()
@@ -216,7 +319,8 @@ func createFormDemo() (bubbly.Component, error) {
 			isValid := form.IsValid.GetTyped()
 			focused := focusedField.GetTyped().(string)
 			attempts := submitAttempts.GetTyped().(int)
-			success := lastSubmitSuccess.GetTyped().(bool)
+			countdown := countdownActive.GetTyped().(bool)
+			secsLeft := countdownSecs.GetTyped().(int)
 
 			// Form fields box
 			fieldStyle := lipgloss.NewStyle().
@@ -311,21 +415,31 @@ func createFormDemo() (bubbly.Component, error) {
 				Align(lipgloss.Center)
 
 			var statusBox string
-			if attempts > 0 {
-				if success {
-					statusStyle = statusStyle.
-						Foreground(lipgloss.Color("15")).
-						Background(lipgloss.Color("35")).
-						BorderForeground(lipgloss.Color("99"))
-					statusBox = statusStyle.Render("✅ Form submitted successfully!")
-				} else {
-					statusStyle = statusStyle.
-						Foreground(lipgloss.Color("15")).
-						Background(lipgloss.Color("196")).
-						BorderForeground(lipgloss.Color("160"))
-					statusBox = statusStyle.Render("❌ Form has validation errors")
-				}
+			if countdown && attempts > 0 {
+				// Form was successfully submitted - show countdown
+				statusStyle = statusStyle.
+					Foreground(lipgloss.Color("15")).
+					Background(lipgloss.Color("35")).
+					BorderForeground(lipgloss.Color("99"))
+				statusBox = statusStyle.Render(fmt.Sprintf(
+					"✅ Form submitted successfully! (Submissions: %d)\nResetting in %d seconds...",
+					attempts, secsLeft))
+			} else if !isValid && len(errors) > 0 {
+				// Form has validation errors
+				statusStyle = statusStyle.
+					Foreground(lipgloss.Color("15")).
+					Background(lipgloss.Color("196")).
+					BorderForeground(lipgloss.Color("160"))
+				statusBox = statusStyle.Render(fmt.Sprintf("❌ Cannot submit: Fix %d validation error(s)", len(errors)))
+			} else if isValid && isDirty {
+				// Form is valid and ready to submit
+				statusStyle = statusStyle.
+					Foreground(lipgloss.Color("15")).
+					Background(lipgloss.Color("35")).
+					BorderForeground(lipgloss.Color("99"))
+				statusBox = statusStyle.Render("✓ Form is valid - Press Enter to submit")
 			} else {
+				// Initial state - form not yet filled
 				statusStyle = statusStyle.
 					Foreground(lipgloss.Color("241")).
 					BorderForeground(lipgloss.Color("240"))
