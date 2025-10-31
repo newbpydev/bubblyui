@@ -160,7 +160,7 @@ func setupProvider(ctx *Context) {
 func setupConsumer(ctx *Context) {
     theme := InjectTyped(ctx, ThemeKey, "light")  // Returns string
     count := InjectTyped(ctx, CountKey, ctx.Ref(0))  // Returns *Ref[int]
-    count.Set(count.Get() + 1)  // Direct access, type-safe
+    count.Set(count.GetTyped() + 1)  // Direct access, type-safe
 }
 ```
 
@@ -260,9 +260,11 @@ func UseEffect(ctx *Context, effect func() UseEffectCleanup, deps ...*Ref[any])
   - No deps: runs on mount and every update
   - With deps: runs on mount and when any dependency changes
   - Note: Go variadic parameters don't distinguish "no deps" from "empty slice" - both result in `len(deps) == 0`
-- **Type constraint:** Dependencies must be `*Ref[any]` due to Go's type system limitations
-  - Users create refs as `NewRef[any](value)` when using with UseEffect
-  - This is similar to Go's `context.Context` pattern (store as `any`, type assert on retrieval)
+- **Type flexibility:** Dependencies use the `Dependency` interface
+  - Accepts typed refs directly: `NewRef(0)` works as `*Ref[int]`
+  - Accepts computed values: `NewComputed(...)` works directly
+  - No need for `Ref[any]` - use typed refs for better type safety
+  - Use `GetTyped()` for type-safe value access within effects
 - Cleanup execution order: cleanup runs before re-run and on unmount
 - Thread-safe through lifecycle system integration
 - Comprehensive godoc with multiple usage examples
