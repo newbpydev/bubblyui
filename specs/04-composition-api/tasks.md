@@ -1684,9 +1684,13 @@ Tests are production-ready and follow BubblyUI testing conventions.
   - Statistics tracking (total, completed, pending) using Computed values
   - **Mode-based input handling** (best practice for TUI apps):
     - Navigation mode: Use Ctrl+ shortcuts (ctrl+e, ctrl+d, ctrl+n)
-    - Input mode: Type freely without triggering commands
+    - Input mode: Type freely without triggering commands (including space)
     - ESC toggles between modes
-    - Visual mode indicator shows current mode
+    - Visual mode indicator shows current mode with color coding
+    - **Dynamic border colors** for visual feedback:
+      - Form box: Dark grey (inactive) → Green (active in input mode)
+      - Todo list: Purple (active in navigation mode) → Dark grey (inactive)
+    - Space key: Toggle completion (navigation) or add space character (input)
   - Keyboard shortcuts: ↑/↓ (select), space (toggle), ctrl+e (edit), ctrl+d (delete), ctrl+n (new), enter (add/save)
   - Field-level validation with error messages
   - Clean Lipgloss styling with status indicators

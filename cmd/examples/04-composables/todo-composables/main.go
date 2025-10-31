@@ -46,88 +46,115 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			// Always allow quit with Ctrl+C
-			return m, tea.Quit
-		case "esc":
-			// ESC toggles between input mode and navigation mode
-			m.inputMode = !m.inputMode
-			if !m.inputMode && m.editMode {
-				// Exit edit mode when leaving input mode
-				m.editMode = false
-				m.component.Emit("clearForm", nil)
-			}
-		case "ctrl+n":
-			// New todo - clear form and enter input mode
-			m.editMode = false
-			m.inputMode = true
-			m.component.Emit("clearForm", nil)
-		case "ctrl+e":
-			// Edit selected todo - only in navigation mode
+		// Handle space key first (using msg.Type)
+		if msg.Type == tea.KeySpace {
 			if !m.inputMode && !m.editMode {
-				m.editMode = true
-				m.inputMode = true
-				m.component.Emit("editTodo", m.selectedTodo)
-			}
-		case "ctrl+d":
-			// Delete selected todo - only in navigation mode
-			if !m.inputMode && !m.editMode {
-				m.component.Emit("deleteTodo", m.selectedTodo)
-			}
-		case "enter":
-			if m.inputMode {
-				// In input mode: submit form
-				if m.editMode {
-					m.component.Emit("updateTodo", m.selectedTodo)
-					m.editMode = false
-					m.inputMode = false
-				} else {
-					m.component.Emit("addTodo", nil)
-					// Stay in input mode for adding multiple todos
-				}
-			} else {
-				// In navigation mode: enter input mode to add new todo
-				m.inputMode = true
-			}
-		case "space":
-			// Toggle completion - only in navigation mode
-			if !m.inputMode && !m.editMode {
+				// Navigation mode: toggle completion
 				m.component.Emit("toggleTodo", m.selectedTodo)
 			} else if m.inputMode {
-				// In input mode: add space character
+				// Input mode: add space character
 				m.component.Emit("addChar", " ")
 			}
-		case "up", "k":
-			// Move selection up - only in navigation mode
-			if !m.inputMode && !m.editMode {
-				m.component.Emit("selectPrevious", nil)
-				if m.selectedTodo > 0 {
-					m.selectedTodo--
+		} else {
+			// Handle other keys using msg.String()
+			switch msg.String() {
+			case "ctrl+c":
+				// Always allow quit with Ctrl+C
+				return m, tea.Quit
+			case "esc":
+				// ESC toggles between input mode and navigation mode
+				m.inputMode = !m.inputMode
+				m.component.Emit("setInputMode", m.inputMode)
+				if !m.inputMode && m.editMode {
+					// Exit edit mode when leaving input mode
+					m.editMode = false
+					m.component.Emit("clearForm", nil)
 				}
-			}
-		case "down", "j":
-			// Move selection down - only in navigation mode
-			if !m.inputMode && !m.editMode {
-				m.component.Emit("selectNext", nil)
-				m.selectedTodo++
-			}
-		case "tab":
-			// Cycle through form fields - only in input mode
-			if m.inputMode {
-				m.component.Emit("nextField", nil)
-			}
-		case "backspace":
-			// Remove character - only in input mode
-			if m.inputMode {
-				m.component.Emit("removeChar", nil)
-			}
-		default:
-			// Handle text input - only in input mode
-			if m.inputMode {
-				switch msg.Type {
-				case tea.KeyRunes:
-					m.component.Emit("addChar", string(msg.Runes))
+			case "ctrl+n":
+				// New todo - clear form and enter input mode
+				m.editMode = false
+				m.inputMode = true
+				m.component.Emit("setInputMode", m.inputMode)
+				m.component.Emit("clearForm", nil)
+			case "ctrl+e":
+				// Edit selected todo - only in navigation mode
+				if !m.inputMode && !m.editMode {
+					m.editMode = true
+					m.inputMode = true
+					m.component.Emit("setInputMode", m.inputMode)
+					m.component.Emit("editTodo", m.selectedTodo)
+				}
+			case "ctrl+d":
+				// Delete selected todo - only in navigation mode
+				if !m.inputMode && !m.editMode {
+					m.component.Emit("deleteTodo", m.selectedTodo)
+				}
+			case "enter":
+				if m.inputMode {
+					// In input mode: submit form
+					if m.editMode {
+						m.component.Emit("updateTodo", m.selectedTodo)
+						m.editMode = false
+						m.inputMode = false
+						m.component.Emit("setInputMode", m.inputMode)
+					} else {
+						m.component.Emit("addTodo", nil)
+						// Stay in input mode for adding multiple todos
+					}
+				} else {
+					// In navigation mode: enter input mode to add new todo
+					m.inputMode = true
+					m.component.Emit("setInputMode", m.inputMode)
+				}
+			case "up":
+				// Move selection up - only in navigation mode
+				if !m.inputMode && !m.editMode {
+					m.component.Emit("selectPrevious", nil)
+					if m.selectedTodo > 0 {
+						m.selectedTodo--
+					}
+				}
+			case "down":
+				// Move selection down - only in navigation mode
+				if !m.inputMode && !m.editMode {
+					m.component.Emit("selectNext", nil)
+					m.selectedTodo++
+				}
+			case "k":
+				// In navigation mode: move up; in input mode: type 'k'
+				if !m.inputMode && !m.editMode {
+					m.component.Emit("selectPrevious", nil)
+					if m.selectedTodo > 0 {
+						m.selectedTodo--
+					}
+				} else if m.inputMode {
+					m.component.Emit("addChar", "k")
+				}
+			case "j":
+				// In navigation mode: move down; in input mode: type 'j'
+				if !m.inputMode && !m.editMode {
+					m.component.Emit("selectNext", nil)
+					m.selectedTodo++
+				} else if m.inputMode {
+					m.component.Emit("addChar", "j")
+				}
+			case "tab":
+				// Cycle through form fields - only in input mode
+				if m.inputMode {
+					m.component.Emit("nextField", nil)
+				}
+			case "backspace":
+				// Remove character - only in input mode
+				if m.inputMode {
+					m.component.Emit("removeChar", nil)
+				}
+			default:
+				// Handle text input - only in input mode
+				if m.inputMode {
+					switch msg.Type {
+					case tea.KeyRunes:
+						m.component.Emit("addChar", string(msg.Runes))
+					}
 				}
 			}
 		}
@@ -248,6 +275,7 @@ func createTodoApp() (bubbly.Component, error) {
 			// UI state
 			selectedIndex := ctx.Ref(0)
 			focusedField := ctx.Ref("Title") // Title, Description, or Priority
+			inputMode := ctx.Ref(false)      // Track input mode for visual feedback
 
 			// Statistics
 			totalCount := ctx.Computed(func() interface{} {
@@ -277,9 +305,16 @@ func createTodoApp() (bubbly.Component, error) {
 			ctx.Expose("todos", todos)
 			ctx.Expose("selectedIndex", selectedIndex)
 			ctx.Expose("focusedField", focusedField)
+			ctx.Expose("inputMode", inputMode)
 			ctx.Expose("totalCount", totalCount)
 			ctx.Expose("completedCount", completedCount)
 			ctx.Expose("pendingCount", pendingCount)
+
+			// Event: Set input mode (called from model)
+			ctx.On("setInputMode", func(data interface{}) {
+				mode := data.(bool)
+				inputMode.Set(mode)
+			})
 
 			// Event: Add new todo
 			ctx.On("addTodo", func(_ interface{}) {
@@ -447,6 +482,7 @@ func createTodoApp() (bubbly.Component, error) {
 			todos := ctx.Get("todos").(*bubbly.Ref[interface{}])
 			selectedIndex := ctx.Get("selectedIndex").(*bubbly.Ref[interface{}])
 			focusedField := ctx.Get("focusedField").(*bubbly.Ref[interface{}])
+			inputModeRef := ctx.Get("inputMode").(*bubbly.Ref[interface{}])
 			totalCount := ctx.Get("totalCount").(*bubbly.Computed[interface{}])
 			completedCount := ctx.Get("completedCount").(*bubbly.Computed[interface{}])
 			pendingCount := ctx.Get("pendingCount").(*bubbly.Computed[interface{}])
@@ -457,6 +493,7 @@ func createTodoApp() (bubbly.Component, error) {
 			todoList := todos.GetTyped().([]Todo)
 			selected := selectedIndex.GetTyped().(int)
 			focused := focusedField.GetTyped().(string)
+			inInputMode := inputModeRef.GetTyped().(bool)
 
 			// Statistics box
 			statsStyle := lipgloss.NewStyle().
@@ -473,11 +510,15 @@ func createTodoApp() (bubbly.Component, error) {
 				pendingCount.GetTyped().(int),
 			))
 
-			// Form box
+			// Form box - dynamic border color based on mode
+			formBorderColor := "240" // Dark grey (navigation mode)
+			if inInputMode {
+				formBorderColor = "35" // Green (input mode)
+			}
 			formStyle := lipgloss.NewStyle().
 				Padding(1, 2).
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("141")).
+				BorderForeground(lipgloss.Color(formBorderColor)).
 				Width(60)
 
 			// Build form fields
@@ -545,16 +586,20 @@ func createTodoApp() (bubbly.Component, error) {
 
 			formBox := formStyle.Render(strings.Join(formFields, "\n") + formStatus)
 
-			// Todo list
+			// Todo list - dynamic border color based on mode
+			todoBorderColor := "99" // Purple (navigation mode - active)
+			if inInputMode {
+				todoBorderColor = "240" // Dark grey (input mode - inactive)
+			}
 			todoStyle := lipgloss.NewStyle().
 				Padding(1, 2).
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("240")).
+				BorderForeground(lipgloss.Color(todoBorderColor)).
 				Width(60)
 
 			var todoItems []string
 			if len(todoList) == 0 {
-				todoItems = append(todoItems, "No todos yet. Press 'n' to create one!")
+				todoItems = append(todoItems, "No todos yet. Press Ctrl+N to create one!")
 			} else {
 				for i, todo := range todoList {
 					cursor := "  "
