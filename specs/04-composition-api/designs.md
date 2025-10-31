@@ -801,11 +801,84 @@ func UseAuth(ctx *Context) UseAuthReturn {
 
 ---
 
+## Known Limitations & Solutions
+
+### UseEffect Dependency Type Constraint
+
+**Problem:**  
+UseEffect requires dependencies as `*Ref[any]`, but users naturally create typed refs like `*Ref[int]`. Go's type system doesn't support variance (covariance/contravariance), so `*Ref[int]` and `*Ref[any]` are completely different, incompatible types with no subtype relationship.
+
+**Root Cause:**  
+Go generics are invariant by design. Unlike languages with variance support, Go cannot treat `*Ref[T]` as a subtype of `*Ref[any]` even though they have identical memory layouts. This is intentional to maintain type safety and avoid the complexities of variance (see [Go Issue #7512](https://github.com/golang/go/issues/7512) and [Mero's Blog on Variance](https://blog.merovius.de/posts/2018-06-03-why-doesnt-go-have-variance-in/)).
+
+**Attempted Solutions:**
+1. **Unsafe pointer conversion** - Tried converting `*Ref[int]` to `*Ref[any]` using `unsafe.Pointer`. Failed because calling `.Get()` on the converted pointer returns values wrapped in different interface types, causing `deepEqual` comparison failures in the lifecycle system.
+2. **Reflection-based conversion** - Similar issues with type mismatches during value comparison.
+
+**Evaluated Alternatives:**
+
+| Solution | Pros | Cons | Recommendation |
+|----------|------|------|----------------|
+| **1. Interface-based (Dependency interface)** | • Go-idiomatic<br>• Works with any Ref type<br>• Type-safe at interface level<br>• Enables watching Computed values | • Requires new interface<br>• Slight performance overhead (interface method calls)<br>• API change | ⭐ **RECOMMENDED** for future enhancement |
+| **2. Helper function (ToRefAny)** | • Explicit conversion<br>• No API changes<br>• Users understand what's happening | • Verbose<br>• Error-prone (easy to forget)<br>• Doesn't solve root issue | ❌ Not recommended |
+| **3. Current approach (Ref[any] only)** | • Simple<br>• Type-safe<br>• No complexity | • Less ergonomic<br>• Users must use `NewRef[any](value)` | ✅ **CURRENT** - acceptable trade-off |
+| **4. Functional (getter functions)** | • Flexible<br>• Works with any source | • Loses dependency tracking<br>• Not declarative<br>• Breaks Vue/React patterns | ❌ Not recommended |
+
+**Current Implementation:**  
+UseEffect accepts `deps ...*Ref[any]`. Users must create refs as `NewRef[any](value)` when using them with UseEffect. This follows Go's `context.Context` pattern: store as `any`, type assert on retrieval.
+
+**Usage Pattern:**
+```go
+// Create ref as Ref[any] for use with UseEffect
+count := bubbly.NewRef[any](0)
+
+UseEffect(ctx, func() UseEffectCleanup {
+    // Type assert when retrieving
+    currentCount := count.Get().(int)
+    fmt.Printf("Count: %d\n", currentCount)
+    return nil
+}, count)
+```
+
+**Recommended Future Solution:**  
+Implement a `Dependency` interface that both `Ref[T]` and `Computed[T]` implement:
+
+```go
+// Dependency represents a reactive dependency that can be watched
+type Dependency interface {
+    Get() any
+    // Internal methods for dependency tracking
+    AddDependent(dep Dependency)
+    Invalidate()
+}
+
+// Update UseEffect signature
+func UseEffect(ctx *Context, effect func() UseEffectCleanup, deps ...Dependency)
+```
+
+**Benefits:**
+- Works with any Ref type (`*Ref[int]`, `*Ref[string]`, etc.)
+- Enables watching Computed values (currently not possible)
+- Go-idiomatic interface-based design
+- Aligns with Vue 3 behavior (computed values are watchable)
+- Minimal performance impact (interface method calls are highly optimized in Go)
+
+**Priority:** MEDIUM - Current solution works, but interface-based approach would significantly improve developer experience and enable new features.
+
+**References:**
+- [Go Issue #7512 - Covariance Support](https://github.com/golang/go/issues/7512)
+- [Why Go Doesn't Have Variance](https://blog.merovius.de/posts/2018-06-03-why-doesnt-go-have-variance-in/)
+- [Go Generics Design](https://go.googlesource.com/proposal/+/refs/heads/master/design/43651-type-parameters.md)
+- [ByteDance gg Library](https://github.com/bytedance/gg) - Generic utilities showing Go patterns
+
+---
+
 ## Future Enhancements
 
-1. **Composable Registry:** Global registry for discoverability
-2. **Async Composables:** Support for async/await patterns
-3. **Suspense:** React-like suspense for async composables
-4. **Dev Tools:** Visualize composable usage and dependencies
-5. **Hot Reload:** Update composables without full reload
-6. **Testing Utilities:** Helper functions for testing composables
+1. **Dependency Interface:** Implement interface-based dependency tracking (see Known Limitations)
+2. **Composable Registry:** Global registry for discoverability
+3. **Async Composables:** Support for async/await patterns
+4. **Suspense:** React-like suspense for async composables
+5. **Dev Tools:** Visualize composable usage and dependencies
+6. **Hot Reload:** Update composables without full reload
+7. **Testing Utilities:** Helper functions for testing composables
