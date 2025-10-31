@@ -1,9 +1,13 @@
 package composables
 
 import (
+	"fmt"
 	"reflect"
+	"runtime/debug"
+	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // UseFormReturn is the return type for the UseForm composable.
@@ -256,13 +260,49 @@ func UseForm[T any](
 
 		// Check if field exists and is settable
 		if !fieldValue.IsValid() {
-			// Field doesn't exist - silently ignore
-			// In production, you might want to log this or panic
+			// Field doesn't exist - report error
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				err := fmt.Errorf("UseForm.SetField: field '%s' does not exist on type %T", field, currentValues)
+				ctx := &observability.ErrorContext{
+					ComponentName: "UseForm",
+					EventName:     "SetField",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"error_type": "invalid_field",
+						"field_name": field,
+					},
+					Extra: map[string]interface{}{
+						"form_type":   fmt.Sprintf("%T", currentValues),
+						"value_type":  fmt.Sprintf("%T", value),
+						"field_count": v.NumField(),
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
 			return
 		}
 
 		if !fieldValue.CanSet() {
-			// Field is not settable (unexported) - silently ignore
+			// Field is not settable (unexported) - report error
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				err := fmt.Errorf("UseForm.SetField: field '%s' is not settable (unexported field)", field)
+				ctx := &observability.ErrorContext{
+					ComponentName: "UseForm",
+					EventName:     "SetField",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"error_type": "unexported_field",
+						"field_name": field,
+					},
+					Extra: map[string]interface{}{
+						"form_type":  fmt.Sprintf("%T", currentValues),
+						"value_type": fmt.Sprintf("%T", value),
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
 			return
 		}
 
@@ -271,8 +311,30 @@ func UseForm[T any](
 		if newValue.Type().AssignableTo(fieldValue.Type()) {
 			fieldValue.Set(newValue)
 		} else {
-			// Type mismatch - silently ignore
-			// In production, you might want to log this or panic
+			// Type mismatch - report error
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				err := fmt.Errorf("UseForm.SetField: type mismatch for field '%s': expected %v, got %v",
+					field, fieldValue.Type(), newValue.Type())
+				ctx := &observability.ErrorContext{
+					ComponentName: "UseForm",
+					EventName:     "SetField",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"error_type":    "type_mismatch",
+						"field_name":    field,
+						"expected_type": fieldValue.Type().String(),
+						"actual_type":   newValue.Type().String(),
+					},
+					Extra: map[string]interface{}{
+						"form_type":   fmt.Sprintf("%T", currentValues),
+						"value":       value,
+						"assignable":  newValue.Type().AssignableTo(fieldValue.Type()),
+						"convertible": newValue.Type().ConvertibleTo(fieldValue.Type()),
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
 			return
 		}
 

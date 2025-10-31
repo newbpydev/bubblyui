@@ -2,8 +2,11 @@ package composables
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // Test form struct for validation
@@ -259,4 +262,130 @@ func TestUseForm_MultipleFieldUpdates(t *testing.T) {
 	errors := form.Errors.GetTyped()
 	assert.Empty(t, errors, "No errors for valid form")
 	assert.True(t, form.IsValid.GetTyped())
+}
+
+func TestUseForm_SetField_InvalidField_ReportsError(t *testing.T) {
+	// Setup custom error reporter to capture errors
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	// Set global reporter
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// Try to set non-existent field
+	form.SetField("NonExistentField", "value")
+
+	// Verify error was reported
+	assert.NotNil(t, capturedError, "Error should be reported for invalid field")
+	assert.Contains(t, capturedError.Error(), "does not exist", "Error message should mention field doesn't exist")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseForm", capturedContext.ComponentName)
+	assert.Equal(t, "SetField", capturedContext.EventName)
+	assert.Equal(t, "invalid_field", capturedContext.Tags["error_type"])
+	assert.Equal(t, "NonExistentField", capturedContext.Tags["field_name"])
+
+	// Verify form state unchanged
+	assert.Equal(t, initial, form.Values.GetTyped())
+}
+
+func TestUseForm_SetField_TypeMismatch_ReportsError(t *testing.T) {
+	// Setup custom error reporter
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// Try to set Age field with wrong type (string instead of int)
+	form.SetField("Age", "not a number")
+
+	// Verify error was reported
+	assert.NotNil(t, capturedError, "Error should be reported for type mismatch")
+	assert.Contains(t, capturedError.Error(), "type mismatch", "Error message should mention type mismatch")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseForm", capturedContext.ComponentName)
+	assert.Equal(t, "type_mismatch", capturedContext.Tags["error_type"])
+	assert.Equal(t, "Age", capturedContext.Tags["field_name"])
+
+	// Verify form state unchanged
+	assert.Equal(t, 0, form.Values.GetTyped().Age)
+}
+
+func TestUseForm_SetField_UnexportedField_ReportsError(t *testing.T) {
+	// Create form with unexported field
+	type FormWithUnexported struct {
+		Public  string
+		private string // unexported
+	}
+
+	// Setup custom error reporter
+	var capturedError error
+
+	customReporter := &testErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	ctx := createTestContext()
+	initial := FormWithUnexported{Public: "test", private: "secret"}
+
+	form := UseForm(ctx, initial, func(f FormWithUnexported) map[string]string {
+		return make(map[string]string)
+	})
+
+	// Try to set unexported field
+	form.SetField("private", "hacked")
+
+	// Verify error was reported
+	assert.NotNil(t, capturedError, "Error should be reported for unexported field")
+	assert.Contains(t, capturedError.Error(), "not settable", "Error message should mention field not settable")
+}
+
+// testErrorReporter is a simple error reporter for testing
+type testErrorReporter struct {
+	onError func(error, *observability.ErrorContext)
+	onPanic func(*observability.HandlerPanicError, *observability.ErrorContext)
+}
+
+func (r *testErrorReporter) ReportError(err error, ctx *observability.ErrorContext) {
+	if r.onError != nil {
+		r.onError(err, ctx)
+	}
+}
+
+func (r *testErrorReporter) ReportPanic(panicErr *observability.HandlerPanicError, ctx *observability.ErrorContext) {
+	if r.onPanic != nil {
+		r.onPanic(panicErr, ctx)
+	}
+}
+
+func (r *testErrorReporter) Flush(timeout time.Duration) error {
+	return nil
 }
