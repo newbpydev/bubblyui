@@ -25,7 +25,7 @@ package bubbly
 //	// With UseEffect - typed refs work directly
 //	count := bubbly.NewRef(0)  // *Ref[int]
 //	UseEffect(ctx, func() UseEffectCleanup {
-//	    currentCount := count.GetTyped().(int)
+//	    currentCount := count.GetTyped()  // Returns int, type-safe
 //	    fmt.Printf("Count: %d\n", currentCount)
 //	    return nil
 //	}, count)  // Works! count implements Dependency
@@ -35,7 +35,7 @@ package bubbly
 //	    return firstName.GetTyped() + " " + lastName.GetTyped()
 //	})
 //	UseEffect(ctx, func() UseEffectCleanup {
-//	    name := fullName.GetTyped().(string)
+//	    name := fullName.GetTyped()  // Returns string, type-safe
 //	    fmt.Printf("Name: %s\n", name)
 //	    return nil
 //	}, fullName)  // Computed as dependency!
@@ -59,7 +59,7 @@ type Dependency interface {
 	//
 	// Example:
 	//   count := bubbly.NewRef(42)
-	//   value := count.GetTyped().(int)  // Type assertion required
+	//   value := count.Get().(int)  // Type assertion required when using Get()
 	Get() any
 
 	// Invalidate marks this dependency as needing recomputation or re-evaluation.
