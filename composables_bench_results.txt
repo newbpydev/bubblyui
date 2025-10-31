@@ -1,0 +1,27 @@
+goos: linux
+goarch: amd64
+pkg: github.com/newbpydev/bubblyui/pkg/bubbly/composables
+cpu: AMD Ryzen 5 4500U with Radeon Graphics         
+BenchmarkUseState-6                     	27904929	        46.16 ns/op	      80 B/op	       1 allocs/op
+BenchmarkUseState_Set-6                 	36843836	        32.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUseState_Get-6                 	78754946	        15.37 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUseAsync-6                     	 4796307	       251.0 ns/op	     352 B/op	       5 allocs/op
+BenchmarkUseAsync_Execute-6             	  572868	      1875 ns/op	      64 B/op	       2 allocs/op
+BenchmarkUseEffect-6                    	  897349	      1219 ns/op	    1515 B/op	       9 allocs/op
+BenchmarkUseEffect_WithDeps-6           	  776367	      1359 ns/op	    1488 B/op	      12 allocs/op
+BenchmarkUseDebounce-6                  	 1553294	       834.3 ns/op	     842 B/op	      10 allocs/op
+BenchmarkUseThrottle-6                  	 2449398	       486.0 ns/op	     545 B/op	       6 allocs/op
+BenchmarkUseForm-6                      	 1648038	       740.8 ns/op	     840 B/op	      13 allocs/op
+BenchmarkUseForm_SetField-6             	 2833251	       408.9 ns/op	      80 B/op	       2 allocs/op
+BenchmarkUseLocalStorage-6              	  878582	      1197 ns/op	    1216 B/op	      15 allocs/op
+BenchmarkProvideInject_Depth1-6         	50438289	        23.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkProvideInject_Depth3-6         	35013574	        34.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkProvideInject_Depth5-6         	21569772	        55.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkProvideInject_Depth10-6        	 8605023	       121.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkProvideInject_CachedLookup-6   	19999268	        59.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkComposableChain-6              	 3700225	       321.7 ns/op	     224 B/op	       7 allocs/op
+BenchmarkComposableChain_Execution-6    	11498211	        95.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMemory_UseStateAllocation-6    	 2075576	       575.3 ns/op	     464 B/op	       7 allocs/op
+BenchmarkMemory_MultipleComposables-6   	 1653866	       703.8 ns/op	     640 B/op	       9 allocs/op
+PASS
+ok  	github.com/newbpydev/bubblyui/pkg/bubbly/composables	31.230s
