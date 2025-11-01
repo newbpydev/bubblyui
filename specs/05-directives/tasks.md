@@ -153,12 +153,47 @@ func (d *ShowDirective) Render() string
 ```
 
 **Tests:**
-- [ ] Shows when visible=true
-- [ ] Hides when visible=false
-- [ ] Transition option works
-- [ ] Nested Show works
+- [x] Shows when visible=true
+- [x] Hides when visible=false
+- [x] Transition option works
+- [x] Nested Show works
 
 **Estimated effort:** 2 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- Created `pkg/bubbly/directives/show.go` with full implementation
+- Implemented `ShowDirective` struct with `visible`, `content`, and `transition` fields
+- Created `Show()` constructor function returning `*ShowDirective`
+- Implemented fluent API with `WithTransition()` method returning `*ShowDirective` for chaining
+- Implemented `Render()` method with visibility logic:
+  - visible=true: renders content normally
+  - visible=false + transition=false: returns empty string (removes from output)
+  - visible=false + transition=true: returns "[Hidden]content" (keeps in output for terminal transitions)
+- Comprehensive godoc documentation added to all types and functions
+- Test coverage: 100% with 10 test functions covering all scenarios:
+  - Basic visibility (true/false)
+  - WithTransition functionality
+  - Without transition (default behavior)
+  - Nested Show directives
+  - Complex content (multiline, special characters, unicode)
+  - Empty content edge cases
+  - Fluent API chaining
+  - Directive interface compliance
+  - Performance characteristics (lazy evaluation)
+  - Composition with If directive
+- All tests pass with race detector (`go test -race`)
+- Zero linter warnings (`go vet`)
+- Code formatted with `gofmt`
+- Builds successfully (`go build ./...`)
+- Implements `Directive` interface correctly
+- Pure functions with no side effects
+- Efficient lazy evaluation - content function not called when hidden without transition
+- Difference from If directive clearly documented:
+  - If: Removes content from output (complete removal)
+  - Show: Toggles visibility while keeping in output (for terminal transitions)
+- Ready for Task 2.1 (ForEach directive implementation)
 
 ---
 
