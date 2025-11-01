@@ -90,13 +90,41 @@ func (d *IfDirective) Render() string
 ```
 
 **Tests:**
-- [ ] Simple If works
-- [ ] If with Else works
-- [ ] ElseIf chain works
-- [ ] Nested If works
-- [ ] Empty conditions handled
+- [x] Simple If works
+- [x] If with Else works
+- [x] ElseIf chain works
+- [x] Nested If works
+- [x] Empty conditions handled
 
 **Estimated effort:** 3 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- Created `pkg/bubbly/directives/if.go` with full implementation
+- Implemented `IfDirective` struct with `condition`, `thenBranch`, `elseIfBranches`, and `elseBranch` fields
+- Implemented `ElseIfBranch` helper struct for chaining conditions
+- Created `If()` constructor function returning `*IfDirective`
+- Implemented fluent API with `ElseIf()` and `Else()` methods returning `ConditionalDirective`
+- Implemented `Render()` method with lazy evaluation (only matching branch executes)
+- Comprehensive godoc documentation added to all types and functions
+- Test coverage: 100% with 11 test functions covering all scenarios:
+  - Simple If (true/false conditions)
+  - If with Else branch
+  - ElseIf chaining (multiple conditions)
+  - ElseIf without Else (returns empty string)
+  - Nested If directives
+  - Empty conditions and empty return values
+  - Complex content (multiline, special characters, unicode)
+  - Interface compliance verification
+- All tests pass with race detector (`go test -race`)
+- Zero linter warnings (`go vet`)
+- Code formatted with `gofmt`
+- Builds successfully (`go build ./...`)
+- Implements `ConditionalDirective` and `Directive` interfaces correctly
+- Pure functions with no side effects
+- Efficient lazy evaluation - only matching branch executes
+- Ready for Task 1.3 (Show directive implementation)
 
 ---
 
