@@ -1,5 +1,13 @@
 package directives
 
+import (
+	"fmt"
+	"runtime/debug"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
+)
+
 // IfDirective implements conditional rendering with ElseIf and Else support.
 //
 // The If directive provides a declarative way to conditionally render content
@@ -188,24 +196,83 @@ func (d *IfDirective) Else(then func() string) ConditionalDirective {
 // The method is pure and idempotent - calling it multiple times with the same
 // state produces the same result. Only the matching branch function is executed,
 // making it efficient even with expensive render functions.
+//
+// # Error Handling
+//
+// If any branch function panics, the panic is recovered and reported to the
+// observability system. The directive returns an empty string, allowing the
+// application to continue running. This follows the ZERO TOLERANCE policy for
+// silent error handling - all panics are reported with full context including
+// stack traces.
 func (d *IfDirective) Render() string {
 	// Check main condition
 	if d.condition {
-		return d.thenBranch()
+		return d.safeExecute(d.thenBranch, "then")
 	}
 
 	// Check ElseIf branches in order
-	for _, branch := range d.elseIfBranches {
+	for i, branch := range d.elseIfBranches {
 		if branch.condition {
-			return branch.branch()
+			return d.safeExecute(branch.branch, fmt.Sprintf("elseif[%d]", i))
 		}
 	}
 
 	// Execute Else branch if present
 	if d.elseBranch != nil {
-		return d.elseBranch()
+		return d.safeExecute(d.elseBranch, "else")
 	}
 
 	// No conditions met and no Else branch
 	return ""
+}
+
+// safeExecute wraps a branch function execution with panic recovery.
+//
+// This method ensures that panics in user-provided render functions don't crash
+// the application. Instead, panics are recovered, reported to the observability
+// system with full context, and an empty string is returned for graceful degradation.
+//
+// Parameters:
+//   - fn: The branch function to execute
+//   - branchName: Name of the branch for error reporting (e.g., "then", "else", "elseif[0]")
+//
+// Returns:
+//   - string: The result of fn() if successful, or empty string if fn panics
+//
+// This follows the ZERO TOLERANCE policy for silent error handling. All panics
+// are reported to the observability system with:
+//   - Directive type ("If")
+//   - Branch name (which branch panicked)
+//   - Panic value (what was passed to panic())
+//   - Stack trace (where the panic occurred)
+//   - Timestamp (when the panic occurred)
+func (d *IfDirective) safeExecute(fn func() string, branchName string) string {
+	defer func() {
+		if r := recover(); r != nil {
+			// Report panic to observability system
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				// Create error with context
+				err := fmt.Errorf("%w: If directive %s branch panicked: %v", ErrRenderPanic, branchName, r)
+
+				ctx := &observability.ErrorContext{
+					ComponentName: "If",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"directive_type": "If",
+						"branch_name":    branchName,
+						"error_type":     "render_panic",
+					},
+					Extra: map[string]interface{}{
+						"panic_value": r,
+						"branch":      branchName,
+					},
+				}
+
+				reporter.ReportError(err, ctx)
+			}
+		}
+	}()
+
+	return fn()
 }

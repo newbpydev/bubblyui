@@ -1,6 +1,13 @@
 package directives
 
-import "strings"
+import (
+	"fmt"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
+)
 
 // ForEachDirective implements type-safe iteration over slices with generic support.
 //
@@ -187,12 +194,40 @@ func (d *ForEachDirective[T]) Render() string {
 	// This minimizes allocations compared to appending
 	output := make([]string, len(d.items))
 
-	// Render each item
+	// Render each item with panic recovery
 	for i, item := range d.items {
-		output[i] = d.renderItem(item, i)
+		output[i] = d.safeExecute(item, i)
 	}
 
 	// Join all rendered strings
 	// strings.Join is optimized in the standard library
 	return strings.Join(output, "")
+}
+
+// safeExecute wraps renderItem function execution with panic recovery.
+func (d *ForEachDirective[T]) safeExecute(item T, index int) string {
+	defer func() {
+		if r := recover(); r != nil {
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				err := fmt.Errorf("%w: ForEach directive renderItem panicked at index %d: %v", ErrRenderPanic, index, r)
+				ctx := &observability.ErrorContext{
+					ComponentName: "ForEach",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"directive_type": "ForEach",
+						"error_type":     "render_panic",
+						"item_index":     fmt.Sprintf("%d", index),
+					},
+					Extra: map[string]interface{}{
+						"panic_value": r,
+						"index":       index,
+						"total_items": len(d.items),
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
+		}
+	}()
+	return d.renderItem(item, index)
 }

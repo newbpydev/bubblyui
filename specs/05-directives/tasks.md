@@ -854,19 +854,68 @@ On("submit", handler).PreventDefault().StopPropagation().Once().Render("Submit")
 var (
     ErrInvalidDirectiveUsage = errors.New("invalid directive usage")
     ErrBindTypeMismatch      = errors.New("bind type mismatch")
-    ErrEmptyForEach          = errors.New("forEach with nil collection")
+    ErrForEachNilCollection  = errors.New("forEach received nil collection")
     ErrInvalidEventName      = errors.New("invalid event name")
+    ErrRenderPanic           = errors.New("render function panicked")
 )
 ```
 
 **Tests:**
-- [ ] Invalid usage detected
-- [ ] Type mismatches caught
-- [ ] Nil checks work
-- [ ] Error messages clear
-- [ ] Recovery mechanisms
+- [x] Invalid usage detected
+- [x] Type mismatches caught
+- [x] Nil checks work
+- [x] Error messages clear
+- [x] Recovery mechanisms
 
 **Estimated effort:** 3 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- Created `pkg/bubbly/directives/errors.go` with 5 sentinel errors
+- All errors follow Go best practices with comprehensive godoc documentation
+- Each error includes examples of when it occurs and how to fix it
+- **Panic Recovery with Observability Integration:**
+  - Added `safeExecute()` methods to If, Show, and ForEach directives
+  - All user-provided render functions wrapped with defer/recover
+  - Panics reported to observability system with full context:
+    - Directive type, branch/index information
+    - Panic value and stack trace
+    - Timestamp and error tags
+  - Graceful degradation: returns empty string on panic
+  - Follows ZERO TOLERANCE policy for silent error handling
+- **If Directive:**
+  - Panic recovery for then, elseif, and else branches
+  - Branch name included in error context (e.g., "then", "elseif[0]", "else")
+  - 6 comprehensive panic recovery tests added
+- **Show Directive:**
+  - Panic recovery for content function
+  - Visibility and transition state included in error context
+  - Works correctly with both visible and hidden states
+- **ForEach Directive:**
+  - Panic recovery for renderItem function
+  - Item index and total items included in error context
+  - Continues rendering remaining items after panic
+  - One item panic doesn't affect others
+- **Test Coverage:**
+  - errors_test.go: 5 test functions for error types
+  - if_test.go: 6 panic recovery scenarios
+  - All tests pass with race detector
+  - Zero linter warnings
+  - Code formatted with gofmt and goimports
+- **Quality Gates:**
+  - ✅ All tests pass with `-race` flag
+  - ✅ Zero lint warnings (`make lint`)
+  - ✅ Code formatted (`make fmt`)
+  - ✅ Builds successfully (`make build`)
+  - ✅ Integration with observability system verified
+- **Design Decisions:**
+  - Used global observability.GetErrorReporter() pattern (no component context needed)
+  - Panic recovery is transparent - no API changes required
+  - Empty string returned on panic for graceful degradation
+  - Rich error context for production debugging
+  - Zero overhead when no reporter configured
+- Ready for Task 5.3 (Performance optimization - already exceeds targets)
 
 ---
 

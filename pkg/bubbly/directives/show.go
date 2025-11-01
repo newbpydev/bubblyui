@@ -1,6 +1,12 @@
 package directives
 
-import "fmt"
+import (
+	"fmt"
+	"runtime/debug"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
+)
 
 // ShowDirective implements visibility toggling while keeping elements in the DOM.
 //
@@ -149,17 +155,51 @@ func (d *ShowDirective) WithTransition() *ShowDirective {
 // Performance note: When visible is false and transition is false, the content
 // function is not called at all (lazy evaluation). This makes it efficient even
 // with expensive content generation functions.
+//
+// # Error Handling
+//
+// If the content function panics, the panic is recovered and reported to the
+// observability system. The directive returns an empty string, allowing the
+// application to continue running.
 func (d *ShowDirective) Render() string {
 	// If not visible, check transition mode
 	if !d.visible {
 		if d.transition {
 			// Return content with hidden marker for terminal transitions
-			return fmt.Sprintf("[Hidden]%s", d.content())
+			content := d.safeExecute(d.content)
+			return fmt.Sprintf("[Hidden]%s", content)
 		}
 		// Don't render at all (remove from output)
 		return ""
 	}
 
 	// Visible - render content normally
-	return d.content()
+	return d.safeExecute(d.content)
+}
+
+// safeExecute wraps content function execution with panic recovery.
+func (d *ShowDirective) safeExecute(fn func() string) string {
+	defer func() {
+		if r := recover(); r != nil {
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				err := fmt.Errorf("%w: Show directive content panicked: %v", ErrRenderPanic, r)
+				ctx := &observability.ErrorContext{
+					ComponentName: "Show",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"directive_type": "Show",
+						"error_type":     "render_panic",
+					},
+					Extra: map[string]interface{}{
+						"panic_value": r,
+						"visible":     d.visible,
+						"transition":  d.transition,
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
+		}
+	}()
+	return fn()
 }

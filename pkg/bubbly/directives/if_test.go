@@ -2,8 +2,11 @@ package directives
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestIfDirective_Simple tests basic If directive functionality
@@ -264,4 +267,154 @@ func TestIfDirective_ConditionalDirectiveInterface(t *testing.T) {
 	t.Run("implements Directive interface", func(t *testing.T) {
 		var _ Directive = If(true, func() string { return "test" })
 	})
+}
+
+// TestIfDirective_PanicRecovery tests panic recovery in branch functions
+func TestIfDirective_PanicRecovery(t *testing.T) {
+	// Set up a test error reporter to capture panics
+	var capturedErrors []error
+	var capturedContexts []*observability.ErrorContext
+
+	testReporter := &testErrorReporter{
+		onReportError: func(err error, ctx *observability.ErrorContext) {
+			capturedErrors = append(capturedErrors, err)
+			capturedContexts = append(capturedContexts, ctx)
+		},
+	}
+
+	// Save original reporter and restore after test
+	originalReporter := observability.GetErrorReporter()
+	defer observability.SetErrorReporter(originalReporter)
+
+	observability.SetErrorReporter(testReporter)
+
+	t.Run("then branch panic recovered", func(t *testing.T) {
+		capturedErrors = nil
+		capturedContexts = nil
+
+		result := If(true, func() string {
+			panic("then branch panic")
+		}).Render()
+
+		// Should return empty string on panic
+		assert.Equal(t, "", result)
+
+		// Should report error to observability
+		assert.Len(t, capturedErrors, 1)
+		assert.Contains(t, capturedErrors[0].Error(), "render function panicked")
+		assert.Contains(t, capturedErrors[0].Error(), "then branch panicked")
+
+		// Check error context
+		assert.Len(t, capturedContexts, 1)
+		ctx := capturedContexts[0]
+		assert.Equal(t, "If", ctx.ComponentName)
+		assert.Equal(t, "If", ctx.Tags["directive_type"])
+		assert.Equal(t, "then", ctx.Tags["branch_name"])
+		assert.Equal(t, "render_panic", ctx.Tags["error_type"])
+		assert.Equal(t, "then branch panic", ctx.Extra["panic_value"])
+		assert.NotNil(t, ctx.StackTrace)
+	})
+
+	t.Run("elseif branch panic recovered", func(t *testing.T) {
+		capturedErrors = nil
+		capturedContexts = nil
+
+		result := If(false, func() string {
+			return "then"
+		}).ElseIf(true, func() string {
+			panic("elseif panic")
+		}).Render()
+
+		assert.Equal(t, "", result)
+		assert.Len(t, capturedErrors, 1)
+		assert.Contains(t, capturedErrors[0].Error(), "elseif[0] branch panicked")
+
+		ctx := capturedContexts[0]
+		assert.Equal(t, "elseif[0]", ctx.Tags["branch_name"])
+		assert.Equal(t, "elseif panic", ctx.Extra["panic_value"])
+	})
+
+	t.Run("else branch panic recovered", func(t *testing.T) {
+		capturedErrors = nil
+		capturedContexts = nil
+
+		result := If(false, func() string {
+			return "then"
+		}).Else(func() string {
+			panic("else panic")
+		}).Render()
+
+		assert.Equal(t, "", result)
+		assert.Len(t, capturedErrors, 1)
+		assert.Contains(t, capturedErrors[0].Error(), "else branch panicked")
+
+		ctx := capturedContexts[0]
+		assert.Equal(t, "else", ctx.Tags["branch_name"])
+		assert.Equal(t, "else panic", ctx.Extra["panic_value"])
+	})
+
+	t.Run("nil pointer panic recovered", func(t *testing.T) {
+		capturedErrors = nil
+		capturedContexts = nil
+
+		result := If(true, func() string {
+			var ptr *string
+			return *ptr // nil pointer dereference
+		}).Render()
+
+		assert.Equal(t, "", result)
+		assert.Len(t, capturedErrors, 1)
+	})
+
+	t.Run("no panic when no reporter configured", func(t *testing.T) {
+		// Temporarily disable reporter
+		observability.SetErrorReporter(nil)
+		defer observability.SetErrorReporter(testReporter)
+
+		// Should not panic even without reporter
+		result := If(true, func() string {
+			panic("panic without reporter")
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("multiple elseif panics - only first executes", func(t *testing.T) {
+		capturedErrors = nil
+		capturedContexts = nil
+
+		result := If(false, func() string {
+			return "then"
+		}).ElseIf(false, func() string {
+			panic("first elseif - should not execute")
+		}).ElseIf(true, func() string {
+			panic("second elseif - should execute")
+		}).Render()
+
+		assert.Equal(t, "", result)
+		assert.Len(t, capturedErrors, 1)
+		assert.Contains(t, capturedErrors[0].Error(), "elseif[1] branch panicked")
+	})
+}
+
+// testErrorReporter is a mock error reporter for testing
+type testErrorReporter struct {
+	onReportError func(err error, ctx *observability.ErrorContext)
+	onReportPanic func(err *observability.HandlerPanicError, ctx *observability.ErrorContext)
+}
+
+func (r *testErrorReporter) ReportError(err error, ctx *observability.ErrorContext) {
+	if r.onReportError != nil {
+		r.onReportError(err, ctx)
+	}
+}
+
+func (r *testErrorReporter) ReportPanic(err *observability.HandlerPanicError, ctx *observability.ErrorContext) {
+	if r.onReportPanic != nil {
+		r.onReportPanic(err, ctx)
+	}
+}
+
+func (r *testErrorReporter) Flush(timeout time.Duration) error {
+	return nil
 }
