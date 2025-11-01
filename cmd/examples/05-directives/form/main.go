@@ -276,7 +276,7 @@ func createFormComponent() (bubbly.Component, error) {
 			ctx.On("cycleCountry", func(data interface{}) {
 				direction := data.(int)
 				currentCountry := country.GetTyped()
-				
+
 				// Find current index
 				currentIndex := 0
 				for i, c := range countries {
@@ -285,7 +285,7 @@ func createFormComponent() (bubbly.Component, error) {
 						break
 					}
 				}
-				
+
 				// Calculate new index with wrapping
 				newIndex := (currentIndex + direction + len(countries)) % len(countries)
 				country.Set(countries[newIndex])
@@ -327,7 +327,7 @@ func createFormComponent() (bubbly.Component, error) {
 			// Helper function to render field with reactive display
 			renderField := func(label, fieldName string, currentValue string) string {
 				isFocused := focused == fieldName
-				
+
 				labelStyle := lipgloss.NewStyle().
 					Width(15).
 					Bold(isFocused)
@@ -362,16 +362,16 @@ func createFormComponent() (bubbly.Component, error) {
 					valueStyle = valueStyle.Foreground(lipgloss.Color("252"))
 				}
 
-				return fmt.Sprintf("%s%s %s\n", 
-					cursor, 
-					labelStyle.Render(label+":"), 
+				return fmt.Sprintf("%s%s %s\n",
+					cursor,
+					labelStyle.Render(label+":"),
 					valueStyle.Render(displayValue))
 			}
 
 			// Render checkbox field
 			renderCheckbox := func(label, fieldName string, checked bool) string {
 				isFocused := focused == fieldName
-				
+
 				labelStyle := lipgloss.NewStyle().
 					Width(15).
 					Bold(isFocused)
@@ -399,16 +399,16 @@ func createFormComponent() (bubbly.Component, error) {
 					checkbox = "[X]"
 				}
 
-				return fmt.Sprintf("%s%s %s\n", 
-					cursor, 
-					labelStyle.Render(label+":"), 
+				return fmt.Sprintf("%s%s %s\n",
+					cursor,
+					labelStyle.Render(label+":"),
 					checkboxStyle.Render(checkbox))
 			}
 
 			// Render select field
 			renderSelect := func(label, fieldName string, value string, options []string) string {
 				isFocused := focused == fieldName
-				
+
 				labelStyle := lipgloss.NewStyle().
 					Width(15).
 					Bold(isFocused)
@@ -442,9 +442,9 @@ func createFormComponent() (bubbly.Component, error) {
 					displayValue = valueStyle.Render(value)
 				}
 
-				return fmt.Sprintf("%s%s %s\n", 
-					cursor, 
-					labelStyle.Render(label+":"), 
+				return fmt.Sprintf("%s%s %s\n",
+					cursor,
+					labelStyle.Render(label+":"),
 					displayValue)
 			}
 

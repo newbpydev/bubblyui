@@ -1,0 +1,41 @@
+goos: linux
+goarch: amd64
+pkg: github.com/newbpydev/bubblyui/pkg/bubbly/directives
+cpu: AMD Ryzen 5 4500U with Radeon Graphics         
+BenchmarkBindDirective_String-6                  	  100000	       330.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBindDirective_Int-6                     	  100000	       338.9 ns/op	      34 B/op	       2 allocs/op
+BenchmarkBindDirective_Float-6                   	  100000	       258.3 ns/op	      48 B/op	       3 allocs/op
+BenchmarkBindDirective_Bool-6                    	  100000	       295.2 ns/op	      36 B/op	       2 allocs/op
+BenchmarkBindCheckbox-6                          	  100000	        36.48 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBindSelect-6                            	  100000	       624.2 ns/op	     176 B/op	       9 allocs/op
+BenchmarkBindSelect_LargeOptions-6               	  100000	      7332 ns/op	    1362 B/op	      42 allocs/op
+BenchmarkConvertString-6                         	  100000	         0.5825 ns/op	       0 B/op	       0 allocs/op
+BenchmarkConvertInt-6                            	  100000	         4.402 ns/op	       0 B/op	       0 allocs/op
+BenchmarkConvertFloat64-6                        	  100000	        32.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkConvertBool-6                           	  100000	         0.5818 ns/op	       0 B/op	       0 allocs/op
+BenchmarkForEach10Items-6                        	  100000	      2256 ns/op	     248 B/op	      12 allocs/op
+BenchmarkForEach100Items-6                       	  100000	     22161 ns/op	    3184 B/op	     102 allocs/op
+BenchmarkForEach1000Items-6                      	  100000	    244812 ns/op	   44452 B/op	    2490 allocs/op
+BenchmarkForEachString-6                         	  100000	     26659 ns/op	    6273 B/op	     202 allocs/op
+BenchmarkForEachStruct-6                         	  100000	     35085 ns/op	   11411 B/op	     302 allocs/op
+BenchmarkForEachNested-6                         	  100000	     13729 ns/op	    3697 B/op	     152 allocs/op
+BenchmarkIfDirective_SimpleTrue-6                	  100000	        19.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIfDirective_SimpleFalse-6               	  100000	         6.374 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIfDirective_IfElse-6                    	  100000	         8.473 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIfDirective_ElseIfChain-6               	  100000	       225.0 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIfDirective_Nested-6                    	  100000	        17.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkIfDirective_ComplexContent-6            	  100000	         8.916 ns/op	       0 B/op	       0 allocs/op
+BenchmarkOnDirective_Simple-6                    	  100000	        43.46 ns/op	      24 B/op	       1 allocs/op
+BenchmarkOnDirective_WithPreventDefault-6        	  100000	        91.45 ns/op	      32 B/op	       1 allocs/op
+BenchmarkOnDirective_WithStopPropagation-6       	  100000	        85.77 ns/op	      24 B/op	       1 allocs/op
+BenchmarkOnDirective_WithAllModifiers-6          	  100000	        50.66 ns/op	      48 B/op	       1 allocs/op
+BenchmarkOnDirective_ComplexContent-6            	  100000	        65.60 ns/op	      80 B/op	       1 allocs/op
+BenchmarkOnDirective_Multiple-6                  	  100000	       215.0 ns/op	     136 B/op	       3 allocs/op
+BenchmarkShowDirective_Visible-6                 	  100000	         7.451 ns/op	       0 B/op	       0 allocs/op
+BenchmarkShowDirective_Hidden-6                  	  100000	         2.240 ns/op	       0 B/op	       0 allocs/op
+BenchmarkShowDirective_WithTransitionVisible-6   	  100000	         6.635 ns/op	       0 B/op	       0 allocs/op
+BenchmarkShowDirective_WithTransitionHidden-6    	  100000	       143.3 ns/op	      32 B/op	       2 allocs/op
+BenchmarkShowDirective_ComplexContent-6          	  100000	         6.953 ns/op	       0 B/op	       0 allocs/op
+BenchmarkShowDirective_Nested-6                  	  100000	        13.77 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/newbpydev/bubblyui/pkg/bubbly/directives	35.805s

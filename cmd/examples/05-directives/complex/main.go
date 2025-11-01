@@ -388,13 +388,13 @@ func createCatalogComponent() (bubbly.Component, error) {
 						headerStyle := lipgloss.NewStyle().
 							Foreground(lipgloss.Color("241")).
 							Bold(true)
-						
+
 						header := fmt.Sprintf("   %-18s  %-9s  %-13s  %-14s\n",
 							"Product", "Price", "Category", "Status")
-						
+
 						// Divider matches total width: 3 (cursor) + 18 (product) + 2 + 9 (price) + 2 + 13 (category) + 2 + 14 (status) = 63
 						divider := strings.Repeat("─", 63) + "\n"
-						
+
 						// List view: Use ForEach to render products with proper layout
 						productRows := directives.ForEach(productList, func(product Product, index int) string {
 							isSelected := index == selected
@@ -451,7 +451,7 @@ func createCatalogComponent() (bubbly.Component, error) {
 
 							return line
 						}).Render()
-						
+
 						return headerStyle.Render(header) + divider + productRows
 					},
 				).Else(func() string {
