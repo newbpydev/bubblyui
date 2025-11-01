@@ -583,3 +583,138 @@ func TestConversionFunctions_EdgeCases(t *testing.T) {
 		assert.True(t, convertBool("1"))
 	})
 }
+
+// ==================== BENCHMARKS ====================
+
+// BenchmarkBindDirective_String benchmarks Bind with string type
+// Target: < 100ns
+func BenchmarkBindDirective_String(b *testing.B) {
+	ref := bubbly.NewRef("test value")
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Bind(ref).Render()
+	}
+}
+
+// BenchmarkBindDirective_Int benchmarks Bind with int type
+// Target: < 100ns
+func BenchmarkBindDirective_Int(b *testing.B) {
+	ref := bubbly.NewRef(42)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Bind(ref).Render()
+	}
+}
+
+// BenchmarkBindDirective_Float benchmarks Bind with float64 type
+// Target: < 100ns
+func BenchmarkBindDirective_Float(b *testing.B) {
+	ref := bubbly.NewRef(3.14159)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Bind(ref).Render()
+	}
+}
+
+// BenchmarkBindDirective_Bool benchmarks Bind with bool type
+// Target: < 100ns
+func BenchmarkBindDirective_Bool(b *testing.B) {
+	ref := bubbly.NewRef(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Bind(ref).Render()
+	}
+}
+
+// BenchmarkBindCheckbox benchmarks BindCheckbox
+// Target: < 100ns
+func BenchmarkBindCheckbox(b *testing.B) {
+	ref := bubbly.NewRef(true)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = BindCheckbox(ref).Render()
+	}
+}
+
+// BenchmarkBindSelect benchmarks BindSelect with string options
+// Target: < 200ns
+func BenchmarkBindSelect(b *testing.B) {
+	ref := bubbly.NewRef("option2")
+	options := []string{"option1", "option2", "option3"}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = BindSelect(ref, options).Render()
+	}
+}
+
+// BenchmarkBindSelect_LargeOptions benchmarks BindSelect with many options
+// Target: < 500ns
+func BenchmarkBindSelect_LargeOptions(b *testing.B) {
+	options := make([]int, 50)
+	for i := range options {
+		options[i] = i
+	}
+	ref := bubbly.NewRef(25)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = BindSelect(ref, options).Render()
+	}
+}
+
+// BenchmarkConvertString benchmarks string conversion
+// Target: < 10ns
+func BenchmarkConvertString(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = convertString("test value")
+	}
+}
+
+// BenchmarkConvertInt benchmarks int conversion
+// Target: < 50ns
+func BenchmarkConvertInt(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = convertInt("42")
+	}
+}
+
+// BenchmarkConvertFloat64 benchmarks float64 conversion
+// Target: < 100ns
+func BenchmarkConvertFloat64(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = convertFloat64("3.14159")
+	}
+}
+
+// BenchmarkConvertBool benchmarks bool conversion
+// Target: < 20ns
+func BenchmarkConvertBool(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = convertBool("true")
+	}
+}

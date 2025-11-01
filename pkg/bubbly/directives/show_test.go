@@ -291,3 +291,86 @@ func TestShowDirective_WithIfDirective(t *testing.T) {
 		assert.Equal(t, "both true", result)
 	})
 }
+
+// ==================== BENCHMARKS ====================
+
+// BenchmarkShowDirective_Visible benchmarks Show with visible=true
+// Target: < 50ns
+func BenchmarkShowDirective_Visible(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Show(true, func() string {
+			return "content"
+		}).Render()
+	}
+}
+
+// BenchmarkShowDirective_Hidden benchmarks Show with visible=false
+// Target: < 50ns
+func BenchmarkShowDirective_Hidden(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Show(false, func() string {
+			return "content"
+		}).Render()
+	}
+}
+
+// BenchmarkShowDirective_WithTransitionVisible benchmarks Show with transition and visible=true
+// Target: < 100ns
+func BenchmarkShowDirective_WithTransitionVisible(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Show(true, func() string {
+			return "content"
+		}).WithTransition().Render()
+	}
+}
+
+// BenchmarkShowDirective_WithTransitionHidden benchmarks Show with transition and visible=false
+// Target: < 100ns
+func BenchmarkShowDirective_WithTransitionHidden(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Show(false, func() string {
+			return "content"
+		}).WithTransition().Render()
+	}
+}
+
+// BenchmarkShowDirective_ComplexContent benchmarks Show with complex string content
+// Target: < 100ns
+func BenchmarkShowDirective_ComplexContent(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	content := "Line 1\nLine 2\nLine 3\nSpecial: !@#$%^&*()\nUnicode: 世界 🌍"
+	for i := 0; i < b.N; i++ {
+		_ = Show(true, func() string {
+			return content
+		}).Render()
+	}
+}
+
+// BenchmarkShowDirective_Nested benchmarks nested Show directives
+// Target: < 300ns
+func BenchmarkShowDirective_Nested(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = Show(true, func() string {
+			return Show(true, func() string {
+				return "nested"
+			}).Render()
+		}).Render()
+	}
+}

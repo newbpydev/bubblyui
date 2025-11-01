@@ -418,3 +418,94 @@ func (r *testErrorReporter) ReportPanic(err *observability.HandlerPanicError, ct
 func (r *testErrorReporter) Flush(timeout time.Duration) error {
 	return nil
 }
+
+// ==================== BENCHMARKS ====================
+
+// BenchmarkIfDirective_SimpleTrue benchmarks simple If with true condition
+// Target: < 50ns
+func BenchmarkIfDirective_SimpleTrue(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = If(true, func() string {
+			return "result"
+		}).Render()
+	}
+}
+
+// BenchmarkIfDirective_SimpleFalse benchmarks simple If with false condition
+// Target: < 50ns
+func BenchmarkIfDirective_SimpleFalse(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = If(false, func() string {
+			return "result"
+		}).Render()
+	}
+}
+
+// BenchmarkIfDirective_IfElse benchmarks If with Else branch
+// Target: < 100ns
+func BenchmarkIfDirective_IfElse(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = If(true, func() string {
+			return "then"
+		}).Else(func() string {
+			return "else"
+		}).Render()
+	}
+}
+
+// BenchmarkIfDirective_ElseIfChain benchmarks If with ElseIf chain
+// Target: < 200ns
+func BenchmarkIfDirective_ElseIfChain(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = If(false, func() string {
+			return "first"
+		}).ElseIf(false, func() string {
+			return "second"
+		}).ElseIf(true, func() string {
+			return "third"
+		}).Else(func() string {
+			return "else"
+		}).Render()
+	}
+}
+
+// BenchmarkIfDirective_Nested benchmarks nested If directives
+// Target: < 300ns
+func BenchmarkIfDirective_Nested(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = If(true, func() string {
+			return If(true, func() string {
+				return "nested"
+			}).Render()
+		}).Render()
+	}
+}
+
+// BenchmarkIfDirective_ComplexContent benchmarks If with complex string content
+// Target: < 100ns
+func BenchmarkIfDirective_ComplexContent(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	content := "Line 1\nLine 2\nLine 3\nSpecial: !@#$%^&*()\nUnicode: 世界 🌍"
+	for i := 0; i < b.N; i++ {
+		_ = If(true, func() string {
+			return content
+		}).Render()
+	}
+}

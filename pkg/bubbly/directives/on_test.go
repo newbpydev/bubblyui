@@ -514,3 +514,86 @@ func indexOf(s, substr string) int {
 	}
 	return -1
 }
+
+// ==================== BENCHMARKS ====================
+
+// BenchmarkOnDirective_Simple benchmarks simple On directive
+// Target: < 80ns
+func BenchmarkOnDirective_Simple(b *testing.B) {
+	handler := func(data interface{}) {}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = On("click", handler).Render("Button")
+	}
+}
+
+// BenchmarkOnDirective_WithPreventDefault benchmarks On with PreventDefault modifier
+// Target: < 100ns
+func BenchmarkOnDirective_WithPreventDefault(b *testing.B) {
+	handler := func(data interface{}) {}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = On("submit", handler).PreventDefault().Render("Submit")
+	}
+}
+
+// BenchmarkOnDirective_WithStopPropagation benchmarks On with StopPropagation modifier
+// Target: < 100ns
+func BenchmarkOnDirective_WithStopPropagation(b *testing.B) {
+	handler := func(data interface{}) {}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = On("click", handler).StopPropagation().Render("Link")
+	}
+}
+
+// BenchmarkOnDirective_WithAllModifiers benchmarks On with all modifiers
+// Target: < 150ns
+func BenchmarkOnDirective_WithAllModifiers(b *testing.B) {
+	handler := func(data interface{}) {}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = On("submit", handler).
+			PreventDefault().
+			StopPropagation().
+			Once().
+			Render("Form")
+	}
+}
+
+// BenchmarkOnDirective_ComplexContent benchmarks On with complex content
+// Target: < 150ns
+func BenchmarkOnDirective_ComplexContent(b *testing.B) {
+	handler := func(data interface{}) {}
+	content := "Line 1\nLine 2\nLine 3\nSpecial: !@#$%^&*()\nUnicode: 世界 🌍"
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = On("click", handler).Render(content)
+	}
+}
+
+// BenchmarkOnDirective_Multiple benchmarks multiple On directives on same content
+// Target: < 300ns
+func BenchmarkOnDirective_Multiple(b *testing.B) {
+	handler := func(data interface{}) {}
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		content := "Button"
+		content = On("click", handler).Render(content)
+		content = On("mouseenter", handler).Render(content)
+		content = On("mouseleave", handler).Render(content)
+		_ = content
+	}
+}
