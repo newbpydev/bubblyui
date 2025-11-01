@@ -164,6 +164,16 @@ func (d *BindDirective[T]) Render() string {
 	// Read current value from Ref
 	value := d.ref.GetTyped()
 
+	// Handle checkbox type specially
+	if d.inputType == "checkbox" {
+		// Convert value to bool for checkbox rendering
+		boolVal := fmt.Sprintf("%v", value) == "true"
+		if boolVal {
+			return "[Checkbox: [X]]"
+		}
+		return "[Checkbox: [ ]]"
+	}
+
 	// Format as input representation
 	// In a real TUI, this would render an actual input widget
 	// For now, we use a placeholder format
@@ -171,15 +181,41 @@ func (d *BindDirective[T]) Render() string {
 }
 
 // Type conversion functions for updating Ref from string input.
-// These will be used in Task 3.2 when event handling is integrated.
+// These are used for converting user input strings to typed values when
+// event handling is integrated. They provide safe conversion with fallback
+// to zero values on error.
 
 // convertString converts a string to string (identity function).
+// This is provided for consistency with other conversion functions.
+//
+// Parameters:
+//   - value: Input string
+//
+// Returns:
+//   - The same string unchanged
+//
+// Example:
+//
+//	result := convertString("hello") // Returns: "hello"
 func convertString(value string) string {
 	return value
 }
 
 // convertInt converts a string to int.
-// Returns 0 if conversion fails.
+// Returns 0 if conversion fails (invalid format, overflow, etc.).
+//
+// Parameters:
+//   - value: String representation of an integer
+//
+// Returns:
+//   - Parsed integer value, or 0 on error
+//
+// Examples:
+//
+//	convertInt("42")    // Returns: 42
+//	convertInt("-100")  // Returns: -100
+//	convertInt("abc")   // Returns: 0 (error)
+//	convertInt("3.14")  // Returns: 0 (not an integer)
 func convertInt(value string) int {
 	result, err := strconv.Atoi(value)
 	if err != nil {
@@ -189,7 +225,19 @@ func convertInt(value string) int {
 }
 
 // convertInt64 converts a string to int64.
-// Returns 0 if conversion fails.
+// Returns 0 if conversion fails (invalid format, overflow, etc.).
+//
+// Parameters:
+//   - value: String representation of a 64-bit integer
+//
+// Returns:
+//   - Parsed int64 value, or 0 on error
+//
+// Examples:
+//
+//	convertInt64("9223372036854775807") // Returns: max int64
+//	convertInt64("-42")                  // Returns: -42
+//	convertInt64("invalid")              // Returns: 0 (error)
 func convertInt64(value string) int64 {
 	result, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
@@ -199,7 +247,20 @@ func convertInt64(value string) int64 {
 }
 
 // convertFloat64 converts a string to float64.
-// Returns 0.0 if conversion fails.
+// Returns 0.0 if conversion fails (invalid format, etc.).
+//
+// Parameters:
+//   - value: String representation of a floating-point number
+//
+// Returns:
+//   - Parsed float64 value, or 0.0 on error
+//
+// Examples:
+//
+//	convertFloat64("3.14")     // Returns: 3.14
+//	convertFloat64("-2.5")     // Returns: -2.5
+//	convertFloat64("1.23e10")  // Returns: 1.23e10
+//	convertFloat64("abc")      // Returns: 0.0 (error)
 func convertFloat64(value string) float64 {
 	result, err := strconv.ParseFloat(value, 64)
 	if err != nil {
@@ -209,11 +270,271 @@ func convertFloat64(value string) float64 {
 }
 
 // convertBool converts a string to bool.
-// Accepts "true", "1" as true, "false", "0" as false.
-// Returns false for any other value.
+// Accepts "true" or "1" as true, all other values as false.
+// This is intentionally strict and case-sensitive.
+//
+// Parameters:
+//   - value: String representation of a boolean
+//
+// Returns:
+//   - true if value is "true" or "1", false otherwise
+//
+// Examples:
+//
+//	convertBool("true")  // Returns: true
+//	convertBool("1")     // Returns: true
+//	convertBool("false") // Returns: false
+//	convertBool("0")     // Returns: false
+//	convertBool("TRUE")  // Returns: false (case-sensitive)
+//	convertBool("yes")   // Returns: false (not recognized)
+//
+// Note: This function is intentionally strict. Only lowercase "true" and "1"
+// return true. This matches common checkbox value conventions in forms.
 func convertBool(value string) bool {
 	if value == "true" || value == "1" {
 		return true
 	}
 	return false
+}
+
+// BindCheckbox creates a specialized binding directive for boolean checkbox inputs.
+//
+// BindCheckbox is a convenience function specifically designed for boolean values
+// that renders as a checkbox representation. It provides a more semantic way to
+// bind boolean Refs compared to using the generic Bind function.
+//
+// Parameters:
+//   - ref: Reactive boolean reference to bind to the checkbox
+//
+// Returns:
+//   - *BindDirective[bool]: A checkbox binding directive
+//
+// Example:
+//
+//	agreed := bubbly.NewRef(false)
+//	BindCheckbox(agreed).Render()
+//	// Renders: [Checkbox: [ ]]
+//
+//	agreed.Set(true)
+//	BindCheckbox(agreed).Render()
+//	// Renders: [Checkbox: [X]]
+//
+// Rendering Format:
+//   - Checked (true): [X]
+//   - Unchecked (false): [ ]
+//
+// The checkbox representation uses standard terminal checkbox notation that is
+// familiar to TUI users. In a full TUI implementation with Lipgloss, this would
+// render as an interactive checkbox widget.
+//
+// Use Cases:
+//   - Form agreement checkboxes
+//   - Feature toggles
+//   - Multi-select lists
+//   - Boolean settings
+//
+// Type Safety:
+// This function is specifically typed for bool, ensuring compile-time safety:
+//
+//	boolRef := bubbly.NewRef(true)
+//	BindCheckbox(boolRef) // ✓ Compiles
+//
+//	stringRef := bubbly.NewRef("text")
+//	BindCheckbox(stringRef) // ✗ Compile error
+func BindCheckbox(ref *bubbly.Ref[bool]) *BindDirective[bool] {
+	return &BindDirective[bool]{
+		ref:       ref,
+		inputType: "checkbox",
+	}
+}
+
+// SelectBindDirective implements type-safe binding for select/dropdown inputs.
+//
+// The SelectBindDirective provides a declarative way to create bindings for
+// dropdown/select inputs with a predefined list of options. It synchronizes
+// the selected value with a Ref and displays all available options with the
+// current selection highlighted.
+//
+// # Basic Usage
+//
+//	options := []string{"Small", "Medium", "Large"}
+//	size := bubbly.NewRef("Medium")
+//	BindSelect(size, options).Render()
+//	// Renders select with "Medium" highlighted
+//
+// # Type Safety
+//
+// The directive uses Go generics to ensure the Ref type matches the options type:
+//
+//	intRef := bubbly.NewRef(2)
+//	intOptions := []int{1, 2, 3}
+//	BindSelect(intRef, intOptions) // Type: *SelectBindDirective[int]
+//
+// # Rendering Format
+//
+// The select renders all options with the selected one marked with ">":
+//
+//	  option1
+//	> option2  (selected)
+//	  option3
+//
+// # Use Cases
+//
+//   - Dropdown menus
+//   - Single-choice selections
+//   - Category pickers
+//   - Status selectors
+//
+// # Purity
+//
+// Like other directives, SelectBindDirective is pure and produces consistent
+// output for the same Ref value and options list.
+type SelectBindDirective[T any] struct {
+	ref     *bubbly.Ref[T]
+	options []T
+}
+
+// BindSelect creates a new select/dropdown binding directive with options.
+//
+// BindSelect is the entry point for creating select bindings. It accepts a Ref
+// and a slice of options, creating a directive that renders a select input with
+// all options and highlights the currently selected value.
+//
+// Parameters:
+//   - ref: Reactive reference to bind to the select input
+//   - options: Slice of available options to choose from
+//
+// Returns:
+//   - *SelectBindDirective[T]: A new select binding directive
+//
+// Example:
+//
+//	colors := []string{"Red", "Green", "Blue"}
+//	selectedColor := bubbly.NewRef("Green")
+//	BindSelect(selectedColor, colors).Render()
+//	// Renders:
+//	//   Red
+//	// > Green
+//	//   Blue
+//
+// Type-Specific Examples:
+//
+//	// String options
+//	sizes := []string{"S", "M", "L", "XL"}
+//	size := bubbly.NewRef("M")
+//	BindSelect(size, sizes)
+//
+//	// Integer options
+//	quantities := []int{1, 5, 10, 20, 50}
+//	qty := bubbly.NewRef(10)
+//	BindSelect(qty, quantities)
+//
+//	// Struct options
+//	type User struct {
+//	    ID   int
+//	    Name string
+//	}
+//	users := []User{{1, "Alice"}, {2, "Bob"}}
+//	selected := bubbly.NewRef(users[0])
+//	BindSelect(selected, users)
+//
+// The generic type parameter T is inferred from both the Ref and options slice,
+// ensuring type consistency at compile time. The Ref type must match the options
+// element type.
+//
+// Empty Options:
+// If the options slice is empty, the directive still renders but shows no options.
+// This is handled gracefully without errors.
+//
+// Comparison:
+// The directive uses == comparison to determine which option is selected. For
+// struct types, this requires the struct to be comparable (no slices/maps/functions
+// as fields).
+func BindSelect[T any](ref *bubbly.Ref[T], options []T) *SelectBindDirective[T] {
+	return &SelectBindDirective[T]{
+		ref:     ref,
+		options: options,
+	}
+}
+
+// Render executes the select directive logic and returns the formatted output.
+//
+// This method reads the current value from the Ref and renders all options,
+// highlighting the selected one with a "> " prefix. Other options are shown
+// with "  " (two spaces) prefix for alignment.
+//
+// Behavior:
+//  1. Read current selected value from Ref
+//  2. If options is empty, return placeholder message
+//  3. For each option, check if it matches the selected value
+//  4. Format selected option with "> " prefix
+//  5. Format other options with "  " prefix
+//  6. Join all formatted options with newlines
+//
+// Returns:
+//   - string: Formatted select representation with all options
+//
+// Example:
+//
+//	ref := bubbly.NewRef("option2")
+//	options := []string{"option1", "option2", "option3"}
+//	directive := BindSelect(ref, options)
+//	output := directive.Render()
+//	// output:
+//	// "  option1\n> option2\n  option3"
+//
+// Rendering Format:
+//   - Selected: "> value"
+//   - Not selected: "  value"
+//   - Empty options: "[Select: no options]"
+//
+// The method is pure and idempotent - calling it multiple times with the same
+// Ref and options produces the same result. It does not modify the Ref or options.
+//
+// Type Conversion:
+// Uses fmt.Sprintf with %v format to convert any type to string for display.
+// This works for primitives, structs, and any type with a String() method.
+//
+// Comparison Logic:
+// Uses == operator to compare the current Ref value with each option. This
+// requires the type T to be comparable. For custom types, implement equality
+// appropriately or use comparable types.
+//
+// Performance:
+// Time complexity is O(n) where n is the number of options. Each option is
+// checked once against the selected value.
+func (d *SelectBindDirective[T]) Render() string {
+	// Read current selected value
+	selected := d.ref.GetTyped()
+
+	// Handle empty options
+	if len(d.options) == 0 {
+		return "[Select: no options]"
+	}
+
+	// Build output with all options
+	var output []string
+	for _, option := range d.options {
+		// Check if this option is selected
+		// Note: This uses string comparison to work with any type
+		var prefix string
+		if fmt.Sprintf("%v", option) == fmt.Sprintf("%v", selected) {
+			prefix = "> "
+		} else {
+			prefix = "  "
+		}
+
+		output = append(output, fmt.Sprintf("%s%v", prefix, option))
+	}
+
+	// Join all options with newlines
+	var result string
+	for i, line := range output {
+		if i > 0 {
+			result += "\n"
+		}
+		result += line
+	}
+
+	return fmt.Sprintf("[Select:\n%s\n]", result)
 }

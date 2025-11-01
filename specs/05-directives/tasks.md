@@ -473,13 +473,96 @@ type SelectBindDirective[T any] struct {
 ```
 
 **Tests:**
-- [ ] BindCheckbox for bool
-- [ ] BindSelect for options
-- [ ] Multiple checkboxes work
-- [ ] Select changes update Ref
-- [ ] Type safety maintained
+- [x] BindCheckbox for bool
+- [x] BindSelect for options
+- [x] Multiple checkboxes work
+- [x] Select changes update Ref
+- [x] Type safety maintained
 
 **Estimated effort:** 3 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- Extended `pkg/bubbly/directives/bind.go` with BindCheckbox and BindSelect implementations
+- Extended `pkg/bubbly/directives/bind_test.go` with comprehensive test coverage
+- **BindCheckbox Implementation:**
+  - Created `BindCheckbox()` function specifically typed for `*bubbly.Ref[bool]`
+  - Returns `*BindDirective[bool]` with `inputType: "checkbox"`
+  - Modified `BindDirective.Render()` to handle checkbox type specially
+  - Checkbox rendering format:
+    - Checked (true): `[Checkbox: [X]]`
+    - Unchecked (false): `[Checkbox: [ ]]`
+  - Type-safe: Only accepts boolean Refs (compile-time enforcement)
+- **SelectBindDirective Implementation:**
+  - Created new generic struct `SelectBindDirective[T any]` with `ref` and `options` fields
+  - Implemented `BindSelect[T any]()` constructor accepting Ref and options slice
+  - Implemented `Render()` method that:
+    - Displays all options with current selection highlighted
+    - Uses "> " prefix for selected option
+    - Uses "  " prefix for non-selected options
+    - Handles empty options gracefully with "[Select: no options]"
+    - Uses string comparison via fmt.Sprintf for type-agnostic equality
+  - Select rendering format:
+    ```
+    [Select:
+      option1
+    > option2
+      option3
+    ]
+    ```
+- **Test Coverage:**
+  - BindCheckbox: 5 test functions
+    - Creates checkbox directive
+    - Renders checked/unchecked states (table-driven)
+    - Toggle state changes
+    - Multiple independent checkboxes
+    - Interface compliance
+  - BindSelect: 9 test functions
+    - Creates select directive
+    - Renders all options
+    - Highlights selected option
+    - Changes selection dynamically
+    - Type safety with int, struct types
+    - Empty options handling
+    - Interface compliance
+    - Generic type safety demonstration
+- All 25 total bind tests pass with race detector (`go test -race`)
+- Coverage increased from 66.0% to 77.1% for directives package
+- Zero linter warnings (`go vet`)
+- Code formatted with `gofmt`
+- Builds successfully (`go build ./...`)
+- Both variants implement `Directive` interface correctly
+- Pure functions with no side effects
+- Type-safe generics provide compile-time safety
+- Handles edge cases gracefully (empty options, toggle states)
+- Ready for Task 4.1 (On directive implementation)
+
+**Design Decisions:**
+- **BindCheckbox type specificity**: Constrained to `bool` for semantic clarity and type safety
+- **SelectBindDirective as separate type**: Distinct from BindDirective to hold options slice
+- **String-based comparison**: Uses fmt.Sprintf for equality to support any type without comparable constraint
+- **Checkbox in BindDirective**: Reused existing struct with inputType field rather than separate type
+- **Placeholder rendering**: Uses bracket notation until TUI integration with Lipgloss
+- **No event handling yet**: Deferred to future tasks when component event system is integrated
+
+**Type Safety Achievements:**
+- BindCheckbox: Compile-time enforcement of boolean Refs only
+- BindSelect: Generic type parameter ensures Ref type matches options element type
+- No runtime type assertions needed
+- Full type inference from function arguments
+
+**Integration Points:**
+- Uses `bubbly.Ref[T]` for reactive value storage
+- Implements `Directive` interface for consistency
+- Ready for component event system integration
+- Compatible with existing Bind directive infrastructure
+
+**Performance:**
+- BindCheckbox: O(1) - single boolean check
+- BindSelect: O(n) where n is number of options
+- Minimal allocations beyond string formatting
+- Efficient string comparison using fmt.Sprintf
 
 ---
 

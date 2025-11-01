@@ -185,3 +185,400 @@ func TestBind_TypeSafety(t *testing.T) {
 	_ = Bind(floatRef)
 	_ = Bind(boolRef)
 }
+
+// TestBindCheckbox_CreatesCheckbox tests that BindCheckbox creates a checkbox
+func TestBindCheckbox_CreatesCheckbox(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef(false)
+
+	// Act
+	directive := BindCheckbox(ref)
+
+	// Assert
+	assert.NotNil(t, directive)
+	assert.Equal(t, ref, directive.ref)
+}
+
+// TestBindCheckbox_RendersCheckedState tests checkbox rendering
+func TestBindCheckbox_RendersCheckedState(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    bool
+		expected string
+	}{
+		{
+			name:     "checked state",
+			value:    true,
+			expected: "[X]",
+		},
+		{
+			name:     "unchecked state",
+			value:    false,
+			expected: "[ ]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			ref := bubbly.NewRef(tt.value)
+
+			// Act
+			directive := BindCheckbox(ref)
+			output := directive.Render()
+
+			// Assert
+			assert.Contains(t, output, tt.expected)
+		})
+	}
+}
+
+// TestBindCheckbox_ToggleState tests checkbox toggle
+func TestBindCheckbox_ToggleState(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef(false)
+	directive := BindCheckbox(ref)
+
+	// Act - Initial render
+	output1 := directive.Render()
+
+	// Change ref value
+	ref.Set(true)
+	output2 := directive.Render()
+
+	// Assert
+	assert.Contains(t, output1, "[ ]")
+	assert.Contains(t, output2, "[X]")
+}
+
+// TestBindCheckbox_MultipleCheckboxes tests multiple independent checkboxes
+func TestBindCheckbox_MultipleCheckboxes(t *testing.T) {
+	// Arrange
+	ref1 := bubbly.NewRef(true)
+	ref2 := bubbly.NewRef(false)
+
+	// Act
+	checkbox1 := BindCheckbox(ref1)
+	checkbox2 := BindCheckbox(ref2)
+
+	output1 := checkbox1.Render()
+	output2 := checkbox2.Render()
+
+	// Assert
+	assert.Contains(t, output1, "[X]")
+	assert.Contains(t, output2, "[ ]")
+}
+
+// TestBindCheckbox_DirectiveInterface tests that BindCheckbox implements Directive
+func TestBindCheckbox_DirectiveInterface(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef(true)
+	directive := BindCheckbox(ref)
+
+	// Act & Assert - Verify it implements Directive interface
+	var _ Directive = directive
+}
+
+// TestBindSelect_CreatesSelect tests that BindSelect creates a select directive
+func TestBindSelect_CreatesSelect(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("option1")
+	options := []string{"option1", "option2", "option3"}
+
+	// Act
+	directive := BindSelect(ref, options)
+
+	// Assert
+	assert.NotNil(t, directive)
+	assert.Equal(t, ref, directive.ref)
+	assert.Equal(t, options, directive.options)
+}
+
+// TestBindSelect_RendersOptions tests select rendering with options
+func TestBindSelect_RendersOptions(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("option2")
+	options := []string{"option1", "option2", "option3"}
+
+	// Act
+	directive := BindSelect(ref, options)
+	output := directive.Render()
+
+	// Assert
+	assert.Contains(t, output, "option1")
+	assert.Contains(t, output, "option2")
+	assert.Contains(t, output, "option3")
+	assert.Contains(t, output, "option2") // Selected option
+}
+
+// TestBindSelect_HighlightsSelected tests that selected option is highlighted
+func TestBindSelect_HighlightsSelected(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("option2")
+	options := []string{"option1", "option2", "option3"}
+
+	// Act
+	directive := BindSelect(ref, options)
+	output := directive.Render()
+
+	// Assert
+	// Selected option should be marked differently
+	assert.Contains(t, output, "> option2")
+}
+
+// TestBindSelect_ChangeSelection tests changing selected option
+func TestBindSelect_ChangeSelection(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("option1")
+	options := []string{"option1", "option2", "option3"}
+	directive := BindSelect(ref, options)
+
+	// Act - Initial render
+	output1 := directive.Render()
+
+	// Change selection
+	ref.Set("option3")
+	output2 := directive.Render()
+
+	// Assert
+	assert.Contains(t, output1, "> option1")
+	assert.Contains(t, output2, "> option3")
+}
+
+// TestBindSelect_IntType tests BindSelect with int type
+func TestBindSelect_IntType(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef(2)
+	options := []int{1, 2, 3, 4, 5}
+
+	// Act
+	directive := BindSelect(ref, options)
+	output := directive.Render()
+
+	// Assert
+	assert.Contains(t, output, "1")
+	assert.Contains(t, output, "2")
+	assert.Contains(t, output, "3")
+	assert.Contains(t, output, "> 2")
+}
+
+// TestBindSelect_StructType tests BindSelect with struct type
+func TestBindSelect_StructType(t *testing.T) {
+	// Arrange
+	type Option struct {
+		ID   int
+		Name string
+	}
+
+	opt1 := Option{ID: 1, Name: "First"}
+	opt2 := Option{ID: 2, Name: "Second"}
+	opt3 := Option{ID: 3, Name: "Third"}
+
+	ref := bubbly.NewRef(opt2)
+	options := []Option{opt1, opt2, opt3}
+
+	// Act
+	directive := BindSelect(ref, options)
+	output := directive.Render()
+
+	// Assert
+	assert.NotEmpty(t, output)
+	// Should contain the selected option
+	assert.Contains(t, output, "Second")
+}
+
+// TestBindSelect_EmptyOptions tests BindSelect with empty options
+func TestBindSelect_EmptyOptions(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("default")
+	options := []string{}
+
+	// Act
+	directive := BindSelect(ref, options)
+	output := directive.Render()
+
+	// Assert
+	assert.NotEmpty(t, output)
+	// Should handle empty options gracefully
+}
+
+// TestBindSelect_DirectiveInterface tests that SelectBindDirective implements Directive
+func TestBindSelect_DirectiveInterface(t *testing.T) {
+	// Arrange
+	ref := bubbly.NewRef("option1")
+	options := []string{"option1", "option2"}
+	directive := BindSelect(ref, options)
+
+	// Act & Assert - Verify it implements Directive interface
+	var _ Directive = directive
+}
+
+// TestBindSelect_TypeSafety tests compile-time type safety for BindSelect
+func TestBindSelect_TypeSafety(t *testing.T) {
+	// These should all compile, demonstrating type safety
+	stringRef := bubbly.NewRef("a")
+	intRef := bubbly.NewRef(1)
+	floatRef := bubbly.NewRef(1.5)
+
+	_ = BindSelect(stringRef, []string{"a", "b", "c"})
+	_ = BindSelect(intRef, []int{1, 2, 3})
+	_ = BindSelect(floatRef, []float64{1.5, 2.5, 3.5})
+}
+
+// TestConversionFunctions tests all type conversion helper functions
+func TestConversionFunctions(t *testing.T) {
+	t.Run("convertString", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected string
+		}{
+			{"empty string", "", ""},
+			{"simple string", "hello", "hello"},
+			{"string with spaces", "hello world", "hello world"},
+			{"string with special chars", "hello@world!", "hello@world!"},
+			{"unicode string", "你好世界", "你好世界"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := convertString(tt.input)
+				assert.Equal(t, tt.expected, result)
+			})
+		}
+	})
+
+	t.Run("convertInt", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected int
+		}{
+			{"positive integer", "42", 42},
+			{"negative integer", "-42", -42},
+			{"zero", "0", 0},
+			{"large number", "999999", 999999},
+			{"invalid - empty string", "", 0},
+			{"invalid - letters", "abc", 0},
+			{"invalid - float", "3.14", 0},
+			{"invalid - mixed", "12abc", 0},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := convertInt(tt.input)
+				assert.Equal(t, tt.expected, result)
+			})
+		}
+	})
+
+	t.Run("convertInt64", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected int64
+		}{
+			{"positive integer", "42", int64(42)},
+			{"negative integer", "-42", int64(-42)},
+			{"zero", "0", int64(0)},
+			{"large number", "9223372036854775807", int64(9223372036854775807)},
+			{"invalid - empty string", "", int64(0)},
+			{"invalid - letters", "xyz", int64(0)},
+			{"invalid - float", "2.71", int64(0)},
+			{"invalid - overflow", "9223372036854775808", int64(0)},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := convertInt64(tt.input)
+				assert.Equal(t, tt.expected, result)
+			})
+		}
+	})
+
+	t.Run("convertFloat64", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected float64
+		}{
+			{"positive float", "3.14", 3.14},
+			{"negative float", "-3.14", -3.14},
+			{"zero", "0", 0.0},
+			{"zero float", "0.0", 0.0},
+			{"integer as float", "42", 42.0},
+			{"scientific notation", "1.23e10", 1.23e10},
+			{"very small number", "0.000001", 0.000001},
+			{"invalid - empty string", "", 0.0},
+			{"invalid - letters", "abc", 0.0},
+			{"invalid - mixed", "12.34abc", 0.0},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := convertFloat64(tt.input)
+				assert.Equal(t, tt.expected, result)
+			})
+		}
+	})
+
+	t.Run("convertBool", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			input    string
+			expected bool
+		}{
+			{"true string", "true", true},
+			{"1 string", "1", true},
+			{"false string", "false", false},
+			{"0 string", "0", false},
+			{"empty string", "", false},
+			{"True capitalized", "True", false},
+			{"TRUE uppercase", "TRUE", false},
+			{"yes", "yes", false},
+			{"no", "no", false},
+			{"random text", "random", false},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := convertBool(tt.input)
+				assert.Equal(t, tt.expected, result)
+			})
+		}
+	})
+}
+
+// TestConversionFunctions_EdgeCases tests edge cases for conversion functions
+func TestConversionFunctions_EdgeCases(t *testing.T) {
+	t.Run("convertInt with whitespace", func(t *testing.T) {
+		// strconv.Atoi trims whitespace, but we test the behavior
+		result := convertInt(" 42 ")
+		// This will fail to parse due to spaces, returning 0
+		assert.Equal(t, 0, result)
+	})
+
+	t.Run("convertInt64 with negative zero", func(t *testing.T) {
+		result := convertInt64("-0")
+		assert.Equal(t, int64(0), result)
+	})
+
+	t.Run("convertFloat64 with special values", func(t *testing.T) {
+		// ParseFloat doesn't accept "inf" or "NaN" as strings
+		// It only accepts "+Inf", "-Inf", "NaN" with specific casing
+		result1 := convertFloat64("invalid")
+		assert.Equal(t, 0.0, result1)
+
+		result2 := convertFloat64("not-a-number")
+		assert.Equal(t, 0.0, result2)
+	})
+
+	t.Run("convertBool case sensitivity", func(t *testing.T) {
+		// Only lowercase "true" and "1" return true
+		assert.False(t, convertBool("TRUE"))
+		assert.False(t, convertBool("True"))
+		assert.False(t, convertBool("tRuE"))
+		assert.True(t, convertBool("true"))
+		assert.True(t, convertBool("1"))
+	})
+}
