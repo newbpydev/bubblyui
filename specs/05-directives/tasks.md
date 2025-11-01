@@ -222,13 +222,47 @@ func (d *ForEachDirective[T]) Render() string
 ```
 
 **Tests:**
-- [ ] Iterates over slice
-- [ ] Provides item and index
-- [ ] Handles empty slice
-- [ ] Type safety enforced
-- [ ] Nested ForEach works
+- [x] Iterates over slice
+- [x] Provides item and index
+- [x] Handles empty slice
+- [x] Type safety enforced
+- [x] Nested ForEach works
 
 **Estimated effort:** 4 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+- Created `pkg/bubbly/directives/foreach.go` with full generic implementation
+- Implemented `ForEachDirective[T any]` struct with `items []T` and `renderItem func(T, int) string` fields
+- Created `ForEach[T any]()` constructor function with generic type parameter
+- Implemented `Render()` method with efficient pre-allocation strategy:
+  - Returns empty string immediately for nil/empty slices
+  - Pre-allocates output slice with `make([]string, len(d.items))`
+  - Uses `strings.Join()` for efficient concatenation
+- Comprehensive godoc documentation added to all types and functions
+- Test coverage: 100% with 11 test functions covering all scenarios:
+  - Basic iteration (simple strings, single item, numbered lists)
+  - Empty slice handling (empty and nil slices)
+  - Type safety (integers, structs, pointers)
+  - Nested ForEach directives
+  - Complex content (multiline, special characters, unicode)
+  - Empty content from render functions
+  - Interface compliance verification
+  - Large slice performance (1000 items)
+  - Composition with If directive
+  - Composition with Show directive
+  - Index usage verification
+- All tests pass with race detector (`go test -race`)
+- Zero linter warnings (`go vet`)
+- Code formatted with `gofmt`
+- Builds successfully (`go build ./...`)
+- Implements `Directive` interface correctly
+- Pure functions with no side effects
+- Efficient pre-allocation minimizes memory allocations
+- Type-safe generics provide compile-time safety for any slice type
+- Handles edge cases gracefully (nil, empty, large slices)
+- Ready for Task 2.2 (ForEach performance optimization)
 
 ---
 
