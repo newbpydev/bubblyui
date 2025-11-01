@@ -2,6 +2,7 @@ package composables
 
 import (
 	"testing"
+	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -443,4 +444,200 @@ func (m *MemoryStorage) Load(key string) ([]byte, error) {
 func (m *MemoryStorage) Save(key string, data []byte) error {
 	m.data[key] = data
 	return nil
+}
+
+// ============================================================================
+// Multi-CPU Scaling Benchmarks
+// ============================================================================
+
+// BenchmarkUseState_MultiCPU tests UseState performance with different CPU counts
+// to identify scaling characteristics
+func BenchmarkUseState_MultiCPU(b *testing.B) {
+	RunMultiCPU(b, func(b *testing.B) {
+		ctx := bubbly.NewTestContext()
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			state := UseState(ctx, i)
+			_ = state
+		}
+	}, []int{1, 2, 4, 8})
+}
+
+// BenchmarkUseForm_MultiCPU tests UseForm performance with different CPU counts
+func BenchmarkUseForm_MultiCPU(b *testing.B) {
+	type TestForm struct {
+		Name  string
+		Email string
+		Age   int
+	}
+
+	RunMultiCPU(b, func(b *testing.B) {
+		ctx := bubbly.NewTestContext()
+		validator := func(f TestForm) map[string]string {
+			return make(map[string]string)
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			form := UseForm(ctx, TestForm{}, validator)
+			_ = form
+		}
+	}, []int{1, 2, 4, 8})
+}
+
+// BenchmarkProvideInject_MultiCPU tests provide/inject with different CPU counts
+// This is particularly important for concurrent component trees
+func BenchmarkProvideInject_MultiCPU(b *testing.B) {
+	RunMultiCPU(b, func(b *testing.B) {
+		// Create 5-level tree
+		level0 := bubbly.NewTestContext()
+		level0.Provide("key", "value")
+
+		level1 := bubbly.NewTestContext()
+		bubbly.SetParent(level1, level0)
+
+		level2 := bubbly.NewTestContext()
+		bubbly.SetParent(level2, level1)
+
+		level3 := bubbly.NewTestContext()
+		bubbly.SetParent(level3, level2)
+
+		level4 := bubbly.NewTestContext()
+		bubbly.SetParent(level4, level3)
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			_ = level4.Inject("key", "default")
+		}
+	}, []int{1, 2, 4, 8})
+}
+
+// ============================================================================
+// Memory Growth Benchmarks
+// ============================================================================
+
+// BenchmarkMemoryGrowth_UseState measures memory growth for repeated UseState creation
+// This detects memory leaks from composable creation
+func BenchmarkMemoryGrowth_UseState(b *testing.B) {
+	start, end, growth := MeasureMemoryGrowth(b, 500*time.Millisecond, func() {
+		ctx := bubbly.NewTestContext()
+		_ = UseState(ctx, 42)
+	})
+
+	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
+	
+	// Report as metric for tracking
+	b.ReportMetric(float64(growth), "total-growth-bytes")
+}
+
+// BenchmarkMemoryGrowth_UseForm measures memory growth for repeated UseForm creation
+func BenchmarkMemoryGrowth_UseForm(b *testing.B) {
+	type TestForm struct {
+		Name  string
+		Email string
+		Age   int
+	}
+
+	start, end, growth := MeasureMemoryGrowth(b, 500*time.Millisecond, func() {
+		ctx := bubbly.NewTestContext()
+		_ = UseForm(ctx, TestForm{}, func(f TestForm) map[string]string {
+			return make(map[string]string)
+		})
+	})
+
+	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
+	b.ReportMetric(float64(growth), "total-growth-bytes")
+}
+
+// BenchmarkMemoryGrowth_ManyComposables measures memory growth with multiple composables
+// This simulates a real application with many components
+func BenchmarkMemoryGrowth_ManyComposables(b *testing.B) {
+	start, end, growth := MeasureMemoryGrowth(b, 500*time.Millisecond, func() {
+		ctx := bubbly.NewTestContext()
+		_ = UseState(ctx, 0)
+		_ = UseState(ctx, "test")
+		_ = UseState(ctx, true)
+		_ = UseAsync(ctx, func() (*int, error) {
+			result := 42
+			return &result, nil
+		})
+	})
+
+	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
+	b.ReportMetric(float64(growth), "total-growth-bytes")
+}
+
+// BenchmarkMemoryGrowth_LongRunning measures memory growth over extended period
+// This detects slow memory leaks that only appear in long-running applications
+func BenchmarkMemoryGrowth_LongRunning(b *testing.B) {
+	if testing.Short() {
+		b.Skip("Skipping long-running memory growth test in short mode")
+	}
+
+	start, end, growth := MeasureMemoryGrowth(b, 2*time.Second, func() {
+		ctx := bubbly.NewTestContext()
+		state := UseState(ctx, 0)
+		
+		// Simulate typical usage: create, update, read
+		state.Set(state.Get() + 1)
+		_ = state.Get()
+	})
+
+	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
+	b.ReportMetric(float64(growth), "total-growth-bytes")
+	
+	// Memory growth is expected to be minimal for well-behaved code
+	// Allow up to 100KB total growth for long-running test
+	if growth > 100000 {
+		b.Errorf("Excessive total memory growth: %d bytes", growth)
+	}
+}
+
+// BenchmarkMemoryGrowth_WithCleanup measures memory with proper cleanup
+// This verifies that cleanup functions prevent memory leaks
+func BenchmarkMemoryGrowth_WithCleanup(b *testing.B) {
+	start, end, growth := MeasureMemoryGrowth(b, 500*time.Millisecond, func() {
+		ctx := bubbly.NewTestContext()
+		
+		UseEffect(ctx, func() UseEffectCleanup {
+			// Effect with cleanup
+			return func() {
+				// Cleanup runs when effect is removed
+			}
+		})
+	})
+
+	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
+	b.ReportMetric(float64(growth), "total-growth-bytes")
+}
+
+// ============================================================================
+// Statistical Benchmarks
+// ============================================================================
+
+// BenchmarkWithStats_UseState demonstrates using RunWithStats for detailed metrics
+func BenchmarkWithStats_UseState(b *testing.B) {
+	ctx := bubbly.NewTestContext()
+	
+	RunWithStats(b, func() {
+		state := UseState(ctx, 42)
+		state.Set(100)
+		_ = state.Get()
+	})
+}
+
+// BenchmarkWithStats_ComposableChain demonstrates stats for complex operations
+func BenchmarkWithStats_ComposableChain(b *testing.B) {
+	ctx := bubbly.NewTestContext()
+	
+	RunWithStats(b, func() {
+		count, inc, _ := UseDoubleCounter(ctx, 0)
+		inc()
+		_ = count.Get()
+	})
 }
