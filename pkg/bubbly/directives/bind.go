@@ -3,6 +3,7 @@ package directives
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -166,18 +167,28 @@ func (d *BindDirective[T]) Render() string {
 
 	// Handle checkbox type specially
 	if d.inputType == "checkbox" {
-		// Convert value to bool for checkbox rendering
-		boolVal := fmt.Sprintf("%v", value) == "true"
-		if boolVal {
+		// Optimize: Use type assertion for bool instead of string conversion
+		// This avoids fmt.Sprintf overhead for the common case
+		if boolVal, ok := any(value).(bool); ok {
+			if boolVal {
+				return "[Checkbox: [X]]"
+			}
+			return "[Checkbox: [ ]]"
+		}
+		// Fallback for non-bool types
+		if fmt.Sprintf("%v", value) == "true" {
 			return "[Checkbox: [X]]"
 		}
 		return "[Checkbox: [ ]]"
 	}
 
-	// Format as input representation
-	// In a real TUI, this would render an actual input widget
-	// For now, we use a placeholder format
-	return fmt.Sprintf("[Input: %v]", value)
+	// Optimize: Use strings.Builder for string construction
+	var builder strings.Builder
+	builder.Grow(10 + 20) // "[Input: " (8) + reasonable value estimate + "]" (1)
+	builder.WriteString("[Input: ")
+	builder.WriteString(fmt.Sprint(value))
+	builder.WriteString("]")
+	return builder.String()
 }
 
 // Type conversion functions for updating Ref from string input.
@@ -512,29 +523,40 @@ func (d *SelectBindDirective[T]) Render() string {
 		return "[Select: no options]"
 	}
 
-	// Build output with all options
-	var output []string
-	for _, option := range d.options {
-		// Check if this option is selected
-		// Note: This uses string comparison to work with any type
-		var prefix string
-		if fmt.Sprintf("%v", option) == fmt.Sprintf("%v", selected) {
-			prefix = "> "
+	// Optimize: Convert selected value to string ONCE to avoid redundant fmt.Sprintf
+	selectedStr := fmt.Sprint(selected)
+
+	// Optimize: Pre-calculate capacity to avoid reallocations
+	// Base: "[Select:\n" (9) + "\n]" (2)
+	// Per option: "  " or "> " (2) + average option string + "\n" (1)
+	// Estimate ~20 chars per option as reasonable default
+	capacity := 11 + (len(d.options) * 23)
+
+	var builder strings.Builder
+	builder.Grow(capacity)
+
+	// Build select marker
+	builder.WriteString("[Select:\n")
+
+	// Build options - avoid intermediate string conversions and allocations
+	for i, option := range d.options {
+		// Convert option to string once
+		optionStr := fmt.Sprint(option)
+
+		// Check if this option is selected (string comparison)
+		if optionStr == selectedStr {
+			builder.WriteString("> ")
 		} else {
-			prefix = "  "
+			builder.WriteString("  ")
 		}
+		builder.WriteString(optionStr)
 
-		output = append(output, fmt.Sprintf("%s%v", prefix, option))
+		// Add newline except after last option
+		if i < len(d.options)-1 {
+			builder.WriteString("\n")
+		}
 	}
 
-	// Join all options with newlines
-	var result string
-	for i, line := range output {
-		if i > 0 {
-			result += "\n"
-		}
-		result += line
-	}
-
-	return fmt.Sprintf("[Select:\n%s\n]", result)
+	builder.WriteString("\n]")
+	return builder.String()
 }

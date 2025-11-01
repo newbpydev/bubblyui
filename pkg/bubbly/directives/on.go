@@ -1,6 +1,6 @@
 package directives
 
-import "fmt"
+import "strings"
 
 // OnDirective implements declarative event handling for template elements.
 //
@@ -317,23 +317,42 @@ func (d *OnDirective) Once() *OnDirective {
 // of the order they were called. This ensures consistent marker format for
 // parsing by the component system.
 func (d *OnDirective) Render(content string) string {
-	// Start with base event marker
-	marker := fmt.Sprintf("[Event:%s", d.event)
+	// Pre-calculate approximate capacity to avoid reallocations
+	// Base: "[Event:" (7) + event name + "]" (1) + content
+	// Modifiers: ":prevent" (8), ":stop" (5), ":once" (5)
+	capacity := 8 + len(d.event) + len(content)
+	if d.preventDefault {
+		capacity += 8
+	}
+	if d.stopPropagation {
+		capacity += 5
+	}
+	if d.once {
+		capacity += 5
+	}
+
+	// Use strings.Builder for zero-copy string construction
+	var builder strings.Builder
+	builder.Grow(capacity)
+
+	// Build event marker
+	builder.WriteString("[Event:")
+	builder.WriteString(d.event)
 
 	// Append modifiers in consistent order
 	if d.preventDefault {
-		marker += ":prevent"
+		builder.WriteString(":prevent")
 	}
 	if d.stopPropagation {
-		marker += ":stop"
+		builder.WriteString(":stop")
 	}
 	if d.once {
-		marker += ":once"
+		builder.WriteString(":once")
 	}
 
-	// Close marker
-	marker += "]"
+	// Close marker and append content
+	builder.WriteString("]")
+	builder.WriteString(content)
 
-	// Wrap content with marker
-	return marker + content
+	return builder.String()
 }
