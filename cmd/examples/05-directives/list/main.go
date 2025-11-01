@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -62,6 +63,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentInput = ""
 					m.component.Emit("updateInput", m.currentInput)
 				}
+			case "up", "k":
+				if !m.inputMode {
+					// Navigate up in list
+					if m.selectedIndex > 0 {
+						m.selectedIndex--
+						m.component.Emit("setSelected", m.selectedIndex)
+					}
+				}
+			case "down", "j":
+				if !m.inputMode {
+					// Navigate down in list
+					m.selectedIndex++
+					m.component.Emit("setSelected", m.selectedIndex)
+				}
+			case "d", "delete":
+				if !m.inputMode {
+					// Delete selected item
+					m.component.Emit("deleteItem", m.selectedIndex)
+					// Adjust selection if needed
+					if m.selectedIndex > 0 {
+						m.selectedIndex--
+						m.component.Emit("setSelected", m.selectedIndex)
+					}
+				}
+			case "a":
+				if !m.inputMode {
+					// 'a' to add - enter input mode
+					m.inputMode = true
+					m.component.Emit("setInputMode", m.inputMode)
+				}
 			case "enter":
 				if m.inputMode {
 					// Add item with current input
@@ -70,34 +101,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.currentInput = ""
 						m.component.Emit("updateInput", m.currentInput)
 					}
+					// Exit input mode after adding
+					m.inputMode = false
+					m.component.Emit("setInputMode", m.inputMode)
 				} else {
 					// Enter input mode
 					m.inputMode = true
 					m.component.Emit("setInputMode", m.inputMode)
-				}
-			case "up", "k":
-				if !m.inputMode {
-					if m.selectedIndex > 0 {
-						m.selectedIndex--
-						m.component.Emit("setSelected", m.selectedIndex)
-					}
-				}
-			case "down", "j":
-				if !m.inputMode {
-					m.selectedIndex++
-					m.component.Emit("setSelected", m.selectedIndex)
-				}
-			case "d":
-				if !m.inputMode {
-					// Delete selected item
-					m.component.Emit("deleteItem", m.selectedIndex)
-					if m.selectedIndex > 0 {
-						m.selectedIndex--
-					}
-				} else {
-					// Input mode: add 'd' to input
-					m.currentInput += "d"
-					m.component.Emit("updateInput", m.currentInput)
 				}
 			case "backspace":
 				if m.inputMode && len(m.currentInput) > 0 {
@@ -174,7 +184,7 @@ func (m model) View() string {
 	var help string
 	if m.inputMode {
 		help = helpStyle.Render(
-			"enter: add item • esc: cancel • backspace: delete char • ctrl+c: quit",
+			"type item name • enter: add • esc: cancel • backspace: delete • ctrl+c: quit",
 		)
 	} else {
 		help = helpStyle.Render(
@@ -314,12 +324,22 @@ func createListComponent() (bubbly.Component, error) {
 				Bold(true).
 				Render("Add Item: ")
 
+			// Show reactive input
 			inputValue := currentInput.GetTyped()
-			if inputValue == "" {
-				inputValue = "(type item name and press enter)"
+			inputValueStyle := lipgloss.NewStyle()
+			if inputMode.GetTyped() {
+				if inputValue == "" {
+					inputValueStyle = inputValueStyle.Foreground(lipgloss.Color("241")).Italic(true)
+					inputValue = "(typing...)"
+				} else {
+					inputValueStyle = inputValueStyle.Foreground(lipgloss.Color("35")).Bold(true)
+				}
+			} else {
+				inputValueStyle = inputValueStyle.Foreground(lipgloss.Color("241")).Italic(true)
+				inputValue = "(press 'a' or ENTER to add item)"
 			}
 
-			inputBox := inputBoxStyle.Render(inputLabel + inputValue)
+			inputBox := inputBoxStyle.Render(inputLabel + inputValueStyle.Render(inputValue))
 
 			// List box style
 			listBoxStyle := lipgloss.NewStyle().
@@ -349,28 +369,40 @@ func createListComponent() (bubbly.Component, error) {
 				selected := selectedIndex.GetTyped()
 
 				return directives.ForEach(itemList, func(item Item, index int) string {
-					// Style for selected item
-					itemStyle := lipgloss.NewStyle()
-					if index == selected {
-						itemStyle = itemStyle.
-							Foreground(lipgloss.Color("35")).
-							Bold(true)
-					} else {
-						itemStyle = itemStyle.Foreground(lipgloss.Color("252"))
-					}
+					isSelected := index == selected
 
 					cursor := "  "
-					if index == selected {
+					if isSelected {
 						cursor = "▶ "
 					}
 
-					categoryBadge := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("99")).
-						Render(fmt.Sprintf("[%s]", item.Category))
+					// Item number (sequential, not ID)
+					numberStyle := lipgloss.NewStyle().
+						Width(3).
+						Align(lipgloss.Right)
+					if isSelected {
+						numberStyle = numberStyle.Foreground(lipgloss.Color("35")).Bold(true)
+					} else {
+						numberStyle = numberStyle.Foreground(lipgloss.Color("241"))
+					}
+					number := numberStyle.Render(fmt.Sprintf("%d.", index+1))
 
-					return itemStyle.Render(
-						fmt.Sprintf("%s%d. %s %s\n", cursor, item.ID, item.Name, categoryBadge),
-					)
+					// Item name
+					nameStyle := lipgloss.NewStyle().Width(20)
+					if isSelected {
+						nameStyle = nameStyle.Foreground(lipgloss.Color("35")).Bold(true)
+					} else {
+						nameStyle = nameStyle.Foreground(lipgloss.Color("252"))
+					}
+					name := nameStyle.Render(item.Name)
+
+					// Category badge
+					categoryStyle := lipgloss.NewStyle().
+						Foreground(lipgloss.Color("99")).
+						Width(15)
+					category := categoryStyle.Render(fmt.Sprintf("[%s]", item.Category))
+
+					return fmt.Sprintf("%s%s %s %s\n", cursor, number, name, category)
 				}).Render()
 			}).Render()
 
@@ -414,6 +446,8 @@ func createListComponent() (bubbly.Component, error) {
 				for category := range grouped {
 					categories = append(categories, category)
 				}
+				// CRITICAL: Sort to ensure consistent order (Go maps are randomized)
+				sort.Strings(categories)
 
 				// Outer ForEach: iterate over categories
 				return "\n" + directives.ForEach(categories, func(category string, i int) string {
