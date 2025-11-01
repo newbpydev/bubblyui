@@ -1320,13 +1320,103 @@ Ready for Task 6.1 (Integration Tests)
 - `cmd/examples/05-directives/complex/main.go`
 
 **Examples:**
-- [ ] Basic If/Show usage
-- [ ] Form with Bind directives
-- [ ] List with ForEach
-- [ ] Complex nested directives
-- [ ] All directives demonstrated
+- [x] Basic If/Show usage
+- [x] Form with Bind directives
+- [x] List with ForEach
+- [x] Complex nested directives
+- [x] All directives demonstrated
 
 **Estimated effort:** 5 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+
+Created 4 comprehensive example applications demonstrating all directives in real TUI scenarios:
+
+**1. basic/main.go - If/Show Directives:**
+- Status display with If/ElseIf/Else chains (loading, error, success, empty)
+- Show directive for collapsible details panel
+- Nested If for conditional tips
+- Simple navigation mode (no input mode needed)
+- Demonstrates: Conditional rendering and visibility toggle
+- **Pattern:** Simple keyboard shortcuts (1-4 for status, space for toggle)
+
+**2. list/main.go - ForEach Directive:**
+- Dynamic list rendering with ForEach
+- Add/remove items with CRUD operations
+- Nested ForEach for grouped category view
+- Empty state handling with If directive
+- Mode-based input for adding items
+- Computed values for grouping and counts
+- Demonstrates: List rendering, nested iteration, reactive filtering
+- **Pattern:** Mode-based input (navigation vs input mode)
+
+**3. form/main.go - Bind Directives:**
+- Bind[string] for text inputs (name, email)
+- Bind[int] for numeric input (age)
+- BindCheckbox for boolean (terms agreement)
+- BindSelect for dropdown (country selection)
+- Field navigation with tab
+- Form validation with If directive
+- Real-time reactive display of bound values
+- Demonstrates: Two-way binding API (placeholder implementation)
+- **Pattern:** Mode-based input with field focus
+
+**4. complex/main.go - All Directives Combined:**
+- Product catalog with filtering (Bind for filter input)
+- ForEach for product list rendering
+- If/ElseIf for loading/error/success states
+- Show for cart visibility toggle
+- Nested If for stock status
+- Multiple view modes (list vs details)
+- Computed values for filtering and cart total
+- Demonstrates: Real-world composition of all 5 directive types
+- **Pattern:** Full mode-based input with complex state management
+
+**Critical Patterns Followed:**
+1. **Bubbletea Integration:**
+   - Model wraps component
+   - Init() delegates to component.Init() (NEVER called manually)
+   - Update() handles KeyMsg first, then component.Update()
+   - View() renders component.View() with Lipgloss styling
+
+2. **Key Handling:**
+   - msg.Type == tea.KeySpace for space (NOT msg.String())
+   - msg.Type == tea.KeyRunes for text input
+   - Always allow ctrl+c to quit
+   - ESC toggles input mode
+
+3. **Mode-Based Input:**
+   - Navigation mode: shortcuts active, visual indicator (purple/99)
+   - Input mode: text input active, visual indicator (green/35)
+   - Dynamic border colors based on mode
+   - Mode-specific help text
+
+4. **Type Safety:**
+   - Used bubbly.NewRef[T] for typed Refs (not ctx.Ref which returns Ref[interface{}])
+   - Used GetTyped() for type-safe value access
+   - NewComputed with proper return types (not interface{})
+
+5. **Lipgloss Styling:**
+   - Consistent color scheme across all examples
+   - Bold titles, muted subtitles
+   - Border colors indicate active/inactive state
+   - Help text at bottom
+
+**Quality Gates:**
+- ✅ All 4 examples build successfully
+- ✅ Code properly formatted (gofmt)
+- ✅ Zero vet warnings
+- ✅ Follows BubblyUI patterns exactly
+- ✅ Demonstrates all required directives
+- ✅ Mode-based input implemented correctly
+- ✅ Visual feedback with Lipgloss
+
+**Key Learning:**
+The examples demonstrate that directives compose naturally in templates, making complex UIs declarative and maintainable. The mode-based input pattern is critical for TUI applications to avoid key conflicts between shortcuts and text input.
+
+Ready for Task 6.3 (Performance Validation)
 
 ---
 
