@@ -3,8 +3,9 @@ package directives
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestBind_CreatesInputHandler tests that Bind creates an input handler
