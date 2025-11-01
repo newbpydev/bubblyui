@@ -65,22 +65,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
+			case "up", "k":
+				if m.inputMode && m.focusedField == "country" {
+					// Cycle country backward
+					m.component.Emit("cycleCountry", -1)
+				}
+			case "down", "j":
+				if m.inputMode && m.focusedField == "country" {
+					// Cycle country forward
+					m.component.Emit("cycleCountry", 1)
+				}
 			case "enter":
 				if m.inputMode {
-					// Save current input to focused field
-					if m.currentInput != "" {
-						m.component.Emit("saveField", map[string]string{
-							"field": m.focusedField,
-							"value": m.currentInput,
-						})
-						m.currentInput = ""
-						m.component.Emit("updateInput", m.currentInput)
+					// For text fields, save current input
+					if m.focusedField != "agreed" && m.focusedField != "country" {
+						if m.currentInput != "" {
+							m.component.Emit("saveField", map[string]string{
+								"field": m.focusedField,
+								"value": m.currentInput,
+							})
+							m.currentInput = ""
+							m.component.Emit("updateInput", m.currentInput)
+						}
 					}
-					// Stay in input mode for next field
+					// Exit input mode after saving
+					m.inputMode = false
+					m.component.Emit("setInputMode", m.inputMode)
 				} else {
 					// Enter input mode
 					m.inputMode = true
 					m.component.Emit("setInputMode", m.inputMode)
+					// For text fields, pre-populate with current value
+					if m.focusedField == "name" || m.focusedField == "email" || m.focusedField == "age" {
+						// Start with empty input for fresh typing
+						m.currentInput = ""
+						m.component.Emit("updateInput", m.currentInput)
+					}
 				}
 			case "backspace":
 				if m.inputMode && len(m.currentInput) > 0 {
@@ -156,12 +176,22 @@ func (m model) View() string {
 
 	var help string
 	if m.inputMode {
-		help = helpStyle.Render(
-			"enter: save • esc: cancel • backspace: delete char • ctrl+c: quit",
-		)
+		if m.focusedField == "country" {
+			help = helpStyle.Render(
+				"↑/↓: select country • enter: done • esc: cancel • ctrl+c: quit",
+			)
+		} else if m.focusedField == "agreed" {
+			help = helpStyle.Render(
+				"space: toggle • enter: done • esc: cancel • ctrl+c: quit",
+			)
+		} else {
+			help = helpStyle.Render(
+				"type to edit • enter: save • esc: cancel • backspace: delete • ctrl+c: quit",
+			)
+		}
 	} else {
 		help = helpStyle.Render(
-			"tab: next field • enter: edit field • space: toggle checkbox • q: quit",
+			"tab: next field • enter: edit • space: toggle checkbox • q: quit",
 		)
 	}
 
@@ -241,6 +271,25 @@ func createFormComponent() (bubbly.Component, error) {
 			ctx.On("toggleAgreed", func(_ interface{}) {
 				agreed.Set(!agreed.GetTyped())
 			})
+
+			// Event: Cycle through country options
+			ctx.On("cycleCountry", func(data interface{}) {
+				direction := data.(int)
+				currentCountry := country.GetTyped()
+				
+				// Find current index
+				currentIndex := 0
+				for i, c := range countries {
+					if c == currentCountry {
+						currentIndex = i
+						break
+					}
+				}
+				
+				// Calculate new index with wrapping
+				newIndex := (currentIndex + direction + len(countries)) % len(countries)
+				country.Set(countries[newIndex])
+			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			name := ctx.Get("name").(*bubbly.Ref[string])
@@ -270,45 +319,142 @@ func createFormComponent() (bubbly.Component, error) {
 				Foreground(lipgloss.Color("205")).
 				Render("📋 Registration Form")
 
-			// Helper function to render field with focus indicator
-			renderField := func(label, fieldName, value string) string {
-				focused := focusedField.GetTyped() == fieldName
+			// Get current state
+			currentInput := ctx.Get("currentInput").(*bubbly.Ref[string])
+			focused := focusedField.GetTyped()
+			isInputMode := inputMode.GetTyped()
+
+			// Helper function to render field with reactive display
+			renderField := func(label, fieldName string, currentValue string) string {
+				isFocused := focused == fieldName
+				
 				labelStyle := lipgloss.NewStyle().
 					Width(15).
-					Bold(focused)
+					Bold(isFocused)
 
-				if focused {
+				if isFocused {
 					labelStyle = labelStyle.Foreground(lipgloss.Color("35"))
 				} else {
 					labelStyle = labelStyle.Foreground(lipgloss.Color("252"))
 				}
 
 				cursor := "  "
-				if focused {
+				if isFocused {
 					cursor = "▶ "
 				}
 
-				return fmt.Sprintf("%s%s %s\n", cursor, labelStyle.Render(label+":"), value)
+				// Show current input buffer if in input mode and focused
+				displayValue := currentValue
+				if isInputMode && isFocused {
+					displayValue = currentInput.GetTyped()
+					if displayValue == "" {
+						displayValue = "(typing...)"
+					}
+				}
+
+				// Style the value
+				valueStyle := lipgloss.NewStyle()
+				if isFocused && isInputMode {
+					valueStyle = valueStyle.Foreground(lipgloss.Color("35")).Bold(true)
+				} else if displayValue == "" || displayValue == "(typing...)" {
+					valueStyle = valueStyle.Foreground(lipgloss.Color("241")).Italic(true)
+				} else {
+					valueStyle = valueStyle.Foreground(lipgloss.Color("252"))
+				}
+
+				return fmt.Sprintf("%s%s %s\n", 
+					cursor, 
+					labelStyle.Render(label+":"), 
+					valueStyle.Render(displayValue))
 			}
 
-			// Use Bind directive for text inputs
-			nameBinding := directives.Bind(name).Render()
-			emailBinding := directives.Bind(email).Render()
-			ageBinding := directives.Bind(age).Render()
+			// Render checkbox field
+			renderCheckbox := func(label, fieldName string, checked bool) string {
+				isFocused := focused == fieldName
+				
+				labelStyle := lipgloss.NewStyle().
+					Width(15).
+					Bold(isFocused)
 
-			// Use BindCheckbox for boolean
-			agreedBinding := directives.BindCheckbox(agreed).Render()
+				if isFocused {
+					labelStyle = labelStyle.Foreground(lipgloss.Color("35"))
+				} else {
+					labelStyle = labelStyle.Foreground(lipgloss.Color("252"))
+				}
 
-			// Use BindSelect for dropdown
-			selectBinding := directives.BindSelect(country, countries.GetTyped()).Render()
+				cursor := "  "
+				if isFocused {
+					cursor = "▶ "
+				}
 
-			// Build form content
+				checkboxStyle := lipgloss.NewStyle()
+				if isFocused {
+					checkboxStyle = checkboxStyle.Foreground(lipgloss.Color("35")).Bold(true)
+				} else {
+					checkboxStyle = checkboxStyle.Foreground(lipgloss.Color("252"))
+				}
+
+				checkbox := "[ ]"
+				if checked {
+					checkbox = "[X]"
+				}
+
+				return fmt.Sprintf("%s%s %s\n", 
+					cursor, 
+					labelStyle.Render(label+":"), 
+					checkboxStyle.Render(checkbox))
+			}
+
+			// Render select field
+			renderSelect := func(label, fieldName string, value string, options []string) string {
+				isFocused := focused == fieldName
+				
+				labelStyle := lipgloss.NewStyle().
+					Width(15).
+					Bold(isFocused)
+
+				if isFocused {
+					labelStyle = labelStyle.Foreground(lipgloss.Color("35"))
+				} else {
+					labelStyle = labelStyle.Foreground(lipgloss.Color("252"))
+				}
+
+				cursor := "  "
+				if isFocused {
+					cursor = "▶ "
+				}
+
+				// Show dropdown options if focused in input mode
+				var displayValue string
+				if isInputMode && isFocused {
+					// Show all options
+					displayValue = "\n"
+					for _, opt := range options {
+						if opt == value {
+							displayValue += fmt.Sprintf("    ▶ %s\n", opt)
+						} else {
+							displayValue += fmt.Sprintf("      %s\n", opt)
+						}
+					}
+				} else {
+					// Just show current value
+					valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+					displayValue = valueStyle.Render(value)
+				}
+
+				return fmt.Sprintf("%s%s %s\n", 
+					cursor, 
+					labelStyle.Render(label+":"), 
+					displayValue)
+			}
+
+			// Build form content with reactive fields
 			formContent := formHeader + "\n\n" +
-				renderField("Name", "name", nameBinding) +
-				renderField("Email", "email", emailBinding) +
-				renderField("Age", "age", ageBinding) +
-				renderField("Terms", "agreed", agreedBinding) +
-				renderField("Country", "country", selectBinding)
+				renderField("Name", "name", name.GetTyped()) +
+				renderField("Email", "email", email.GetTyped()) +
+				renderField("Age", "age", fmt.Sprintf("%d", age.GetTyped())) +
+				renderCheckbox("Terms", "agreed", agreed.GetTyped()) +
+				renderSelect("Country", "country", country.GetTyped(), countries.GetTyped())
 
 			formBox := formBoxStyle.Render(formContent)
 
