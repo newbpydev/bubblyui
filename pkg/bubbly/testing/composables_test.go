@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
 )
 
 // TestNewTestContext_CreatesValidContext verifies that NewTestContext creates a functional context

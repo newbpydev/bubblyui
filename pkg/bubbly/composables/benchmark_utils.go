@@ -99,12 +99,12 @@ type BenchmarkComparison struct {
 //
 //	// Run baseline
 //	baseline := BenchmarkUseState(...)
-//	
+//
 //	// Make changes
-//	
+//
 //	// Run current
 //	current := BenchmarkUseState(...)
-//	
+//
 //	// Compare
 //	comp := CompareResults("baseline", "current")
 //	if comp.SpeedupPercent > 10 {
@@ -170,7 +170,7 @@ func RunMultiCPU(b *testing.B, fn func(b *testing.B), cpus []int) {
 //	    start, end, growth := MeasureMemoryGrowth(b, 1*time.Second, func() {
 //	        CreateComposable()
 //	    })
-//	    
+//
 //	    if growth > 1000000 { // 1MB
 //	        b.Errorf("Memory growth too high: %d bytes", growth)
 //	    }
@@ -198,7 +198,7 @@ func MeasureMemoryGrowth(b *testing.B, duration time.Duration, fn func()) (start
 
 	startMem = memStart.HeapAlloc
 	endMem = memEnd.HeapAlloc
-	
+
 	if endMem > startMem {
 		growth = endMem - startMem
 	} else {
@@ -224,7 +224,7 @@ func MeasureMemoryGrowth(b *testing.B, duration time.Duration, fn func()) (start
 //	    for i := 0; i < b.N; i++ {
 //	        DoSomething()
 //	    }
-//	    
+//
 //	    // Check allocations didn't increase
 //	    if AllocPerOp(b) > 5 {
 //	        b.Errorf("Too many allocations: %d", AllocPerOp(b))

@@ -15,7 +15,6 @@ func TestCompareResults(t *testing.T) {
 	assert.Nil(t, result, "CompareResults should return nil (placeholder implementation)")
 }
 
-
 // TestAllocPerOp tests the AllocPerOp helper function
 func TestAllocPerOp(t *testing.T) {
 	b := &testing.B{}

@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestUseEventListener_RegistersHandler verifies that UseEventListener registers an event handler

@@ -232,10 +232,10 @@ func GetProfilingAddress() string {
 //
 //	// Profile composables for 60 seconds
 //	profile := monitoring.ProfileComposables(60 * time.Second)
-//	
+//
 //	// Print summary
 //	fmt.Println(profile.Summary())
-//	
+//
 //	// Analyze specific composable
 //	if stats, ok := profile.Calls["UseState"]; ok {
 //	    fmt.Printf("UseState called %d times\n", stats.Count)
@@ -289,7 +289,7 @@ func ProfileComposables(duration time.Duration) *ComposableProfile {
 //	    Start: time.Now(),
 //	    Calls: make(map[string]*CallStats),
 //	}
-//	
+//
 //	profile.AddCall("UseState", 100*time.Nanosecond, 128)
 //	profile.AddCall("UseForm", 500*time.Nanosecond, 256)
 func (p *ComposableProfile) AddCall(name string, duration time.Duration, allocBytes int64) {
@@ -312,7 +312,7 @@ func (p *ComposableProfile) AddCall(name string, duration time.Duration, allocBy
 // Example output:
 //
 //	Composable Profile (1m0s):
-//	
+//
 //	UseState: 1000 calls, avg 350ns, 128 KB allocated
 //	UseForm: 500 calls, avg 750ns, 128 KB allocated
 //	UseAsync: 200 calls, avg 3.7µs, 70 KB allocated
@@ -329,7 +329,7 @@ func (p *ComposableProfile) Summary() string {
 			continue // Skip synthetic entry
 		}
 		stats.CalculateAverage()
-		
+
 		summary += fmt.Sprintf("%s: %d calls, avg %v, %d bytes allocated\n",
 			name, stats.Count, stats.AverageTime, stats.Allocations)
 	}

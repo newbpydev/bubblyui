@@ -144,7 +144,7 @@ func createMonitoringDashboard() (bubbly.Component, error) {
 				}
 
 				activity := activities[rand.Intn(len(activities))]
-				
+
 				// Update activity log
 				log := activityLog.Get()
 				log = append([]string{fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), activity)}, log...)
@@ -155,7 +155,7 @@ func createMonitoringDashboard() (bubbly.Component, error) {
 
 				// Update metrics based on activity
 				totalComposables.Set(totalComposables.Get() + 1)
-				
+
 				if rand.Float32() > 0.3 {
 					cacheHits.Set(cacheHits.Get() + 1)
 				} else {
@@ -174,7 +174,7 @@ func createMonitoringDashboard() (bubbly.Component, error) {
 				})
 
 				totalComposables.Set(totalComposables.Get() + 3)
-				
+
 				log := activityLog.Get()
 				log = append([]string{
 					fmt.Sprintf("[%s] Created 3 composables", time.Now().Format("15:04:05")),
