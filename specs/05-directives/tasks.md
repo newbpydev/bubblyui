@@ -1015,10 +1015,10 @@ BenchmarkOnDirective
 **Unlocks:** Task 6.3 (Performance validation)
 
 **Files:**
-- `cmd/examples/directives-basic/main.go`
-- `cmd/examples/directives-form/main.go`
-- `cmd/examples/directives-list/main.go`
-- `cmd/examples/directives-complex/main.go`
+- `cmd/examples/05-directives/directives-basic/main.go`
+- `cmd/examples/05-directives/directives-form/main.go`
+- `cmd/examples/05-directives/directives-list/main.go`
+- `cmd/examples/05-directives/directives-complex/main.go`
 
 **Examples:**
 - [ ] Basic If/Show usage
