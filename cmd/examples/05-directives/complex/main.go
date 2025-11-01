@@ -384,44 +384,75 @@ func createCatalogComponent() (bubbly.Component, error) {
 				// Use If directive to switch between list and details view
 				return "\n\n" + directives.If(viewMode.GetTyped() == "list",
 					func() string {
-						// List view: Use ForEach to render products
-						return directives.ForEach(productList, func(product Product, index int) string {
-							itemStyle := lipgloss.NewStyle()
-							if index == selected {
-								itemStyle = itemStyle.
-									Foreground(lipgloss.Color("35")).
-									Bold(true)
-							} else {
-								itemStyle = itemStyle.Foreground(lipgloss.Color("252"))
-							}
+						// Header row for product list
+						headerStyle := lipgloss.NewStyle().
+							Foreground(lipgloss.Color("241")).
+							Bold(true)
+						
+						header := fmt.Sprintf("   %-18s  %-9s  %-13s  %-14s\n",
+							"Product", "Price", "Category", "Status")
+						
+						// Divider matches total width: 3 (cursor) + 18 (product) + 2 + 9 (price) + 2 + 13 (category) + 2 + 14 (status) = 63
+						divider := strings.Repeat("─", 63) + "\n"
+						
+						// List view: Use ForEach to render products with proper layout
+						productRows := directives.ForEach(productList, func(product Product, index int) string {
+							isSelected := index == selected
 
 							cursor := "  "
-							if index == selected {
+							if isSelected {
 								cursor = "▶ "
 							}
+
+							// Product name with fixed width
+							nameStyle := lipgloss.NewStyle().Width(18)
+							if isSelected {
+								nameStyle = nameStyle.Foreground(lipgloss.Color("35")).Bold(true)
+							} else {
+								nameStyle = nameStyle.Foreground(lipgloss.Color("252"))
+							}
+							productName := nameStyle.Render(product.Name)
+
+							// Price with fixed width
+							priceStyle := lipgloss.NewStyle().
+								Width(9).
+								Align(lipgloss.Right)
+							if isSelected {
+								priceStyle = priceStyle.Foreground(lipgloss.Color("35")).Bold(true)
+							} else {
+								priceStyle = priceStyle.Foreground(lipgloss.Color("252"))
+							}
+							price := priceStyle.Render(fmt.Sprintf("$%.2f", product.Price))
+
+							// Category badge
+							categoryBadge := lipgloss.NewStyle().
+								Foreground(lipgloss.Color("99")).
+								Width(13).
+								Render(fmt.Sprintf("[%s]", product.Category))
 
 							// Use If directive for stock status
 							stockStatus := directives.If(product.InStock,
 								func() string {
 									return lipgloss.NewStyle().
 										Foreground(lipgloss.Color("35")).
+										Width(14).
 										Render("✓ In Stock")
 								},
 							).Else(func() string {
 								return lipgloss.NewStyle().
 									Foreground(lipgloss.Color("196")).
+									Width(14).
 									Render("✗ Out of Stock")
 							}).Render()
 
-							categoryBadge := lipgloss.NewStyle().
-								Foreground(lipgloss.Color("99")).
-								Render(fmt.Sprintf("[%s]", product.Category))
+							// Combine all parts with proper spacing
+							line := fmt.Sprintf("%s%s  %s  %s  %s\n",
+								cursor, productName, price, categoryBadge, stockStatus)
 
-							return itemStyle.Render(
-								fmt.Sprintf("%s%s - $%.2f %s %s\n",
-									cursor, product.Name, product.Price, categoryBadge, stockStatus),
-							)
+							return line
 						}).Render()
+						
+						return headerStyle.Render(header) + divider + productRows
 					},
 				).Else(func() string {
 					// Details view: Show selected product details
@@ -524,7 +555,7 @@ func main() {
 		viewMode:        "list",
 	}
 
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
