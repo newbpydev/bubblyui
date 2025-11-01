@@ -303,3 +303,142 @@ func TestForEachDirective_IndexUsage(t *testing.T) {
 	}).Render()
 	assert.Equal(t, "[0][1][2][3][4]", result)
 }
+
+// ============================================================================
+// Benchmark Tests
+// ============================================================================
+
+// BenchmarkForEach10Items benchmarks ForEach directive with 10 items
+// Target: < 100μs
+func BenchmarkForEach10Items(b *testing.B) {
+	items := make([]int, 10)
+	for i := range items {
+		items[i] = i
+	}
+
+	render := func(item int, index int) string {
+		return fmt.Sprintf("%d:%d,", index, item)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(items, render).Render()
+	}
+}
+
+// BenchmarkForEach100Items benchmarks ForEach directive with 100 items
+// Target: < 1ms
+func BenchmarkForEach100Items(b *testing.B) {
+	items := make([]int, 100)
+	for i := range items {
+		items[i] = i
+	}
+
+	render := func(item int, index int) string {
+		return fmt.Sprintf("%d:%d,", index, item)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(items, render).Render()
+	}
+}
+
+// BenchmarkForEach1000Items benchmarks ForEach directive with 1000 items
+// Target: < 10ms
+func BenchmarkForEach1000Items(b *testing.B) {
+	items := make([]int, 1000)
+	for i := range items {
+		items[i] = i
+	}
+
+	render := func(item int, index int) string {
+		return fmt.Sprintf("%d:%d,", index, item)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(items, render).Render()
+	}
+}
+
+// BenchmarkForEachString benchmarks ForEach with string concatenation
+func BenchmarkForEachString(b *testing.B) {
+	items := make([]string, 100)
+	for i := range items {
+		items[i] = fmt.Sprintf("item-%d", i)
+	}
+
+	render := func(item string, index int) string {
+		return fmt.Sprintf("%d. %s\n", index+1, item)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(items, render).Render()
+	}
+}
+
+// BenchmarkForEachStruct benchmarks ForEach with struct iteration
+func BenchmarkForEachStruct(b *testing.B) {
+	type User struct {
+		Name  string
+		Email string
+	}
+
+	items := make([]User, 100)
+	for i := range items {
+		items[i] = User{
+			Name:  fmt.Sprintf("User%d", i),
+			Email: fmt.Sprintf("user%d@example.com", i),
+		}
+	}
+
+	render := func(user User, index int) string {
+		return fmt.Sprintf("%d. %s <%s>\n", index+1, user.Name, user.Email)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(items, render).Render()
+	}
+}
+
+// BenchmarkForEachNested benchmarks nested ForEach directives
+func BenchmarkForEachNested(b *testing.B) {
+	type Category struct {
+		Name  string
+		Items []string
+	}
+
+	categories := make([]Category, 10)
+	for i := range categories {
+		categories[i] = Category{
+			Name:  fmt.Sprintf("Category%d", i),
+			Items: []string{"A", "B", "C", "D", "E"},
+		}
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = ForEach(categories, func(cat Category, idx int) string {
+			header := fmt.Sprintf("%s:\n", cat.Name)
+			items := ForEach(cat.Items, func(item string, j int) string {
+				return fmt.Sprintf("  - %s\n", item)
+			}).Render()
+			return header + items
+		}).Render()
+	}
+}
