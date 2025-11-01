@@ -1131,16 +1131,117 @@ The optimizations demonstrate that **fmt.Sprintf should be avoided for hot paths
 - `docs/guides/directive-patterns.md`
 
 **Documentation:**
-- [ ] Package overview
-- [ ] Each directive documented
-- [ ] Usage examples (20+)
-- [ ] Best practices
-- [ ] Common patterns
-- [ ] Performance guide
-- [ ] Troubleshooting
-- [ ] Migration guide
+- [x] Package overview
+- [x] Each directive documented
+- [x] Usage examples (20+)
+- [x] Best practices
+- [x] Common patterns
+- [x] Performance guide
+- [x] Troubleshooting
+- [x] Migration guide
 
 **Estimated effort:** 5 hours
+
+**Status:** ✅ COMPLETED
+
+**Implementation Notes:**
+
+Created comprehensive documentation following Go documentation standards and Context7 best practices:
+
+**1. Package Documentation (doc.go):**
+- Follows Go convention: starts with "Package directives"
+- Overview of all five directive types (If, Show, ForEach, Bind, On)
+- Quick start examples for each directive type
+- Performance characteristics with actual benchmark results
+- Composition example showing real-world usage
+- Clear note that BubblyUI is TUI, not web (no HTML/CSS)
+- Integration points with BubblyUI reactive system
+- Total length: ~120 lines of comprehensive package documentation
+
+**2. User Guide (directives.md):**
+- **25 detailed examples** covering all directives and use cases (exceeds 20+ requirement)
+- Structured with Table of Contents for easy navigation
+- Introduction explaining "what" and "why" of directives
+- Quick start with simplest possible example
+- Each directive section includes:
+  - Basic usage (2-3 examples)
+  - Advanced usage (2-3 examples)
+  - Performance characteristics
+- Complete API reference integrated with examples
+- Performance guide with actual benchmark results from Task 5.3
+- Troubleshooting section with 5 common issues and solutions
+- Clear examples showing before/after (imperative vs declarative)
+- Total length: ~600 lines with extensive code examples
+
+**3. Patterns & Best Practices (directive-patterns.md):**
+- **15 proven patterns** for real-world usage
+- **5 composition patterns**: conditional lists, filtered lists, nested visibility, event-driven lists, forms
+- **5 performance patterns**: strings.Builder preallocation, type assertions, memoization, avoiding fmt.Sprintf, batch updates
+- **3 error handling patterns**: safe defaults, graceful degradation, validation
+- **2 testing patterns**: directive output testing, reactive update testing
+- **2 complete real-world examples**:
+  - Todo List Application (full implementation with all directives)
+  - Settings Panel (multi-section form with validation)
+- Performance optimization summary with techniques from Task 5.3
+- All examples follow Go idioms and BubblyUI conventions
+- Total length: ~500 lines with production-ready code
+
+**Documentation Quality Standards:**
+- ✅ Go godoc conventions followed (verified with `go doc`)
+- ✅ Code examples are runnable (imports, types defined)
+- ✅ Performance numbers from actual benchmarks (not estimates)
+- ✅ TUI terminology used consistently (no web/HTML/CSS references)
+- ✅ Type-safe examples using Go 1.22+ generics
+- ✅ Cross-references between documents
+- ✅ Practical, production-ready patterns
+
+**Coverage Statistics:**
+- **Total examples:** 40+ (25 in guide + 15 patterns + 2 applications)
+- **Directives covered:** 5/5 (If, Show, ForEach, Bind, On)
+- **Use cases covered:** Basic, intermediate, advanced, real-world
+- **Performance documented:** All directives with actual benchmark data
+- **Troubleshooting:** 5 common issues with solutions
+- **Best practices:** 15 proven patterns with explanations
+
+**Key Documentation Features:**
+1. **Declarative vs Imperative**: Clear before/after comparisons showing benefits
+2. **Type Safety**: All examples use generics properly with type annotations
+3. **Composition**: Multiple examples showing directive nesting and combination
+4. **Performance**: Actual benchmark results with optimization insights from Task 5.3
+5. **Real-World**: Complete application examples (Todo, Settings)
+6. **Troubleshooting**: Common pitfalls with solutions
+7. **Testing**: Patterns for testing directive behavior
+
+**Performance Insights Documented:**
+- On directive: 5.2-6.2x improvement with strings.Builder
+- BindCheckbox: Zero allocations achievement
+- BindSelect: 3.8-6.1x improvement
+- Optimization techniques: preallocation, type assertions, single-pass construction
+- Computer science principles: amortized analysis, memoization, zero-copy
+
+**Integration with BubblyUI:**
+- Shows integration with Ref[T] and Computed[T]
+- Examples with component Setup() and Template()
+- Event handling with ctx.On()
+- Lifecycle considerations documented
+- Reactive update patterns explained
+
+**Accessibility:**
+- Table of contents in both guides
+- Clear section headings with markdown
+- Code blocks with syntax highlighting
+- Progressive complexity (basic → advanced)
+- Links to related documentation
+
+**Quality Gates:**
+- ✅ Builds successfully (`go build`)
+- ✅ godoc renders correctly (`go doc -all`)
+- ✅ No broken cross-references
+- ✅ All code examples are valid Go
+- ✅ Follows BubblyUI style guide
+- ✅ TUI terminology used consistently
+
+Ready for Task 6.1 (Integration Tests)
 
 ---
 
