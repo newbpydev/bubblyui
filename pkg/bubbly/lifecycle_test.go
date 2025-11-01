@@ -256,7 +256,7 @@ func TestContext_OnUpdated(t *testing.T) {
 			ctx := &Context{component: c}
 
 			// Create dependencies if needed
-			var deps []*Ref[any]
+			var deps []Dependency
 			if tt.withDeps {
 				for i := 0; i < tt.depCount; i++ {
 					ref := NewRef[any](i)
@@ -1007,11 +1007,11 @@ func TestLifecycleManager_ExecuteUpdated_WithDependencies(t *testing.T) {
 			name: "single dependency - value changed",
 			setupHook: func(lm *LifecycleManager, count *int, ref *Ref[any]) {
 				// Capture initial value
-				initialValue := ref.Get()
+				initialValue := ref.GetTyped()
 				lm.registerHook("updated", lifecycleHook{
 					id:           "hook-1",
 					callback:     func() { *count++ },
-					dependencies: []*Ref[any]{ref},
+					dependencies: []Dependency{ref},
 					lastValues:   []any{initialValue},
 					order:        0,
 				})
@@ -1024,11 +1024,11 @@ func TestLifecycleManager_ExecuteUpdated_WithDependencies(t *testing.T) {
 			name: "single dependency - value unchanged",
 			setupHook: func(lm *LifecycleManager, count *int, ref *Ref[any]) {
 				// Capture initial value
-				initialValue := ref.Get()
+				initialValue := ref.GetTyped()
 				lm.registerHook("updated", lifecycleHook{
 					id:           "hook-1",
 					callback:     func() { *count++ },
-					dependencies: []*Ref[any]{ref},
+					dependencies: []Dependency{ref},
 					lastValues:   []any{initialValue},
 					order:        0,
 				})
@@ -1122,11 +1122,11 @@ func TestLifecycleManager_ExecuteUpdated_MultipleDependencies(t *testing.T) {
 			lm.registerHook("updated", lifecycleHook{
 				id:       "hook-1",
 				callback: func() { executionCount++ },
-				dependencies: []*Ref[any]{
+				dependencies: []Dependency{
 					ref1,
 					ref2,
 				},
-				lastValues: []any{ref1.Get(), ref2.Get()},
+				lastValues: []any{ref1.GetTyped(), ref2.GetTyped()},
 				order:      0,
 			})
 

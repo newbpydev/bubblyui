@@ -92,14 +92,14 @@ func createButton(props ButtonProps, initialClicks int) (bubbly.Component, error
 
 			// Handle click events
 			ctx.On("click", func(data interface{}) {
-				current := clicks.Get().(int)
+				current := clicks.GetTyped().(int)
 				clicks.Set(current + 1)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			props := ctx.Props().(ButtonProps)
 			clicks := ctx.Get("clicks").(*bubbly.Ref[interface{}])
-			clickCount := clicks.Get().(int)
+			clickCount := clicks.GetTyped().(int)
 
 			// Button style
 			buttonStyle := lipgloss.NewStyle().

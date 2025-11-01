@@ -21,7 +21,7 @@ func TestRefComputedWatcherFlow(t *testing.T) {
 
 		// Create computed value
 		doubled := bubbly.NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		// Track watcher calls on the ref
@@ -31,17 +31,17 @@ func TestRefComputedWatcherFlow(t *testing.T) {
 		cleanup := bubbly.Watch(count, func(newVal, oldVal int) {
 			mu.Lock()
 			// Access computed value in watcher
-			watcherCalls = append(watcherCalls, doubled.Get())
+			watcherCalls = append(watcherCalls, doubled.GetTyped())
 			mu.Unlock()
 		})
 		defer cleanup()
 
 		// Update count and verify flow
 		count.Set(5)
-		assert.Equal(t, 10, doubled.Get())
+		assert.Equal(t, 10, doubled.GetTyped())
 
 		count.Set(10)
-		assert.Equal(t, 20, doubled.Get())
+		assert.Equal(t, 20, doubled.GetTyped())
 
 		// Verify watcher was called with computed values
 		mu.Lock()
@@ -51,24 +51,24 @@ func TestRefComputedWatcherFlow(t *testing.T) {
 
 	t.Run("chained computed values", func(t *testing.T) {
 		base := bubbly.NewRef(2)
-		doubled := bubbly.NewComputed(func() int { return base.Get() * 2 })
-		quadrupled := bubbly.NewComputed(func() int { return doubled.Get() * 2 })
-		octupled := bubbly.NewComputed(func() int { return quadrupled.Get() * 2 })
+		doubled := bubbly.NewComputed(func() int { return base.GetTyped() * 2 })
+		quadrupled := bubbly.NewComputed(func() int { return doubled.GetTyped() * 2 })
+		octupled := bubbly.NewComputed(func() int { return quadrupled.GetTyped() * 2 })
 
 		var result int
 		cleanup := bubbly.Watch(base, func(newVal, oldVal int) {
-			result = octupled.Get()
+			result = octupled.GetTyped()
 		})
 		defer cleanup()
 
 		base.Set(3)
-		assert.Equal(t, 24, octupled.Get())
+		assert.Equal(t, 24, octupled.GetTyped())
 		assert.Equal(t, 24, result)
 	})
 
 	t.Run("multiple watchers on same ref", func(t *testing.T) {
 		count := bubbly.NewRef(1)
-		doubled := bubbly.NewComputed(func() int { return count.Get() * 2 })
+		doubled := bubbly.NewComputed(func() int { return count.GetTyped() * 2 })
 
 		var watcher1Calls, watcher2Calls int
 
@@ -83,7 +83,7 @@ func TestRefComputedWatcherFlow(t *testing.T) {
 		assert.Equal(t, 2, watcher1Calls)
 		assert.Equal(t, 2, watcher2Calls)
 		// Verify computed still works
-		assert.Equal(t, 20, doubled.Get())
+		assert.Equal(t, 20, doubled.GetTyped())
 	})
 }
 
@@ -103,7 +103,7 @@ func TestMultipleComponentInteraction(t *testing.T) {
 		// Computed: subtotal
 		subtotal := bubbly.NewComputed(func() float64 {
 			total := 0.0
-			for _, item := range items.Get() {
+			for _, item := range items.GetTyped() {
 				total += item.Price * float64(item.Qty)
 			}
 			return total
@@ -111,21 +111,21 @@ func TestMultipleComponentInteraction(t *testing.T) {
 
 		// Computed: tax
 		tax := bubbly.NewComputed(func() float64 {
-			return subtotal.Get() * taxRate.Get()
+			return subtotal.GetTyped() * taxRate.GetTyped()
 		})
 
 		// Computed: total
 		total := bubbly.NewComputed(func() float64 {
-			return subtotal.Get() + tax.Get()
+			return subtotal.GetTyped() + tax.GetTyped()
 		})
 
 		// Track total changes by watching items and taxRate
 		var totalChanges []float64
 		cleanup1 := bubbly.Watch(items, func(newVal, oldVal []Item) {
-			totalChanges = append(totalChanges, total.Get())
+			totalChanges = append(totalChanges, total.GetTyped())
 		})
 		cleanup2 := bubbly.Watch(taxRate, func(newVal, oldVal float64) {
-			totalChanges = append(totalChanges, total.Get())
+			totalChanges = append(totalChanges, total.GetTyped())
 		})
 		defer cleanup1()
 		defer cleanup2()
@@ -136,13 +136,13 @@ func TestMultipleComponentInteraction(t *testing.T) {
 			{Name: "Banana", Price: 0.75, Qty: 5},
 		})
 
-		assert.InDelta(t, 4.50+3.75, subtotal.Get(), 0.01)
-		assert.InDelta(t, 0.825, tax.Get(), 0.01)
-		assert.InDelta(t, 9.075, total.Get(), 0.01)
+		assert.InDelta(t, 4.50+3.75, subtotal.GetTyped(), 0.01)
+		assert.InDelta(t, 0.825, tax.GetTyped(), 0.01)
+		assert.InDelta(t, 9.075, total.GetTyped(), 0.01)
 
 		// Change tax rate
 		taxRate.Set(0.15) // 15% tax
-		assert.InDelta(t, 9.4875, total.Get(), 0.01)
+		assert.InDelta(t, 9.4875, total.GetTyped(), 0.01)
 
 		// Verify watcher tracked both changes
 		assert.Len(t, totalChanges, 2)
@@ -156,44 +156,44 @@ func TestMultipleComponentInteraction(t *testing.T) {
 
 		// Validation computed values
 		emailValid := bubbly.NewComputed(func() bool {
-			e := email.Get()
+			e := email.GetTyped()
 			return len(e) > 0 && len(e) < 100
 		})
 
 		passwordValid := bubbly.NewComputed(func() bool {
-			return len(password.Get()) >= 8
+			return len(password.GetTyped()) >= 8
 		})
 
 		passwordsMatch := bubbly.NewComputed(func() bool {
-			return password.Get() == confirmPassword.Get() && len(password.Get()) > 0
+			return password.GetTyped() == confirmPassword.GetTyped() && len(password.GetTyped()) > 0
 		})
 
 		// Overall form validity
 		formValid := bubbly.NewComputed(func() bool {
-			return emailValid.Get() && passwordValid.Get() && passwordsMatch.Get()
+			return emailValid.GetTyped() && passwordValid.GetTyped() && passwordsMatch.GetTyped()
 		})
 
 		// Track form validity changes by watching password field
 		var validityChanges []bool
 		cleanup := bubbly.Watch(confirmPassword, func(newVal, oldVal string) {
-			validityChanges = append(validityChanges, formValid.Get())
+			validityChanges = append(validityChanges, formValid.GetTyped())
 		})
 		defer cleanup()
 
 		// Invalid initially
-		assert.False(t, formValid.Get())
+		assert.False(t, formValid.GetTyped())
 
 		// Fill in email
 		email.Set("user@example.com")
-		assert.False(t, formValid.Get()) // Still invalid (password)
+		assert.False(t, formValid.GetTyped()) // Still invalid (password)
 
 		// Fill in password
 		password.Set("secret123")
-		assert.False(t, formValid.Get()) // Still invalid (confirm)
+		assert.False(t, formValid.GetTyped()) // Still invalid (confirm)
 
 		// Confirm password
 		confirmPassword.Set("secret123")
-		assert.True(t, formValid.Get()) // Now valid!
+		assert.True(t, formValid.GetTyped()) // Now valid!
 
 		// Verify watcher tracked the transition to valid
 		assert.Contains(t, validityChanges, true)
@@ -216,7 +216,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < numOperations; j++ {
-					count.Set(count.Get() + 1)
+					count.Set(count.GetTyped() + 1)
 				}
 			}()
 		}
@@ -226,7 +226,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < numOperations; j++ {
-					_ = count.Get()
+					_ = count.GetTyped()
 				}
 			}()
 		}
@@ -234,7 +234,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 		wg.Wait()
 
 		// Final value should be deterministic
-		finalValue := count.Get()
+		finalValue := count.GetTyped()
 		assert.Greater(t, finalValue, 0)
 		assert.LessOrEqual(t, finalValue, numGoroutines*numOperations)
 	})
@@ -271,7 +271,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 	t.Run("concurrent computed access", func(t *testing.T) {
 		base := bubbly.NewRef(10)
 		computed := bubbly.NewComputed(func() int {
-			return base.Get() * 2
+			return base.GetTyped() * 2
 		})
 
 		// Per-goroutine tracking now supports high concurrency (100+ goroutines)
@@ -285,7 +285,7 @@ func TestConcurrentAccessPatterns(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < 100; j++ {
-					val := computed.Get()
+					val := computed.GetTyped()
 					// Value should be valid (base * 2)
 					assert.Greater(t, val, 0)
 				}
@@ -312,12 +312,12 @@ func TestLongRunningStability(t *testing.T) {
 
 	t.Run("sustained load", func(t *testing.T) {
 		count := bubbly.NewRef(0)
-		doubled := bubbly.NewComputed(func() int { return count.Get() * 2 })
+		doubled := bubbly.NewComputed(func() int { return count.GetTyped() * 2 })
 
 		var watcherCalls atomic.Int64
 		cleanup := bubbly.Watch(count, func(n, o int) {
 			watcherCalls.Add(1)
-			_ = doubled.Get() // Access computed in watcher
+			_ = doubled.GetTyped() // Access computed in watcher
 		})
 		defer cleanup()
 
@@ -337,7 +337,7 @@ func TestLongRunningStability(t *testing.T) {
 				assert.Greater(t, operations, 1000, "Should complete many operations")
 				return
 			default:
-				count.Set(count.Get() + 1)
+				count.Set(count.GetTyped() + 1)
 				operations++
 			}
 		}
@@ -352,9 +352,9 @@ func TestLongRunningStability(t *testing.T) {
 		// Create and destroy many reactive values
 		for i := 0; i < 10000; i++ {
 			ref := bubbly.NewRef(i)
-			computed := bubbly.NewComputed(func() int { return ref.Get() * 2 })
+			computed := bubbly.NewComputed(func() int { return ref.GetTyped() * 2 })
 			cleanup := bubbly.Watch(ref, func(n, o int) {
-				_ = computed.Get() // Access computed in watcher
+				_ = computed.GetTyped() // Access computed in watcher
 			})
 			cleanup()
 		}
@@ -406,7 +406,7 @@ func TestMemoryLeakDetection(t *testing.T) {
 
 		// Create and let go of many computed values
 		for i := 0; i < 1000; i++ {
-			_ = bubbly.NewComputed(func() int { return base.Get() * 2 })
+			_ = bubbly.NewComputed(func() int { return base.GetTyped() * 2 })
 		}
 
 		// Force GC

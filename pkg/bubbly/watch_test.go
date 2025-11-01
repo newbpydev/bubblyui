@@ -406,13 +406,13 @@ func TestWatch_Integration(t *testing.T) {
 	t.Run("watch with computed values", func(t *testing.T) {
 		count := NewRef(5)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var watchedValues []int
 		cleanup := Watch(count, func(newVal, oldVal int) {
 			// Access computed value in watcher
-			watchedValues = append(watchedValues, doubled.Get())
+			watchedValues = append(watchedValues, doubled.GetTyped())
 		})
 		defer cleanup()
 
@@ -428,7 +428,7 @@ func TestWatch_Integration(t *testing.T) {
 
 		var sumValues []int
 		cleanup := Watch(a, func(newVal, oldVal int) {
-			sum := newVal + b.Get()
+			sum := newVal + b.GetTyped()
 			sumValues = append(sumValues, sum)
 		})
 		defer cleanup()
@@ -598,7 +598,7 @@ func TestWatch_WithDeep(t *testing.T) {
 		defer cleanup()
 
 		// This triggers the watcher (Set is called)
-		user := ref.Get()
+		user := ref.GetTyped()
 		user.Profile.Bio = "Engineer"
 		ref.Set(user)
 
@@ -1344,7 +1344,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("watch computed value changes", func(t *testing.T) {
 		count := NewRef(5)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var called bool
@@ -1368,10 +1368,10 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("watch chained computed values", func(t *testing.T) {
 		count := NewRef(2)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 		quadrupled := NewComputed(func() int {
-			return doubled.Get() * 2
+			return doubled.GetTyped() * 2
 		})
 
 		var callCount int
@@ -1393,7 +1393,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("multiple watchers on same computed", func(t *testing.T) {
 		count := NewRef(1)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var called1, called2 bool
@@ -1422,7 +1422,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("computed with immediate execution", func(t *testing.T) {
 		count := NewRef(7)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var called bool
@@ -1447,7 +1447,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 
 		ref := NewRef(Data{Value: 5})
 		computed := NewComputed(func() Data {
-			return ref.Get()
+			return ref.GetTyped()
 		})
 
 		var callCount int
@@ -1469,7 +1469,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("computed with flush modes", func(t *testing.T) {
 		count := NewRef(0)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var syncCalls, postCalls int
@@ -1498,7 +1498,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 	t.Run("cleanup stops watching computed", func(t *testing.T) {
 		count := NewRef(1)
 		doubled := NewComputed(func() int {
-			return count.Get() * 2
+			return count.GetTyped() * 2
 		})
 
 		var callCount int
@@ -1521,7 +1521,7 @@ func TestWatch_ComputedValue(t *testing.T) {
 func TestWatch_ComputedConcurrency(t *testing.T) {
 	count := NewRef(0)
 	doubled := NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 
 	var callCount atomic.Int32
@@ -1559,7 +1559,7 @@ func TestWatch_ComputedConcurrency(t *testing.T) {
 func TestWatch_ComputedNoChange(t *testing.T) {
 	count := NewRef(5)
 	doubled := NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 
 	var callCount int

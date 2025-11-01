@@ -22,15 +22,15 @@ All primitives are thread-safe and use efficient locking strategies for concurre
 Create a reactive reference:
 
 	count := bubbly.NewRef(0)
-	value := count.Get()  // Read: 0
+	value := count.GetTyped()  // Read: 0
 	count.Set(42)         // Write: 42
 
 Create a computed value:
 
 	doubled := bubbly.NewComputed(func() int {
-	    return count.Get() * 2
+	    return count.GetTyped() * 2
 	})
-	result := doubled.Get()  // Automatically recomputes when count changes
+	result := doubled.GetTyped()  // Automatically recomputes when count changes
 
 Watch for changes:
 
@@ -51,14 +51,14 @@ Bubbly integrates naturally with Bubbletea's Update/View cycle:
 	    switch msg := msg.(type) {
 	    case tea.KeyMsg:
 	        if msg.String() == "+" {
-	            m.count.Set(m.count.Get() + 1)
+	            m.count.Set(m.count.GetTyped() + 1)
 	        }
 	    }
 	    return m, nil
 	}
 
 	func (m model) View() string {
-	    return fmt.Sprintf("Count: %d", m.count.Get())
+	    return fmt.Sprintf("Count: %d", m.count.GetTyped())
 	}
 
 # Component Model
@@ -115,7 +115,7 @@ The Setup function initializes component state and registers event handlers:
 
 	    // Register event handler
 	    ctx.On("increment", func(data interface{}) {
-	        count.Set(count.Get().(int) + 1)
+	        count.Set(count.GetTyped().(int) + 1)
 	    })
 	})
 
@@ -137,7 +137,7 @@ The Template function defines how the component renders:
 	        output += ctx.RenderChild(child)
 	    }
 
-	    return fmt.Sprintf("Count: %d", count.Get().(int))
+	    return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 	})
 
 Templates are called on every View() invocation and should be pure functions.
@@ -195,15 +195,15 @@ A stateful counter component:
 
 	        // Event handlers
 	        ctx.On("increment", func(data interface{}) {
-	            count.Set(count.Get().(int) + 1)
+	            count.Set(count.GetTyped().(int) + 1)
 	        })
 	        ctx.On("decrement", func(data interface{}) {
-	            count.Set(count.Get().(int) - 1)
+	            count.Set(count.GetTyped().(int) - 1)
 	        })
 	    }).
 	    Template(func(ctx bubbly.RenderContext) string {
 	        count := ctx.Get("count").(*bubbly.Ref[interface{}])
-	        return fmt.Sprintf("Count: %d", count.Get().(int))
+	        return fmt.Sprintf("Count: %d", count.GetTyped().(int))
 	    }).
 	    Build()
 
@@ -252,7 +252,7 @@ Execute callback immediately on watcher creation:
 
 Bubbly is designed for high performance:
 
-  - Ref.Get(): ~26 ns/op with zero allocations
+  - Ref.GetTyped(): ~26 ns/op with zero allocations
   - Ref.Set(): ~38 ns/op with zero allocations (no watchers)
   - Thread-safe with RWMutex for read-heavy workloads
   - Computed values cache results until dependencies change
@@ -271,8 +271,8 @@ Bubbly panics on programming errors to catch bugs early:
 
 All operations are thread-safe:
 
-  - Ref.Get() and Ref.Set() use RWMutex for concurrent access
-  - Computed.Get() uses double-checked locking for cache validation
+  - Ref.GetTyped() and Ref.Set() use RWMutex for concurrent access
+  - Computed.GetTyped() uses double-checked locking for cache validation
   - Watch callbacks are executed outside locks to prevent deadlocks
   - Multiple watchers can safely observe the same Ref
 
@@ -296,7 +296,7 @@ After (reactive state):
 	}
 
 	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	    m.count.Set(m.count.Get() + 1)
+	    m.count.Set(m.count.GetTyped() + 1)
 	    return m, nil
 	}
 

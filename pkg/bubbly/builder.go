@@ -140,7 +140,7 @@ func (b *ComponentBuilder) Props(props interface{}) *ComponentBuilder {
 //	        count := ctx.Ref(0)
 //	        ctx.Expose("count", count)
 //	        ctx.On("increment", func(data interface{}) {
-//	            count.Set(count.Get() + 1)
+//	            count.Set(count.GetTyped() + 1)
 //	        })
 //	    })
 //
@@ -159,7 +159,7 @@ func (b *ComponentBuilder) Setup(fn SetupFunc) *ComponentBuilder {
 // on every View() cycle.
 //
 // The template function should:
-//   - Access state using ctx.Get()
+//   - Access state using ctx.GetTyped()
 //   - Access props using ctx.Props()
 //   - Render children using ctx.RenderChild()
 //   - Use Lipgloss for styling
@@ -219,10 +219,9 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	b.component.children = children
 
 	// Set parent reference for each child
-	parent := Component(b.component)
 	for _, child := range children {
 		if childImpl, ok := child.(*componentImpl); ok {
-			childImpl.parent = &parent
+			childImpl.parent = b.component
 		}
 	}
 

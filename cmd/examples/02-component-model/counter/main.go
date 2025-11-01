@@ -74,16 +74,16 @@ func createCounter() (bubbly.Component, error) {
 
 			// Computed values
 			doubled := ctx.Computed(func() interface{} {
-				return count.Get().(int) * 2
+				return count.GetTyped().(int) * 2
 			})
 
 			squared := ctx.Computed(func() interface{} {
-				c := count.Get().(int)
+				c := count.GetTyped().(int)
 				return c * c
 			})
 
 			isEven := ctx.Computed(func() interface{} {
-				return count.Get().(int)%2 == 0
+				return count.GetTyped().(int)%2 == 0
 			})
 
 			// Expose state and computed values
@@ -95,7 +95,7 @@ func createCounter() (bubbly.Component, error) {
 
 			// Helper to add to history
 			addToHistory := func(newVal int) {
-				hist := history.Get().([]int)
+				hist := history.GetTyped().([]int)
 				// Keep last 5 values
 				if len(hist) >= 5 {
 					hist = hist[1:]
@@ -106,13 +106,13 @@ func createCounter() (bubbly.Component, error) {
 
 			// Event handlers
 			ctx.On("increment", func(data interface{}) {
-				newVal := count.Get().(int) + 1
+				newVal := count.GetTyped().(int) + 1
 				count.Set(newVal)
 				addToHistory(newVal)
 			})
 
 			ctx.On("decrement", func(data interface{}) {
-				newVal := count.Get().(int) - 1
+				newVal := count.GetTyped().(int) - 1
 				count.Set(newVal)
 				addToHistory(newVal)
 			})
@@ -123,13 +123,13 @@ func createCounter() (bubbly.Component, error) {
 			})
 
 			ctx.On("double", func(data interface{}) {
-				newVal := count.Get().(int) * 2
+				newVal := count.GetTyped().(int) * 2
 				count.Set(newVal)
 				addToHistory(newVal)
 			})
 
 			ctx.On("halve", func(data interface{}) {
-				newVal := count.Get().(int) / 2
+				newVal := count.GetTyped().(int) / 2
 				count.Set(newVal)
 				addToHistory(newVal)
 			})
@@ -142,8 +142,8 @@ func createCounter() (bubbly.Component, error) {
 			squared := ctx.Get("squared").(*bubbly.Computed[interface{}])
 			isEven := ctx.Get("isEven").(*bubbly.Computed[interface{}])
 
-			countVal := count.Get().(int)
-			historyVal := history.Get().([]int)
+			countVal := count.GetTyped().(int)
+			historyVal := history.GetTyped().([]int)
 
 			// Main counter box
 			counterStyle := lipgloss.NewStyle().
@@ -167,14 +167,14 @@ func createCounter() (bubbly.Component, error) {
 				Width(30)
 
 			evenStr := "Odd"
-			if isEven.Get().(bool) {
+			if isEven.GetTyped().(bool) {
 				evenStr = "Even"
 			}
 
 			computedBox := computedStyle.Render(fmt.Sprintf(
 				"Doubled: %d\nSquared: %d\nParity:  %s",
-				doubled.Get().(int),
-				squared.Get().(int),
+				doubled.GetTyped().(int),
+				squared.GetTyped().(int),
 				evenStr,
 			))
 

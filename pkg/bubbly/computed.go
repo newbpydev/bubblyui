@@ -24,11 +24,11 @@ import (
 //
 //	count := bubbly.NewRef(5)
 //	doubled := bubbly.NewComputed(func() int {
-//	    return count.Get() * 2  // Automatically tracks count as dependency
+//	    return count.GetTyped() * 2  // Automatically tracks count as dependency
 //	})
-//	value := doubled.Get()  // Computes and caches: 10
+//	value := doubled.GetTyped()  // Computes and caches: 10
 //	count.Set(10)           // Invalidates doubled's cache
-//	value2 := doubled.Get() // Recomputes: 20
+//	value2 := doubled.GetTyped() // Recomputes: 20
 //
 //	// Watch computed value changes (Task 6.2)
 //	Watch(doubled, func(newVal, oldVal int) {
@@ -59,12 +59,12 @@ type Computed[T any] struct {
 //	// Computation using Ref values
 //	count := NewRef(10)
 //	doubled := NewComputed(func() int {
-//	    return count.Get() * 2
+//	    return count.GetTyped() * 2
 //	})
 //
 //	// Chained computed values
 //	quadrupled := NewComputed(func() int {
-//	    return doubled.Get() * 2
+//	    return doubled.GetTyped() * 2
 //	})
 func NewComputed[T any](fn func() T) *Computed[T] {
 	// Validate compute function is not nil
@@ -78,15 +78,33 @@ func NewComputed[T any](fn func() T) *Computed[T] {
 	}
 }
 
-// Get returns the computed value. On the first call, it evaluates the computation function
-// and caches the result. Subsequent calls return the cached value without re-evaluating
-// the function.
+// Get returns the current value as any, implementing the Dependency interface.
+// This allows Computed to be used polymorphically with other reactive types.
+// For type-safe access, use GetTyped() instead.
 //
-// During evaluation, Get automatically tracks all dependencies (Refs and other Computed values)
+// This operation is thread-safe. If the cache is dirty, it triggers recomputation.
+//
+// Example:
+//
+//	count := NewRef(5)
+//	computed := NewComputed(func() int { return count.GetTyped() * 2 })
+//	value := computed.GetTyped().(int)  // Returns 10, requires type assertion
+func (c *Computed[T]) Get() any {
+	return c.GetTyped()
+}
+
+// GetTyped returns the current value with full type safety.
+// This is the preferred method for direct access when the type is known.
+// Use Get() any when working with the Dependency interface.
+//
+// If the cache is dirty (dependencies have changed), it re-evaluates the computation function.
+// Otherwise, it returns the cached value without re-evaluation.
+//
+// During evaluation, GetTyped automatically tracks all dependencies (Refs and other Computed values)
 // accessed by the computation function. When any dependency changes, the cache is invalidated.
 //
 // This operation is thread-safe and uses a read-write lock. Multiple goroutines can safely
-// call Get() concurrently. The computation function is guaranteed to be called at most once
+// call GetTyped() concurrently. The computation function is guaranteed to be called at most once
 // per invalidation, even under concurrent access.
 //
 // Task 6.2: When the computed value changes after recomputation, all registered watchers
@@ -95,12 +113,12 @@ func NewComputed[T any](fn func() T) *Computed[T] {
 // Example:
 //
 //	count := NewRef(5)
-//	computed := NewComputed(func() int { return count.Get() * 2 })
-//	value := computed.Get()  // Evaluates function, tracks count, returns 10
-//	value2 := computed.Get() // Returns cached 10 (no re-evaluation)
-//	count.Set(10)            // Invalidates cache
-//	value3 := computed.Get() // Re-evaluates, returns 20, notifies watchers
-func (c *Computed[T]) Get() T {
+//	computed := NewComputed(func() int { return count.GetTyped() * 2 })
+//	value := computed.GetTyped()  // Evaluates function, tracks count, returns 10
+//	value2 := computed.GetTyped() // Returns cached 10 (no re-evaluation)
+//	count.Set(10)                 // Invalidates cache
+//	value3 := computed.GetTyped() // Re-evaluates, returns 20, notifies watchers
+func (c *Computed[T]) GetTyped() T {
 	// Track this Computed as a dependency if tracking is active
 	if globalTracker.IsTracking() {
 		globalTracker.Track(c)
@@ -190,7 +208,7 @@ func (c *Computed[T]) Invalidate() {
 	// Task 6.2: If we have watchers, trigger recomputation to notify them
 	// This ensures watchers are called even if no one explicitly calls Get()
 	if hasWatchers {
-		c.Get()
+		c.GetTyped()
 	}
 }
 
@@ -249,7 +267,7 @@ func (c *Computed[T]) addWatcher(w *watcher[T]) {
 		c.mu.Unlock()
 
 		// Evaluate to establish dependencies
-		c.Get()
+		c.GetTyped()
 
 		// Restore watchers
 		c.mu.Lock()

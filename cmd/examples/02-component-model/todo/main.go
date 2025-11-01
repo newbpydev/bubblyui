@@ -144,12 +144,12 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 
 			// Computed values
 			totalCount := ctx.Computed(func() interface{} {
-				return len(todos.Get().([]Todo))
+				return len(todos.GetTyped().([]Todo))
 			})
 
 			completedCount := ctx.Computed(func() interface{} {
 				count := 0
-				for _, todo := range todos.Get().([]Todo) {
+				for _, todo := range todos.GetTyped().([]Todo) {
 					if todo.Done {
 						count++
 					}
@@ -158,7 +158,7 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			})
 
 			remainingCount := ctx.Computed(func() interface{} {
-				return totalCount.Get().(int) - completedCount.Get().(int)
+				return totalCount.GetTyped().(int) - completedCount.GetTyped().(int)
 			})
 
 			// Expose state
@@ -172,7 +172,7 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			ctx.On("addTodo", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
 					text := event.Data.(string)
-					todoList := todos.Get().([]Todo)
+					todoList := todos.GetTyped().([]Todo)
 					newID := len(todoList) + 1
 					todoList = append(todoList, Todo{
 						ID:   newID,
@@ -187,7 +187,7 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			ctx.On("toggleTodo", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
 					index := event.Data.(int)
-					todoList := todos.Get().([]Todo)
+					todoList := todos.GetTyped().([]Todo)
 					if index >= 0 && index < len(todoList) {
 						todoList[index].Done = !todoList[index].Done
 						todos.Set(todoList)
@@ -198,7 +198,7 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			ctx.On("deleteTodo", func(data interface{}) {
 				if event, ok := data.(*bubbly.Event); ok {
 					index := event.Data.(int)
-					todoList := todos.Get().([]Todo)
+					todoList := todos.GetTyped().([]Todo)
 					if index >= 0 && index < len(todoList) {
 						todoList = append(todoList[:index], todoList[index+1:]...)
 						todos.Set(todoList)
@@ -211,7 +211,7 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			})
 
 			ctx.On("clearCompleted", func(data interface{}) {
-				todoList := todos.Get().([]Todo)
+				todoList := todos.GetTyped().([]Todo)
 				var remaining []Todo
 				for _, todo := range todoList {
 					if !todo.Done {
@@ -236,8 +236,8 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 			completedCount := ctx.Get("completedCount").(*bubbly.Computed[interface{}])
 			remainingCount := ctx.Get("remainingCount").(*bubbly.Computed[interface{}])
 
-			todoList := todos.Get().([]Todo)
-			input := inputText.Get().(string)
+			todoList := todos.GetTyped().([]Todo)
+			input := inputText.GetTyped().(string)
 
 			// Clamp selected index
 			if *selectedIndexRef >= len(todoList) && len(todoList) > 0 {
@@ -304,9 +304,9 @@ func createTodoApp(selectedIndexRef *int) (bubbly.Component, error) {
 
 			stats := statsStyle.Render(fmt.Sprintf(
 				"Total: %d • Completed: %d • Remaining: %d",
-				totalCount.Get().(int),
-				completedCount.Get().(int),
-				remainingCount.Get().(int),
+				totalCount.GetTyped().(int),
+				completedCount.GetTyped().(int),
+				remainingCount.GetTyped().(int),
 			))
 
 			// Help

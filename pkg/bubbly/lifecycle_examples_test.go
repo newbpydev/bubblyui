@@ -24,10 +24,10 @@ func ExampleContext_OnMounted() {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			data := ctx.Get("data").(*bubbly.Ref[interface{}])
-			if data.Get() == nil {
+			if data.GetTyped() == nil {
 				return "Loading..."
 			}
-			return fmt.Sprintf("Data: %s", data.Get().(string))
+			return fmt.Sprintf("Data: %s", data.GetTyped().(string))
 		}).
 		Build()
 
@@ -81,11 +81,11 @@ func ExampleContext_OnUpdated() {
 
 			// onUpdated without dependencies: runs on every update
 			ctx.OnUpdated(func() {
-				fmt.Printf("Component updated, count: %d\n", count.Get().(int))
+				fmt.Printf("Component updated, count: %d\n", count.GetTyped().(int))
 			})
 
 			ctx.On("increment", func(data interface{}) {
-				count.Set(count.Get().(int) + 1)
+				count.Set(count.GetTyped().(int) + 1)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -120,7 +120,7 @@ func ExampleContext_OnUpdated_withDependencies() {
 
 			// Only runs when data changes
 			ctx.OnUpdated(func() {
-				fmt.Printf("Saving data: %s\n", data.Get().(string))
+				fmt.Printf("Saving data: %s\n", data.GetTyped().(string))
 			}, data)
 
 			ctx.On("setData", func(payload interface{}) {
@@ -311,7 +311,7 @@ func Example_lifecycleDataFetching() {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			loading := ctx.Get("loading").(*bubbly.Ref[interface{}])
-			if loading.Get().(bool) {
+			if loading.GetTyped().(bool) {
 				return "Loading user..."
 			}
 			return "User profile ready"
@@ -387,7 +387,7 @@ func Example_lifecycleTimer() {
 					for {
 						select {
 						case <-ticker.C:
-							current := ticks.Get().(int)
+							current := ticks.GetTyped().(int)
 							ticks.Set(current + 1)
 						case <-done:
 							return
@@ -436,7 +436,7 @@ func Example_lifecycleFullCycle() {
 			})
 
 			ctx.OnUpdated(func() {
-				fmt.Printf("2. Component updated (count: %d)\n", count.Get().(int))
+				fmt.Printf("2. Component updated (count: %d)\n", count.GetTyped().(int))
 			})
 
 			ctx.OnUnmounted(func() {
@@ -448,7 +448,7 @@ func Example_lifecycleFullCycle() {
 			})
 
 			ctx.On("increment", func(data interface{}) {
-				count.Set(count.Get().(int) + 1)
+				count.Set(count.GetTyped().(int) + 1)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -491,7 +491,7 @@ func Example_lifecycleConditionalHooks() {
 			// Conditionally register hook
 			if props.EnableAutoSave {
 				ctx.OnUpdated(func() {
-					fmt.Printf("Auto-saving: %s\n", data.Get().(string))
+					fmt.Printf("Auto-saving: %s\n", data.GetTyped().(string))
 				}, data)
 			}
 
@@ -531,7 +531,7 @@ func Example_lifecycleWatcherAutoCleanup() {
 			})
 
 			ctx.On("increment", func(data interface{}) {
-				count.Set(count.Get().(int) + 1)
+				count.Set(count.GetTyped().(int) + 1)
 			})
 
 			ctx.OnUnmounted(func() {
@@ -656,7 +656,7 @@ func Example_lifecycleStateSync() {
 
 			// Sync to backend when user changes
 			ctx.OnUpdated(func() {
-				userData := user.Get().(map[string]interface{})
+				userData := user.GetTyped().(map[string]interface{})
 				fmt.Printf("Syncing user: %s (age: %d)\n",
 					userData["name"], userData["age"])
 			}, user)

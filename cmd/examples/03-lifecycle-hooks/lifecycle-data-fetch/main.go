@@ -113,7 +113,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 
 			// Helper to add event
 			addEvent := func(event string) {
-				current := events.Get().([]string)
+				current := events.GetTyped().([]string)
 				if len(current) >= 8 {
 					current = current[1:]
 				}
@@ -126,14 +126,14 @@ func createDataFetchDemo() (bubbly.Component, error) {
 				addEvent("✅ onMounted: Component mounted")
 				addEvent("📡 Fetching user data...")
 				loading.Set(true)
-				count := fetchCount.Get().(int)
+				count := fetchCount.GetTyped().(int)
 				fetchCount.Set(count + 1)
 				// Note: Fetch is triggered by model.Init() via Bubbletea command
 			})
 
 			// onUpdated: React to loading state changes
 			ctx.OnUpdated(func() {
-				isLoading := loading.Get().(bool)
+				isLoading := loading.GetTyped().(bool)
 				if isLoading {
 					addEvent("⏳ Loading state: true")
 				} else {
@@ -143,7 +143,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 
 			// onUpdated: React to user data changes
 			ctx.OnUpdated(func() {
-				userData := user.Get()
+				userData := user.GetTyped()
 				if userData != nil {
 					if userObj, ok := userData.(*User); ok && userObj != nil {
 						addEvent(fmt.Sprintf("👤 User loaded: %s", userObj.Name))
@@ -190,7 +190,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 				user.Set(nil)
 				loading.Set(true)
 				errorRef.Set(nil)
-				count := fetchCount.Get().(int)
+				count := fetchCount.GetTyped().(int)
 				fetchCount.Set(count + 1)
 				// Note: Fetch is triggered by model.Update() via Bubbletea command
 			})
@@ -203,10 +203,10 @@ func createDataFetchDemo() (bubbly.Component, error) {
 			fetchCount := ctx.Get("fetchCount").(*bubbly.Ref[interface{}])
 			events := ctx.Get("events").(*bubbly.Ref[interface{}])
 
-			loadingVal := loading.Get().(bool)
-			errorVal := error.Get()
-			fetchCountVal := fetchCount.Get().(int)
-			eventsVal := events.Get().([]string)
+			loadingVal := loading.GetTyped().(bool)
+			errorVal := error.GetTyped()
+			fetchCountVal := fetchCount.GetTyped().(int)
+			eventsVal := events.GetTyped().([]string)
 
 			// Status box
 			statusStyle := lipgloss.NewStyle().
@@ -230,7 +230,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 					BorderForeground(lipgloss.Color("160"))
 				statusBox = statusStyle.Render(fmt.Sprintf("❌ Error: %v", errorVal))
 			} else {
-				userData := user.Get()
+				userData := user.GetTyped()
 				if userData != nil {
 					userObj, ok := userData.(*User)
 					if ok && userObj != nil {
@@ -262,7 +262,7 @@ func createDataFetchDemo() (bubbly.Component, error) {
 				Width(60)
 
 			var userBox string
-			userData := user.Get()
+			userData := user.GetTyped()
 			if userData != nil {
 				userObj, ok := userData.(*User)
 				if ok && userObj != nil {

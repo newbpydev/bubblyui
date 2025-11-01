@@ -38,6 +38,7 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 3.3. Context provides lifecycle hook registration  
 3.4. Context provides reactivity primitives  
 3.5. Context is passed to all composables  
+3.6. **Dependency interface** allows typed refs to work with UseEffect (quality of life enhancement)
 
 ### 4. Provide/Inject Pattern
 4.1. Parent components can "provide" values  
@@ -58,6 +59,15 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 6.2. Return Refs and computed values (not plain values)  
 6.3. Return cleanup functions if needed  
 6.4. Destructuring preserves reactivity  
+
+### 7. Reactive Dependency Interface (Enhancement)
+7.1. Define `Dependency` interface for reactive values  
+7.2. Both `Ref[T]` and `Computed[T]` implement Dependency  
+7.3. UseEffect accepts `...Dependency` instead of `...*Ref[any]`  
+7.4. Watch can accept Dependency for monitoring computed values  
+7.5. Interface provides `Get() any` for value access  
+7.6. Enables typed refs (`*Ref[int]`) to work with UseEffect without conversion  
+7.7. Backwards compatible with existing code through interface implementation  
 
 ## Non-Functional Requirements
 
@@ -111,6 +121,15 @@ Implement a Vue 3-inspired Composition API that enables developers to organize c
 - [ ] Type-safe
 - [ ] Default values work
 - [ ] Reactive values propagate
+
+### Dependency Interface
+- [ ] Dependency interface defined
+- [ ] Ref implements Dependency
+- [ ] Computed implements Dependency
+- [ ] UseEffect accepts Dependency
+- [ ] Watch accepts Dependency
+- [ ] Backwards compatible
+- [ ] Typed refs work seamlessly
 
 ### General
 - [ ] Test coverage > 80%
@@ -538,6 +557,65 @@ func UseUserData(ctx *Context) UseAsyncReturn[User] {
 }
 ```
 
+### 8. Performance Optimization (Phase 8)
+8.1. **Timer Pool** for UseDebounce/UseThrottle
+8.2. **Reflection Cache** for UseForm field lookups
+8.3. **Benchmark Suite** for regression detection
+8.4. **Performance Monitoring** integration
+8.5. **Metrics Collection** for production systems
+8.6. **Profiling Utilities** for real-world analysis
+
+## Non-Functional Requirements - Phase 8 Optimizations
+
+### Performance Targets (Post-Optimization)
+- Timer pool overhead: < 50ns per acquisition
+- Reflection cache hit: < 5ns per lookup
+- UseDebounce/UseThrottle creation: < 500ns (vs current 865ns/473ns)
+- UseForm.SetField: < 300ns (vs current 422ns)
+- Memory overhead: < 1KB per timer pool, < 100B per reflection cache
+
+### Monitoring Requirements
+- **Metrics Collection:** Track composable usage patterns
+- **Performance Regression:** Detect >10% slowdowns automatically
+- **Resource Tracking:** Monitor Provide/Inject tree depth
+- **Allocation Monitoring:** Track memory allocation trends
+- **CI Integration:** Run performance benchmarks on every PR
+
+### Type Safety (Optimization Phase)
+- Timer pool strictly typed with generics
+- Reflection cache uses type-safe indices
+- Monitoring integration maintains zero `any` usage
+
+## Acceptance Criteria - Phase 8
+
+### Timer Pooling
+- [ ] Timer pool reduces UseDebounce overhead to < 500ns
+- [ ] Timer pool reduces UseThrottle overhead to < 250ns
+- [ ] Pool properly cleans up timers on component unmount
+- [ ] Thread-safe pool access verified
+- [ ] Zero timer leaks confirmed
+
+### Reflection Caching
+- [ ] Reflection cache reduces SetField overhead to < 300ns
+- [ ] Cache properly invalidated on type changes
+- [ ] Thread-safe cache access verified
+- [ ] Cache hit rate > 95% in typical usage
+- [ ] Memory overhead stays within target
+
+### Monitoring Infrastructure
+- [ ] Performance metrics exposed in standard format
+- [ ] Regression tests run in CI/CD pipeline
+- [ ] Alerting configured for performance degradation
+- [ ] Profiling utilities available for production debugging
+- [ ] Documentation for monitoring best practices
+
+### Benchmark Suite
+- [ ] Comprehensive benchmark coverage (30+ benchmarks)
+- [ ] Statistical analysis with `-count=10`
+- [ ] Multi-CPU scaling tests (1, 2, 4, 6 cores)
+- [ ] Memory growth tests for long-running scenarios
+- [ ] Automated regression detection
+
 ## Open Questions
 1. Should composables be able to call each other recursively?
 2. How to handle async composables (Promise-like)?
@@ -545,3 +623,6 @@ func UseUserData(ctx *Context) UseAsyncReturn[User] {
 4. Global composable registry for discoverability?
 5. Dev tools for visualizing composable usage?
 6. Should composables support suspense-like patterns?
+7. **Phase 8:** Should timer pooling be opt-in or automatic?
+8. **Phase 8:** Should reflection caching support hot-reload scenarios?
+9. **Phase 8:** What monitoring backends should be supported (Prometheus, StatsD, custom)?

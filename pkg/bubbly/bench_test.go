@@ -14,7 +14,7 @@ func BenchmarkRef_Get(b *testing.B) {
 	ref := NewRef(42)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = ref.Get()
+		_ = ref.GetTyped()
 	}
 }
 
@@ -60,7 +60,7 @@ func BenchmarkRef_GetConcurrent(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = ref.Get()
+			_ = ref.GetTyped()
 		}
 	})
 }
@@ -90,7 +90,7 @@ func BenchmarkRef_MixedWorkload(b *testing.B) {
 			if i%5 == 0 {
 				ref.Set(i)
 			} else {
-				_ = ref.Get()
+				_ = ref.GetTyped()
 			}
 			i++
 		}
@@ -104,11 +104,11 @@ func BenchmarkRef_MixedWorkload(b *testing.B) {
 // BenchmarkComputed_GetCached benchmarks Get on already-cached value
 func BenchmarkComputed_GetCached(b *testing.B) {
 	computed := NewComputed(func() int { return 42 })
-	_ = computed.Get() // Prime cache
+	_ = computed.GetTyped() // Prime cache
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = computed.Get()
+		_ = computed.GetTyped()
 	}
 }
 
@@ -116,13 +116,13 @@ func BenchmarkComputed_GetCached(b *testing.B) {
 func BenchmarkComputed_GetUncached(b *testing.B) {
 	ref := NewRef(0)
 	computed := NewComputed(func() int {
-		return ref.Get() * 2
+		return ref.GetTyped() * 2
 	})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ref.Set(i) // Invalidate cache
-		_ = computed.Get()
+		_ = computed.GetTyped()
 	}
 }
 
@@ -135,16 +135,16 @@ func BenchmarkComputed_ChainedEvaluation(b *testing.B) {
 			ref := NewRef(1)
 
 			// Build chain: each computed depends on previous
-			current := NewComputed(func() int { return ref.Get() * 2 })
+			current := NewComputed(func() int { return ref.GetTyped() * 2 })
 			for i := 1; i < length; i++ {
 				prev := current
-				current = NewComputed(func() int { return prev.Get() * 2 })
+				current = NewComputed(func() int { return prev.GetTyped() * 2 })
 			}
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				ref.Set(i) // Invalidate entire chain
-				_ = current.Get()
+				_ = current.GetTyped()
 			}
 		})
 	}
@@ -156,7 +156,7 @@ func BenchmarkComputed_ComplexSum(b *testing.B) {
 
 	computed := NewComputed(func() int {
 		sum := 0
-		for _, v := range items.Get() {
+		for _, v := range items.GetTyped() {
 			sum += v * v
 		}
 		return sum
@@ -165,19 +165,19 @@ func BenchmarkComputed_ComplexSum(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		items.Set([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) // Invalidate
-		_ = computed.Get()
+		_ = computed.GetTyped()
 	}
 }
 
 // BenchmarkComputed_ConcurrentAccess benchmarks concurrent access to cached computed
 func BenchmarkComputed_ConcurrentAccess(b *testing.B) {
 	computed := NewComputed(func() int { return 42 })
-	_ = computed.Get() // Prime cache
+	_ = computed.GetTyped() // Prime cache
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = computed.Get()
+			_ = computed.GetTyped()
 		}
 	})
 }
@@ -308,7 +308,7 @@ func BenchmarkLargeScale_ManyRefs(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				idx := i % count
 				refs[idx].Set(i)
-				_ = refs[idx].Get()
+				_ = refs[idx].GetTyped()
 			}
 		})
 	}
@@ -325,7 +325,7 @@ func BenchmarkLargeScale_ManyComputed(b *testing.B) {
 
 			for i := 0; i < count; i++ {
 				computed[i] = NewComputed(func() int {
-					return ref.Get() * 2
+					return ref.GetTyped() * 2
 				})
 			}
 
@@ -333,7 +333,7 @@ func BenchmarkLargeScale_ManyComputed(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ref.Set(i) // Invalidate all
 				for j := 0; j < count; j++ {
-					_ = computed[j].Get()
+					_ = computed[j].GetTyped()
 				}
 			}
 		})
@@ -356,14 +356,14 @@ func BenchmarkLargeScale_ComplexGraph(b *testing.B) {
 		p := prices[i]
 		q := quantities[i]
 		subtotals[i] = NewComputed(func() float64 {
-			return p.Get() * float64(q.Get())
+			return p.GetTyped() * float64(q.GetTyped())
 		})
 	}
 
 	total := NewComputed(func() float64 {
 		sum := 0.0
 		for _, st := range subtotals {
-			sum += st.Get()
+			sum += st.GetTyped()
 		}
 		return sum
 	})
@@ -372,7 +372,7 @@ func BenchmarkLargeScale_ComplexGraph(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		idx := i % numItems
 		quantities[idx].Set(i%10 + 1)
-		_ = total.Get()
+		_ = total.GetTyped()
 	}
 }
 

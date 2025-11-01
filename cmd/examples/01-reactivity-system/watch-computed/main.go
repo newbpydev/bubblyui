@@ -128,34 +128,34 @@ func initialModel() model {
 	// Create computed values
 	subtotal := bubbly.NewComputed(func() float64 {
 		total := 0.0
-		for _, item := range items.Get() {
+		for _, item := range items.GetTyped() {
 			total += item.Price * float64(item.Quantity)
 		}
 		return total
 	})
 
 	discountAmt := bubbly.NewComputed(func() float64 {
-		return subtotal.Get() * (discount.Get() / 100.0)
+		return subtotal.GetTyped() * (discount.GetTyped() / 100.0)
 	})
 
 	total := bubbly.NewComputed(func() float64 {
-		return subtotal.Get() - discountAmt.Get()
+		return subtotal.GetTyped() - discountAmt.GetTyped()
 	})
 
 	itemCount := bubbly.NewComputed(func() int {
 		count := 0
-		for _, item := range items.Get() {
+		for _, item := range items.GetTyped() {
 			count += item.Quantity
 		}
 		return count
 	})
 
 	freeShipping := bubbly.NewComputed(func() bool {
-		return total.Get() >= 100.0
+		return total.GetTyped() >= 100.0
 	})
 
 	loyaltyPoints := bubbly.NewComputed(func() int {
-		return int(total.Get() / 10.0)
+		return int(total.GetTyped() / 10.0)
 	})
 
 	m := model{
@@ -246,18 +246,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, keys.Down):
-			items := m.items.Get()
+			items := m.items.GetTyped()
 			if m.selected < len(items)-1 {
 				m.selected++
 			}
 
 		case key.Matches(msg, keys.Add):
-			items := m.items.Get()
+			items := m.items.GetTyped()
 			items[m.selected].Quantity++
 			m.items.Set(items)
 
 		case key.Matches(msg, keys.Remove):
-			items := m.items.Get()
+			items := m.items.GetTyped()
 			if items[m.selected].Quantity > 0 {
 				items[m.selected].Quantity--
 				m.items.Set(items)
@@ -265,7 +265,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, keys.Discount):
 			// Toggle between 0%, 10%, and 20% discount
-			current := m.discount.Get()
+			current := m.discount.GetTyped()
 			if current == 0 {
 				m.discount.Set(10.0)
 				m.addLog("🎉 Applied 10% discount!")
@@ -295,7 +295,7 @@ func (m model) View() string {
 
 	// Items
 	b.WriteString("Items:\n")
-	items := m.items.Get()
+	items := m.items.GetTyped()
 	for i, item := range items {
 		style := itemStyle
 		prefix := "  "
@@ -315,15 +315,15 @@ func (m model) View() string {
 	// Computed values (Task 6.2: These are all computed and watched!)
 	b.WriteString(computedStyle.Render("Computed Values:"))
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  Subtotal:      $%.2f\n", m.subtotal.Get()))
-	if m.discount.Get() > 0 {
+	b.WriteString(fmt.Sprintf("  Subtotal:      $%.2f\n", m.subtotal.GetTyped()))
+	if m.discount.GetTyped() > 0 {
 		b.WriteString(fmt.Sprintf("  Discount:      -$%.2f (%.0f%%)\n",
-			m.discountAmt.Get(), m.discount.Get()))
+			m.discountAmt.GetTyped(), m.discount.GetTyped()))
 	}
-	b.WriteString(fmt.Sprintf("  Total:         $%.2f\n", m.total.Get()))
-	b.WriteString(fmt.Sprintf("  Item Count:    %d\n", m.itemCount.Get()))
-	b.WriteString(fmt.Sprintf("  Free Shipping: %v\n", m.freeShipping.Get()))
-	b.WriteString(fmt.Sprintf("  Loyalty Points: %d\n", m.loyaltyPoints.Get()))
+	b.WriteString(fmt.Sprintf("  Total:         $%.2f\n", m.total.GetTyped()))
+	b.WriteString(fmt.Sprintf("  Item Count:    %d\n", m.itemCount.GetTyped()))
+	b.WriteString(fmt.Sprintf("  Free Shipping: %v\n", m.freeShipping.GetTyped()))
+	b.WriteString(fmt.Sprintf("  Loyalty Points: %d\n", m.loyaltyPoints.GetTyped()))
 	b.WriteString("\n")
 
 	// Watcher logs

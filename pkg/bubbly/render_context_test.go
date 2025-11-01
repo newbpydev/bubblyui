@@ -67,11 +67,11 @@ func TestRenderContext_Get(t *testing.T) {
 				if ref, ok := tt.expectedValue.(*Ref[interface{}]); ok {
 					gotRef, ok := value.(*Ref[interface{}])
 					require.True(t, ok, "Value should be a Ref")
-					assert.Equal(t, ref.Get(), gotRef.Get(), "Ref values should match")
+					assert.Equal(t, ref.GetTyped(), gotRef.GetTyped(), "Ref values should match")
 				} else if comp, ok := tt.expectedValue.(*Computed[interface{}]); ok {
 					gotComp, ok := value.(*Computed[interface{}])
 					require.True(t, ok, "Value should be a Computed")
-					assert.Equal(t, comp.Get(), gotComp.Get(), "Computed values should match")
+					assert.Equal(t, comp.GetTyped(), gotComp.GetTyped(), "Computed values should match")
 				} else {
 					assert.Equal(t, tt.expectedValue, value, "Get should return exposed value")
 				}
@@ -316,7 +316,7 @@ func TestRenderContext_ReadOnly(t *testing.T) {
 		// (RenderContext doesn't prevent modifications to the objects themselves,
 		// it just doesn't provide methods to add/remove state entries)
 		componentRef := c.state["count"].(*Ref[interface{}])
-		assert.Equal(t, 42, componentRef.Get(), "Ref modification is allowed")
+		assert.Equal(t, 42, componentRef.GetTyped(), "Ref modification is allowed")
 		assert.Same(t, ref, gotRef, "Should be the same ref instance")
 	})
 }
@@ -344,7 +344,7 @@ func TestRenderContext_Integration(t *testing.T) {
 			},
 			template: func(ctx RenderContext) string {
 				count := ctx.Get("count").(*Ref[interface{}])
-				return "Count: " + string(rune(count.Get().(int)+'0'))
+				return "Count: " + string(rune(count.GetTyped().(int)+'0'))
 			},
 		}
 

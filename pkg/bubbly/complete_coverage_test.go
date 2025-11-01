@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestHandlerPanicError_Error tests the Error() method implementation (0% → 100%).
@@ -230,10 +231,8 @@ func TestBubbleEvent_CompleteEdgeCases(t *testing.T) {
 		parent := newComponentImpl("Parent")
 		child := newComponentImpl("Child")
 
-		var grandparentComp Component = grandparent
-		var parentComp Component = parent
-		parent.parent = &grandparentComp
-		child.parent = &parentComp
+		parent.parent = grandparent
+		child.parent = parent
 
 		levels := []string{}
 
@@ -285,8 +284,7 @@ func TestCalculateDepthToRoot_AllCases(t *testing.T) {
 			setupFunc: func() *componentImpl {
 				parent := newComponentImpl("Parent")
 				child := newComponentImpl("Child")
-				var parentComp Component = parent
-				child.parent = &parentComp
+				child.parent = parent
 				return child
 			},
 			wantDepth:   1,
@@ -299,10 +297,8 @@ func TestCalculateDepthToRoot_AllCases(t *testing.T) {
 				middle := newComponentImpl("Middle")
 				leaf := newComponentImpl("Leaf")
 
-				var rootComp Component = root
-				var middleComp Component = middle
-				middle.parent = &rootComp
-				leaf.parent = &middleComp
+				middle.parent = root
+				leaf.parent = middle
 				return leaf
 			},
 			wantDepth:   2,

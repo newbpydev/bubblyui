@@ -36,12 +36,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "up", "k", "+":
 			// Increment counter - reactivity handles the rest!
-			m.count.Set(m.count.Get() + 1)
+			m.count.Set(m.count.GetTyped() + 1)
 
 		case "down", "j", "-":
 			// Decrement counter
-			if m.count.Get() > 0 {
-				m.count.Set(m.count.Get() - 1)
+			if m.count.GetTyped() > 0 {
+				m.count.Set(m.count.GetTyped() - 1)
 			}
 
 		case "r":
@@ -82,11 +82,11 @@ func (m model) View() string {
 	title := titleStyle.Render("🔢 Reactive Counter Example")
 
 	counter := counterStyle.Render(
-		fmt.Sprintf("Count: %d", m.count.Get()),
+		fmt.Sprintf("Count: %d", m.count.GetTyped()),
 	)
 
 	computed := computedStyle.Render(
-		fmt.Sprintf("Doubled: %d", m.doubled.Get()),
+		fmt.Sprintf("Doubled: %d", m.doubled.GetTyped()),
 	)
 
 	help := helpStyle.Render(
@@ -109,7 +109,7 @@ func main() {
 
 	// Create computed value that automatically updates
 	doubled := bubbly.NewComputed(func() int {
-		return count.Get() * 2
+		return count.GetTyped() * 2
 	})
 
 	// Optional: Watch for changes and log them

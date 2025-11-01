@@ -70,7 +70,7 @@ func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
 // Example usage:
 //
 //	count := bubbly.NewRef(0)
-//	value := count.Get()  // Read current value
+//	value := count.GetTyped()  // Read current value
 //	count.Set(42)         // Update value and notify watchers
 type Ref[T any] struct {
 	mu         sync.RWMutex
@@ -96,18 +96,35 @@ func NewRef[T any](value T) *Ref[T] {
 	}
 }
 
-// Get returns the current value of the reference.
-// This operation is thread-safe and uses a read lock, allowing multiple
-// concurrent readers.
+// Get returns the current value as any, implementing the Dependency interface.
+// This allows Ref to be used polymorphically with other reactive types.
+// For type-safe access, use GetTyped() instead.
 //
-// When called during computed value evaluation, Get automatically registers
-// this Ref as a dependency of the computed value.
+// This operation is thread-safe and uses a read lock, allowing multiple
+// concurrent readers. When called during computed value evaluation, Get
+// automatically registers this Ref as a dependency.
 //
 // Example:
 //
 //	ref := NewRef(42)
-//	value := ref.Get()  // Returns 42
-func (r *Ref[T]) Get() T {
+//	value := ref.GetTyped().(int)  // Returns 42, requires type assertion
+func (r *Ref[T]) Get() any {
+	return r.GetTyped()
+}
+
+// GetTyped returns the current value with full type safety.
+// This is the preferred method for direct access when the type is known.
+// Use Get() any when working with the Dependency interface.
+//
+// This operation is thread-safe and uses a read lock, allowing multiple
+// concurrent readers. When called during computed value evaluation, GetTyped
+// automatically registers this Ref as a dependency.
+//
+// Example:
+//
+//	ref := NewRef(42)
+//	value := ref.GetTyped()  // Returns 42 as int, no type assertion needed
+func (r *Ref[T]) GetTyped() T {
 	// Track this Ref as a dependency if tracking is active
 	if globalTracker.IsTracking() {
 		globalTracker.Track(r)

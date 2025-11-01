@@ -68,7 +68,7 @@ func BenchmarkLifecycle_HookExecute_WithDeps(b *testing.B) {
 		lm.registerHook("updated", lifecycleHook{
 			id:           "hook-withdeps",
 			callback:     func() {},
-			dependencies: []*Ref[any]{ref1, ref2},
+			dependencies: []Dependency{ref1, ref2},
 			lastValues:   []any{10, 20},
 			order:        i,
 		})
@@ -103,21 +103,21 @@ func BenchmarkLifecycle_DependencyCheck(b *testing.B) {
 		{
 			name: "no_deps",
 			hook: &lifecycleHook{
-				dependencies: []*Ref[any]{},
+				dependencies: []Dependency{},
 				lastValues:   []any{},
 			},
 		},
 		{
 			name: "1_dep_unchanged",
 			hook: &lifecycleHook{
-				dependencies: []*Ref[any]{NewRef[any](42)},
+				dependencies: []Dependency{NewRef[any](42)},
 				lastValues:   []any{42},
 			},
 		},
 		{
 			name: "5_deps_unchanged",
 			hook: &lifecycleHook{
-				dependencies: []*Ref[any]{
+				dependencies: []Dependency{
 					NewRef[any](1),
 					NewRef[any](2),
 					NewRef[any](3),
@@ -195,7 +195,7 @@ func BenchmarkLifecycle_FullCycle(b *testing.B) {
 			})
 
 			ctx.OnUpdated(func() {
-				count.Set(count.Get().(int) + 1)
+				count.Set(count.GetTyped().(int) + 1)
 			})
 
 			ctx.OnUnmounted(func() {
@@ -239,7 +239,7 @@ func BenchmarkLifecycle_HookExecute_Comparison(b *testing.B) {
 					lm.registerHook("updated", lifecycleHook{
 						id:           "hook",
 						callback:     func() {},
-						dependencies: []*Ref[any]{ref},
+						dependencies: []Dependency{ref},
 						lastValues:   []any{42},
 						order:        i,
 					})
@@ -273,7 +273,7 @@ func BenchmarkLifecycle_DependencyCheck_Changed(b *testing.B) {
 
 	ref := NewRef[any](0)
 	hook := &lifecycleHook{
-		dependencies: []*Ref[any]{ref},
+		dependencies: []Dependency{ref},
 		lastValues:   []any{0},
 	}
 

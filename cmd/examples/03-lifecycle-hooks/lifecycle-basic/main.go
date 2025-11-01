@@ -68,7 +68,7 @@ func createLifecycleDemo() (bubbly.Component, error) {
 
 			// Helper to add event
 			addEvent := func(event string) {
-				current := events.Get().([]string)
+				current := events.GetTyped().([]string)
 				// Keep last 10 events
 				if len(current) >= 10 {
 					current = current[1:]
@@ -89,13 +89,13 @@ func createLifecycleDemo() (bubbly.Component, error) {
 
 			// onUpdated: Runs after every update (no dependencies)
 			ctx.OnUpdated(func() {
-				count := updateCount.Get().(int)
+				count := updateCount.GetTyped().(int)
 				addEvent(fmt.Sprintf("🔄 onUpdated: Update #%d", count))
 			})
 
 			// onUpdated: With dependencies - only runs when updateCount changes
 			ctx.OnUpdated(func() {
-				count := updateCount.Get().(int)
+				count := updateCount.GetTyped().(int)
 				if count > 0 && count%5 == 0 {
 					addEvent(fmt.Sprintf("🎯 onUpdated (deps): Milestone at %d updates!", count))
 				}
@@ -117,7 +117,7 @@ func createLifecycleDemo() (bubbly.Component, error) {
 
 			// Event handlers
 			ctx.On("trigger-update", func(data interface{}) {
-				count := updateCount.Get().(int)
+				count := updateCount.GetTyped().(int)
 				updateCount.Set(count + 1)
 			})
 
@@ -132,8 +132,8 @@ func createLifecycleDemo() (bubbly.Component, error) {
 			updateCount := ctx.Get("updateCount").(*bubbly.Ref[interface{}])
 			events := ctx.Get("events").(*bubbly.Ref[interface{}])
 
-			countVal := updateCount.Get().(int)
-			eventsVal := events.Get().([]string)
+			countVal := updateCount.GetTyped().(int)
+			eventsVal := events.GetTyped().([]string)
 
 			// Counter box
 			counterStyle := lipgloss.NewStyle().

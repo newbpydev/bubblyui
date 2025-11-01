@@ -94,7 +94,7 @@ func createTimerDemo() (bubbly.Component, error) {
 
 			// Helper to add event
 			addEvent := func(event string) {
-				current := events.Get().([]string)
+				current := events.GetTyped().([]string)
 				if len(current) >= 8 {
 					current = current[1:]
 				}
@@ -112,7 +112,7 @@ func createTimerDemo() (bubbly.Component, error) {
 
 			// onUpdated: Track running state changes
 			ctx.OnUpdated(func() {
-				isRunning := running.Get().(bool)
+				isRunning := running.GetTyped().(bool)
 				if isRunning {
 					addEvent("▶️  Timer resumed")
 				} else {
@@ -122,7 +122,7 @@ func createTimerDemo() (bubbly.Component, error) {
 
 			// onUpdated: Track elapsed time milestones
 			ctx.OnUpdated(func() {
-				elapsedVal := elapsed.Get().(int)
+				elapsedVal := elapsed.GetTyped().(int)
 				if elapsedVal > 0 && elapsedVal%10 == 0 {
 					addEvent(fmt.Sprintf("🎯 Milestone: %d seconds!", elapsedVal))
 				}
@@ -141,17 +141,17 @@ func createTimerDemo() (bubbly.Component, error) {
 
 			// Event handlers
 			ctx.On("tick", func(data interface{}) {
-				if running.Get().(bool) {
-					current := elapsed.Get().(int)
+				if running.GetTyped().(bool) {
+					current := elapsed.GetTyped().(int)
 					elapsed.Set(current + 1)
 
-					count := tickCount.Get().(int)
+					count := tickCount.GetTyped().(int)
 					tickCount.Set(count + 1)
 				}
 			})
 
 			ctx.On("toggle-timer", func(data interface{}) {
-				isRunning := running.Get().(bool)
+				isRunning := running.GetTyped().(bool)
 				running.Set(!isRunning)
 			})
 
@@ -168,10 +168,10 @@ func createTimerDemo() (bubbly.Component, error) {
 			tickCount := ctx.Get("tickCount").(*bubbly.Ref[interface{}])
 			events := ctx.Get("events").(*bubbly.Ref[interface{}])
 
-			elapsedVal := elapsed.Get().(int)
-			runningVal := running.Get().(bool)
-			tickCountVal := tickCount.Get().(int)
-			eventsVal := events.Get().([]string)
+			elapsedVal := elapsed.GetTyped().(int)
+			runningVal := running.GetTyped().(bool)
+			tickCountVal := tickCount.GetTyped().(int)
+			eventsVal := events.GetTyped().([]string)
 
 			// Format elapsed time
 			minutes := elapsedVal / 60

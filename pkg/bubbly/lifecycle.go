@@ -29,7 +29,7 @@
 //
 //	        // React to changes (with dependencies)
 //	        ctx.OnUpdated(func() {
-//	            saveData(data.Get())
+//	            saveData(data.GetTyped())
 //	        }, data)
 //
 //	        // Cleanup on unmount
@@ -56,12 +56,12 @@
 //
 //	// Runs only when user changes
 //	ctx.OnUpdated(func() {
-//	    saveUser(user.Get())
+//	    saveUser(user.GetTyped())
 //	}, user)
 //
 //	// Runs when either user OR settings change
 //	ctx.OnUpdated(func() {
-//	    sync(user.Get(), settings.Get())
+//	    sync(user.GetTyped(), settings.GetTyped())
 //	}, user, settings)
 //
 //	// No dependencies: runs on EVERY update
@@ -167,11 +167,11 @@ type lifecycleHook struct {
 	//nolint:unused // Will be used in Task 2.1 (Hook execution)
 	callback func()
 
-	// dependencies are the Refs that this hook depends on.
+	// dependencies are the reactive values (Ref or Computed) that this hook depends on.
 	// The hook only executes if one of these dependencies changes.
 	// Empty slice means the hook runs on every trigger.
 	//nolint:unused // Will be used in Task 2.2 (Dependency tracking)
-	dependencies []*Ref[any]
+	dependencies []Dependency
 
 	// lastValues stores the previous values of dependencies
 	// for change detection
@@ -695,7 +695,7 @@ func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
 // Example scenario that would trigger this:
 //
 //	ctx.OnUpdated(func() {
-//	    count.Set(count.Get() + 1)  // Infinite loop!
+//	    count.Set(count.GetTyped() + 1)  // Infinite loop!
 //	})
 //
 // Returns ErrMaxUpdateDepth if the limit is exceeded.

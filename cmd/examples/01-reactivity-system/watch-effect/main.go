@@ -139,31 +139,31 @@ func initialModel() model {
 
 	// Create computed values
 	conversionRate := bubbly.NewComputed(func() float64 {
-		v := visitors.Get()
+		v := visitors.GetTyped()
 		if v == 0 {
 			return 0
 		}
-		return (float64(pageViews.Get()) / float64(v)) * 100
+		return (float64(pageViews.GetTyped()) / float64(v)) * 100
 	})
 
 	revenuePerUser := bubbly.NewComputed(func() float64 {
-		v := visitors.Get()
+		v := visitors.GetTyped()
 		if v == 0 {
 			return 0
 		}
-		return revenue.Get() / float64(v)
+		return revenue.GetTyped() / float64(v)
 	})
 
 	errorRate := bubbly.NewComputed(func() float64 {
-		pv := pageViews.Get()
+		pv := pageViews.GetTyped()
 		if pv == 0 {
 			return 0
 		}
-		return (float64(errors.Get()) / float64(pv)) * 100
+		return (float64(errors.GetTyped()) / float64(pv)) * 100
 	})
 
 	healthStatus := bubbly.NewComputed(func() string {
-		rate := errorRate.Get()
+		rate := errorRate.GetTyped()
 		if rate < 1.0 {
 			return "Healthy"
 		} else if rate < 5.0 {
@@ -204,7 +204,7 @@ func (m *model) setupWatchEffects() {
 	// Effect 1: Log conversion rate changes
 	// Automatically tracks: visitors, pageViews (via conversionRate)
 	cleanup1 := bubbly.WatchEffect(func() {
-		rate := m.conversionRate.Get()
+		rate := m.conversionRate.GetTyped()
 		m.addLog(fmt.Sprintf("📊 Conversion rate: %.2f%%", rate))
 	})
 	m.cleanups = append(m.cleanups, cleanup1)
@@ -212,7 +212,7 @@ func (m *model) setupWatchEffects() {
 	// Effect 2: Log revenue per user
 	// Automatically tracks: visitors, revenue (via revenuePerUser)
 	cleanup2 := bubbly.WatchEffect(func() {
-		rpu := m.revenuePerUser.Get()
+		rpu := m.revenuePerUser.GetTyped()
 		m.addLog(fmt.Sprintf("💰 Revenue per user: $%.2f", rpu))
 	})
 	m.cleanups = append(m.cleanups, cleanup2)
@@ -220,7 +220,7 @@ func (m *model) setupWatchEffects() {
 	// Effect 3: Alert on error rate
 	// Automatically tracks: errors, pageViews (via errorRate)
 	cleanup3 := bubbly.WatchEffect(func() {
-		rate := m.errorRate.Get()
+		rate := m.errorRate.GetTyped()
 		if rate > 5.0 {
 			m.addLog(fmt.Sprintf("🚨 HIGH ERROR RATE: %.2f%%", rate))
 		} else if rate > 1.0 {
@@ -232,10 +232,10 @@ func (m *model) setupWatchEffects() {
 	// Effect 4: Conditional logging based on showDetails
 	// Automatically tracks: showDetails, and conditionally tracks other values
 	cleanup4 := bubbly.WatchEffect(func() {
-		if m.showDetails.Get() {
+		if m.showDetails.GetTyped() {
 			// When details are shown, track these values
-			v := m.visitors.Get()
-			pv := m.pageViews.Get()
+			v := m.visitors.GetTyped()
+			pv := m.pageViews.GetTyped()
 			m.addLog(fmt.Sprintf("📈 Details: %d visitors, %d pageviews", v, pv))
 		} else {
 			// When details are hidden, only track showDetails
@@ -247,7 +247,7 @@ func (m *model) setupWatchEffects() {
 	// Effect 5: Health status monitoring
 	// Automatically tracks: errorRate (via healthStatus)
 	cleanup5 := bubbly.WatchEffect(func() {
-		status := m.healthStatus.Get()
+		status := m.healthStatus.GetTyped()
 		switch status {
 		case "Healthy":
 			m.addLog("✅ System status: " + status)
@@ -306,38 +306,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case key.Matches(msg, keys.Visitor):
-			m.visitors.Set(m.visitors.Get() + rand.Intn(10) + 1)
+			m.visitors.Set(m.visitors.GetTyped() + rand.Intn(10) + 1)
 
 		case key.Matches(msg, keys.PageView):
-			m.pageViews.Set(m.pageViews.Get() + rand.Intn(20) + 1)
+			m.pageViews.Set(m.pageViews.GetTyped() + rand.Intn(20) + 1)
 
 		case key.Matches(msg, keys.Revenue):
-			m.revenue.Set(m.revenue.Get() + float64(rand.Intn(100)) + rand.Float64()*100)
+			m.revenue.Set(m.revenue.GetTyped() + float64(rand.Intn(100)) + rand.Float64()*100)
 
 		case key.Matches(msg, keys.Error):
-			m.errors.Set(m.errors.Get() + rand.Intn(3) + 1)
+			m.errors.Set(m.errors.GetTyped() + rand.Intn(3) + 1)
 
 		case key.Matches(msg, keys.Toggle):
-			m.showDetails.Set(!m.showDetails.Get())
+			m.showDetails.Set(!m.showDetails.GetTyped())
 
 		case key.Matches(msg, keys.Auto):
 			// Auto-generate some activity
-			m.visitors.Set(m.visitors.Get() + rand.Intn(5) + 1)
-			m.pageViews.Set(m.pageViews.Get() + rand.Intn(15) + 5)
-			m.revenue.Set(m.revenue.Get() + float64(rand.Intn(50)) + rand.Float64()*50)
+			m.visitors.Set(m.visitors.GetTyped() + rand.Intn(5) + 1)
+			m.pageViews.Set(m.pageViews.GetTyped() + rand.Intn(15) + 5)
+			m.revenue.Set(m.revenue.GetTyped() + float64(rand.Intn(50)) + rand.Float64()*50)
 			if rand.Float64() < 0.3 {
-				m.errors.Set(m.errors.Get() + 1)
+				m.errors.Set(m.errors.GetTyped() + 1)
 			}
 			return m, autoGenerate
 		}
 
 	case autoGenMsg:
 		// Continue auto-generating
-		m.visitors.Set(m.visitors.Get() + rand.Intn(3) + 1)
-		m.pageViews.Set(m.pageViews.Get() + rand.Intn(10) + 3)
-		m.revenue.Set(m.revenue.Get() + float64(rand.Intn(30)) + rand.Float64()*30)
+		m.visitors.Set(m.visitors.GetTyped() + rand.Intn(3) + 1)
+		m.pageViews.Set(m.pageViews.GetTyped() + rand.Intn(10) + 3)
+		m.revenue.Set(m.revenue.GetTyped() + float64(rand.Intn(30)) + rand.Float64()*30)
 		if rand.Float64() < 0.2 {
-			m.errors.Set(m.errors.Get() + 1)
+			m.errors.Set(m.errors.GetTyped() + 1)
 		}
 		return m, autoGenerate
 	}
@@ -358,21 +358,21 @@ func (m model) View() string {
 
 	// Metrics in a grid
 	metrics := []string{
-		metricStyle.Render(fmt.Sprintf("👥 Visitors\n%d", m.visitors.Get())),
-		metricStyle.Render(fmt.Sprintf("📄 Page Views\n%d", m.pageViews.Get())),
-		metricStyle.Render(fmt.Sprintf("💵 Revenue\n$%.2f", m.revenue.Get())),
-		metricStyle.Render(fmt.Sprintf("❌ Errors\n%d", m.errors.Get())),
+		metricStyle.Render(fmt.Sprintf("👥 Visitors\n%d", m.visitors.GetTyped())),
+		metricStyle.Render(fmt.Sprintf("📄 Page Views\n%d", m.pageViews.GetTyped())),
+		metricStyle.Render(fmt.Sprintf("💵 Revenue\n$%.2f", m.revenue.GetTyped())),
+		metricStyle.Render(fmt.Sprintf("❌ Errors\n%d", m.errors.GetTyped())),
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, metrics...))
 	b.WriteString("\n\n")
 
 	// Computed metrics (automatically calculated)
 	b.WriteString("Computed Metrics (Auto-tracked):\n")
-	b.WriteString(fmt.Sprintf("  Conversion Rate: %.2f%%\n", m.conversionRate.Get()))
-	b.WriteString(fmt.Sprintf("  Revenue/User: $%.2f\n", m.revenuePerUser.Get()))
+	b.WriteString(fmt.Sprintf("  Conversion Rate: %.2f%%\n", m.conversionRate.GetTyped()))
+	b.WriteString(fmt.Sprintf("  Revenue/User: $%.2f\n", m.revenuePerUser.GetTyped()))
 
 	// Error rate with color coding
-	rate := m.errorRate.Get()
+	rate := m.errorRate.GetTyped()
 	var rateStr string
 	if rate < 1.0 {
 		rateStr = goodStyle.Render(fmt.Sprintf("%.2f%%", rate))
@@ -384,7 +384,7 @@ func (m model) View() string {
 	b.WriteString(fmt.Sprintf("  Error Rate: %s\n", rateStr))
 
 	// Health status with color coding
-	status := m.healthStatus.Get()
+	status := m.healthStatus.GetTyped()
 	var statusStr string
 	switch status {
 	case "Healthy":

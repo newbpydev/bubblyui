@@ -3,8 +3,9 @@ package bubbly
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestLifecycle_PanicRecovery_WithObservability tests panic recovery with error reporter.

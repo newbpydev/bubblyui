@@ -291,34 +291,34 @@ func createPaymentForm() (bubbly.Component, error) {
 			ctx.On("input", func(data interface{}) {
 				event := data.(*bubbly.Event)
 				char := event.Data.(string)
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 
 				switch field {
 				case 0:
-					cardNumber.Set(cardNumber.Get().(string) + char)
+					cardNumber.Set(cardNumber.GetTyped().(string) + char)
 				case 1:
-					email.Set(email.Get().(string) + char)
+					email.Set(email.GetTyped().(string) + char)
 				case 2:
-					phone.Set(phone.Get().(string) + char)
+					phone.Set(phone.GetTyped().(string) + char)
 				}
 			})
 
 			ctx.On("backspace", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 
 				switch field {
 				case 0:
-					c := cardNumber.Get().(string)
+					c := cardNumber.GetTyped().(string)
 					if len(c) > 0 {
 						cardNumber.Set(c[:len(c)-1])
 					}
 				case 1:
-					e := email.Get().(string)
+					e := email.GetTyped().(string)
 					if len(e) > 0 {
 						email.Set(e[:len(e)-1])
 					}
 				case 2:
-					p := phone.Get().(string)
+					p := phone.GetTyped().(string)
 					if len(p) > 0 {
 						phone.Set(p[:len(p)-1])
 					}
@@ -326,23 +326,23 @@ func createPaymentForm() (bubbly.Component, error) {
 			})
 
 			ctx.On("next-field", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 				if field < 2 {
 					currentField.Set(field + 1)
 				}
 			})
 
 			ctx.On("prev-field", func(data interface{}) {
-				field := currentField.Get().(int)
+				field := currentField.GetTyped().(int)
 				if field > 0 {
 					currentField.Set(field - 1)
 				}
 			})
 
 			ctx.On("submit", func(data interface{}) {
-				card := cardNumber.Get().(string)
-				emailVal := email.Get().(string)
-				phoneVal := phone.Get().(string)
+				card := cardNumber.GetTyped().(string)
+				emailVal := email.GetTyped().(string)
+				phoneVal := phone.GetTyped().(string)
 
 				observability.RecordBreadcrumb("user", "Payment form submitted", map[string]interface{}{
 					"cardNumber": card,
@@ -357,7 +357,7 @@ func createPaymentForm() (bubbly.Component, error) {
 				// Report error with sensitive data - should be filtered
 				if reporter := observability.GetErrorReporter(); reporter != nil {
 					reporter.ReportError(
-						fmt.Errorf("payment processing failed for card %s", cardNumber.Get().(string)),
+						fmt.Errorf("payment processing failed for card %s", cardNumber.GetTyped().(string)),
 						&observability.ErrorContext{
 							ComponentName: "PaymentForm",
 							ComponentID:   "payment-1",
@@ -368,9 +368,9 @@ func createPaymentForm() (bubbly.Component, error) {
 								"payment_type": "credit_card",
 							},
 							Extra: map[string]interface{}{
-								"card_number":  cardNumber.Get().(string),
-								"email":        email.Get().(string),
-								"phone":        phone.Get().(string),
+								"card_number":  cardNumber.GetTyped().(string),
+								"email":        email.GetTyped().(string),
+								"phone":        phone.GetTyped().(string),
 								"password":     "super_secret_123", // Should be redacted
 								"api_key":      "sk_live_abc123",   // Should be redacted
 								"user_message": "My email is test@example.com and phone is 555-123-4567",
@@ -391,11 +391,11 @@ func createPaymentForm() (bubbly.Component, error) {
 			currentField := ctx.Get("currentField").(*bubbly.Ref[interface{}])
 			statusMessage := ctx.Get("statusMessage").(*bubbly.Ref[interface{}])
 
-			cardVal := cardNumber.Get().(string)
-			emailVal := email.Get().(string)
-			phoneVal := phone.Get().(string)
-			fieldVal := currentField.Get().(int)
-			statusVal := statusMessage.Get().(string)
+			cardVal := cardNumber.GetTyped().(string)
+			emailVal := email.GetTyped().(string)
+			phoneVal := phone.GetTyped().(string)
+			fieldVal := currentField.GetTyped().(int)
+			statusVal := statusMessage.GetTyped().(string)
 
 			activeStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("15")).

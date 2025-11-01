@@ -7,17 +7,20 @@ package bubbly
 // This design follows Vue 3's approach where computed values are just
 // special refs that can be watched directly.
 //
+// Note: Uses GetTyped() for type-safe value access. The Get() method
+// (which returns any) is part of the Dependency interface for polymorphic usage.
+//
 // Example:
 //
 //	count := NewRef(5)
-//	doubled := NewComputed(func() int { return count.Get() * 2 })
+//	doubled := NewComputed(func() int { return count.GetTyped() * 2 })
 //
 //	// Both work with Watch()
 //	Watch(count, callback)    // Watch a Ref
 //	Watch(doubled, callback)  // Watch a Computed
 type Watchable[T any] interface {
-	// Get returns the current value
-	Get() T
+	// GetTyped returns the current value with full type safety
+	GetTyped() T
 	// addWatcher registers a watcher (internal method)
 	addWatcher(w *watcher[T])
 	// removeWatcher unregisters a watcher (internal method)
@@ -106,7 +109,7 @@ type WatchOption func(*WatchOptions)
 // Example with Computed:
 //
 //	count := NewRef(5)
-//	doubled := NewComputed(func() int { return count.Get() * 2 })
+//	doubled := NewComputed(func() int { return count.GetTyped() * 2 })
 //	cleanup := Watch(doubled, func(newVal, oldVal int) {
 //	    fmt.Printf("Doubled changed: %d → %d\n", oldVal, newVal)
 //	})
@@ -146,7 +149,7 @@ func Watch[T any](
 
 	// If deep watching is enabled, initialize prevValue with current value
 	if opts.Deep {
-		currentVal := source.Get()
+		currentVal := source.GetTyped()
 		w.prevValue = &currentVal
 	}
 
@@ -155,7 +158,7 @@ func Watch[T any](
 
 	// If Immediate option is set, execute callback with current value
 	if opts.Immediate {
-		currentVal := source.Get()
+		currentVal := source.GetTyped()
 		callback(currentVal, currentVal)
 	}
 
@@ -284,8 +287,8 @@ func WithDeepCompare[T any](compareFn DeepCompareFunc[T]) WatchOption {
 //	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    switch msg := msg.(type) {
 //	    case someMsg:
-//	        m.count.Set(m.count.Get() + 1)  // Queued if using WithFlush("post")
-//	        m.count.Set(m.count.Get() + 1)  // Replaces previous (batching)
+//	        m.count.Set(m.count.GetTyped() + 1)  // Queued if using WithFlush("post")
+//	        m.count.Set(m.count.GetTyped() + 1)  // Replaces previous (batching)
 //	    }
 //
 //	    // Execute all queued callbacks before returning

@@ -18,7 +18,7 @@ import "fmt"
 //	    // Create reactive state
 //	    count := ctx.Ref(0)
 //	    doubled := ctx.Computed(func() interface{} {
-//	        return count.Get().(int) * 2
+//	        return count.GetTyped().(int) * 2
 //	    })
 //
 //	    // Expose state to template
@@ -27,7 +27,7 @@ import "fmt"
 //
 //	    // Register event handlers
 //	    ctx.On("increment", func(data interface{}) {
-//	        current := count.Get().(int)
+//	        current := count.GetTyped().(int)
 //	        count.Set(current + 1)
 //	    })
 //
@@ -53,7 +53,7 @@ type Context struct {
 //
 //	count := ctx.Ref(0)
 //	count.Set(42)
-//	value := count.Get()
+//	value := count.GetTyped()
 func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 	return NewRef(value)
 }
@@ -65,7 +65,7 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 //
 //	count := ctx.Ref(10)
 //	doubled := ctx.Computed(func() interface{} {
-//	    return count.Get().(int) * 2
+//	    return count.GetTyped().(int) * 2
 //	})
 func (ctx *Context) Computed(fn func() interface{}) *Computed[interface{}] {
 	return NewComputed(fn)
@@ -103,7 +103,7 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 }
 
 // Expose stores a value in the component's state map, making it accessible
-// in the template function via RenderContext.Get().
+// in the template function via RenderContext.GetTyped().
 //
 // This is the primary way to share state between the setup function
 // and the template function.
@@ -241,9 +241,9 @@ func (ctx *Context) OnMounted(hook func()) {
 //
 //	count := ctx.Ref(0)
 //	ctx.OnUpdated(func() {
-//	    fmt.Printf("Count changed to: %d\n", count.Get())
+//	    fmt.Printf("Count changed to: %d\n", count.GetTyped())
 //	}, count)
-func (ctx *Context) OnUpdated(hook func(), deps ...*Ref[any]) {
+func (ctx *Context) OnUpdated(hook func(), deps ...Dependency) {
 	if ctx.component.lifecycle == nil {
 		ctx.component.lifecycle = newLifecycleManager(ctx.component)
 	}
@@ -372,4 +372,53 @@ func (ctx *Context) OnCleanup(cleanup CleanupFunc) {
 
 	// Register cleanup function
 	ctx.component.lifecycle.cleanups = append(ctx.component.lifecycle.cleanups, cleanup)
+}
+
+// Provide stores a value in the component's provides map, making it available
+// for injection by child components via Inject().
+//
+// This implements the provide/inject pattern for dependency injection,
+// allowing parent components to share values with descendants without
+// prop drilling.
+//
+// Provided values can be of any type, including reactive Refs and Computed values.
+// When a reactive value is provided, all injecting components share the same
+// instance and see updates automatically.
+//
+// Example:
+//
+//	// Parent provides theme
+//	theme := ctx.Ref("dark")
+//	ctx.Provide("theme", theme)
+//
+//	// Child injects theme
+//	theme := ctx.Inject("theme", ctx.Ref("light")).(*Ref[interface{}])
+func (ctx *Context) Provide(key string, value interface{}) {
+	ctx.component.providesMu.Lock()
+	ctx.component.provides[key] = value
+	ctx.component.providesMu.Unlock()
+}
+
+// Inject retrieves a value provided by an ancestor component.
+// It walks up the component tree looking for the first component that
+// provided the specified key.
+//
+// If the key is not found in any ancestor, the defaultValue is returned.
+// This allows components to work standalone with sensible defaults.
+//
+// The nearest provider wins - if both a parent and grandparent provide
+// the same key, the parent's value is returned.
+//
+// Example:
+//
+//	// Inject with default
+//	theme := ctx.Inject("theme", "light")
+//
+//	// Inject reactive Ref
+//	themeRef := ctx.Inject("theme", ctx.Ref("light")).(*Ref[interface{}])
+//
+//	// Inject with nil default (optional dependency)
+//	user := ctx.Inject("currentUser", nil)
+func (ctx *Context) Inject(key string, defaultValue interface{}) interface{} {
+	return ctx.component.inject(key, defaultValue)
 }

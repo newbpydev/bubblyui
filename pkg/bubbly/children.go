@@ -118,8 +118,7 @@ func (c *componentImpl) AddChild(child Component) error {
 
 	// Set parent reference
 	if childImpl, ok := child.(*componentImpl); ok {
-		parent := Component(c)
-		childImpl.parent = &parent
+		childImpl.parent = c
 	}
 
 	return nil
@@ -132,11 +131,7 @@ func calculateDepthToRoot(c *componentImpl) int {
 		return 0
 	}
 
-	if parentImpl, ok := (*c.parent).(*componentImpl); ok {
-		return calculateDepthToRoot(parentImpl) + 1
-	}
-
-	return 0
+	return calculateDepthToRoot(c.parent) + 1
 }
 
 // RemoveChild removes a child component from this component and clears its parent reference.
