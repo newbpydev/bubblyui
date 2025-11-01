@@ -65,10 +65,10 @@ type TimerPool struct {
 	misses atomic.Int64         // Cache misses (new timer created)
 }
 
-// TimerPoolStats contains statistics about timer pool usage.
+// Stats contains statistics about timer pool usage.
 //
 // These metrics help monitor pool efficiency and identify optimization opportunities.
-type TimerPoolStats struct {
+type Stats struct {
 	Active int64 // Number of currently active (acquired) timers
 	Hits   int64 // Number of times a timer was reused from the pool
 	Misses int64 // Number of times a new timer had to be created
@@ -130,7 +130,7 @@ func NewTimerPool() *TimerPool {
 //	case <-timer.C:
 //	    // Timer expired
 //	case <-ctx.Done():
-//	    // Context cancelled
+//	    // Context canceled
 //	}
 func (tp *TimerPool) Acquire(d time.Duration) *time.Timer {
 	// Try to get pooledTimer from pool
@@ -213,7 +213,7 @@ func (tp *TimerPool) Release(timer *time.Timer) {
 // Thread-safe: Safe to call concurrently from multiple goroutines.
 //
 // Returns:
-//   - TimerPoolStats: Current pool statistics
+//   - Stats: Current pool statistics
 //
 // Example:
 //
@@ -221,12 +221,12 @@ func (tp *TimerPool) Release(timer *time.Timer) {
 //	hitRate := float64(stats.Hits) / float64(stats.Hits + stats.Misses)
 //	fmt.Printf("Pool efficiency: %.1f%% hit rate\n", hitRate*100)
 //	fmt.Printf("Active timers: %d\n", stats.Active)
-func (tp *TimerPool) Stats() TimerPoolStats {
+func (tp *TimerPool) Stats() Stats {
 	tp.mu.RLock()
 	activeCount := int64(len(tp.active))
 	tp.mu.RUnlock()
 
-	return TimerPoolStats{
+	return Stats{
 		Active: activeCount,
 		Hits:   tp.hits.Load(),
 		Misses: tp.misses.Load(),

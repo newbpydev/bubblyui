@@ -225,7 +225,7 @@ func TestBubbleEvent_Coverage(t *testing.T) {
 	t.Run("bubbleEvent with stopped event", func(t *testing.T) {
 		parent := newComponentImpl("Parent")
 		child := newComponentImpl("Child")
-		parent.AddChild(child)
+		_ = parent.AddChild(child)
 
 		parentReceived := false
 		parent.On("test", func(data interface{}) {
@@ -249,7 +249,7 @@ func TestBubbleEvent_Coverage(t *testing.T) {
 	t.Run("bubbleEvent without handlers", func(t *testing.T) {
 		parent := newComponentImpl("Parent")
 		child := newComponentImpl("Child")
-		parent.AddChild(child)
+		_ = parent.AddChild(child)
 
 		// No handlers registered
 		event := &Event{

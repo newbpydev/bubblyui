@@ -4,25 +4,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
 )
 
 // ExampleNewPrometheusMetrics demonstrates creating Prometheus metrics with a custom registry.
 func ExampleNewPrometheusMetrics() {
 	// Create custom registry to avoid conflicts
 	reg := prometheus.NewRegistry()
-	
+
 	// Create Prometheus metrics using custom registry
 	metrics := monitoring.NewPrometheusMetrics(reg)
-	
+
 	// Set as global metrics
 	monitoring.SetGlobalMetrics(metrics)
-	
+
 	// In a real app, expose metrics endpoint:
 	// http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 	// http.ListenAndServe(":2112", nil)
-	
+
 	fmt.Println("Prometheus metrics initialized")
 	// Output: Prometheus metrics initialized
 }
@@ -31,16 +32,16 @@ func ExampleNewPrometheusMetrics() {
 func ExampleNewPrometheusMetrics_customRegistry() {
 	// Create a custom registry for isolated metrics
 	reg := prometheus.NewRegistry()
-	
+
 	// Create Prometheus metrics with custom registry
 	metrics := monitoring.NewPrometheusMetrics(reg)
-	
+
 	// Set as global metrics
 	monitoring.SetGlobalMetrics(metrics)
-	
+
 	// Use the registry with your metrics
 	_ = metrics // Metrics ready to use
-	
+
 	fmt.Println("Custom Prometheus registry initialized")
 	// Output: Custom Prometheus registry initialized
 }
@@ -127,20 +128,20 @@ func Example_prometheusMetricsRecordAllocationBytes() {
 func Example_prometheusMetricsComplete() {
 	// Create custom registry
 	reg := prometheus.NewRegistry()
-	
+
 	// Create Prometheus metrics
 	metrics := monitoring.NewPrometheusMetrics(reg)
-	
+
 	// Set as global metrics so composables automatically record
 	monitoring.SetGlobalMetrics(metrics)
-	
+
 	// Simulate some composable usage
 	metrics.RecordComposableCreation("UseState", 100*time.Nanosecond)
 	metrics.RecordComposableCreation("UseForm", 250*time.Nanosecond)
 	metrics.RecordProvideInjectDepth(3)
 	metrics.RecordCacheHit("reflection")
 	metrics.RecordAllocationBytes("UseState", 128)
-	
+
 	// In a real application, expose metrics endpoint:
 	// http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 	// http.ListenAndServe(":2112", nil)
@@ -150,7 +151,7 @@ func Example_prometheusMetricsComplete() {
 	//   - job_name: 'bubblyui-app'
 	//     static_configs:
 	//       - targets: ['localhost:2112']
-	
+
 	fmt.Println("Complete Prometheus setup initialized")
 	// Output: Complete Prometheus setup initialized
 }

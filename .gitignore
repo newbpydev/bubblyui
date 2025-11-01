@@ -32,6 +32,9 @@ cmd/examples/*/*/*-race
 coverage.txt
 coverage.html
 
+# Profiling files
+*.prof
+
 # Dependency directories
 vendor/
 

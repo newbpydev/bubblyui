@@ -39,14 +39,6 @@ func unmountComponent(c bubbly.Component) {
 	}
 }
 
-// getExposed safely gets an exposed value from a component.
-func getExposed(c bubbly.Component, key string) interface{} {
-	if impl, ok := c.(interface{ Get(string) interface{} }); ok {
-		return impl.Get(key)
-	}
-	return nil
-}
-
 // TestMemoryLeak_LongRunningComponent tests that a component running through
 // many update cycles doesn't leak memory from hook execution or dependency tracking.
 func TestMemoryLeak_LongRunningComponent(t *testing.T) {

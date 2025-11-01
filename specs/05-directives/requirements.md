@@ -45,8 +45,8 @@ Implement Vue-inspired directives that provide declarative ways to manipulate th
 4.5. Auto-cleanup on component unmount  
 
 ### 5. Show Directive (Visibility Toggle)
-5.1. Toggle element visibility via CSS display property  
-5.2. Keep element in DOM (unlike If)  
+5.1. Toggle content visibility in terminal output  
+5.2. Keep content in output with [Hidden] marker (unlike If)  
 5.3. Fast toggle performance  
 5.4. Work with Ref[bool] and computed values  
 
@@ -425,5 +425,5 @@ Template(func(ctx RenderContext) string {
 2. How to handle directive errors gracefully?
 3. Should we support custom user-defined directives?
 4. Optimal strategy for ForEach diffing algorithm?
-5. Should Show support CSS transitions/animations?
+5. Should Show support terminal transitions/animations with Lipgloss?
 6. Directive caching strategy for performance?

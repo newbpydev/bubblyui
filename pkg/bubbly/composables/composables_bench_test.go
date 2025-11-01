@@ -530,7 +530,7 @@ func BenchmarkMemoryGrowth_UseState(b *testing.B) {
 	})
 
 	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
-	
+
 	// Report as metric for tracking
 	b.ReportMetric(float64(growth), "total-growth-bytes")
 }
@@ -582,7 +582,7 @@ func BenchmarkMemoryGrowth_LongRunning(b *testing.B) {
 	start, end, growth := MeasureMemoryGrowth(b, 2*time.Second, func() {
 		ctx := bubbly.NewTestContext()
 		state := UseState(ctx, 0)
-		
+
 		// Simulate typical usage: create, update, read
 		state.Set(state.Get() + 1)
 		_ = state.Get()
@@ -590,7 +590,7 @@ func BenchmarkMemoryGrowth_LongRunning(b *testing.B) {
 
 	b.Logf("Memory: start=%d end=%d growth=%d bytes", start, end, growth)
 	b.ReportMetric(float64(growth), "total-growth-bytes")
-	
+
 	// Memory growth is expected to be minimal for well-behaved code
 	// Allow up to 100KB total growth for long-running test
 	if growth > 100000 {
@@ -603,7 +603,7 @@ func BenchmarkMemoryGrowth_LongRunning(b *testing.B) {
 func BenchmarkMemoryGrowth_WithCleanup(b *testing.B) {
 	start, end, growth := MeasureMemoryGrowth(b, 500*time.Millisecond, func() {
 		ctx := bubbly.NewTestContext()
-		
+
 		UseEffect(ctx, func() UseEffectCleanup {
 			// Effect with cleanup
 			return func() {
@@ -623,7 +623,7 @@ func BenchmarkMemoryGrowth_WithCleanup(b *testing.B) {
 // BenchmarkWithStats_UseState demonstrates using RunWithStats for detailed metrics
 func BenchmarkWithStats_UseState(b *testing.B) {
 	ctx := bubbly.NewTestContext()
-	
+
 	RunWithStats(b, func() {
 		state := UseState(ctx, 42)
 		state.Set(100)
@@ -634,7 +634,7 @@ func BenchmarkWithStats_UseState(b *testing.B) {
 // BenchmarkWithStats_ComposableChain demonstrates stats for complex operations
 func BenchmarkWithStats_ComposableChain(b *testing.B) {
 	ctx := bubbly.NewTestContext()
-	
+
 	RunWithStats(b, func() {
 		count, inc, _ := UseDoubleCounter(ctx, 0)
 		inc()

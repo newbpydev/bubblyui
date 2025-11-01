@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestUseThrottle_ZeroDelayMultipleCalls tests zero delay with multiple rapid calls
@@ -15,7 +16,7 @@ func TestUseThrottle_ZeroDelayMultipleCalls(t *testing.T) {
 	ctx := bubbly.NewTestContext()
 	var callCount int32
 	var mu sync.Mutex
-	
+
 	fn := func() {
 		mu.Lock()
 		callCount++
@@ -33,7 +34,7 @@ func TestUseThrottle_ZeroDelayMultipleCalls(t *testing.T) {
 	mu.Lock()
 	count := callCount
 	mu.Unlock()
-	
+
 	assert.Equal(t, int32(5), count, "All calls should execute with zero delay")
 }
 
@@ -118,7 +119,7 @@ func TestUseThrottle_ConcurrentCallsWithZeroDelay(t *testing.T) {
 	mu.Lock()
 	count := callCount
 	mu.Unlock()
-	
+
 	assert.Equal(t, int32(10), count, "All concurrent calls should execute with zero delay")
 }
 

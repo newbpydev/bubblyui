@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // testLocalStorageErrorReporter is a simple error reporter for testing

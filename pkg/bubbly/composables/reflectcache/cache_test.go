@@ -279,7 +279,7 @@ func TestFieldCache_InvalidType(t *testing.T) {
 func TestFieldCache_UnexportedFields(t *testing.T) {
 	type WithUnexported struct {
 		Public  string
-		private int
+		private int //nolint:unused // Intentionally unused for testing unexported field handling
 		Another bool
 	}
 

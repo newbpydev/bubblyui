@@ -12,7 +12,7 @@ import (
 func createTestContext() *bubbly.Context {
 	var ctx *bubbly.Context
 	// Create a minimal component to get a valid context
-	bubbly.NewComponent("TestComponent").
+	component, _ := bubbly.NewComponent("Test").
 		Setup(func(c *bubbly.Context) {
 			ctx = c
 		}).
@@ -20,6 +20,7 @@ func createTestContext() *bubbly.Context {
 			return ""
 		}).
 		Build()
+	_ = component // Silence unused warning
 	return ctx
 }
 

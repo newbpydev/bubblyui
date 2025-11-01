@@ -56,7 +56,7 @@ func TestComposablesInComponents(t *testing.T) {
 
 		var fetchCalled bool
 		var mu sync.Mutex
-		fetchFunc := func() (*User, error) {
+		fetchFunc := func() (*User, error) { //nolint:unparam // Error is always nil in success test case
 			mu.Lock()
 			fetchCalled = true
 			mu.Unlock()

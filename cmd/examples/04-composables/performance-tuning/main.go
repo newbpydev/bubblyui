@@ -98,13 +98,13 @@ func benchmarkTickCmd() tea.Cmd {
 // runDebounceTest creates multiple debounced composables and measures performance
 func runDebounceTest(ctx *bubbly.Context, count int) (time.Duration, int) {
 	start := time.Now()
-	
+
 	// Create multiple debounced composables
 	for i := 0; i < count; i++ {
 		value := composables.UseState(ctx, i)
 		_ = composables.UseDebounce(ctx, value.Value, 100)
 	}
-	
+
 	elapsed := time.Since(start)
 	return elapsed, count
 }

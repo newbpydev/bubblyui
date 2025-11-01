@@ -160,7 +160,9 @@ func TestUseLocalStorage_StorageUnavailable(t *testing.T) {
 	tempDir := t.TempDir()
 	err := os.Chmod(tempDir, 0444) // Read-only
 	require.NoError(t, err)
-	defer os.Chmod(tempDir, 0755) // Restore for cleanup
+	defer func() {
+		_ = os.Chmod(tempDir, 0755) // Restore for cleanup
+	}()
 
 	storage := NewFileStorage(tempDir)
 	key := "test-readonly"

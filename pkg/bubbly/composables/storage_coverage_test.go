@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // testErrorReporter is a simple error reporter for testing
@@ -84,7 +85,9 @@ func TestFileStorage_SaveWriteError(t *testing.T) {
 	// Make directory read-only
 	err = os.Chmod(readOnlyDir, 0444)
 	assert.NoError(t, err)
-	defer os.Chmod(readOnlyDir, 0755) // Restore for cleanup
+	defer func() {
+		_ = os.Chmod(readOnlyDir, 0755) // Restore for cleanup
+	}()
 
 	storage := NewFileStorage(readOnlyDir)
 
@@ -151,7 +154,7 @@ func TestFileStorage_SaveSuccessAfterMkdir(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err, "Save should succeed and create nested directories")
-	
+
 	// Verify file was created
 	data, err := os.ReadFile(filepath.Join(nestedDir, "test.json"))
 	assert.NoError(t, err)
@@ -173,7 +176,7 @@ func TestFileStorage_SaveOverwritesExisting(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err, "Save should succeed when overwriting")
-	
+
 	// Verify new data
 	data, err := os.ReadFile(filepath.Join(tempDir, "test.json"))
 	assert.NoError(t, err)
