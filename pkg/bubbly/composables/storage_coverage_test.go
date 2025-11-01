@@ -85,7 +85,9 @@ func TestFileStorage_SaveWriteError(t *testing.T) {
 	// Make directory read-only
 	err = os.Chmod(readOnlyDir, 0444)
 	assert.NoError(t, err)
-	defer os.Chmod(readOnlyDir, 0755) // Restore for cleanup
+	defer func() {
+		_ = os.Chmod(readOnlyDir, 0755) // Restore for cleanup
+	}()
 
 	storage := NewFileStorage(readOnlyDir)
 

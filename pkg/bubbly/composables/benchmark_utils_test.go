@@ -18,7 +18,7 @@ func TestCompareResults(t *testing.T) {
 // TestAllocPerOp tests the AllocPerOp helper function
 func TestAllocPerOp(t *testing.T) {
 	b := &testing.B{}
-	b.N = 100
+	// Note: b.N is set by the testing framework, we don't assign to it
 
 	// Act
 	result := AllocPerOp(b)
@@ -30,7 +30,7 @@ func TestAllocPerOp(t *testing.T) {
 // TestBytesPerOp tests the BytesPerOp helper function
 func TestBytesPerOp(t *testing.T) {
 	b := &testing.B{}
-	b.N = 100
+	// Note: b.N is set by the testing framework, we don't assign to it
 
 	// Act
 	result := BytesPerOp(b)

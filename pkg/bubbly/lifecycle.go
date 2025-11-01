@@ -637,43 +637,44 @@ func (lm *LifecycleManager) executeCleanups() {
 	}
 }
 
-// safeExecuteCleanup executes a single cleanup function with panic recovery.
-// If the cleanup panics, the panic is caught, reported to observability, and execution continues.
-// This ensures that one failing cleanup doesn't prevent other cleanups from executing.
+// safeExecuteWithRecovery is a generic helper for executing functions with panic recovery.
 //
-// The method:
-//   - Uses defer/recover to catch panics
-//   - Reports panic to observability system (Sentry, console, etc.)
-//   - Captures stack trace and context for debugging
-//   - Allows execution to continue normally
+// This method provides centralized panic recovery logic to eliminate code duplication
+// across different lifecycle methods. It captures panics, reports them through the
+// observability system with full context, and prevents application crashes.
+//
+// Parameters:
+//   - eventName: The event name for observability reporting (e.g., "lifecycle:cleanup")
+//   - hookType: The type of hook for tagging (e.g., "cleanup", "watcher_cleanup")
+//   - fn: The function to execute with panic protection
+//   - extra: Additional metadata to include in error reports
 //
 // Example:
 //
-//	lm.safeExecuteCleanup(cleanup)
-func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
+//	lm.safeExecuteWithRecovery("lifecycle:cleanup", "cleanup", func() {
+//	    cleanup()
+//	}, map[string]interface{}{"cleanup_count": len(lm.cleanups)})
+func (lm *LifecycleManager) safeExecuteWithRecovery(eventName, hookType string, fn func(), extra map[string]interface{}) {
 	defer func() {
 		if r := recover(); r != nil {
 			// Report panic to observability system
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
 					ComponentName: lm.component.name,
-					EventName:     "lifecycle:cleanup",
+					EventName:     eventName,
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
 					ComponentName: lm.component.name,
 					ComponentID:   lm.component.id,
-					EventName:     "lifecycle:cleanup",
+					EventName:     eventName,
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
 					Tags: map[string]string{
-						"hook_type": "cleanup",
+						"hook_type": hookType,
 					},
-					Extra: map[string]interface{}{
-						"cleanup_count": len(lm.cleanups),
-						"is_unmounting": lm.unmounting,
-					},
+					Extra: extra,
 				}
 
 				reporter.ReportPanic(panicErr, ctx)
@@ -681,8 +682,32 @@ func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
 		}
 	}()
 
-	// Execute the cleanup function
-	cleanup()
+	// Execute the function
+	fn()
+}
+
+// safeExecuteCleanup wraps cleanup function execution with panic recovery.
+//
+// This method ensures that panics in cleanup functions don't crash the application
+// and are properly reported through the observability system. This is critical for
+// maintaining application stability during component unmount.
+//
+// The panic recovery includes:
+//   - Full stack trace capture
+//   - Component context (name, ID)
+//   - Cleanup metadata (count, unmounting state)
+//   - Integration with observability system
+//
+// Example:
+//
+//	lm.safeExecuteCleanup(cleanup)
+func (lm *LifecycleManager) safeExecuteCleanup(cleanup CleanupFunc) {
+	lm.safeExecuteWithRecovery("lifecycle:cleanup", "cleanup", func() {
+		cleanup()
+	}, map[string]interface{}{
+		"cleanup_count": len(lm.cleanups),
+		"is_unmounting": lm.unmounting,
+	})
 }
 
 // checkUpdateDepth checks if the update count has exceeded the maximum depth.
@@ -757,52 +782,26 @@ func (lm *LifecycleManager) cleanupWatchers() {
 	}
 }
 
-// safeExecuteWatcherCleanup executes a single watcher cleanup function with panic recovery.
-// If the cleanup panics, the panic is caught, reported to observability, and execution continues.
-// This ensures that one failing watcher cleanup doesn't prevent other cleanups from executing.
+// safeExecuteWatcherCleanup wraps watcher cleanup function execution with panic recovery.
 //
-// The method:
-//   - Uses defer/recover to catch panics
-//   - Reports panic to observability system (Sentry, console, etc.)
-//   - Captures stack trace and context for debugging
-//   - Allows execution to continue normally
+// This method ensures that panics in watcher cleanup functions don't crash the application
+// and are properly reported through the observability system. This is critical for
+// maintaining application stability during component unmount.
+//
+// The panic recovery includes:
+//   - Full stack trace capture
+//   - Component context (name, ID)
+//   - Watcher metadata (count, unmounting state)
+//   - Integration with observability system
 //
 // Example:
 //
 //	lm.safeExecuteWatcherCleanup(cleanup)
 func (lm *LifecycleManager) safeExecuteWatcherCleanup(cleanup func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			// Report panic to observability system
-			if reporter := observability.GetErrorReporter(); reporter != nil {
-				panicErr := &observability.HandlerPanicError{
-					ComponentName: lm.component.name,
-					EventName:     "lifecycle:watcher_cleanup",
-					PanicValue:    r,
-				}
-
-				ctx := &observability.ErrorContext{
-					ComponentName: lm.component.name,
-					ComponentID:   lm.component.id,
-					EventName:     "lifecycle:watcher_cleanup",
-					Timestamp:     time.Now(),
-					StackTrace:    debug.Stack(),
-					Tags: map[string]string{
-						"hook_type": "watcher_cleanup",
-					},
-					Extra: map[string]interface{}{
-						"watcher_count": len(lm.watchers),
-						"is_unmounting": lm.unmounting,
-					},
-				}
-
-				reporter.ReportPanic(panicErr, ctx)
-			}
-		}
-	}()
-
-	// Execute the watcher cleanup function
-	cleanup()
+	lm.safeExecuteWithRecovery("lifecycle:watcher_cleanup", "watcher_cleanup", cleanup, map[string]interface{}{
+		"watcher_count": len(lm.watchers),
+		"is_unmounting": lm.unmounting,
+	})
 }
 
 // cleanupEventHandlers clears all registered event handlers from the component.
