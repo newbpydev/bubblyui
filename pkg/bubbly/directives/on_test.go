@@ -248,3 +248,269 @@ func TestOnDirective_WithForEach(t *testing.T) {
 	assert.Contains(t, result, "[Event:click]Item 2")
 	assert.Contains(t, result, "[Event:click]Item 3")
 }
+
+// TestOnDirective_PreventDefault tests PreventDefault modifier.
+func TestOnDirective_PreventDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *OnDirective
+		expected string
+	}{
+		{
+			name: "without PreventDefault",
+			setup: func() *OnDirective {
+				return On("submit", func(data interface{}) {})
+			},
+			expected: "[Event:submit]Submit",
+		},
+		{
+			name: "with PreventDefault",
+			setup: func() *OnDirective {
+				return On("submit", func(data interface{}) {}).PreventDefault()
+			},
+			expected: "[Event:submit:prevent]Submit",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			directive := tt.setup()
+
+			// Act
+			result := directive.Render("Submit")
+
+			// Assert
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestOnDirective_StopPropagation tests StopPropagation modifier.
+func TestOnDirective_StopPropagation(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *OnDirective
+		expected string
+	}{
+		{
+			name: "without StopPropagation",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {})
+			},
+			expected: "[Event:click]Button",
+		},
+		{
+			name: "with StopPropagation",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {}).StopPropagation()
+			},
+			expected: "[Event:click:stop]Button",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			directive := tt.setup()
+
+			// Act
+			result := directive.Render("Button")
+
+			// Assert
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestOnDirective_Once tests Once modifier.
+func TestOnDirective_Once(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *OnDirective
+		expected string
+	}{
+		{
+			name: "without Once",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {})
+			},
+			expected: "[Event:click]Click",
+		},
+		{
+			name: "with Once",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {}).Once()
+			},
+			expected: "[Event:click:once]Click",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			directive := tt.setup()
+
+			// Act
+			result := directive.Render("Click")
+
+			// Assert
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestOnDirective_ModifierChaining tests chaining multiple modifiers.
+func TestOnDirective_ModifierChaining(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *OnDirective
+		expected string
+	}{
+		{
+			name: "PreventDefault + StopPropagation",
+			setup: func() *OnDirective {
+				return On("submit", func(data interface{}) {}).
+					PreventDefault().
+					StopPropagation()
+			},
+			expected: "[Event:submit:prevent:stop]Form",
+		},
+		{
+			name: "PreventDefault + Once",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {}).
+					PreventDefault().
+					Once()
+			},
+			expected: "[Event:click:prevent:once]Button",
+		},
+		{
+			name: "StopPropagation + Once",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {}).
+					StopPropagation().
+					Once()
+			},
+			expected: "[Event:click:stop:once]Link",
+		},
+		{
+			name: "All three modifiers",
+			setup: func() *OnDirective {
+				return On("submit", func(data interface{}) {}).
+					PreventDefault().
+					StopPropagation().
+					Once()
+			},
+			expected: "[Event:submit:prevent:stop:once]Submit",
+		},
+		{
+			name: "Modifiers in different order",
+			setup: func() *OnDirective {
+				return On("click", func(data interface{}) {}).
+					Once().
+					PreventDefault().
+					StopPropagation()
+			},
+			expected: "[Event:click:prevent:stop:once]Button",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			directive := tt.setup()
+
+			// Act
+			result := directive.Render(tt.expected[len(tt.expected)-len("]Form"):])
+
+			// Assert
+			assert.Contains(t, result, "[Event:")
+			// Verify all expected modifiers are present
+			if tt.name == "PreventDefault + StopPropagation" {
+				assert.Contains(t, result, "prevent")
+				assert.Contains(t, result, "stop")
+			}
+		})
+	}
+}
+
+// TestOnDirective_FluentAPI tests that modifiers return the directive for chaining.
+func TestOnDirective_FluentAPI(t *testing.T) {
+	// Arrange
+	directive := On("click", func(data interface{}) {})
+
+	// Act
+	result1 := directive.PreventDefault()
+	result2 := result1.StopPropagation()
+	result3 := result2.Once()
+
+	// Assert
+	assert.Same(t, directive, result1, "PreventDefault should return same directive")
+	assert.Same(t, directive, result2, "StopPropagation should return same directive")
+	assert.Same(t, directive, result3, "Once should return same directive")
+}
+
+// TestOnDirective_ModifiersAreIdempotent tests calling modifiers multiple times.
+func TestOnDirective_ModifiersAreIdempotent(t *testing.T) {
+	// Arrange
+	directive := On("click", func(data interface{}) {})
+
+	// Act
+	directive.PreventDefault().PreventDefault()
+	directive.StopPropagation().StopPropagation()
+	directive.Once().Once()
+	result := directive.Render("Button")
+
+	// Assert
+	assert.Contains(t, result, "prevent")
+	assert.Contains(t, result, "stop")
+	assert.Contains(t, result, "once")
+	// Should only appear once each, not duplicated
+	assert.Equal(t, 1, countOccurrences(result, "prevent"))
+	assert.Equal(t, 1, countOccurrences(result, "stop"))
+	assert.Equal(t, 1, countOccurrences(result, "once"))
+}
+
+// TestOnDirective_ModifiersWithEmptyEvent tests modifiers with empty event name.
+func TestOnDirective_ModifiersWithEmptyEvent(t *testing.T) {
+	// Arrange
+	directive := On("", func(data interface{}) {}).
+		PreventDefault().
+		StopPropagation().
+		Once()
+
+	// Act
+	result := directive.Render("content")
+
+	// Assert
+	assert.Contains(t, result, "[Event:")
+	assert.Contains(t, result, "prevent")
+	assert.Contains(t, result, "stop")
+	assert.Contains(t, result, "once")
+}
+
+// Helper function to count occurrences of substring
+func countOccurrences(s, substr string) int {
+	count := 0
+	start := 0
+	for {
+		idx := indexOf(s[start:], substr)
+		if idx == -1 {
+			break
+		}
+		count++
+		start += idx + len(substr)
+	}
+	return count
+}
+
+// Helper function to find index of substring
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
