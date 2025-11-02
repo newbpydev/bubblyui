@@ -512,35 +512,101 @@ func Checkbox(props CheckboxProps) bubbly.Component
 
 ---
 
-### Task 2.3: Select Component
+### Task 2.3: Select Component ✅ COMPLETED
 **Description:** Implement Select dropdown molecule
 
-**Prerequisites:** Task 2.2
+**Prerequisites:** Task 2.2 ✅
 
 **Unlocks:** Task 2.4 (TextArea)
 
 **Files:**
-- `pkg/components/select.go`
-- `pkg/components/select_test.go`
+- `pkg/components/select.go` ✅
+- `pkg/components/select_test.go` ✅
 
 **Type Safety:**
 ```go
 type SelectProps[T any] struct {
-    Value    *bubbly.Ref[T]
-    Options  []T
-    OnChange func(T)
+    Value        *bubbly.Ref[T]
+    Options      []T
+    OnChange     func(T)
+    Placeholder  string
+    Disabled     bool
+    RenderOption func(T) string
+    CommonProps
 }
 
-func Select[T any](props SelectProps[T]) *bubbly.Component
+func Select[T any](props SelectProps[T]) bubbly.Component
 ```
 
 **Tests:**
-- [ ] Select renders
-- [ ] Options display
-- [ ] Selection works
-- [ ] Value binds
+- [x] Select renders
+- [x] Options display
+- [x] Selection works
+- [x] Value binds
+- [x] 92.5% test coverage (package-wide)
+- [x] All quality gates passed
 
-**Estimated effort:** 4 hours
+**Implementation Notes:**
+- Implemented Select molecule component with full generic type support
+- Features implemented:
+  - Generic type parameter T for any option type (string, int, struct, etc.)
+  - Reactive value binding using `*bubbly.Ref[T]`
+  - Dropdown open/close functionality via "toggle" event
+  - Keyboard navigation with up/down arrow keys (with wraparound)
+  - Selection confirmation with "select" event
+  - Close without selecting via "close" event
+  - OnChange callback when selection changes
+  - Placeholder support (shown when no value selected)
+  - Disabled state support (prevents opening/interaction)
+  - Custom option rendering via RenderOption function
+  - Default rendering using fmt.Sprintf("%v", option)
+  - Theme integration via Provide/Inject
+  - Custom style override support
+- Internal state management:
+  - isOpen *bubbly.Ref[bool] - tracks dropdown expanded/collapsed state
+  - selectedIndex *bubbly.Ref[int] - tracks highlighted option in dropdown
+  - Automatic index finding based on current value
+- Visual indicators:
+  - Closed: ▼ indicator with selected value
+  - Open: ▲ indicator with options list
+  - Highlighted option: Primary color with ">" prefix
+  - Other options: Foreground color with spacing
+- Styling:
+  - Closed state: Secondary border color
+  - Open state: Primary border color
+  - Disabled: Muted color, no interaction
+  - Selected option: Primary color, bold
+  - Border: rounded border from theme
+- Comprehensive test suite with 18 test functions covering:
+  - Component creation with generic types
+  - Rendering (selected value, placeholder, closed state)
+  - Open/close toggle functionality
+  - Keyboard navigation (up/down with wraparound)
+  - Selection confirmation
+  - Value binding and reactivity
+  - OnChange callback
+  - Disabled state behavior
+  - Theme integration
+  - Custom styling
+  - Bubbletea integration (Init/Update/View)
+  - Empty options handling
+  - Custom RenderOption function
+  - Multiple type support (string, int, struct)
+  - Close event (without selecting)
+  - No OnChange callback scenario
+  - Props accessibility
+- Follows TDD Red-Green-Refactor cycle
+- Zero lint warnings, properly formatted
+- All tests pass with race detector
+- Integrates seamlessly with framework features:
+  - Reactivity (Feature 01): Uses Ref[T] for generic state
+  - Component Model (Feature 02): Follows NewComponent pattern
+  - Composition API (Feature 04): Uses Inject for theme, Expose for state
+- Pattern matches Button, Input, and Checkbox components for consistency
+- More complex than Checkbox - includes state management and keyboard navigation
+- Generic type support allows flexibility for any option type
+
+**Actual effort:** 3 hours
 
 ---
 
