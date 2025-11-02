@@ -304,27 +304,20 @@ func createDashboard() (bubbly.Component, error) {
 				doneCard.View(),
 			)
 
-			// Table section
-			tableStyle := lipgloss.NewStyle().
-				Padding(1, 2).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("99")).
-				Width(85)
-
-			tableSection := tableStyle.Render(
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					lipgloss.NewStyle().Bold(true).Render("User Activity"),
-					"",
-					table.View(),
-				),
-			)
+			// Table section - render directly without extra wrapper
+			tableTitle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("99")).
+				Padding(0, 1).
+				Render("User Activity")
 
 			return lipgloss.JoinVertical(
 				lipgloss.Left,
 				statsRow,
 				"",
-				tableSection,
+				tableTitle,
+				"",
+				table.View(),
 			)
 		}).
 		Build()
