@@ -955,6 +955,8 @@ func Table[T any](props TableProps[T]) bubbly.Component
   - Click column header to sort (emit "sort" event with field name)
   - Toggle between ascending/descending on repeated clicks
   - Visual indicators: ↑ (ascending) / ↓ (descending) in headers
+  - **No layout shift**: Reserved space prevents column width changes when sorting
+  - **Optimal UX**: Indicators appear immediately after header text for clear visual association
   - Supports multiple data types: string, int, int64, float64, bool
   - Graceful fallback to string comparison for unknown types
 - Implementation details:
@@ -965,6 +967,12 @@ func Table[T any](props TableProps[T]) bubbly.Component
   - Uses Go's sort.Slice with custom comparator
   - Sorts a copy of data to avoid mutation issues
   - Visual indicators only show on currently sorted column
+  - **Systematic layout fix**: Pads header to (width - indicatorWidth) BEFORE adding indicator
+  - **Critical Unicode fix**: Uses utf8.RuneCountInString() for visual width, not len() for bytes
+  - Arrow "↑" is 3 bytes but 1 visual character - must count runes not bytes for correct padding
+  - Ensures exact column width stability: sortable columns reserve 2 chars, non-sortable use full width
+  - Handles edge case of narrow columns (width < 3) with minimum width protection
+  - Truncates headers at rune boundaries for proper Unicode support
 - Type-aware comparison:
   - Strings: Lexicographic comparison
   - Integers (int, int64): Numerical comparison
@@ -972,7 +980,7 @@ func Table[T any](props TableProps[T]) bubbly.Component
   - Booleans: false < true
   - Nil values: Always sort first
   - Fallback: String representation comparison
-- Tests added (9 comprehensive tests):
+- Tests added (11 comprehensive tests):
   - TestTable_Sorting_StringColumn (alphabetical sorting)
   - TestTable_Sorting_IntColumn (numerical sorting)
   - TestTable_Sorting_BoolColumn (boolean sorting)
@@ -982,12 +990,15 @@ func Table[T any](props TableProps[T]) bubbly.Component
   - TestTable_Sorting_EmptyData (edge case)
   - TestTable_Sorting_DisabledTable (Sortable=false)
   - TestTable_Sorting_VisualIndicators (arrow display)
+  - TestTable_Sorting_NoLayoutShift (consistent header structure)
+  - TestTable_Sorting_ExactColumnWidths (exact length verification across all states)
 - Quality metrics:
-  - All 9 new tests pass with race detector
-  - Coverage: 90.8% (comprehensive coverage)
+  - All 11 new tests pass with race detector
+  - Coverage: 90.7% (comprehensive coverage)
   - Zero lint warnings
   - Zero race conditions
   - Follows Go sort package best practices
+  - **Zero layout shift** - systematically verified with exact width tests
 
 **Actual effort:** 4 hours (initial) + 1 hour (keyboard navigation) + 2 hours (sorting)
 

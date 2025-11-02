@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -301,20 +302,63 @@ func Table[T any](props TableProps[T]) bubbly.Component {
 				Padding(0, 1)
 
 			// Build header row with sort indicators
+			const sortIndicatorWidth = 2
+
 			var headerParts []string
 			for _, col := range p.Columns {
-				headerText := col.Header
+				var finalHeader string
 
-				// Add sort indicator if this column is sorted
-				if p.Sortable && col.Sortable && currentSortColumn == col.Field {
-					if ascending {
-						headerText += " ↑"
-					} else {
-						headerText += " ↓"
+				if p.Sortable && col.Sortable {
+					// For sortable columns, ensure header + indicator fits in width
+					// Calculate space needed for header text
+					maxHeaderWidth := col.Width - sortIndicatorWidth
+					if maxHeaderWidth < 1 {
+						maxHeaderWidth = 1
 					}
+
+					// Truncate header if needed (using rune count for visual width)
+					headerText := col.Header
+					headerRuneCount := utf8.RuneCountInString(headerText)
+					if headerRuneCount > maxHeaderWidth {
+						// Convert to runes for proper truncation
+						runes := []rune(headerText)
+						if maxHeaderWidth <= 3 {
+							headerText = string(runes[:maxHeaderWidth])
+						} else {
+							headerText = string(runes[:maxHeaderWidth-3]) + "..."
+						}
+					}
+
+					// Build the indicator string
+					var indicator string
+					if currentSortColumn == col.Field {
+						if ascending {
+							indicator = " ↑"
+						} else {
+							indicator = " ↓"
+						}
+					} else {
+						// Reserve space but leave invisible
+						indicator = "  "
+					}
+
+					// Combine header + indicator, then manually pad to exact width
+					// CRITICAL: Use RuneCountInString() to count visual characters, not bytes!
+					// The arrow "↑" is 3 bytes but displays as 1 character
+					combined := headerText + indicator
+					combinedRuneCount := utf8.RuneCountInString(combined)
+					paddingNeeded := col.Width - combinedRuneCount
+					if paddingNeeded > 0 {
+						finalHeader = combined + strings.Repeat(" ", paddingNeeded)
+					} else {
+						finalHeader = combined
+					}
+				} else {
+					// Non-sortable columns: use padString for full width
+					finalHeader = padString(col.Header, col.Width)
 				}
 
-				headerParts = append(headerParts, padString(headerText, col.Width))
+				headerParts = append(headerParts, finalHeader)
 			}
 			headerRow := headerStyle.Render(strings.Join(headerParts, " "))
 
@@ -420,21 +464,26 @@ func getFieldValue[T any](row T, fieldName string) string {
 // padString pads or truncates a string to the specified width.
 // If the string is longer than width, it truncates with "...".
 // If shorter, it pads with spaces on the right.
+// Uses rune count (visual character width) instead of byte count.
 func padString(s string, width int) string {
 	if width <= 0 {
 		return s
 	}
 
+	// Count visual characters (runes), not bytes
+	runeCount := utf8.RuneCountInString(s)
+
 	// Truncate if too long
-	if len(s) > width {
+	if runeCount > width {
+		runes := []rune(s)
 		if width <= 3 {
-			return s[:width]
+			return string(runes[:width])
 		}
-		return s[:width-3] + "..."
+		return string(runes[:width-3]) + "..."
 	}
 
 	// Pad if too short
-	return s + strings.Repeat(" ", width-len(s))
+	return s + strings.Repeat(" ", width-runeCount)
 }
 
 // getFieldValueForSort extracts a field value from a struct for sorting purposes.

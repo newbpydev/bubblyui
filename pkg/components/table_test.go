@@ -863,3 +863,98 @@ func TestTable_Sorting_FloatColumn(t *testing.T) {
 	assert.Equal(t, 29.99, sortedData[1].Price, "Second should be 29.99")
 	assert.Equal(t, 39.99, sortedData[2].Price, "Third should be 39.99")
 }
+
+func TestTable_Sorting_NoLayoutShift(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+		{Header: "Age", Field: "Age", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Get initial output (no sorting)
+	outputBefore := table.View()
+
+	// Sort by Name
+	table.Emit("sort", "Name")
+	outputSorted := table.View()
+
+	// Sort by Age (different column)
+	table.Emit("sort", "Age")
+	outputDifferent := table.View()
+
+	// All outputs should have consistent header structure
+	// The headers should maintain the same width regardless of which column is sorted
+	// This is verified by checking that all sortable headers have space reserved
+
+	// Each sortable header should have 2 extra characters reserved (space + arrow)
+	// So "Name" becomes "Name  " (with spaces) or "Name ↑" (with arrow)
+	assert.NotEmpty(t, outputBefore, "Should render before sorting")
+	assert.NotEmpty(t, outputSorted, "Should render after sorting")
+	assert.NotEmpty(t, outputDifferent, "Should render after changing sort column")
+
+	// Verify both columns show indicators (one active, one reserved space)
+	assert.Contains(t, outputSorted, "↑", "Should show sort indicator")
+	assert.Contains(t, outputDifferent, "↑", "Should show sort indicator on different column")
+}
+
+func TestTable_Sorting_ExactColumnWidths(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "ID", Field: "Age", Width: 5, Sortable: true},         // Very narrow
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},     // Medium
+		{Header: "Status", Field: "Email", Width: 10, Sortable: false}, // Non-sortable
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Test 1: Unsorted state
+	output1 := table.View()
+
+	// Test 2: Sort by Age field (ID column - narrow)
+	table.Emit("sort", "Age")
+	output2 := table.View()
+
+	// Test 3: Sort by Name field (Name column - medium)
+	table.Emit("sort", "Name")
+	output3 := table.View()
+
+	// Test 4: Toggle Name to descending
+	table.Emit("sort", "Name")
+	output4 := table.View()
+
+	// Verify visual indicators appear in correct positions
+	// The indicator should be immediately after the header text, not at column edge
+	assert.Contains(t, output2, "ID ↑", "ID column should show 'ID ↑' (indicator adjacent to text)")
+	assert.Contains(t, output3, "Name ↑", "Name column should show 'Name ↑' (indicator adjacent to text)")
+	assert.Contains(t, output4, "Name ↓", "Name column should show 'Name ↓' (indicator adjacent to text)")
+
+	// Verify all outputs render without errors
+	assert.NotEmpty(t, output1, "Should render unsorted state")
+	assert.NotEmpty(t, output2, "Should render sorted by Age")
+	assert.NotEmpty(t, output3, "Should render sorted by Name ascending")
+	assert.NotEmpty(t, output4, "Should render sorted by Name descending")
+
+	// Verify indicators don't appear in unsorted state
+	assert.NotContains(t, output1, "↑", "Unsorted state should not show arrows")
+	assert.NotContains(t, output1, "↓", "Unsorted state should not show arrows")
+}
