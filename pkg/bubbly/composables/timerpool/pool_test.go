@@ -153,12 +153,20 @@ func TestTimerPool_Stats(t *testing.T) {
 	stats = pool.Stats()
 	assert.Equal(t, int64(0), stats.Active, "Should have 0 active timers after release")
 
-	// Acquire again (hit - timer in pool)
+	// Acquire again - may be hit or miss depending on whether sync.Pool retained the timer
+	// sync.Pool can discard items at any time (especially during GC), so we can't
+	// guarantee the timer will be reused. Instead, verify stats are consistent.
 	timer2 := pool.Acquire(50 * time.Millisecond)
 	stats = pool.Stats()
 	assert.Equal(t, int64(1), stats.Active, "Should have 1 active timer")
-	assert.Equal(t, int64(1), stats.Hits, "Should record 1 hit")
-	assert.Equal(t, int64(1), stats.Misses, "Misses should stay at 1")
+
+	// Total operations should equal hits + misses
+	totalOps := stats.Hits + stats.Misses
+	assert.Equal(t, int64(2), totalOps, "Should have 2 total acquire operations")
+
+	// We should have at least 1 miss (first acquire) and at most 2 misses
+	assert.GreaterOrEqual(t, stats.Misses, int64(1), "Should have at least 1 miss")
+	assert.LessOrEqual(t, stats.Misses, int64(2), "Should have at most 2 misses")
 
 	timer2.Stop()
 	pool.Release(timer2)
