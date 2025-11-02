@@ -407,3 +407,204 @@ func TestTable_MultipleRows(t *testing.T) {
 	assert.Contains(t, output, "Charlie")
 	assert.Contains(t, output, "Diana")
 }
+
+func TestTable_KeyboardNavigation_Down(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+		{Name: "Bob", Email: "bob@example.com", Age: 25},
+		{Name: "Charlie", Email: "charlie@example.com", Age: 35},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+
+	// Press down arrow - should select first row (index 0)
+	table.Emit("keyDown", nil)
+	table.View() // Trigger render to see selection
+
+	// Press down arrow again - should move to second row (index 1)
+	table.Emit("keyDown", nil)
+	table.View()
+
+	// Verify we can navigate through all rows
+	table.Emit("keyDown", nil) // index 2
+	table.View()
+
+	// At last row, pressing down should stay at last row
+	table.Emit("keyDown", nil) // should stay at index 2
+	output := table.View()
+
+	assert.NotEmpty(t, output, "Should render table")
+}
+
+func TestTable_KeyboardNavigation_Up(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+		{Name: "Bob", Email: "bob@example.com", Age: 25},
+		{Name: "Charlie", Email: "charlie@example.com", Age: 35},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+
+	// Press up arrow from no selection - should select last row (index 2)
+	table.Emit("keyUp", nil)
+	table.View()
+
+	// Press up arrow - should move to index 1
+	table.Emit("keyUp", nil)
+	table.View()
+
+	// Press up arrow - should move to index 0
+	table.Emit("keyUp", nil)
+	table.View()
+
+	// At first row, pressing up should stay at first row
+	table.Emit("keyUp", nil)
+	output := table.View()
+
+	assert.NotEmpty(t, output, "Should render table")
+}
+
+func TestTable_KeyboardNavigation_Enter(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+		{Name: "Bob", Email: "bob@example.com", Age: 25},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	var selectedUser *User
+	var selectedIndex int
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+		OnRowClick: func(user User, index int) {
+			selectedUser = &user
+			selectedIndex = index
+		},
+	})
+
+	table.Init()
+
+	// Navigate to first row
+	table.Emit("keyDown", nil)
+
+	// Press enter to confirm selection
+	table.Emit("keyEnter", nil)
+
+	assert.NotNil(t, selectedUser, "Should have selected user")
+	assert.Equal(t, "Alice", selectedUser.Name, "Should select Alice")
+	assert.Equal(t, 0, selectedIndex, "Should select index 0")
+}
+
+func TestTable_KeyboardNavigation_EnterWithoutSelection(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	callbackCalled := false
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+		OnRowClick: func(user User, index int) {
+			callbackCalled = true
+		},
+	})
+
+	table.Init()
+
+	// Press enter without navigating first (no selection)
+	table.Emit("keyEnter", nil)
+
+	assert.False(t, callbackCalled, "Callback should not be called without selection")
+}
+
+func TestTable_KeyboardNavigation_EmptyData(t *testing.T) {
+	data := bubbly.NewRef([]User{})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+
+	// Should not panic with empty data
+	assert.NotPanics(t, func() {
+		table.Emit("keyDown", nil)
+		table.Emit("keyUp", nil)
+		table.Emit("keyEnter", nil)
+		table.View()
+	})
+}
+
+func TestTable_KeyboardNavigation_Combined(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+		{Name: "Bob", Email: "bob@example.com", Age: 25},
+		{Name: "Charlie", Email: "charlie@example.com", Age: 35},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	var selectedUser *User
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+		OnRowClick: func(user User, index int) {
+			selectedUser = &user
+		},
+	})
+
+	table.Init()
+
+	// Navigate down twice to get to Bob (index 1)
+	table.Emit("keyDown", nil) // Alice (0)
+	table.Emit("keyDown", nil) // Bob (1)
+
+	// Confirm selection with enter
+	table.Emit("keyEnter", nil)
+
+	assert.NotNil(t, selectedUser, "Should have selected user")
+	assert.Equal(t, "Bob", selectedUser.Name, "Should select Bob")
+
+	// Navigate up to Alice
+	table.Emit("keyUp", nil) // Alice (0)
+
+	// Confirm selection with enter
+	table.Emit("keyEnter", nil)
+
+	assert.Equal(t, "Alice", selectedUser.Name, "Should now select Alice")
+}

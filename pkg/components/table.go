@@ -145,8 +145,9 @@ type TableProps[T any] struct {
 //   - Automatic field value extraction via reflection
 //
 // Keyboard interaction:
-//   - Up/Down arrows: Navigate rows (future enhancement)
-//   - Enter: Select row (future enhancement)
+//   - Up/Down arrows: Navigate rows (moves selection up/down)
+//   - k/j: Vim-style navigation (up/down)
+//   - Enter/Space: Confirm selection and trigger OnRowClick callback
 //   - Click: Select row via rowClick event
 //
 // The table uses reflection to extract field values from generic type T,
@@ -161,19 +162,62 @@ func Table[T any](props TableProps[T]) bubbly.Component {
 			// Create reactive state for selected row (-1 = none)
 			selectedRow := bubbly.NewRef(-1)
 
+			// Helper function to select a row
+			selectRow := func(index int) {
+				items := props.Data.Get().([]T)
+				if index >= 0 && index < len(items) {
+					selectedRow.Set(index)
+					if props.OnRowClick != nil {
+						props.OnRowClick(items[index], index)
+					}
+				}
+			}
+
 			// Row click handler
 			ctx.On("rowClick", func(data interface{}) {
 				index := data.(int)
+				selectRow(index)
+			})
 
-				// Update selected row
-				selectedRow.Set(index)
+			// Keyboard navigation: Up arrow or 'k' (vim-style)
+			ctx.On("keyUp", func(_ interface{}) {
+				currentRow := selectedRow.Get().(int)
+				items := props.Data.Get().([]T)
 
-				// Call callback if provided and index is valid
-				if props.OnRowClick != nil {
-					items := props.Data.Get().([]T)
-					if index >= 0 && index < len(items) {
-						props.OnRowClick(items[index], index)
-					}
+				if len(items) == 0 {
+					return
+				}
+
+				// If no row selected, select the last row
+				if currentRow == -1 {
+					selectedRow.Set(len(items) - 1)
+				} else if currentRow > 0 {
+					selectedRow.Set(currentRow - 1)
+				}
+			})
+
+			// Keyboard navigation: Down arrow or 'j' (vim-style)
+			ctx.On("keyDown", func(_ interface{}) {
+				currentRow := selectedRow.Get().(int)
+				items := props.Data.Get().([]T)
+
+				if len(items) == 0 {
+					return
+				}
+
+				// If no row selected, select the first row
+				if currentRow == -1 {
+					selectedRow.Set(0)
+				} else if currentRow < len(items)-1 {
+					selectedRow.Set(currentRow + 1)
+				}
+			})
+
+			// Keyboard navigation: Enter or Space to confirm selection
+			ctx.On("keyEnter", func(_ interface{}) {
+				currentRow := selectedRow.Get().(int)
+				if currentRow >= 0 {
+					selectRow(currentRow)
 				}
 			})
 

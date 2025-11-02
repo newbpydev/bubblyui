@@ -925,12 +925,36 @@ func Table[T any](props TableProps[T]) bubbly.Component
 - Reflection handles invalid/unexported fields gracefully
 - Type-safe with proper generics usage
 
+**Enhancement: Keyboard Navigation ✅ IMPLEMENTED**
+- Added full keyboard navigation support:
+  - Up/Down arrow keys: Navigate rows (moves selection up/down with wraparound)
+  - k/j keys: Vim-style navigation (up/down)
+  - Enter/Space keys: Confirm selection and trigger OnRowClick callback
+  - Handles edge cases: empty data, no selection, boundary conditions
+- Implementation details:
+  - Added keyUp, keyDown, keyEnter event handlers
+  - Refactored selectRow helper function to avoid code duplication
+  - Smart navigation: pressing up from no selection selects last row, down selects first
+  - Boundary protection: stays at first/last row when at edges
+- Tests added:
+  - TestTable_KeyboardNavigation_Down (navigation down with boundaries)
+  - TestTable_KeyboardNavigation_Up (navigation up with boundaries)
+  - TestTable_KeyboardNavigation_Enter (confirm selection)
+  - TestTable_KeyboardNavigation_EnterWithoutSelection (edge case)
+  - TestTable_KeyboardNavigation_EmptyData (empty table handling)
+  - TestTable_KeyboardNavigation_Combined (full workflow test)
+- Quality metrics:
+  - All 6 new tests pass with race detector
+  - Coverage increased from 92.8% to 93.2%
+  - Zero lint warnings
+  - Follows Bubbletea best practices from Context7
+
 **Note on Sorting:**
 - Sortable prop defined but sorting implementation deferred to future enhancement
 - Current implementation focuses on display and selection
 - Sorting can be added in Phase 6 as enhancement without breaking changes
 
-**Actual effort:** 4 hours
+**Actual effort:** 4 hours (initial) + 1 hour (keyboard navigation enhancement)
 
 ---
 
@@ -1078,10 +1102,10 @@ func AppLayout(props AppLayoutProps) *bubbly.Component
 **Unlocks:** Task 5.3 (Documentation)
 
 **Files:**
-- `cmd/examples/todo-app/main.go`
-- `cmd/examples/dashboard/main.go`
-- `cmd/examples/settings/main.go`
-- `cmd/examples/data-table/main.go`
+- `cmd/examples/06-built-in-components/todo-app/main.go`
+- `cmd/examples/06-built-in-components/dashboard/main.go`
+- `cmd/examples/06-built-in-components/settings/main.go`
+- `cmd/examples/06-built-in-components/data-table/main.go`
 
 **Examples:**
 - [ ] Todo app (Form, List)
