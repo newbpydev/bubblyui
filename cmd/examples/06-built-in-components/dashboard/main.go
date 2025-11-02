@@ -248,7 +248,7 @@ func createDashboard() (bubbly.Component, error) {
 			// Type assert to the correct types
 			var currentStats Stats
 			var activePercentage, completionRate int
-			
+
 			if ref, ok := statsRef.(*bubbly.Ref[Stats]); ok {
 				currentStats = ref.Get().(Stats)
 			}

@@ -324,19 +324,39 @@ func createSettingsApp() (bubbly.Component, error) {
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get state
-			profileSettings := ctx.Get("profileSettings").(*bubbly.Ref[interface{}])
-			appSettings := ctx.Get("appSettings").(*bubbly.Ref[interface{}])
-			activeTabIndex := ctx.Get("activeTabIndex").(*bubbly.Ref[interface{}])
-			inputModeRef := ctx.Get("inputMode").(*bubbly.Ref[interface{}])
-			focusedField := ctx.Get("focusedField").(*bubbly.Ref[interface{}])
-			savedMessage := ctx.Get("savedMessage").(*bubbly.Ref[interface{}])
+			profileSettingsRaw := ctx.Get("profileSettings")
+			appSettingsRaw := ctx.Get("appSettings")
+			activeTabIndexRaw := ctx.Get("activeTabIndex")
+			inputModeRefRaw := ctx.Get("inputMode")
+			focusedFieldRaw := ctx.Get("focusedField")
+			savedMessageRaw := ctx.Get("savedMessage")
 
-			profile := profileSettings.Get().(ProfileSettings)
-			app := appSettings.Get().(AppSettings)
-			activeTab := activeTabIndex.Get().(int)
-			inInputMode := inputModeRef.Get().(bool)
-			focused := focusedField.Get().(string)
-			message := savedMessage.Get().(string)
+			// Type assert to correct types
+			var profile ProfileSettings
+			var app AppSettings
+			var activeTab int
+			var inInputMode bool
+			var focused string
+			var message string
+
+			if ref, ok := profileSettingsRaw.(*bubbly.Ref[ProfileSettings]); ok {
+				profile = ref.Get().(ProfileSettings)
+			}
+			if ref, ok := appSettingsRaw.(*bubbly.Ref[AppSettings]); ok {
+				app = ref.Get().(AppSettings)
+			}
+			if ref, ok := activeTabIndexRaw.(*bubbly.Ref[int]); ok {
+				activeTab = ref.Get().(int)
+			}
+			if ref, ok := inputModeRefRaw.(*bubbly.Ref[bool]); ok {
+				inInputMode = ref.Get().(bool)
+			}
+			if ref, ok := focusedFieldRaw.(*bubbly.Ref[string]); ok {
+				focused = ref.Get().(string)
+			}
+			if ref, ok := savedMessageRaw.(*bubbly.Ref[string]); ok {
+				message = ref.Get().(string)
+			}
 
 			// Tab buttons
 			tabStyle := lipgloss.NewStyle().

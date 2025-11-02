@@ -269,15 +269,34 @@ func createDataTableApp() (bubbly.Component, error) {
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get state
 			// Note: We're rendering the table manually for custom row highlighting
-			products := ctx.Get("products").(*bubbly.Ref[interface{}])
-			selectedRow := ctx.Get("selectedRow").(*bubbly.Ref[interface{}])
-			modalVisible := ctx.Get("modalVisible").(*bubbly.Ref[interface{}])
-			modalTitle := ctx.Get("modalTitle").(*bubbly.Ref[interface{}])
-			modalContent := ctx.Get("modalContent").(*bubbly.Ref[interface{}])
+			productsRaw := ctx.Get("products")
+			selectedRowRaw := ctx.Get("selectedRow")
+			modalVisibleRaw := ctx.Get("modalVisible")
+			modalTitleRaw := ctx.Get("modalTitle")
+			modalContentRaw := ctx.Get("modalContent")
 
-			productList := products.Get().([]Product)
-			selected := selectedRow.Get().(int)
-			isModalVisible := modalVisible.Get().(bool)
+			// Type assert to correct types
+			var productList []Product
+			var selected int
+			var isModalVisible bool
+			var modalTitleStr string
+			var modalContentStr string
+
+			if ref, ok := productsRaw.(*bubbly.Ref[[]Product]); ok {
+				productList = ref.Get().([]Product)
+			}
+			if ref, ok := selectedRowRaw.(*bubbly.Ref[int]); ok {
+				selected = ref.Get().(int)
+			}
+			if ref, ok := modalVisibleRaw.(*bubbly.Ref[bool]); ok {
+				isModalVisible = ref.Get().(bool)
+			}
+			if ref, ok := modalTitleRaw.(*bubbly.Ref[string]); ok {
+				modalTitleStr = ref.Get().(string)
+			}
+			if ref, ok := modalContentRaw.(*bubbly.Ref[string]); ok {
+				modalContentStr = ref.Get().(string)
+			}
 
 			// Table section with selection highlighting
 			tableStyle := lipgloss.NewStyle().
@@ -329,11 +348,11 @@ func createDataTableApp() (bubbly.Component, error) {
 				title := lipgloss.NewStyle().
 					Bold(true).
 					Foreground(lipgloss.Color("205")).
-					Render(modalTitle.Get().(string))
+					Render(modalTitleStr)
 
 				content := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("255")).
-					Render(modalContent.Get().(string))
+					Render(modalContentStr)
 
 				modalBox := modalStyle.Render(
 					lipgloss.JoinVertical(

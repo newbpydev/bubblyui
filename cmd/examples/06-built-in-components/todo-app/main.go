@@ -390,13 +390,32 @@ func createTodoApp() (bubbly.Component, error) {
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get state
 			list := ctx.Get("list").(bubbly.Component)
-			titleRef := ctx.Get("titleRef").(*bubbly.Ref[interface{}])
-			inputModeRef := ctx.Get("inputMode").(*bubbly.Ref[interface{}])
-			totalCount := ctx.Get("totalCount").(*bubbly.Computed[interface{}])
-			completedCount := ctx.Get("completedCount").(*bubbly.Computed[interface{}])
-			pendingCount := ctx.Get("pendingCount").(*bubbly.Computed[interface{}])
+			titleRefRaw := ctx.Get("titleRef")
+			inputModeRefRaw := ctx.Get("inputMode")
+			totalCountRaw := ctx.Get("totalCount")
+			completedCountRaw := ctx.Get("completedCount")
+			pendingCountRaw := ctx.Get("pendingCount")
 
-			inInputMode := inputModeRef.Get().(bool)
+			// Type assert to correct types
+			var titleValue string
+			var inInputMode bool
+			var totalCountVal, completedCountVal, pendingCountVal int
+
+			if ref, ok := titleRefRaw.(*bubbly.Ref[string]); ok {
+				titleValue = ref.Get().(string)
+			}
+			if ref, ok := inputModeRefRaw.(*bubbly.Ref[bool]); ok {
+				inInputMode = ref.Get().(bool)
+			}
+			if comp, ok := totalCountRaw.(*bubbly.Computed[interface{}]); ok {
+				totalCountVal = comp.Get().(int)
+			}
+			if comp, ok := completedCountRaw.(*bubbly.Computed[interface{}]); ok {
+				completedCountVal = comp.Get().(int)
+			}
+			if comp, ok := pendingCountRaw.(*bubbly.Computed[interface{}]); ok {
+				pendingCountVal = comp.Get().(int)
+			}
 
 			// Statistics box
 			statsStyle := lipgloss.NewStyle().
@@ -408,9 +427,9 @@ func createTodoApp() (bubbly.Component, error) {
 
 			stats := statsStyle.Render(fmt.Sprintf(
 				"📊 Total: %d | ✅ Completed: %d | ⏳ Pending: %d",
-				totalCount.Get().(int),
-				completedCount.Get().(int),
-				pendingCount.Get().(int),
+				totalCountVal,
+				completedCountVal,
+				pendingCountVal,
 			))
 
 			// Form box - dynamic border color based on mode
@@ -424,8 +443,7 @@ func createTodoApp() (bubbly.Component, error) {
 				BorderForeground(lipgloss.Color(formBorderColor)).
 				Width(60)
 
-			// Build form display
-			titleValue := titleRef.Get().(string)
+			// Build form display - titleValue already extracted above
 			if titleValue == "" {
 				titleValue = "(empty)"
 			}
