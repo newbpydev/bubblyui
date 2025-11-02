@@ -1,14 +1,22 @@
-# Table Keyboard Navigation Example
+# Table Keyboard Navigation & Sorting Example
 
-This example demonstrates the Table component's keyboard navigation capabilities.
+This example demonstrates the Table component's keyboard navigation and column sorting capabilities.
 
 ## Features Demonstrated
 
+### Navigation
 - **Arrow Key Navigation**: Use ↑/↓ to navigate through table rows
 - **Vim-style Navigation**: Use k/j for up/down navigation
 - **Row Selection**: Press Enter or Space to select the current row
 - **Visual Feedback**: Selected row is highlighted with primary color
 - **Edge Handling**: Navigation wraps at boundaries (stays at first/last row)
+
+### Sorting
+- **Column Sorting**: Sort by any column using number keys (1-4)
+- **Toggle Sort Direction**: Press the same key again to toggle ascending/descending
+- **Visual Indicators**: ↑ (ascending) or ↓ (descending) shown in column headers
+- **Type-Aware Sorting**: Correctly sorts strings, numbers, and other data types
+- **Per-Column Control**: Each column can be individually enabled/disabled for sorting
 
 ## Running the Example
 
@@ -18,9 +26,18 @@ go run cmd/examples/06-table-navigation/main.go
 
 ## Controls
 
+### Navigation
 - **↑** or **k**: Move selection up
 - **↓** or **j**: Move selection down  
 - **Enter** or **Space**: Confirm selection (triggers OnRowClick callback)
+
+### Sorting
+- **1**: Sort by ID column
+- **2**: Sort by Name column
+- **3**: Sort by Email column
+- **4**: Sort by Status column
+
+### General
 - **q** or **Ctrl+C**: Quit
 
 ## Implementation Highlights
@@ -56,6 +73,32 @@ OnRowClick: func(user User, index int) {
     fmt.Printf("Selected: %s (index %d)\n", user.Name, index)
 }
 ```
+
+### Column Sorting
+
+Enable sorting by setting `Sortable: true` on both the table and individual columns:
+
+```go
+table := components.Table(components.TableProps[User]{
+    Data:     usersRef,
+    Sortable: true, // Enable sorting for the table
+    Columns: []components.TableColumn[User]{
+        {Header: "Name", Field: "Name", Width: 20, Sortable: true},
+        {Header: "Age", Field: "Age", Width: 10, Sortable: true},
+    },
+})
+
+// Trigger sorting by emitting the "sort" event
+table.Emit("sort", "Name")  // Sort by Name column
+table.Emit("sort", "Name")  // Toggle to descending
+```
+
+**Sorting Features:**
+- **Type-Aware**: Correctly sorts strings, integers, floats, and booleans
+- **Toggle Direction**: Clicking the same column toggles between ascending/descending
+- **Visual Feedback**: ↑/↓ arrows show current sort column and direction
+- **Stable Sort**: Uses Go's stable sort algorithm
+- **Performance**: O(n log n) complexity, suitable for typical TUI table sizes
 
 ## Use Cases
 

@@ -37,14 +37,15 @@ func initialModel() model {
 
 	usersRef := bubbly.NewRef(users)
 
-	// Create table with keyboard navigation
+	// Create table with keyboard navigation and sorting
 	table := components.Table(components.TableProps[User]{
-		Data: usersRef,
+		Data:     usersRef,
+		Sortable: true, // Enable sorting
 		Columns: []components.TableColumn[User]{
-			{Header: "ID", Field: "ID", Width: 5},
-			{Header: "Name", Field: "Name", Width: 20},
-			{Header: "Email", Field: "Email", Width: 25},
-			{Header: "Status", Field: "Status", Width: 10},
+			{Header: "ID", Field: "ID", Width: 5, Sortable: true},
+			{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+			{Header: "Email", Field: "Email", Width: 25, Sortable: true},
+			{Header: "Status", Field: "Status", Width: 10, Sortable: true},
 		},
 		OnRowClick: func(user User, index int) {
 			// This will be called when user presses Enter or clicks a row
@@ -86,6 +87,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Confirm selection
 			m.table.Emit("keyEnter", nil)
 			m.selectedStatus = "Row selected! (callback triggered)"
+
+		case "1":
+			// Sort by ID
+			m.table.Emit("sort", "ID")
+			m.selectedStatus = "Sorted by ID"
+
+		case "2":
+			// Sort by Name
+			m.table.Emit("sort", "Name")
+			m.selectedStatus = "Sorted by Name"
+
+		case "3":
+			// Sort by Email
+			m.table.Emit("sort", "Email")
+			m.selectedStatus = "Sorted by Email"
+
+		case "4":
+			// Sort by Status
+			m.table.Emit("sort", "Status")
+			m.selectedStatus = "Sorted by Status"
 		}
 	}
 
@@ -114,6 +135,7 @@ func (m model) View() string {
 		"Controls:\n" +
 			"  ↑/↓ or k/j : Navigate rows\n" +
 			"  Enter/Space : Select row\n" +
+			"  1/2/3/4    : Sort by ID/Name/Email/Status\n" +
 			"  q or Ctrl+C : Quit",
 	)
 

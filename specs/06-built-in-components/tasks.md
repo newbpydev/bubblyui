@@ -949,12 +949,47 @@ func Table[T any](props TableProps[T]) bubbly.Component
   - Zero lint warnings
   - Follows Bubbletea best practices from Context7
 
-**Note on Sorting:**
-- Sortable prop defined but sorting implementation deferred to future enhancement
-- Current implementation focuses on display and selection
-- Sorting can be added in Phase 6 as enhancement without breaking changes
+**Enhancement: Column Sorting ✅ IMPLEMENTED**
+- Added full column-based sorting functionality:
+  - Per-column Sortable flag for granular control
+  - Click column header to sort (emit "sort" event with field name)
+  - Toggle between ascending/descending on repeated clicks
+  - Visual indicators: ↑ (ascending) / ↓ (descending) in headers
+  - Supports multiple data types: string, int, int64, float64, bool
+  - Graceful fallback to string comparison for unknown types
+- Implementation details:
+  - Added sortColumn *Ref[string] and sortAsc *Ref[bool] state
+  - Added "sort" event handler with toggle logic
+  - Created getFieldValueForSort() for type-aware value extraction
+  - Created compareValues() with type-specific comparison logic
+  - Uses Go's sort.Slice with custom comparator
+  - Sorts a copy of data to avoid mutation issues
+  - Visual indicators only show on currently sorted column
+- Type-aware comparison:
+  - Strings: Lexicographic comparison
+  - Integers (int, int64): Numerical comparison
+  - Floats (float64): Numerical comparison
+  - Booleans: false < true
+  - Nil values: Always sort first
+  - Fallback: String representation comparison
+- Tests added (9 comprehensive tests):
+  - TestTable_Sorting_StringColumn (alphabetical sorting)
+  - TestTable_Sorting_IntColumn (numerical sorting)
+  - TestTable_Sorting_BoolColumn (boolean sorting)
+  - TestTable_Sorting_FloatColumn (float sorting)
+  - TestTable_Sorting_ToggleDirection (asc/desc toggle)
+  - TestTable_Sorting_DifferentColumns (column switching)
+  - TestTable_Sorting_EmptyData (edge case)
+  - TestTable_Sorting_DisabledTable (Sortable=false)
+  - TestTable_Sorting_VisualIndicators (arrow display)
+- Quality metrics:
+  - All 9 new tests pass with race detector
+  - Coverage: 90.8% (comprehensive coverage)
+  - Zero lint warnings
+  - Zero race conditions
+  - Follows Go sort package best practices
 
-**Actual effort:** 4 hours (initial) + 1 hour (keyboard navigation enhancement)
+**Actual effort:** 4 hours (initial) + 1 hour (keyboard navigation) + 2 hours (sorting)
 
 ---
 

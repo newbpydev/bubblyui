@@ -608,3 +608,258 @@ func TestTable_KeyboardNavigation_Combined(t *testing.T) {
 
 	assert.Equal(t, "Alice", selectedUser.Name, "Should now select Alice")
 }
+
+func TestTable_Sorting_StringColumn(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Charlie", Email: "charlie@example.com", Age: 35},
+		{Name: "Alice", Email: "alice@example.com", Age: 30},
+		{Name: "Bob", Email: "bob@example.com", Age: 25},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Name (ascending)
+	table.Emit("sort", "Name")
+
+	sortedData := data.Get().([]User)
+	assert.Equal(t, "Alice", sortedData[0].Name, "First should be Alice")
+	assert.Equal(t, "Bob", sortedData[1].Name, "Second should be Bob")
+	assert.Equal(t, "Charlie", sortedData[2].Name, "Third should be Charlie")
+}
+
+func TestTable_Sorting_IntColumn(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Charlie", Age: 35},
+		{Name: "Alice", Age: 30},
+		{Name: "Bob", Age: 25},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Age", Field: "Age", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Age (ascending)
+	table.Emit("sort", "Age")
+
+	sortedData := data.Get().([]User)
+	assert.Equal(t, 25, sortedData[0].Age, "First should be 25")
+	assert.Equal(t, 30, sortedData[1].Age, "Second should be 30")
+	assert.Equal(t, 35, sortedData[2].Age, "Third should be 35")
+}
+
+func TestTable_Sorting_BoolColumn(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Active: true},
+		{Name: "Bob", Active: false},
+		{Name: "Charlie", Active: true},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Active", Field: "Active", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Active (ascending - false < true)
+	table.Emit("sort", "Active")
+
+	sortedData := data.Get().([]User)
+	assert.False(t, sortedData[0].Active, "First should be false")
+	assert.True(t, sortedData[1].Active, "Second should be true")
+	assert.True(t, sortedData[2].Active, "Third should be true")
+}
+
+func TestTable_Sorting_ToggleDirection(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Charlie", Age: 35},
+		{Name: "Alice", Age: 30},
+		{Name: "Bob", Age: 25},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort ascending
+	table.Emit("sort", "Name")
+	sortedData := data.Get().([]User)
+	assert.Equal(t, "Alice", sortedData[0].Name, "First should be Alice (asc)")
+
+	// Sort descending (toggle)
+	table.Emit("sort", "Name")
+	sortedData = data.Get().([]User)
+	assert.Equal(t, "Charlie", sortedData[0].Name, "First should be Charlie (desc)")
+
+	// Sort ascending again (toggle back)
+	table.Emit("sort", "Name")
+	sortedData = data.Get().([]User)
+	assert.Equal(t, "Alice", sortedData[0].Name, "First should be Alice (asc again)")
+}
+
+func TestTable_Sorting_DifferentColumns(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Charlie", Age: 35},
+		{Name: "Alice", Age: 30},
+		{Name: "Bob", Age: 25},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+		{Header: "Age", Field: "Age", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Name
+	table.Emit("sort", "Name")
+	sortedData := data.Get().([]User)
+	assert.Equal(t, "Alice", sortedData[0].Name, "First should be Alice")
+
+	// Sort by Age (different column, should default to ascending)
+	table.Emit("sort", "Age")
+	sortedData = data.Get().([]User)
+	assert.Equal(t, 25, sortedData[0].Age, "First should be 25")
+	assert.Equal(t, "Bob", sortedData[0].Name, "First should be Bob")
+}
+
+func TestTable_Sorting_EmptyData(t *testing.T) {
+	data := bubbly.NewRef([]User{})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Should not panic with empty data
+	assert.NotPanics(t, func() {
+		table.Emit("sort", "Name")
+	})
+}
+
+func TestTable_Sorting_DisabledTable(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Charlie", Age: 35},
+		{Name: "Alice", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: false, // Sorting disabled
+	})
+
+	table.Init()
+
+	// Sort should not work when Sortable is false
+	table.Emit("sort", "Name")
+
+	sortedData := data.Get().([]User)
+	assert.Equal(t, "Charlie", sortedData[0].Name, "Order should not change")
+	assert.Equal(t, "Alice", sortedData[1].Name, "Order should not change")
+}
+
+func TestTable_Sorting_VisualIndicators(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+		{Header: "Age", Field: "Age", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Name ascending
+	table.Emit("sort", "Name")
+	output := table.View()
+	assert.Contains(t, output, "↑", "Should show ascending indicator")
+
+	// Toggle to descending
+	table.Emit("sort", "Name")
+	output = table.View()
+	assert.Contains(t, output, "↓", "Should show descending indicator")
+}
+
+func TestTable_Sorting_FloatColumn(t *testing.T) {
+	data := bubbly.NewRef([]Product{
+		{ID: 1, Name: "Widget", Price: 29.99},
+		{ID: 2, Name: "Gadget", Price: 19.99},
+		{ID: 3, Name: "Doohickey", Price: 39.99},
+	})
+
+	columns := []TableColumn[Product]{
+		{Header: "Price", Field: "Price", Width: 15, Sortable: true},
+	}
+
+	table := Table(TableProps[Product]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort by Price (ascending)
+	table.Emit("sort", "Price")
+
+	sortedData := data.Get().([]Product)
+	assert.Equal(t, 19.99, sortedData[0].Price, "First should be 19.99")
+	assert.Equal(t, 29.99, sortedData[1].Price, "Second should be 29.99")
+	assert.Equal(t, 39.99, sortedData[2].Price, "Third should be 39.99")
+}
