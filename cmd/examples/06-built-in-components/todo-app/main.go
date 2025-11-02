@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
 	"github.com/newbpydev/bubblyui/pkg/components"
 )
 
@@ -33,7 +33,11 @@ type model struct {
 
 func (m model) Init() tea.Cmd {
 	// CRITICAL: Let Bubbletea call Init, don't call it manually
-	return m.component.Init()
+	// Return both component init and cursor blink command
+	return tea.Batch(
+		m.component.Init(),
+		composables.BlinkCmd(),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -95,35 +99,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.selectedTodo++
 				}
 			case "k":
-				// In navigation mode: move up; in input mode: type 'k'
+				// In navigation mode: move up; in input mode: forward to text input
 				if !m.inputMode {
 					m.component.Emit("selectPrevious", nil)
 					if m.selectedTodo > 0 {
 						m.selectedTodo--
 					}
 				} else {
-					m.component.Emit("addChar", "k")
+					m.component.Emit("textInputUpdate", msg)
 				}
 			case "j":
-				// In navigation mode: move down; in input mode: type 'j'
+				// In navigation mode: move down; in input mode: forward to text input
 				if !m.inputMode {
 					m.component.Emit("selectNext", nil)
 					m.selectedTodo++
 				} else {
-					m.component.Emit("addChar", "j")
-				}
-			case "backspace":
-				// Remove character - only in input mode
-				if m.inputMode {
-					m.component.Emit("removeChar", nil)
+					m.component.Emit("textInputUpdate", msg)
 				}
 			default:
-				// Handle text input - only in input mode
+				// Forward all other keys to text input in input mode
+				// This includes typing, backspace, delete, arrow keys for cursor movement
 				if m.inputMode {
-					switch msg.Type {
-					case tea.KeyRunes:
-						m.component.Emit("addChar", string(msg.Runes))
-					}
+					m.component.Emit("textInputUpdate", msg)
 				}
 			}
 		}
@@ -224,8 +221,13 @@ func createTodoApp() (bubbly.Component, error) {
 			todos := bubbly.NewRef([]Todo{})
 			nextID := bubbly.NewRef(1)
 
-			// Form input state
-			titleRef := bubbly.NewRef("")
+			// Form input state with cursor support
+			textInput := composables.UseTextInput(composables.UseTextInputConfig{
+				Placeholder:        "Enter todo title...",
+				CharLimit:          100,
+				Width:              56, // 60 - padding
+				ShowCursorPosition: true,
+			})
 
 			// UI state
 			selectedIndex := bubbly.NewRef(0)
@@ -290,7 +292,7 @@ func createTodoApp() (bubbly.Component, error) {
 
 			// Expose state to template
 			ctx.Expose("list", list)
-			ctx.Expose("titleRef", titleRef)
+			ctx.Expose("textInput", textInput)
 			ctx.Expose("todos", todos)
 			ctx.Expose("selectedIndex", selectedIndex)
 			ctx.Expose("inputMode", inputMode)
@@ -302,12 +304,19 @@ func createTodoApp() (bubbly.Component, error) {
 			ctx.On("setInputMode", func(data interface{}) {
 				mode := data.(bool)
 				inputMode.Set(mode)
+
+				// Focus/blur text input based on mode
+				if mode {
+					textInput.Focus()
+				} else {
+					textInput.Blur()
+				}
 			})
 
 			// Event: Add new todo
 			ctx.On("addTodo", func(_ interface{}) {
 				// Validate manually
-				input := TodoInput{Title: titleRef.Get().(string)}
+				input := TodoInput{Title: textInput.Value()}
 				errors := validateTodoInput(input)
 
 				if len(errors) == 0 {
@@ -322,7 +331,7 @@ func createTodoApp() (bubbly.Component, error) {
 
 					todos.Set(append(todoList, newTodo))
 					nextID.Set(id + 1)
-					titleRef.Set("")
+					textInput.Reset()
 				}
 			})
 
@@ -369,41 +378,28 @@ func createTodoApp() (bubbly.Component, error) {
 
 			// Event: Clear form
 			ctx.On("clearForm", func(_ interface{}) {
-				titleRef.Set("")
+				textInput.Reset()
 			})
 
-			// Event: Add character to title field
-			ctx.On("addChar", func(data interface{}) {
-				char := data.(string)
-				current := titleRef.Get().(string)
-				titleRef.Set(current + char)
-			})
-
-			// Event: Remove character from title field
-			ctx.On("removeChar", func(_ interface{}) {
-				current := titleRef.Get().(string)
-				if len(current) > 0 {
-					titleRef.Set(current[:len(current)-1])
-				}
+			// Event: Update text input (forward Bubbletea messages for cursor support)
+			ctx.On("textInputUpdate", func(data interface{}) {
+				msg := data.(tea.Msg)
+				textInput.Update(msg)
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			// Get state
 			list := ctx.Get("list").(bubbly.Component)
-			titleRefRaw := ctx.Get("titleRef")
+			textInput := ctx.Get("textInput").(*composables.TextInputResult)
 			inputModeRefRaw := ctx.Get("inputMode")
 			totalCountRaw := ctx.Get("totalCount")
 			completedCountRaw := ctx.Get("completedCount")
 			pendingCountRaw := ctx.Get("pendingCount")
 
 			// Type assert to correct types
-			var titleValue string
 			var inInputMode bool
 			var totalCountVal, completedCountVal, pendingCountVal int
 
-			if ref, ok := titleRefRaw.(*bubbly.Ref[string]); ok {
-				titleValue = ref.Get().(string)
-			}
 			if ref, ok := inputModeRefRaw.(*bubbly.Ref[bool]); ok {
 				inInputMode = ref.Get().(bool)
 			}
@@ -443,12 +439,13 @@ func createTodoApp() (bubbly.Component, error) {
 				BorderForeground(lipgloss.Color(formBorderColor)).
 				Width(60)
 
-			// Build form display - titleValue already extracted above
-			if titleValue == "" {
-				titleValue = "(empty)"
-			}
-
-			formDisplay := fmt.Sprintf("New Todo:\n%s", titleValue)
+			// Build form display with text input (shows cursor)
+			formDisplay := lipgloss.JoinVertical(
+				lipgloss.Left,
+				lipgloss.NewStyle().Bold(true).Render("New Todo:"),
+				"",
+				textInput.View(),
+			)
 			formBox := formStyle.Render(formDisplay)
 
 			// Todo list - dynamic border color based on mode
