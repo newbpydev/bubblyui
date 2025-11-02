@@ -432,35 +432,83 @@ func Input(props InputProps) bubbly.Component
 
 ---
 
-### Task 2.2: Checkbox Component
+### Task 2.2: Checkbox Component ✅ COMPLETED
 **Description:** Implement Checkbox molecule
 
-**Prerequisites:** Task 2.1
+**Prerequisites:** Task 2.1 ✅
 
 **Unlocks:** Task 2.3 (Select)
 
 **Files:**
-- `pkg/components/checkbox.go`
-- `pkg/components/checkbox_test.go`
+- `pkg/components/checkbox.go` ✅
+- `pkg/components/checkbox_test.go` ✅
 
 **Type Safety:**
 ```go
 type CheckboxProps struct {
-    Label   string
-    Checked *bubbly.Ref[bool]
+    Label    string
+    Checked  *bubbly.Ref[bool]
     OnChange func(bool)
+    Disabled bool
+    CommonProps
 }
 
-func Checkbox(props CheckboxProps) *bubbly.Component
+func Checkbox(props CheckboxProps) bubbly.Component
 ```
 
 **Tests:**
-- [ ] Checkbox renders
-- [ ] Toggle works
-- [ ] Label displays
-- [ ] Value binds
+- [x] Checkbox renders
+- [x] Toggle works
+- [x] Label displays
+- [x] Value binds
+- [x] 91.3% test coverage (package-wide)
+- [x] All quality gates passed
 
-**Estimated effort:** 3 hours
+**Implementation Notes:**
+- Implemented Checkbox molecule component with reactive boolean state binding
+- Features implemented:
+  - Reactive checked state using `*bubbly.Ref[bool]`
+  - Toggle functionality via "toggle" event
+  - Label display next to checkbox indicator
+  - OnChange callback when state changes
+  - Disabled state support (prevents toggling)
+  - Theme integration via Provide/Inject
+  - Custom style override support
+- Visual indicators:
+  - Unchecked: ☐ (U+2610 - Ballot Box)
+  - Checked: ☑ (U+2611 - Ballot Box with Check)
+  - Unicode characters for better TUI appearance
+- Styling:
+  - Checked: Primary color (theme.Primary)
+  - Unchecked: Secondary color (theme.Secondary)
+  - Disabled: Muted color (theme.Muted)
+  - Compact inline layout: "[indicator] Label"
+- Comprehensive test suite with 15 test functions covering:
+  - Component creation and rendering
+  - Toggle functionality
+  - Value binding and reactivity
+  - OnChange callback
+  - Disabled state (toggle prevention)
+  - Theme integration
+  - Custom styling
+  - Bubbletea integration (Init/Update/View)
+  - Props accessibility
+  - Empty label handling
+  - Long label handling
+  - Multiple toggles
+  - Initially checked state
+  - No OnChange callback scenario
+- Follows TDD Red-Green-Refactor cycle
+- Zero lint warnings, properly formatted
+- All tests pass with race detector
+- Integrates seamlessly with framework features:
+  - Reactivity (Feature 01): Uses Ref[bool]
+  - Component Model (Feature 02): Follows NewComponent pattern
+  - Composition API (Feature 04): Uses Inject for theme, Expose for state
+- Pattern matches Button and Input components for consistency
+- Simpler than Input (no validation, no focus states, just toggle)
+
+**Actual effort:** 2 hours
 
 ---
 
