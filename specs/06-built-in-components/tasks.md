@@ -1100,29 +1100,167 @@ func List[T any](props ListProps[T]) bubbly.Component
 
 ---
 
-### Task 3.4: Modal, Card, Menu, Tabs, Accordion
+### Task 3.4: Modal, Card, Menu, Tabs, Accordion ✅ COMPLETED
 **Description:** Implement remaining organism components
 
-**Prerequisites:** Task 3.3
+**Prerequisites:** Task 3.3 ✅
 
 **Unlocks:** Task 4.1 (AppLayout)
 
 **Files:**
-- `pkg/components/modal.go`
-- `pkg/components/card.go`
-- `pkg/components/menu.go`
-- `pkg/components/tabs.go`
-- `pkg/components/accordion.go`
-- Tests for each
+- `pkg/components/modal.go` ✅
+- `pkg/components/modal_test.go` ✅
+- `pkg/components/card.go` ✅
+- `pkg/components/card_test.go` ✅
+- `pkg/components/menu.go` ✅
+- `pkg/components/menu_test.go` ✅
+- `pkg/components/tabs.go` ✅
+- `pkg/components/tabs_test.go` ✅
+- `pkg/components/accordion.go` ✅
+- `pkg/components/accordion_test.go` ✅
 
 **Tests:**
-- [ ] Modal overlays correctly
-- [ ] Card displays content
-- [ ] Menu navigates
-- [ ] Tabs switch
-- [ ] Accordion expands/collapses
+- [x] Modal overlays correctly
+- [x] Card displays content
+- [x] Menu navigates
+- [x] Tabs switch
+- [x] Accordion expands/collapses
+- [x] 90.6% test coverage (package-wide)
+- [x] All quality gates passed
 
-**Estimated effort:** 10 hours
+**Implementation Notes:**
+
+**Modal Component:**
+- Implemented overlay dialog component with centered positioning
+- Features:
+  - Reactive visibility control with `*bubbly.Ref[bool]`
+  - Title, content, and optional footer
+  - Optional action buttons (array of components)
+  - OnClose and OnConfirm callbacks
+  - Configurable width (default 50 characters)
+  - Centered placement using Lipgloss Place
+  - Theme integration
+  - Custom style override
+- Event handling:
+  - "close" event for closing modal (sets Visible to false)
+  - "confirm" event for confirmation actions
+- Visual design:
+  - Rounded border with primary color
+  - Bold primary-colored title
+  - Muted foreground content
+  - Buttons rendered horizontally at bottom
+- Test suite: 13 comprehensive tests
+- All tests pass with race detector
+- Pattern matches other organism components
+
+**Card Component:**
+- Implemented content container component
+- Features:
+  - Optional title header
+  - Content text or child components
+  - Optional footer text
+  - Configurable width (default 40) and height
+  - Configurable padding (default 1)
+  - Border toggle (NoBorder flag)
+  - Theme integration
+  - Custom style override
+- Visual design:
+  - Rounded border with secondary color
+  - Bold primary-colored title
+  - Foreground-colored content
+  - Muted italic footer
+- Test suite: 14 comprehensive tests
+- Supports both string content and child components
+- Children rendered after content if both provided
+
+**Menu Component:**
+- Implemented navigation menu component
+- Features:
+  - List of menu items with labels and values
+  - Reactive selection with `*bubbly.Ref[string]`
+  - OnSelect callback with selected value
+  - Disabled item support
+  - Selection indicator (▶ symbol)
+  - Configurable width (default 30)
+  - Theme integration
+  - Custom style override
+- MenuItem structure:
+  - Label (display text)
+  - Value (unique identifier)
+  - Disabled flag
+- Visual design:
+  - Selected item: primary background, white text, bold
+  - Normal items: foreground color
+  - Disabled items: muted color
+  - Rounded border container
+- Test suite: 7 comprehensive tests
+- "select" event for item selection
+
+**Tabs Component:**
+- Implemented tabbed interface component
+- Features:
+  - Multiple tabs with labels
+  - Reactive active index with `*bubbly.Ref[int]`
+  - OnTabChange callback with index
+  - String content or Component content per tab
+  - Configurable width (default 60)
+  - Theme integration
+  - Custom style override
+- Tab structure:
+  - Label (tab button text)
+  - Content (string content)
+  - Component (optional component content, takes precedence)
+- Visual design:
+  - Active tab: primary background, white text, bold
+  - Inactive tabs: muted background, foreground text
+  - Tab buttons joined horizontally
+  - Content area with rounded border
+- Test suite: 7 comprehensive tests
+- "changeTab" event for switching tabs
+- Bounds checking for active index
+
+**Accordion Component:**
+- Implemented collapsible panels component
+- Features:
+  - Multiple accordion items
+  - Reactive expanded indexes with `*bubbly.Ref[[]int]`
+  - AllowMultiple flag for single/multiple expansion
+  - OnToggle callback with index and state
+  - String content or Component content per item
+  - Configurable width (default 50)
+  - Theme integration
+  - Custom style override
+- AccordionItem structure:
+  - Title (panel header)
+  - Content (string content)
+  - Component (optional component content, takes precedence)
+- Visual design:
+  - Collapsed: ▶ indicator
+  - Expanded: ▼ indicator
+  - Bold primary-colored titles
+  - Foreground-colored content
+  - Separator lines between items (muted color)
+  - Rounded border container
+- Test suite: 8 comprehensive tests
+- "toggle" event for expanding/collapsing panels
+- Smart toggle logic: removes from list if expanded, adds if collapsed
+- Single expansion mode: clears other panels when AllowMultiple is false
+
+**All Components:**
+- Follow TDD Red-Green-Refactor cycle
+- Zero lint warnings, properly formatted
+- All tests pass with race detector
+- Integrate seamlessly with framework features:
+  - Reactivity (Feature 01): Use Ref[T] for state
+  - Component Model (Feature 02): Follow NewComponent pattern
+  - Composition API (Feature 04): Use Inject for theme, Expose for state
+- Pattern matches existing organism components for consistency
+- Type-safe with proper generics usage where applicable
+- Production-ready with comprehensive error handling
+- Lipgloss styling for terminal output
+- Theme integration via Provide/Inject pattern
+
+**Actual effort:** 6 hours
 
 ---
 
