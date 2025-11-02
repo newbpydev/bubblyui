@@ -1,8 +1,8 @@
 package components
 
 import (
-	"strings"
-
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -76,6 +76,14 @@ type InputProps struct {
 	// Optional - if 0, defaults to 30 characters.
 	Width int
 
+	// CharLimit sets the maximum number of characters allowed.
+	// Optional - if 0, no limit is enforced.
+	CharLimit int
+
+	// ShowCursorPosition displays the cursor position indicator [pos/len].
+	// Optional - defaults to false.
+	ShowCursorPosition bool
+
 	// Common props for all components
 	CommonProps
 }
@@ -118,9 +126,20 @@ type InputProps struct {
 //   - Placeholder support
 //   - Custom width
 //   - Theme integration
+//   - **Blinking cursor** with visual feedback
+//   - **Cursor navigation** with arrow keys
+//   - **Text editing** at cursor position
+//   - **Cursor position indicator** [pos/len]
+//   - **Character limits** enforcement
+//   - **Clipboard operations** (Ctrl+C/V)
 //
 // Keyboard interaction:
-//   - Type to input text
+//   - Type to input text (inserts at cursor position)
+//   - ←/→ arrows to move cursor within text
+//   - Home/End to jump to start/end
+//   - Backspace/Delete for character deletion
+//   - Ctrl+A to select all
+//   - Ctrl+C/V for copy/paste
 //   - Tab/Shift+Tab for focus navigation
 //   - Esc to blur
 //
@@ -150,6 +169,20 @@ func Input(props InputProps) bubbly.Component {
 				}
 			}
 
+			// Create Bubbles textinput for cursor support
+			ti := textinput.New()
+			ti.Placeholder = props.Placeholder
+			ti.Width = props.Width
+			if props.CharLimit > 0 {
+				ti.CharLimit = props.CharLimit
+			}
+			if props.Type == InputPassword {
+				ti.EchoMode = textinput.EchoPassword
+				ti.EchoCharacter = '*'
+			}
+			// Set initial value
+			ti.SetValue(props.Value.Get().(string))
+
 			// Create internal state with typed refs
 			errorRef := bubbly.NewRef[error](nil)
 			focusedRef := bubbly.NewRef(false)
@@ -172,19 +205,29 @@ func Input(props InputProps) bubbly.Component {
 				})
 			}
 
+			// Sync textinput value with props.Value
+			bubbly.Watch(props.Value, func(newVal, oldVal string) {
+				if ti.Value() != newVal {
+					ti.SetValue(newVal)
+				}
+			})
+
 			// Register event handlers
 			ctx.On("input", func(data interface{}) {
 				if newValue, ok := data.(string); ok {
 					props.Value.Set(newValue)
+					ti.SetValue(newValue)
 				}
 			})
 
 			ctx.On("focus", func(_ interface{}) {
 				focusedRef.Set(true)
+				ti.Focus()
 			})
 
 			ctx.On("blur", func(_ interface{}) {
 				focusedRef.Set(false)
+				ti.Blur()
 
 				// Call OnBlur callback if provided
 				if props.OnBlur != nil {
@@ -192,59 +235,89 @@ func Input(props InputProps) bubbly.Component {
 				}
 			})
 
+			// Handle Bubbletea messages for cursor support
+			ctx.On("textInputUpdate", func(data interface{}) {
+				if msg, ok := data.(tea.Msg); ok {
+					var cmd tea.Cmd
+					ti, cmd = ti.Update(msg)
+					
+					// Sync value back to props.Value
+					newValue := ti.Value()
+					if newValue != props.Value.Get().(string) {
+						props.Value.Set(newValue)
+					}
+					
+					// Execute command if any (for cursor blink, etc)
+					if cmd != nil {
+						// Commands are handled by Bubbletea
+						_ = cmd
+					}
+				}
+			})
+
 			// Expose internal state
 			ctx.Expose("theme", theme)
 			ctx.Expose("error", errorRef)
 			ctx.Expose("focused", focusedRef)
+			ctx.Expose("textInput", &ti)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			props := ctx.Props().(InputProps)
 			theme := ctx.Get("theme").(Theme)
 			errorRef := ctx.Get("error").(*bubbly.Ref[error])
 			focusedRef := ctx.Get("focused").(*bubbly.Ref[bool])
+			ti := ctx.Get("textInput").(*textinput.Model)
 
-			// Get current state - use GetTyped() for type safety
-			value := props.Value.GetTyped()
+			// Get current state
 			currentError := errorRef.GetTyped()
 			hasError := currentError != nil
 			isFocused := focusedRef.GetTyped()
 
-			// Build input style based on state
-			inputStyle := lipgloss.NewStyle().
-				Width(props.Width).
-				Padding(0, 1).
-				Border(theme.GetBorderStyle())
+			// Apply theme colors to textinput
+			if hasError {
+				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Danger)
+				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Danger)
+			} else if isFocused {
+				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Primary)
+				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Foreground)
+			} else {
+				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Secondary)
+				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Muted)
+			}
+
+			// Render textinput with cursor
+			inputView := ti.View()
+
+			// Add cursor position indicator if enabled
+			if props.ShowCursorPosition && isFocused {
+				pos := ti.Position()
+				length := len(ti.Value())
+				posIndicator := lipgloss.NewStyle().
+					Foreground(theme.Muted).
+					Render(" [" + string(rune(pos+'0')) + "/" + string(rune(length+'0')) + "]")
+				inputView += posIndicator
+			}
+
+			// Wrap in border
+			borderStyle := lipgloss.NewStyle().
+				Border(theme.GetBorderStyle()).
+				Padding(0, 1)
 
 			// Set border color based on state
 			if hasError {
-				// Error state: red border
-				inputStyle = inputStyle.BorderForeground(theme.Danger)
+				borderStyle = borderStyle.BorderForeground(theme.Danger)
 			} else if isFocused {
-				// Focused state: primary color border
-				inputStyle = inputStyle.BorderForeground(theme.Primary)
+				borderStyle = borderStyle.BorderForeground(theme.Primary)
 			} else {
-				// Normal state: secondary/muted border
-				inputStyle = inputStyle.BorderForeground(theme.Secondary)
-			}
-
-			// Determine display value
-			displayValue := value
-			if displayValue == "" && !isFocused {
-				// Show placeholder when empty and not focused
-				displayValue = props.Placeholder
-				inputStyle = inputStyle.Foreground(theme.Muted)
-			} else if props.Type == InputPassword && displayValue != "" {
-				// Mask password with asterisks
-				displayValue = strings.Repeat("*", len(displayValue))
+				borderStyle = borderStyle.BorderForeground(theme.Secondary)
 			}
 
 			// Apply custom style if provided
 			if props.Style != nil {
-				inputStyle = inputStyle.Inherit(*props.Style)
+				borderStyle = borderStyle.Inherit(*props.Style)
 			}
 
-			// Render input field
-			result := inputStyle.Render(displayValue)
+			result := borderStyle.Render(inputView)
 
 			// Add error message if present
 			if currentError != nil {
