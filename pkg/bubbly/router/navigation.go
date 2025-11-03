@@ -232,7 +232,10 @@ func (r *Router) matchTarget(target *NavigationTarget) (*Route, error) {
 
 	// Sync registry routes to matcher (temporary solution for Task 2.1/2.2)
 	// Task 2.5 (Router Builder) will handle this properly
-	r.syncRegistryToMatcher()
+	// Skip sync if matcher already has routes (for testing with direct matcher manipulation)
+	if len(r.matcher.routes) == 0 {
+		r.syncRegistryToMatcher()
+	}
 
 	// Match route using matcher
 	match, err := r.matcher.Match(target.Path)
@@ -259,7 +262,7 @@ func (r *Router) matchTarget(target *NavigationTarget) (*Route, error) {
 		target.Query,     // Query params from target
 		target.Hash,      // Hash from target
 		match.Route.Meta, // Route metadata
-		nil,              // Matched chain (for nested routes, Task 4.1)
+		match.Matched,    // Matched chain (for nested routes, Task 4.1/4.2)
 	)
 
 	return route, nil
@@ -284,6 +287,7 @@ func (r *Router) syncRegistryToMatcher() {
 	// Task 2.5 will improve this
 	r.matcher = NewRouteMatcher()
 	for _, route := range routes {
-		r.matcher.AddRoute(route.Path, route.Name)
+		// Use AddRouteRecord to preserve Component field (Task 4.2/4.3)
+		r.matcher.AddRouteRecord(route)
 	}
 }

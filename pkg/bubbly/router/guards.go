@@ -146,7 +146,7 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 	copy(guards, r.beforeHooks)
 	r.mu.RUnlock()
 
-	// Execute guards sequentially
+	// Execute global guards sequentially
 	for _, guard := range guards {
 		result := &guardResult{action: guardContinue}
 
@@ -183,7 +183,149 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 		// Continue to next guard
 	}
 
+	// Execute route-specific beforeEnter guard if present
+	if to != nil && to.Meta != nil {
+		if beforeEnter, ok := to.Meta["beforeEnter"].(NavigationGuard); ok {
+			result := &guardResult{action: guardContinue}
+
+			next := func(target *NavigationTarget) {
+				if target == nil {
+					result.action = guardContinue
+				} else if target.Path == "" && target.Name == "" {
+					result.action = guardCancel
+				} else {
+					result.action = guardRedirect
+					result.target = target
+				}
+			}
+
+			beforeEnter(to, from, next)
+
+			if result.action == guardCancel {
+				return &guardResult{action: guardCancel}
+			}
+
+			if result.action == guardRedirect {
+				return &guardResult{
+					action: guardRedirect,
+					target: result.target,
+				}
+			}
+		}
+	}
+
+	// Execute component guards
+	componentGuardResult := r.executeComponentGuards(to, from)
+	if componentGuardResult.action != guardContinue {
+		return componentGuardResult
+	}
+
 	// All guards passed
+	return &guardResult{action: guardContinue}
+}
+
+// executeComponentGuards executes component-level navigation guards.
+//
+// Component guards are executed after global and route-specific guards.
+// The execution order is:
+//  1. BeforeRouteLeave on old component (if exists)
+//  2. BeforeRouteEnter on new component (if exists)
+//  3. BeforeRouteUpdate on component (if same component, different params)
+//
+// Parameters:
+//   - to: The target route
+//   - from: The current route (nil if no current route)
+//
+// Returns:
+//   - *guardResult: The result of component guard execution
+func (r *Router) executeComponentGuards(to, from *Route) *guardResult {
+	// Get old and new components
+	var oldComponent, newComponent interface{}
+
+	if from != nil && len(from.Matched) > 0 {
+		// Get the leaf component (last in matched array)
+		oldComponent = from.Matched[len(from.Matched)-1].Component
+	}
+
+	if to != nil && len(to.Matched) > 0 {
+		// Get the leaf component (last in matched array)
+		newComponent = to.Matched[len(to.Matched)-1].Component
+	}
+
+	// Check if components implement ComponentGuards
+	oldGuards, oldHasGuards := hasComponentGuards(oldComponent)
+	newGuards, newHasGuards := hasComponentGuards(newComponent)
+
+	// Determine if component is being reused (same component instance, different params)
+	// Use pointer comparison for component reuse detection
+	componentReused := oldComponent != nil && newComponent != nil && oldComponent == newComponent
+
+	// Execute BeforeRouteLeave on old component
+	if oldHasGuards && oldComponent != newComponent {
+		result := &guardResult{action: guardContinue}
+
+		next := func(target *NavigationTarget) {
+			if target == nil {
+				result.action = guardContinue
+			} else if target.Path == "" && target.Name == "" {
+				result.action = guardCancel
+			} else {
+				result.action = guardRedirect
+				result.target = target
+			}
+		}
+
+		oldGuards.BeforeRouteLeave(to, from, next)
+
+		if result.action != guardContinue {
+			return result
+		}
+	}
+
+	// Execute BeforeRouteUpdate if component is reused
+	if componentReused && newHasGuards {
+		result := &guardResult{action: guardContinue}
+
+		next := func(target *NavigationTarget) {
+			if target == nil {
+				result.action = guardContinue
+			} else if target.Path == "" && target.Name == "" {
+				result.action = guardCancel
+			} else {
+				result.action = guardRedirect
+				result.target = target
+			}
+		}
+
+		newGuards.BeforeRouteUpdate(to, from, next)
+
+		if result.action != guardContinue {
+			return result
+		}
+	}
+
+	// Execute BeforeRouteEnter on new component (if not reused)
+	if newHasGuards && !componentReused {
+		result := &guardResult{action: guardContinue}
+
+		next := func(target *NavigationTarget) {
+			if target == nil {
+				result.action = guardContinue
+			} else if target.Path == "" && target.Name == "" {
+				result.action = guardCancel
+			} else {
+				result.action = guardRedirect
+				result.target = target
+			}
+		}
+
+		newGuards.BeforeRouteEnter(to, from, next)
+
+		if result.action != guardContinue {
+			return result
+		}
+	}
+
 	return &guardResult{action: guardContinue}
 }
 
