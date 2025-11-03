@@ -532,12 +532,12 @@ func TestInput_CursorSupport(t *testing.T) {
 	})
 
 	input.Init()
-	
+
 	// Focus the input to enable cursor
 	input.Emit("focus", nil)
-	
+
 	view := input.View()
-	
+
 	// View should render with cursor support (textinput integration)
 	assert.NotEmpty(t, view, "Input with cursor should render")
 	assert.Contains(t, view, "Hello World", "Should show the value")
@@ -554,9 +554,9 @@ func TestInput_CursorPositionIndicator(t *testing.T) {
 
 	input.Init()
 	input.Emit("focus", nil)
-	
+
 	view := input.View()
-	
+
 	// Should show cursor position indicator when focused
 	// Note: The exact format depends on textinput rendering
 	assert.NotEmpty(t, view, "Input should render with cursor position indicator")
@@ -621,7 +621,7 @@ func TestInput_TextInputUpdate(t *testing.T) {
 
 	// Simulate textinput update (this would come from Bubbletea in real usage)
 	// The textInputUpdate handler should sync the value
-	
+
 	view := input.View()
 	assert.NotEmpty(t, view, "Input should render after update")
 }
@@ -661,9 +661,9 @@ func TestInput_PasswordWithCursor(t *testing.T) {
 
 	input.Init()
 	input.Emit("focus", nil)
-	
+
 	view := input.View()
-	
+
 	// Password should be masked even with cursor
 	assert.NotContains(t, view, "secret123", "Password should be masked")
 	assert.NotEmpty(t, view, "Should render password input with cursor")
@@ -714,9 +714,9 @@ func TestInput_CursorWithValidation(t *testing.T) {
 
 	// Set invalid value
 	valueRef.Set("ab")
-	
+
 	view := input.View()
-	
+
 	// Should show error and still have cursor
 	assert.Contains(t, view, "too short", "Should show validation error")
 	assert.NotEmpty(t, view, "Should render with cursor and error")
@@ -732,11 +732,11 @@ func TestInput_CursorPositionNotShownWhenBlurred(t *testing.T) {
 	})
 
 	input.Init()
-	
+
 	// When blurred, cursor position should not be shown
 	view := input.View()
 	assert.NotEmpty(t, view, "Should render when blurred")
-	
+
 	// Focus to show cursor position
 	input.Emit("focus", nil)
 	viewFocused := input.View()

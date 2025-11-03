@@ -811,9 +811,9 @@ func renderDataTab(ctx bubbly.RenderContext) string {
 
 	// Card with custom width
 	customCard := components.Card(components.CardProps{
-		Title:   "Custom Card",
-		Content: "This card has custom width and styling.",
-		Width:   35,
+		Title:    "Custom Card",
+		Content:  "This card has custom width and styling.",
+		Width:    35,
 		NoBorder: false,
 	})
 	customCard.Init()
