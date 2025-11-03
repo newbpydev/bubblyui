@@ -42,12 +42,12 @@ import (
 	"time"
 )
 
-// pooledTimer wraps a time.Timer with a flag to track if it's been used.
-// This allows us to distinguish between timers retrieved from the pool (hits)
-// and newly created timers (misses).
+// pooledTimer wraps a time.Timer for pool management.
+// We don't track fromPool flag here because sync.Pool can discard items at any time,
+// making the flag unreliable. Instead, we track hits/misses via the newTimerCreated flag
+// in the Acquire method.
 type pooledTimer struct {
-	timer    *time.Timer
-	fromPool bool // true if timer was retrieved from pool, false if newly created
+	timer *time.Timer
 }
 
 // TimerPool manages a pool of reusable time.Timer instances for performance optimization.
@@ -58,11 +58,12 @@ type pooledTimer struct {
 // Implementation uses sync.Pool for automatic memory management - timers not in use
 // may be garbage collected, and new timers are created on demand when the pool is empty.
 type TimerPool struct {
-	pool   *sync.Pool           // Pool of reusable pooledTimer instances
-	active map[*time.Timer]bool // Track active (acquired) timers
-	mu     sync.RWMutex         // Protect active map
-	hits   atomic.Int64         // Cache hits (timer reused from pool)
-	misses atomic.Int64         // Cache misses (new timer created)
+	pool            *sync.Pool           // Pool of reusable pooledTimer instances
+	active          map[*time.Timer]bool // Track active (acquired) timers
+	mu              sync.RWMutex         // Protect active map
+	hits            atomic.Int64         // Cache hits (timer reused from pool)
+	misses          atomic.Int64         // Cache misses (new timer created)
+	newTimerCreated atomic.Bool          // Flag set by New func to indicate miss
 }
 
 // Stats contains statistics about timer pool usage.
@@ -87,19 +88,19 @@ type Stats struct {
 //	timer.Stop()
 //	pool.Release(timer)
 func NewTimerPool() *TimerPool {
-	return &TimerPool{
-		pool: &sync.Pool{
-			New: func() interface{} {
-				// Create a new pooledTimer when pool is empty
-				// fromPool=false indicates this is a new timer (miss)
-				return &pooledTimer{
-					timer:    time.NewTimer(0),
-					fromPool: false,
-				}
-			},
-		},
+	tp := &TimerPool{
 		active: make(map[*time.Timer]bool),
 	}
+	tp.pool = &sync.Pool{
+		New: func() any {
+			// Set flag to indicate a new timer was created (miss)
+			tp.newTimerCreated.Store(true)
+			return &pooledTimer{
+				timer: time.NewTimer(0),
+			}
+		},
+	}
+	return tp
 }
 
 // Acquire gets a timer from the pool, configured for the specified duration.
@@ -133,16 +134,19 @@ func NewTimerPool() *TimerPool {
 //	    // Context canceled
 //	}
 func (tp *TimerPool) Acquire(d time.Duration) *time.Timer {
+	// Clear the flag before Get() - this allows New() to set it if called
+	tp.newTimerCreated.Store(false)
+
 	// Try to get pooledTimer from pool
 	pt := tp.pool.Get().(*pooledTimer)
 
-	// Track hit vs miss based on fromPool flag
-	if pt.fromPool {
-		tp.hits.Add(1)
-	} else {
+	// Track hit vs miss based on whether New() was called
+	// If newTimerCreated is true, the New func was called (miss)
+	// If newTimerCreated is false, we got a timer from the pool (hit)
+	if tp.newTimerCreated.Load() {
 		tp.misses.Add(1)
-		// Mark as from pool for next time
-		pt.fromPool = true
+	} else {
+		tp.hits.Add(1)
 	}
 
 	// Reset timer to desired duration
@@ -195,10 +199,8 @@ func (tp *TimerPool) Release(timer *time.Timer) {
 	tp.mu.Unlock()
 
 	// Wrap timer and return to pool for reuse
-	// Mark as fromPool=true so next Acquire() knows it's a hit
 	tp.pool.Put(&pooledTimer{
-		timer:    timer,
-		fromPool: true,
+		timer: timer,
 	})
 }
 

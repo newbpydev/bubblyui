@@ -56,3 +56,4 @@ tests/          # Integration tests
 - Use `any` without reason
 - Create goroutines directly
 - Commit broken code
+- Create summary documents for routine tasks (avoid documentation bloat)
