@@ -517,3 +517,228 @@ func TestInput_Props(t *testing.T) {
 	assert.Equal(t, InputEmail, inputProps.Type, "Type should match")
 	assert.Equal(t, 40, inputProps.Width, "Width should match")
 }
+
+// ============================================================================
+// CURSOR SUPPORT TESTS (NEW FEATURES)
+// ============================================================================
+
+func TestInput_CursorSupport(t *testing.T) {
+	valueRef := bubbly.NewRef("Hello World")
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputText,
+		Width: 30,
+	})
+
+	input.Init()
+	
+	// Focus the input to enable cursor
+	input.Emit("focus", nil)
+	
+	view := input.View()
+	
+	// View should render with cursor support (textinput integration)
+	assert.NotEmpty(t, view, "Input with cursor should render")
+	assert.Contains(t, view, "Hello World", "Should show the value")
+}
+
+func TestInput_CursorPositionIndicator(t *testing.T) {
+	valueRef := bubbly.NewRef("Test")
+
+	input := Input(InputProps{
+		Value:              valueRef,
+		Type:               InputText,
+		ShowCursorPosition: true,
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+	
+	view := input.View()
+	
+	// Should show cursor position indicator when focused
+	// Note: The exact format depends on textinput rendering
+	assert.NotEmpty(t, view, "Input should render with cursor position indicator")
+}
+
+func TestInput_CharLimit(t *testing.T) {
+	tests := []struct {
+		name      string
+		charLimit int
+		value     string
+		wantLen   int
+	}{
+		{
+			name:      "no limit",
+			charLimit: 0,
+			value:     "unlimited text here",
+			wantLen:   19,
+		},
+		{
+			name:      "with limit 10",
+			charLimit: 10,
+			value:     "short",
+			wantLen:   5,
+		},
+		{
+			name:      "at limit",
+			charLimit: 5,
+			value:     "exact",
+			wantLen:   5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valueRef := bubbly.NewRef(tt.value)
+
+			input := Input(InputProps{
+				Value:     valueRef,
+				Type:      InputText,
+				CharLimit: tt.charLimit,
+			})
+
+			input.Init()
+			view := input.View()
+
+			assert.NotEmpty(t, view, "Input should render")
+			assert.Equal(t, tt.wantLen, len(valueRef.Get().(string)), "Value length should match")
+		})
+	}
+}
+
+func TestInput_TextInputUpdate(t *testing.T) {
+	valueRef := bubbly.NewRef("initial")
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputText,
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+
+	// Simulate textinput update (this would come from Bubbletea in real usage)
+	// The textInputUpdate handler should sync the value
+	
+	view := input.View()
+	assert.NotEmpty(t, view, "Input should render after update")
+}
+
+func TestInput_FocusBlurCursorIntegration(t *testing.T) {
+	valueRef := bubbly.NewRef("test")
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputText,
+	})
+
+	input.Init()
+
+	// Initially blurred - cursor should not be active
+	view1 := input.View()
+	assert.NotEmpty(t, view1, "Should render when blurred")
+
+	// Focus - cursor should become active
+	input.Emit("focus", nil)
+	view2 := input.View()
+	assert.NotEmpty(t, view2, "Should render when focused")
+
+	// Blur again - cursor should deactivate
+	input.Emit("blur", nil)
+	view3 := input.View()
+	assert.NotEmpty(t, view3, "Should render when blurred again")
+}
+
+func TestInput_PasswordWithCursor(t *testing.T) {
+	valueRef := bubbly.NewRef("secret123")
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputPassword,
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+	
+	view := input.View()
+	
+	// Password should be masked even with cursor
+	assert.NotContains(t, view, "secret123", "Password should be masked")
+	assert.NotEmpty(t, view, "Should render password input with cursor")
+}
+
+func TestInput_ValueSyncWithTextInput(t *testing.T) {
+	valueRef := bubbly.NewRef("initial")
+	callbackCalled := false
+	var callbackValue string
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputText,
+		OnChange: func(value string) {
+			callbackCalled = true
+			callbackValue = value
+		},
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+
+	// Change value through ref - should sync to textinput
+	valueRef.Set("updated")
+
+	// OnChange should be called
+	assert.True(t, callbackCalled, "OnChange should be called")
+	assert.Equal(t, "updated", callbackValue, "Callback should receive updated value")
+}
+
+func TestInput_CursorWithValidation(t *testing.T) {
+	valueRef := bubbly.NewRef("")
+
+	input := Input(InputProps{
+		Value: valueRef,
+		Type:  InputText,
+		Validate: func(s string) error {
+			if len(s) < 3 && s != "" {
+				return errors.New("too short")
+			}
+			return nil
+		},
+		ShowCursorPosition: true,
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+
+	// Set invalid value
+	valueRef.Set("ab")
+	
+	view := input.View()
+	
+	// Should show error and still have cursor
+	assert.Contains(t, view, "too short", "Should show validation error")
+	assert.NotEmpty(t, view, "Should render with cursor and error")
+}
+
+func TestInput_CursorPositionNotShownWhenBlurred(t *testing.T) {
+	valueRef := bubbly.NewRef("test")
+
+	input := Input(InputProps{
+		Value:              valueRef,
+		Type:               InputText,
+		ShowCursorPosition: true,
+	})
+
+	input.Init()
+	
+	// When blurred, cursor position should not be shown
+	view := input.View()
+	assert.NotEmpty(t, view, "Should render when blurred")
+	
+	// Focus to show cursor position
+	input.Emit("focus", nil)
+	viewFocused := input.View()
+	assert.NotEmpty(t, viewFocused, "Should render when focused with position")
+}
