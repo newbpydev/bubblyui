@@ -133,11 +133,34 @@ func (r *Router) Push(target *NavigationTarget) tea.Cmd {
 			}
 		}
 
+		// Execute before guards
+		oldRoute := r.CurrentRoute()
+		guardResult := r.executeBeforeGuards(newRoute, oldRoute)
+
+		// Handle guard result
+		switch guardResult.action {
+		case guardCancel:
+			return NavigationErrorMsg{
+				Error: ErrNavigationCancelled,
+				From:  oldRoute,
+				To:    target,
+			}
+
+		case guardRedirect:
+			// Redirect to different route
+			return r.Push(guardResult.target)()
+
+		case guardContinue:
+			// Continue with navigation
+		}
+
 		// Update current route (thread-safe)
 		r.mu.Lock()
-		oldRoute := r.currentRoute
 		r.currentRoute = newRoute
 		r.mu.Unlock()
+
+		// Execute after hooks
+		r.executeAfterHooks(newRoute, oldRoute)
 
 		// Return success message
 		return RouteChangedMsg{
@@ -210,12 +233,35 @@ func (r *Router) Replace(target *NavigationTarget) tea.Cmd {
 			}
 		}
 
+		// Execute before guards
+		oldRoute := r.CurrentRoute()
+		guardResult := r.executeBeforeGuards(newRoute, oldRoute)
+
+		// Handle guard result
+		switch guardResult.action {
+		case guardCancel:
+			return NavigationErrorMsg{
+				Error: ErrNavigationCancelled,
+				From:  oldRoute,
+				To:    target,
+			}
+
+		case guardRedirect:
+			// Redirect to different route
+			return r.Replace(guardResult.target)()
+
+		case guardContinue:
+			// Continue with navigation
+		}
+
 		// Update current route (thread-safe)
 		// Note: No history update - that's the difference from Push()
 		r.mu.Lock()
-		oldRoute := r.currentRoute
 		r.currentRoute = newRoute
 		r.mu.Unlock()
+
+		// Execute after hooks
+		r.executeAfterHooks(newRoute, oldRoute)
 
 		// Return success message
 		return RouteChangedMsg{
