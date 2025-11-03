@@ -353,3 +353,314 @@ func TestRoute_MatchedChain(t *testing.T) {
 	assert.Equal(t, "/dashboard/stats", route.Matched[1].Path)
 	assert.Equal(t, "dashboard-stats", route.Matched[1].Name)
 }
+
+// TestRoute_MetaInheritancePattern tests accessing parent meta via matched array
+// This follows Vue Router's pattern where meta fields are NOT automatically inherited,
+// but can be accessed by iterating through the matched array
+func TestRoute_MetaInheritancePattern(t *testing.T) {
+	t.Run("access parent meta via matched array", func(t *testing.T) {
+		parent := &RouteRecord{
+			Path: "/dashboard",
+			Name: "dashboard",
+			Meta: map[string]interface{}{
+				"requiresAuth": true,
+				"layout":       "admin",
+			},
+		}
+
+		child := &RouteRecord{
+			Path: "/dashboard/stats",
+			Name: "dashboard-stats",
+			Meta: map[string]interface{}{
+				"title": "Statistics",
+			},
+		}
+
+		route := NewRoute("/dashboard/stats", "dashboard-stats", nil, nil, "", nil, []*RouteRecord{parent, child})
+
+		// Child route's direct meta should NOT contain parent's meta
+		_, hasAuth := route.GetMeta("requiresAuth")
+		assert.False(t, hasAuth, "child route should not inherit parent meta directly")
+
+		// But we can access parent meta via matched array (Vue Router pattern)
+		var requiresAuth bool
+		for _, record := range route.Matched {
+			if auth, ok := record.Meta["requiresAuth"]; ok {
+				requiresAuth = auth.(bool)
+				break
+			}
+		}
+		assert.True(t, requiresAuth, "should find requiresAuth in parent via matched array")
+
+		// Child's own meta should be accessible
+		title, hasTitle := route.Matched[1].Meta["title"]
+		assert.True(t, hasTitle)
+		assert.Equal(t, "Statistics", title)
+	})
+
+	t.Run("check meta in navigation guard pattern", func(t *testing.T) {
+		// Simulate Vue Router's beforeEach guard pattern
+		parent := &RouteRecord{
+			Path: "/admin",
+			Name: "admin",
+			Meta: map[string]interface{}{
+				"requiresAuth": true,
+				"roles":        []string{"admin", "superuser"},
+			},
+		}
+
+		child := &RouteRecord{
+			Path: "/admin/users",
+			Name: "admin-users",
+			Meta: map[string]interface{}{
+				"title": "User Management",
+			},
+		}
+
+		route := NewRoute("/admin/users", "admin-users", nil, nil, "", nil, []*RouteRecord{parent, child})
+
+		// Check if any matched record requires auth (like Vue Router's to.matched.some())
+		requiresAuth := false
+		for _, record := range route.Matched {
+			if auth, ok := record.Meta["requiresAuth"]; ok && auth.(bool) {
+				requiresAuth = true
+				break
+			}
+		}
+		assert.True(t, requiresAuth, "should detect requiresAuth in matched chain")
+
+		// Check roles from parent
+		var roles []string
+		for _, record := range route.Matched {
+			if r, ok := record.Meta["roles"]; ok {
+				roles = r.([]string)
+				break
+			}
+		}
+		assert.Equal(t, []string{"admin", "superuser"}, roles)
+	})
+
+	t.Run("deeply nested meta access", func(t *testing.T) {
+		grandparent := &RouteRecord{
+			Path: "/app",
+			Name: "app",
+			Meta: map[string]interface{}{
+				"theme": "dark",
+			},
+		}
+
+		parent := &RouteRecord{
+			Path: "/app/dashboard",
+			Name: "dashboard",
+			Meta: map[string]interface{}{
+				"requiresAuth": true,
+			},
+		}
+
+		child := &RouteRecord{
+			Path: "/app/dashboard/stats",
+			Name: "stats",
+			Meta: map[string]interface{}{
+				"refreshInterval": 5000,
+			},
+		}
+
+		route := NewRoute("/app/dashboard/stats", "stats", nil, nil, "", nil,
+			[]*RouteRecord{grandparent, parent, child})
+
+		// Collect all meta from matched chain
+		allMeta := make(map[string]interface{})
+		for _, record := range route.Matched {
+			for k, v := range record.Meta {
+				allMeta[k] = v
+			}
+		}
+
+		assert.Equal(t, "dark", allMeta["theme"])
+		assert.Equal(t, true, allMeta["requiresAuth"])
+		assert.Equal(t, 5000, allMeta["refreshInterval"])
+	})
+}
+
+// TestRoute_MetaTypeAssertions tests type assertions for various meta value types
+func TestRoute_MetaTypeAssertions(t *testing.T) {
+	tests := []struct {
+		name          string
+		meta          map[string]interface{}
+		key           string
+		expectedType  string
+		assertionFunc func(t *testing.T, value interface{})
+	}{
+		{
+			name: "boolean type",
+			meta: map[string]interface{}{
+				"requiresAuth": true,
+			},
+			key:          "requiresAuth",
+			expectedType: "bool",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				boolVal, ok := value.(bool)
+				assert.True(t, ok, "should be bool type")
+				assert.True(t, boolVal)
+			},
+		},
+		{
+			name: "string type",
+			meta: map[string]interface{}{
+				"title": "Dashboard",
+			},
+			key:          "title",
+			expectedType: "string",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				strVal, ok := value.(string)
+				assert.True(t, ok, "should be string type")
+				assert.Equal(t, "Dashboard", strVal)
+			},
+		},
+		{
+			name: "int type",
+			meta: map[string]interface{}{
+				"maxRetries": 3,
+			},
+			key:          "maxRetries",
+			expectedType: "int",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				intVal, ok := value.(int)
+				assert.True(t, ok, "should be int type")
+				assert.Equal(t, 3, intVal)
+			},
+		},
+		{
+			name: "string slice type",
+			meta: map[string]interface{}{
+				"roles": []string{"admin", "user"},
+			},
+			key:          "roles",
+			expectedType: "[]string",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				sliceVal, ok := value.([]string)
+				assert.True(t, ok, "should be []string type")
+				assert.Equal(t, []string{"admin", "user"}, sliceVal)
+			},
+		},
+		{
+			name: "map type",
+			meta: map[string]interface{}{
+				"permissions": map[string]bool{
+					"read":  true,
+					"write": false,
+				},
+			},
+			key:          "permissions",
+			expectedType: "map[string]bool",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				mapVal, ok := value.(map[string]bool)
+				assert.True(t, ok, "should be map[string]bool type")
+				assert.True(t, mapVal["read"])
+				assert.False(t, mapVal["write"])
+			},
+		},
+		{
+			name: "struct type",
+			meta: map[string]interface{}{
+				"config": struct {
+					Timeout int
+					Retry   bool
+				}{
+					Timeout: 5000,
+					Retry:   true,
+				},
+			},
+			key:          "config",
+			expectedType: "struct",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				type Config struct {
+					Timeout int
+					Retry   bool
+				}
+				configVal, ok := value.(struct {
+					Timeout int
+					Retry   bool
+				})
+				assert.True(t, ok, "should be struct type")
+				assert.Equal(t, 5000, configVal.Timeout)
+				assert.True(t, configVal.Retry)
+			},
+		},
+		{
+			name: "float64 type",
+			meta: map[string]interface{}{
+				"version": 1.5,
+			},
+			key:          "version",
+			expectedType: "float64",
+			assertionFunc: func(t *testing.T, value interface{}) {
+				floatVal, ok := value.(float64)
+				assert.True(t, ok, "should be float64 type")
+				assert.Equal(t, 1.5, floatVal)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			route := NewRoute("/test", "test", nil, nil, "", tt.meta, nil)
+
+			value, found := route.GetMeta(tt.key)
+			assert.True(t, found, "meta key should exist")
+			assert.NotNil(t, value, "meta value should not be nil")
+
+			tt.assertionFunc(t, value)
+		})
+	}
+}
+
+// TestRoute_MetaFieldsSet tests that meta fields are properly set
+func TestRoute_MetaFieldsSet(t *testing.T) {
+	t.Run("meta fields set on route creation", func(t *testing.T) {
+		meta := map[string]interface{}{
+			"requiresAuth": true,
+			"title":        "Admin Panel",
+			"roles":        []string{"admin"},
+		}
+
+		route := NewRoute("/admin", "admin", nil, nil, "", meta, nil)
+
+		assert.NotNil(t, route.Meta)
+		assert.Len(t, route.Meta, 3)
+
+		requiresAuth, ok := route.GetMeta("requiresAuth")
+		assert.True(t, ok)
+		assert.Equal(t, true, requiresAuth)
+
+		title, ok := route.GetMeta("title")
+		assert.True(t, ok)
+		assert.Equal(t, "Admin Panel", title)
+
+		roles, ok := route.GetMeta("roles")
+		assert.True(t, ok)
+		assert.Equal(t, []string{"admin"}, roles)
+	})
+
+	t.Run("meta fields accessible directly from map", func(t *testing.T) {
+		meta := map[string]interface{}{
+			"key1": "value1",
+			"key2": 42,
+		}
+
+		route := NewRoute("/test", "test", nil, nil, "", meta, nil)
+
+		// Direct map access
+		assert.Equal(t, "value1", route.Meta["key1"])
+		assert.Equal(t, 42, route.Meta["key2"])
+
+		// GetMeta method
+		val1, ok1 := route.GetMeta("key1")
+		assert.True(t, ok1)
+		assert.Equal(t, "value1", val1)
+
+		val2, ok2 := route.GetMeta("key2")
+		assert.True(t, ok2)
+		assert.Equal(t, 42, val2)
+	})
+}
