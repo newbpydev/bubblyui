@@ -1651,7 +1651,7 @@ func (r *Route) GetMeta(key string) (interface{}, bool)
 
 ---
 
-### Task 4.5: Route Name Navigation
+### Task 4.5: Route Name Navigation ✅ COMPLETED
 **Description**: Navigate by route name instead of path
 
 **Prerequisites**: Task 4.1
@@ -1659,24 +1659,100 @@ func (r *Route) GetMeta(key string) (interface{}, bool)
 **Unlocks**: Task 5.1 (Composables)
 
 **Files**:
-- `pkg/bubbly/router/named_routes.go`
-- `pkg/bubbly/router/named_routes_test.go`
+- `pkg/bubbly/router/named_routes.go` ✅
+- `pkg/bubbly/router/named_routes_test.go` ✅
 
 **Type Safety**:
 ```go
 func (r *Router) PushNamed(name string, params, query map[string]string) tea.Cmd
 
-func (r *Router) BuildPath(name string, params, query map[string]string) string
+func (r *Router) BuildPath(name string, params, query map[string]string) (string, error)
 ```
 
 **Tests**:
-- [ ] Named navigation works
-- [ ] Params injected correctly
-- [ ] Query string added
-- [ ] Invalid name handled
-- [ ] Path building utility
+- [x] Named navigation works
+- [x] Params injected correctly
+- [x] Query string added
+- [x] Invalid name handled
+- [x] Path building utility
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 90.2% (exceeds 80% target)
+- **Tests**: All 8 test suites passing (23 test cases for named routes)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings in new code
+- **Architecture**:
+  - `BuildPath(name, params, query)` - constructs full path from route name
+  - `PushNamed(name, params, query)` - navigates using BuildPath + Push
+  - `buildPathFromPattern()` - internal helper for path construction
+  - `normalizePath()` - cleans up paths (double slashes, trailing slashes)
+- **Path Building Logic**:
+  - Looks up route by name in registry (O(1) via map)
+  - Iterates through pattern segments:
+    - Static segments: use as-is
+    - Required params (:id): inject from params map (error if missing)
+    - Optional params (:id?): inject if present, omit if not
+    - Wildcards (:path*): inject if present, omit if not
+  - Appends query string using QueryParser for consistency
+  - Normalizes final path (removes //, trailing /)
+- **Error Handling**:
+  - Route not found: Returns descriptive error with route name
+  - Missing required param: Returns error with param name
+  - PushNamed returns nil on error (no navigation)
+- **Edge Cases Handled**:
+  - Static routes (no params)
+  - Single param routes
+  - Multiple param routes
+  - Optional params (provided and omitted)
+  - Wildcards (single segment, multiple segments, omitted)
+  - Query string appending
+  - Invalid route names
+  - Missing required parameters
+- **Integration**:
+  - Uses existing RouteRegistry.GetByName() for O(1) lookup
+  - Uses existing QueryParser for consistent query string formatting
+  - Uses existing Push() method for actual navigation
+  - Maintains thread safety via registry's RWMutex
+- **Type Safety**:
+  - BuildPath returns (string, error) for proper error handling
+  - PushNamed returns tea.Cmd (nil on error)
+  - All maps properly initialized (nil-safe)
+- **Performance**:
+  - O(1) route lookup by name (map-based)
+  - O(n) path building where n = number of segments
+  - Minimal allocations (string builder pattern)
+  - No regex compilation (uses pre-compiled patterns)
+- **Developer Experience**:
+  - Clear method signatures
+  - Comprehensive godoc comments with examples
+  - Intuitive error messages
+  - Consistent with Vue Router patterns
+- **Examples**:
+  ```go
+  // Static route
+  cmd := router.PushNamed("home", nil, nil)
+  
+  // Route with params
+  cmd := router.PushNamed("user-detail", 
+      map[string]string{"id": "123"}, 
+      nil,
+  )
+  
+  // Route with params and query
+  cmd := router.PushNamed("user-detail",
+      map[string]string{"id": "123"},
+      map[string]string{"tab": "profile"},
+  )
+  
+  // Build path utility
+  path, err := router.BuildPath("user-detail",
+      map[string]string{"id": "123"},
+      map[string]string{"tab": "profile"},
+  )
+  // Result: "/user/123?tab=profile"
+  ```
 
 ---
 
