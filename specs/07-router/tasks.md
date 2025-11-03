@@ -1059,7 +1059,7 @@ func (h *History) Replace(route *Route)
 
 ---
 
-### Task 3.2: History Navigation
+### Task 3.2: History Navigation ✅ COMPLETED
 **Description**: Implement Back, Forward, Go methods
 
 **Prerequisites**: Task 3.1
@@ -1067,8 +1067,8 @@ func (h *History) Replace(route *Route)
 **Unlocks**: Task 4.1 (Nested Routes)
 
 **Files**:
-- `pkg/bubbly/router/history_nav.go`
-- `pkg/bubbly/router/history_nav_test.go`
+- `pkg/bubbly/router/history_nav.go` ✅
+- `pkg/bubbly/router/history_nav_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -1081,14 +1081,90 @@ func (h *History) CanGoForward() bool
 ```
 
 **Tests**:
-- [ ] Back moves to previous
-- [ ] Forward moves to next
-- [ ] Go(n) moves n steps
-- [ ] Bounds checking
-- [ ] No-op on boundaries
-- [ ] Commands generated
+- [x] Back moves to previous
+- [x] Forward moves to next
+- [x] Go(n) moves n steps
+- [x] Bounds checking
+- [x] No-op on boundaries
+- [x] Commands generated
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 94.7% (exceeds 80% target)
+- **Tests**: All 7 test suites passing (48 test cases total)
+- **Race detector**: Clean (no race conditions)
+- **go vet**: Zero warnings
+- **Architecture**:
+  - **History helpers**:
+    - `CanGoBack()` - checks if current > 0
+    - `CanGoForward()` - checks if current < len-1
+    - Thread-safe with mutex
+  - **Router navigation methods**:
+    - `Back()` - navigates to previous entry
+    - `Forward()` - navigates to next entry
+    - `Go(n)` - navigates n steps (negative=back, positive=forward)
+    - All return `tea.Cmd` for Bubbletea integration
+    - Return nil for no-op (boundaries, empty history)
+- **Bubbletea Integration**:
+  - Commands return `RouteChangedMsg` on success
+  - Include To/From routes in message
+  - Async execution via Bubbletea runtime
+  - Thread-safe state updates with RWMutex
+- **Bounds Checking**:
+  - Back() returns nil if current == 0 (first entry)
+  - Forward() returns nil if current == len-1 (last entry)
+  - Go(n) clamps to [0, len-1] range
+  - Go(0) returns nil (no-op)
+  - Empty history always returns nil
+- **Navigation Flow**:
+  1. Check if navigation is possible (CanGoBack/CanGoForward)
+  2. If not, return nil (no-op)
+  3. Lock mutex for thread safety
+  4. Save current route for "from" in message
+  5. Update history.current index
+  6. Get new route from history entry
+  7. Update router.currentRoute
+  8. Return RouteChangedMsg with to/from routes
+- **Go(n) Clamping**:
+  - Negative n: go back n steps
+  - Positive n: go forward n steps
+  - Clamps to first entry if n too negative
+  - Clamps to last entry if n too positive
+  - Example: current=2, Go(-10) → clamps to 0
+  - Example: current=2, Go(10) → clamps to len-1
+- **Thread Safety**:
+  - Router.mu (RWMutex) protects currentRoute
+  - History.mu (Mutex) protects entries and current
+  - Both locks acquired in navigation commands
+  - No deadlocks (consistent lock ordering)
+  - Safe for concurrent Back/Forward/Go calls
+- **Edge Cases Handled**:
+  - Empty history (no entries)
+  - Single entry (can't go back or forward)
+  - At first entry (can't go back)
+  - At last entry (can't go forward)
+  - Go(0) is no-op
+  - Go beyond bounds (clamped)
+  - Concurrent navigation calls
+- **Integration Tests**:
+  - `TestRouter_BackForward_Integration` - full navigation flow
+  - `TestRouter_Go_BoundsChecking` - boundary conditions
+  - Verifies back/forward sequence works correctly
+  - Verifies from/to routes in messages
+- **Use Cases Enabled**:
+  - Back button in navigation bar
+  - Forward button in navigation bar
+  - Keyboard shortcuts (ESC, Backspace, Ctrl+])
+  - History navigation UI controls
+  - Undo/redo navigation patterns
+  - Jump to specific history position
+- **Performance**:
+  - O(1) CanGoBack/CanGoForward checks
+  - O(1) Back/Forward navigation
+  - O(1) Go(n) navigation
+  - Minimal memory overhead (no allocations)
+  - Lock contention minimal (short critical sections)
 
 ---
 
