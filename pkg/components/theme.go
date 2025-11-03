@@ -2,6 +2,7 @@ package components
 
 import (
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 

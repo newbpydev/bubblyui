@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 func TestCard_Creation(t *testing.T) {

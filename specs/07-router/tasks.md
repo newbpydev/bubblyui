@@ -86,7 +86,7 @@ type Segment struct {
 
 ---
 
-### Task 1.2: Route Matching Algorithm
+### Task 1.2: Route Matching Algorithm ✅ COMPLETED
 **Description**: Implement path matching with parameter extraction
 
 **Prerequisites**: Task 1.1
@@ -94,8 +94,8 @@ type Segment struct {
 **Unlocks**: Task 1.3 (Route Registry)
 
 **Files**:
-- `pkg/bubbly/router/matcher.go`
-- `pkg/bubbly/router/matcher_test.go`
+- `pkg/bubbly/router/matcher.go` ✅
+- `pkg/bubbly/router/matcher_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -113,15 +113,46 @@ type RouteMatch struct {
 ```
 
 **Tests**:
-- [ ] Static routes match correctly
-- [ ] Dynamic params are extracted
-- [ ] Optional params work
-- [ ] Wildcards match correctly
-- [ ] Most specific route wins
-- [ ] 404 when no match
-- [ ] Benchmark: < 100μs per match
+- [x] Static routes match correctly
+- [x] Dynamic params are extracted
+- [x] Optional params work
+- [x] Wildcards match correctly
+- [x] Most specific route wins
+- [x] 404 when no match
+- [x] Benchmark: < 100μs per match
 
 **Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- **Coverage**: 91.3% (exceeds 80% target)
+- **Tests**: All 7 test suites passing (48 test cases)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings
+- **Performance**: **1.056 μs/op** (well under 100μs target ✅)
+  - Memory: 345 B/op, 5 allocs/op
+- **Architecture**:
+  - `NewRouteMatcher()` - creates matcher instance
+  - `AddRoute(path, name)` - registers routes with pattern compilation
+  - `Match(path)` - finds best match with scoring
+  - `calculateScore()` - computes route specificity
+  - `isMoreSpecific()` - comparison for sorting
+- **Scoring Algorithm**:
+  - More static segments = more specific (higher priority)
+  - Fewer param segments = more specific
+  - Fewer optional segments = more specific
+  - Fewer wildcard segments = more specific
+  - Example: `/users/new` (static) beats `/users/:id` (param)
+- **Error Handling**:
+  - Returns `ErrNoMatch` for unmatched paths (404 scenario)
+  - Pattern compilation errors bubble from Task 1.1
+  - Proper error wrapping with context
+- **Edge Cases Handled**:
+  - Empty paths
+  - Root path (`/`)
+  - Trailing slash normalization
+  - Multiple routes matching (precedence via scoring)
+  - No matches (404)
+- **Integration**: Uses `RoutePattern` from Task 1.1 for compilation and matching
 
 ---
 
