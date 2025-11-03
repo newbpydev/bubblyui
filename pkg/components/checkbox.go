@@ -6,6 +6,12 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
+// Checkbox indicator constants
+const (
+	CheckboxUnchecked = "☐" // Unchecked box (U+2610)
+	CheckboxChecked   = "☑" // Checked box (U+2611)
+)
+
 // CheckboxProps defines the configuration properties for a Checkbox component.
 //
 // Example usage:
@@ -93,13 +99,8 @@ func Checkbox(props CheckboxProps) bubbly.Component {
 	component, _ := bubbly.NewComponent("Checkbox").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			// Inject theme using helper
+			setupTheme(ctx)
 
 			// Register toggle event handler
 			ctx.On("toggle", func(data interface{}) {
@@ -116,9 +117,6 @@ func Checkbox(props CheckboxProps) bubbly.Component {
 					}
 				}
 			})
-
-			// Expose theme for template
-			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			props := ctx.Props().(CheckboxProps)
@@ -130,9 +128,9 @@ func Checkbox(props CheckboxProps) bubbly.Component {
 			// Determine checkbox indicator
 			var indicator string
 			if isChecked {
-				indicator = "☑" // Checked box (U+2611)
+				indicator = CheckboxChecked // Checked box (U+2611)
 			} else {
-				indicator = "☐" // Unchecked box (U+2610)
+				indicator = CheckboxUnchecked // Unchecked box (U+2610)
 			}
 
 			// Build checkbox style

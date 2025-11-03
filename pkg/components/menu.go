@@ -78,14 +78,8 @@ func Menu(props MenuProps) bubbly.Component {
 	component, _ := bubbly.NewComponent("Menu").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
-			ctx.Expose("theme", theme)
+			// Inject theme using helper
+			setupTheme(ctx)
 
 			// Handle select event
 			ctx.On("select", func(data interface{}) {

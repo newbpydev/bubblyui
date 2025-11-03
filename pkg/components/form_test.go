@@ -290,11 +290,11 @@ func TestForm_Submit(t *testing.T) {
 
 func TestForm_Cancel(t *testing.T) {
 	// Arrange
-	cancelled := false
+	canceled := false
 	form := Form(FormProps[TestFormData]{
 		Initial: TestFormData{},
 		OnCancel: func() {
-			cancelled = true
+			canceled = true
 		},
 		Fields: []FormField{
 			{Name: "Name", Component: Input(InputProps{Value: bubbly.NewRef("")})},
@@ -306,7 +306,7 @@ func TestForm_Cancel(t *testing.T) {
 	form.Emit("cancel", nil)
 
 	// Assert
-	assert.True(t, cancelled)
+	assert.True(t, canceled)
 }
 
 func TestForm_SubmittingState(t *testing.T) {

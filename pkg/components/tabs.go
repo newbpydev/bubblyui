@@ -80,14 +80,8 @@ func Tabs(props TabsProps) bubbly.Component {
 	component, _ := bubbly.NewComponent("Tabs").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
-			ctx.Expose("theme", theme)
+			// Inject theme using helper
+			setupTheme(ctx)
 
 			// Handle tab change event
 			ctx.On("changeTab", func(data interface{}) {

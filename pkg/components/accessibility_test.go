@@ -16,11 +16,11 @@ import (
 // TestAccessibility_KeyboardNavigation validates keyboard navigation for interactive components
 func TestAccessibility_KeyboardNavigation(t *testing.T) {
 	tests := []struct {
-		name           string
-		componentName  string
+		name            string
+		componentName   string
 		createComponent func() bubbly.Component
-		keyMsg         tea.KeyMsg
-		validate       func(t *testing.T, comp bubbly.Component)
+		keyMsg          tea.KeyMsg
+		validate        func(t *testing.T, comp bubbly.Component)
 	}{
 		{
 			name:          "Button responds to Enter key",
@@ -113,8 +113,8 @@ func TestAccessibility_KeyboardNavigation(t *testing.T) {
 			createComponent: func() bubbly.Component {
 				selectedRef := bubbly.NewRef("Option 1")
 				sel := Select(SelectProps[string]{
-					Value:    selectedRef,
-					Options:  []string{"Option 1", "Option 2", "Option 3"},
+					Value:   selectedRef,
+					Options: []string{"Option 1", "Option 2", "Option 3"},
 				})
 				sel.Init()
 				return sel
@@ -243,8 +243,8 @@ func TestAccessibility_KeyboardNavigation(t *testing.T) {
 // TestAccessibility_FocusIndicators validates visual focus indicators
 func TestAccessibility_FocusIndicators(t *testing.T) {
 	tests := []struct {
-		name           string
-		createComponent func() bubbly.Component
+		name             string
+		createComponent  func() bubbly.Component
 		expectFocusStyle bool
 	}{
 		{
@@ -305,8 +305,8 @@ func TestAccessibility_FocusIndicators(t *testing.T) {
 			createComponent: func() bubbly.Component {
 				selectedRef := bubbly.NewRef("Option 1")
 				sel := Select(SelectProps[string]{
-					Value:    selectedRef,
-					Options:  []string{"Option 1", "Option 2"},
+					Value:   selectedRef,
+					Options: []string{"Option 1", "Option 2"},
 				})
 				sel.Init()
 				return sel
@@ -385,10 +385,10 @@ func TestAccessibility_FocusIndicators(t *testing.T) {
 // TestAccessibility_SemanticStructure validates semantic labels and structure
 func TestAccessibility_SemanticStructure(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		createComponent func() bubbly.Component
-		expectedLabel  string
-		checkStructure func(t *testing.T, view string)
+		expectedLabel   string
+		checkStructure  func(t *testing.T, view string)
 	}{
 		{
 			name: "Input has placeholder",
@@ -443,8 +443,8 @@ func TestAccessibility_SemanticStructure(t *testing.T) {
 			createComponent: func() bubbly.Component {
 				selectedRef := bubbly.NewRef("USA")
 				sel := Select(SelectProps[string]{
-					Value:    selectedRef,
-					Options:  []string{"USA", "Canada", "Mexico"},
+					Value:   selectedRef,
+					Options: []string{"USA", "Canada", "Mexico"},
 				})
 				sel.Init()
 				return sel

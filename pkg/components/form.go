@@ -95,7 +95,7 @@ type FormProps[T any] struct {
 	// Optional - if nil, no callback is executed.
 	OnSubmit func(T)
 
-	// OnCancel is a callback function executed when the form is cancelled.
+	// OnCancel is a callback function executed when the form is canceled.
 	// Optional - if nil, no callback is executed.
 	OnCancel func()
 

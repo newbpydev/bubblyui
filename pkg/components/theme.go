@@ -1,6 +1,9 @@
 package components
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
+)
 
 // Theme defines the color scheme and styling properties for all components.
 // It provides a consistent visual language across the component library.
@@ -160,6 +163,23 @@ var HighContrastTheme = Theme{
 	Padding:     1,
 	Margin:      1,
 	Radius:      0, // Sharp borders for clarity
+}
+
+// GetThemeFromContext retrieves the theme from component context with fallback to DefaultTheme
+func GetThemeFromContext(ctx *bubbly.Context) Theme {
+	theme := DefaultTheme
+	if injected := ctx.Inject("theme", nil); injected != nil {
+		if t, ok := injected.(Theme); ok {
+			theme = t
+		}
+	}
+	return theme
+}
+
+// Helper function for component setup to inject theme
+func setupTheme(ctx *bubbly.Context) {
+	theme := GetThemeFromContext(ctx)
+	ctx.Expose("theme", theme)
 }
 
 // GetVariantColor returns the appropriate color for a given variant.

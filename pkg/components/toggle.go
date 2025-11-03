@@ -95,13 +95,8 @@ func Toggle(props ToggleProps) bubbly.Component {
 	component, _ := bubbly.NewComponent("Toggle").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			// Inject theme using helper
+			setupTheme(ctx)
 
 			// Register toggle event handler
 			ctx.On("toggle", func(data interface{}) {
@@ -118,9 +113,6 @@ func Toggle(props ToggleProps) bubbly.Component {
 					}
 				}
 			})
-
-			// Expose theme for template
-			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			props := ctx.Props().(ToggleProps)
