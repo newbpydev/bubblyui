@@ -132,6 +132,43 @@ func (rb *RouterBuilder) RouteWithMeta(path, name string, meta map[string]interf
 	return rb
 }
 
+// RouteWithOptions adds a route with functional options to the builder.
+//
+// This method uses the functional options pattern for flexible route
+// configuration. Options can be combined to configure different aspects
+// of the route (name, metadata, guards, children).
+//
+// Parameters:
+//   - path: The route path pattern
+//   - opts: Variable number of RouteOption functions
+//
+// Returns:
+//   - *RouterBuilder: The builder for method chaining
+//
+// Example:
+//
+//	builder.RouteWithOptions("/dashboard",
+//		WithName("dashboard"),
+//		WithMeta(map[string]interface{}{
+//			"requiresAuth": true,
+//		}),
+//		WithGuard(authGuard),
+//		WithChildren(overviewRoute, settingsRoute),
+//	)
+func (rb *RouterBuilder) RouteWithOptions(path string, opts ...RouteOption) *RouterBuilder {
+	record := &RouteRecord{
+		Path: path,
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		opt(record)
+	}
+
+	rb.routes = append(rb.routes, record)
+	return rb
+}
+
 // BeforeEach registers a global before guard.
 //
 // Before guards execute before every navigation and can inspect the target

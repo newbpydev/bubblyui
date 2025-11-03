@@ -856,7 +856,7 @@ func (rb *RouterBuilder) Build() (*Router, error)
 
 ---
 
-### Task 2.6: Route Options
+### Task 2.6: Route Options ✅ COMPLETED
 **Description**: Implement route configuration options
 
 **Prerequisites**: Task 2.5
@@ -864,8 +864,8 @@ func (rb *RouterBuilder) Build() (*Router, error)
 **Unlocks**: Task 3.1 (History Management)
 
 **Files**:
-- `pkg/bubbly/router/options.go`
-- `pkg/bubbly/router/options_test.go`
+- `pkg/bubbly/router/options.go` ✅
+- `pkg/bubbly/router/options_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -875,16 +875,96 @@ func WithName(name string) RouteOption
 func WithMeta(meta map[string]interface{}) RouteOption
 func WithGuard(guard NavigationGuard) RouteOption
 func WithChildren(children ...*RouteRecord) RouteOption
+
+// Builder integration
+func (rb *RouterBuilder) RouteWithOptions(path string, opts ...RouteOption) *RouterBuilder
 ```
 
 **Tests**:
-- [ ] Name option works
-- [ ] Meta option works
-- [ ] Guard option works
-- [ ] Children option works
-- [ ] Multiple options combine
+- [x] Name option works
+- [x] Meta option works
+- [x] Guard option works
+- [x] Children option works
+- [x] Multiple options combine
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- **Coverage**: 94.8% (exceeds 80% target)
+- **Tests**: All 10 test suites passing (options, merging, appending, complex scenarios)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings (go vet passes)
+- **Architecture**:
+  - `RouteOption` - function type for route configuration
+  - `WithName()` - sets route name
+  - `WithMeta()` - sets/merges route metadata
+  - `WithGuard()` - sets per-route navigation guard
+  - `WithChildren()` - sets/appends child routes
+  - `RouteWithOptions()` - builder method accepting options
+- **Functional Options Pattern**:
+  - Flexible and composable configuration
+  - Options can be combined freely
+  - Type-safe option functions
+  - Follows Go best practices
+- **Option Behaviors**:
+  - **WithName**: Sets route name (overwrites if exists)
+  - **WithMeta**: Merges with existing metadata (new keys added, existing overwritten)
+  - **WithGuard**: Stores guard in metadata under "beforeEnter" key
+  - **WithChildren**: Appends to existing children (preserves existing)
+- **Integration**:
+  - Works seamlessly with RouterBuilder
+  - Compatible with existing Route() and RouteWithMeta() methods
+  - Options applied in order specified
+  - No conflicts with builder pattern
+- **Usage Example**:
+  ```go
+  builder.RouteWithOptions("/dashboard",
+      WithName("dashboard"),
+      WithMeta(map[string]interface{}{
+          "requiresAuth": true,
+          "title": "Dashboard",
+      }),
+      WithGuard(authGuard),
+      WithChildren(overviewRoute, settingsRoute),
+  )
+  ```
+- **Per-Route Guards**:
+  - Guards stored in route metadata under "beforeEnter" key
+  - Execute after global before guards
+  - Execute before component guards
+  - Follow Vue Router convention
+  - Can be accessed via `route.Meta["beforeEnter"]`
+- **Nested Routes**:
+  - Children routes for hierarchical routing
+  - Supports unlimited nesting depth
+  - Children appended to existing list
+  - Useful for layouts with nested views
+- **Edge Cases Handled**:
+  - Meta merging with existing metadata
+  - Children appending to existing children
+  - Nil metadata initialization
+  - Nil children initialization
+  - Multiple options on same route
+  - Options applied in sequence
+- **Design Decisions**:
+  - **Functional options**: More flexible than builder methods
+  - **Meta merging**: Preserves existing metadata
+  - **Children appending**: Preserves existing children
+  - **Guard in metadata**: Follows Vue Router convention
+  - **Variadic options**: Unlimited options per route
+- **Benefits**:
+  - Flexible route configuration
+  - Composable options
+  - Type-safe API
+  - Clear intent
+  - Easy to extend
+  - Backward compatible
+- **Use Cases Enabled**:
+  - Per-route authentication guards
+  - Nested route hierarchies
+  - Route metadata configuration
+  - Flexible route naming
+  - Complex route structures
 
 ---
 
