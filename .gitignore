@@ -21,11 +21,37 @@ cmd/examples/*/*/reactive-todo
 cmd/examples/*/*/todo
 cmd/examples/*/*/watch-computed
 cmd/examples/*/*/watch-effect
+cmd/examples/*/*/components-showcase
+cmd/examples/*/*/showcase
+cmd/examples/*/*/dashboard
+cmd/examples/*/*/form-builder
 # Pattern 2: Ignore any binary with -race suffix (race detector builds)
 cmd/examples/*/*/*-race
 
+# Pattern 3: Ignore any executable file without extension in example directories
+cmd/examples/*/*/*
+!cmd/examples/*/*/*.go
+!cmd/examples/*/*/*.md
+!cmd/examples/*/*/*.txt
+!cmd/examples/*/*/*.json
+!cmd/examples/*/*/*.yaml
+!cmd/examples/*/*/*.yml
+
 # Test binary, built with `go test -c`
 *.test
+composables.test
+
+# Root level example application binaries
+components-showcase
+dashboard
+form-builder
+
+# Any executable files in root
+/test_*
+/layout_*
+/*_test
+/*_check
+/showcase
 
 # Output of the go coverage tool
 *.out
@@ -63,3 +89,18 @@ debug.log
 
 # Errors json
 errors.json
+
+# Temporary test and verification files
+test_*.go
+layout_*.go
+*_check.go
+*_verification.go
+
+# Generated documentation files
+*_FIXES.md
+*_FIX.md
+CHANGELOG_*.md
+*_FINAL.md
+
+# Build artifacts
+*.a
