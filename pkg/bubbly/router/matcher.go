@@ -75,15 +75,19 @@ var (
 // Fields:
 //   - Path: The original route pattern (e.g., "/users/:id")
 //   - Name: Human-readable identifier for the route (e.g., "user-detail")
+//   - Component: The component to render for this route (optional, for RouterView)
 //   - Meta: Optional metadata map for route-specific data (e.g., auth requirements)
+//   - Parent: Reference to parent route for nested routes (nil for top-level routes)
 //   - Children: Nested child routes for hierarchical routing
 //   - pattern: Compiled pattern containing segments and regex (internal)
 type RouteRecord struct {
-	Path     string
-	Name     string
-	Meta     map[string]interface{} // Optional metadata (e.g., requiresAuth, title)
-	Children []*RouteRecord         // Nested child routes
-	pattern  *RoutePattern
+	Path      string
+	Name      string
+	Component interface{}            // Component to render (bubbly.Component)
+	Meta      map[string]interface{} // Optional metadata (e.g., requiresAuth, title)
+	Parent    *RouteRecord           // Parent route for nested routes
+	Children  []*RouteRecord         // Nested child routes
+	pattern   *RoutePattern
 }
 
 // RouteMatcher manages a collection of routes and performs path matching.
@@ -132,6 +136,7 @@ type RouteMatcher struct {
 //   - Route: The matched route record
 //   - Params: Extracted path parameters (e.g., {"id": "123"})
 //   - Score: Specificity score used for route precedence
+//   - Matched: Array of matched route records from root to leaf (for nested routes)
 //
 // Example:
 //
@@ -139,10 +144,12 @@ type RouteMatcher struct {
 //	fmt.Printf("Route: %s\n", match.Route.Name)        // "user-detail"
 //	fmt.Printf("User ID: %s\n", match.Params["id"])     // "123"
 //	fmt.Printf("Score: %+v\n", match.Score)            // {static:1, param:1, ...}
+//	fmt.Printf("Matched: %v\n", match.Matched)         // [parentRoute, childRoute]
 type RouteMatch struct {
-	Route  *RouteRecord
-	Params map[string]string
-	Score  matchScore
+	Route   *RouteRecord
+	Params  map[string]string
+	Score   matchScore
+	Matched []*RouteRecord // Route records from root to matched route
 }
 
 // matchScore represents the specificity of a route match for precedence calculation.
@@ -238,6 +245,90 @@ func (rm *RouteMatcher) AddRoute(path, name string) error {
 	return nil
 }
 
+// AddRouteRecord registers a RouteRecord (potentially with children) with the matcher.
+//
+// This method is used for nested routes where a RouteRecord may have child routes.
+// It recursively registers the parent route and all its children, establishing
+// parent-child relationships and resolving nested paths.
+//
+// Parameters:
+//   - record: The route record to register (may have children)
+//
+// Returns:
+//   - error: nil on success, compilation error on invalid patterns
+//
+// Example:
+//
+//	parent := &RouteRecord{
+//		Path: "/user/:id",
+//		Name: "user",
+//		Children: []*RouteRecord{
+//			{Path: "/profile", Name: "user-profile"},
+//			{Path: "/settings", Name: "user-settings"},
+//		},
+//	}
+//	err := matcher.AddRouteRecord(parent)
+func (rm *RouteMatcher) AddRouteRecord(record *RouteRecord) error {
+	// Establish parent-child links
+	establishParentLinks(record)
+
+	// Register the parent route
+	if err := rm.addSingleRoute(record); err != nil {
+		return err
+	}
+
+	// Recursively register children
+	if record.Children != nil {
+		for _, child := range record.Children {
+			if err := rm.registerNestedRoute(record, child); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// addSingleRoute registers a single route without processing children.
+func (rm *RouteMatcher) addSingleRoute(record *RouteRecord) error {
+	// Compile the pattern
+	pattern, err := CompilePattern(record.Path)
+	if err != nil {
+		return fmt.Errorf("failed to compile pattern %s: %w", record.Path, err)
+	}
+
+	record.pattern = pattern
+	rm.routes = append(rm.routes, record)
+	return nil
+}
+
+// registerNestedRoute registers a child route with its full resolved path.
+func (rm *RouteMatcher) registerNestedRoute(parent, child *RouteRecord) error {
+	// Build full path by walking up parent chain
+	// This handles deeply nested routes (grandchildren, etc.)
+	fullPath := buildFullPath(child)
+
+	// Compile pattern for full path
+	pattern, err := CompilePattern(fullPath)
+	if err != nil {
+		return fmt.Errorf("failed to compile nested pattern %s: %w", fullPath, err)
+	}
+
+	child.pattern = pattern
+	rm.routes = append(rm.routes, child)
+
+	// Recursively register grandchildren
+	if child.Children != nil {
+		for _, grandchild := range child.Children {
+			if err := rm.registerNestedRoute(child, grandchild); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // Match finds the best matching route for the given path using intelligent precedence.
 //
 // The matching algorithm works in two phases:
@@ -291,10 +382,14 @@ func (rm *RouteMatcher) Match(path string) (*RouteMatch, error) {
 		// Calculate score
 		score := calculateScore(route.pattern.segments)
 
+		// Build matched array (root to leaf for nested routes)
+		matched := buildMatchedArray(route)
+
 		matches = append(matches, &RouteMatch{
-			Route:  route,
-			Params: params,
-			Score:  score,
+			Route:   route,
+			Params:  params,
+			Score:   score,
+			Matched: matched,
 		})
 	}
 
@@ -305,6 +400,12 @@ func (rm *RouteMatcher) Match(path string) (*RouteMatch, error) {
 
 	// Sort by specificity (most specific first)
 	sort.Slice(matches, func(i, j int) bool {
+		// If scores are equal, prefer child routes over parent routes
+		// This handles the case where a child has an empty path (same pattern as parent)
+		if matches[i].Score == matches[j].Score {
+			// Route with parent is a child route - prefer it
+			return matches[i].Route.Parent != nil && matches[j].Route.Parent == nil
+		}
 		return isMoreSpecific(matches[i].Score, matches[j].Score)
 	})
 

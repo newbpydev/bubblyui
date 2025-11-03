@@ -155,7 +155,6 @@ type Router struct {
 	mu           sync.RWMutex          // Protects currentRoute and hooks
 }
 
-
 // NewRouter creates a new router instance with initialized components.
 //
 // The router is created with:

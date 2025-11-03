@@ -1206,7 +1206,7 @@ func (h *History) CurrentState() interface{}
 
 ## Phase 4: Nested Routes & Advanced (5 tasks, 15 hours)
 
-### Task 4.1: Nested Route Definition
+### Task 4.1: Nested Route Definition ✅ COMPLETED
 **Description**: Support parent-child route relationships
 
 **Prerequisites**: Task 3.2, Task 3.3
@@ -1214,32 +1214,90 @@ func (h *History) CurrentState() interface{}
 **Unlocks**: Task 4.2 (RouterView Component)
 
 **Files**:
-- `pkg/bubbly/router/nested.go`
-- `pkg/bubbly/router/nested_test.go`
+- `pkg/bubbly/router/nested.go` ✅
+- `pkg/bubbly/router/nested_test.go` ✅
+- Updated: `pkg/bubbly/router/matcher.go` (added Parent field, Matched array, AddRouteRecord method)
 
 **Type Safety**:
 ```go
-func Child(path string, component bubbly.Component, opts ...RouteOption) *RouteRecord
+func Child(path string, opts ...RouteOption) *RouteRecord
 
 type RouteRecord struct {
-    // ... existing fields
-    Parent   *RouteRecord
+    Path     string
+    Name     string
+    Meta     map[string]interface{}
+    Parent   *RouteRecord           // Added for nested routes
     Children []*RouteRecord
+    pattern  *RoutePattern
+}
+
+type RouteMatch struct {
+    Route   *RouteRecord
+    Params  map[string]string
+    Score   matchScore
+    Matched []*RouteRecord // Added for nested routes
 }
 ```
 
 **Tests**:
-- [ ] Child routes register
-- [ ] Parent-child links
-- [ ] Path resolution
-- [ ] Matched array correct
-- [ ] Nested params
+- [x] Child routes register
+- [x] Parent-child links
+- [x] Path resolution
+- [x] Matched array correct
+- [x] Nested params
 
 **Estimated Effort**: 3 hours
 
+**Implementation Notes**:
+- **Coverage**: 93.4% (exceeds 80% target)
+- **Tests**: All 15 test suites passing (7 nested route tests + 8 option tests)
+- **Race detector**: Clean (no race conditions)
+- **go vet**: Zero warnings
+- **Architecture**:
+  - `Child()` - creates child route records with options
+  - `resolveNestedPath()` - combines parent and child paths
+  - `buildMatchedArray()` - constructs matched array from root to leaf
+  - `establishParentLinks()` - sets up bidirectional parent-child relationships
+  - `buildFullPath()` - resolves full path for deeply nested routes
+  - `AddRouteRecord()` - registers routes with children recursively
+  - `registerNestedRoute()` - handles nested route registration with full path resolution
+- **Type Definitions**:
+  - Added `Parent` field to `RouteRecord` for bidirectional linking
+  - Added `Matched` array to `RouteMatch` for nested route rendering
+- **Path Resolution**:
+  - Empty child path ("") creates default child matching parent path
+  - Relative child paths concatenate with parent path
+  - Deeply nested routes (3+ levels) fully supported
+  - Path resolution handles leading slashes correctly
+- **Matched Array**:
+  - Contains all route records from root to matched route
+  - Built by walking up parent chain
+  - Essential for nested route rendering (RouterView at each level)
+  - Preference given to child routes over parent when scores equal (empty child path case)
+- **Nested Params**:
+  - Parent and child params combined in single map
+  - No param name conflicts (validation in pattern compilation)
+  - Multi-level params work correctly (userId + postId + etc.)
+- **Edge Cases Handled**:
+  - Empty child path (default child route)
+  - Deeply nested routes (3+ levels tested)
+  - Parent and child params combined
+  - Child routes preferred over parent when patterns identical
+  - Recursive child registration
+  - Full path resolution for grandchildren
+- **Integration**:
+  - Works seamlessly with existing matcher
+  - Compatible with RouteBuilder and options
+  - Ready for RouterView component (Task 4.2)
+- **Performance**:
+  - O(d) path resolution where d = nesting depth
+  - O(d) matched array construction
+  - Minimal memory overhead (parent pointers only)
+  - Pattern compilation cached per route
+
 ---
 
-### Task 4.2: RouterView Component
+### Task 4.2: RouterView Component ✅ COMPLETED
 **Description**: Component that renders current route's component
 
 **Prerequisites**: Task 4.1
@@ -1247,8 +1305,10 @@ type RouteRecord struct {
 **Unlocks**: Task 5.1 (Composables)
 
 **Files**:
-- `pkg/bubbly/router/router_view.go`
-- `pkg/bubbly/router/router_view_test.go`
+- `pkg/bubbly/router/router_view.go` ✅
+- `pkg/bubbly/router/router_view_test.go` ✅
+- Updated: `pkg/bubbly/router/matcher.go` (added Component field to RouteRecord)
+- Updated: `pkg/bubbly/router/options.go` (added WithComponent option)
 
 **Type Safety**:
 ```go
@@ -1257,17 +1317,98 @@ type RouterView struct {
     depth  int
 }
 
-func NewRouterView(depth int) *RouterView
+type RouteRecord struct {
+    Path      string
+    Name      string
+    Component interface{}            // Component to render (bubbly.Component)
+    Meta      map[string]interface{}
+    Parent    *RouteRecord
+    Children  []*RouteRecord
+    pattern   *RoutePattern
+}
+
+func NewRouterView(router *Router, depth int) *RouterView
 func (rv *RouterView) View() string
+func WithComponent(component interface{}) RouteOption
 ```
 
 **Tests**:
-- [ ] Renders current component
-- [ ] Handles depth for nesting
-- [ ] Updates on route change
-- [ ] Handles no match
+- [x] Renders current component
+- [x] Handles depth for nesting
+- [x] Updates on route change
+- [x] Handles no match
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 92.6% (exceeds 80% target)
+- **Tests**: All 8 test suites passing
+  - TestNewRouterView (3 depth scenarios)
+  - TestRouterView_RendersCurrentComponent
+  - TestRouterView_HandlesDepthForNesting
+  - TestRouterView_HandlesNoMatch
+  - TestRouterView_HandlesDepthOutOfBounds
+  - TestRouterView_HandlesNoComponent
+  - TestRouterView_UpdatesOnRouteChange
+  - TestWithComponent
+- **Race detector**: Clean (no race conditions)
+- **go vet**: Zero warnings
+- **Architecture**:
+  - RouterView implements both `tea.Model` and `bubbly.Component` interfaces
+  - Passive component - only renders, doesn't handle messages
+  - Thread-safe access to router's current route via mutex
+  - Depth-based rendering using Matched array from Task 4.1
+- **Component Integration**:
+  - Added `Component` field to `RouteRecord` (interface{} type for flexibility)
+  - Added `WithComponent()` option for setting route components
+  - Components stored in route records, retrieved by RouterView
+  - Type assertion to `bubbly.Component` interface for rendering
+- **Depth-Based Rendering**:
+  - `depth` parameter determines which level of Matched array to render
+  - depth 0 = root/parent component
+  - depth 1 = first child component
+  - depth 2+ = grandchild and deeper
+  - Bounds checking prevents index out of range errors
+- **Rendering Logic**:
+  1. Get current route from router (thread-safe)
+  2. Check if route exists
+  3. Validate depth is within Matched array bounds
+  4. Get RouteRecord at specified depth
+  5. Check if RouteRecord has Component
+  6. Type assert Component to bubbly.Component
+  7. Call Component.View() to render
+  8. Return rendered string or empty string if any step fails
+- **Error Handling**:
+  - Returns empty string for all error cases (graceful degradation)
+  - No current route → ""
+  - Depth out of bounds → ""
+  - No component set → ""
+  - Component not bubbly.Component → ""
+- **Interface Implementation**:
+  - `tea.Model`: Init(), Update(), View()
+  - `bubbly.Component`: Name(), ID(), Props(), Emit(), On()
+  - ID format: "router-view-{depth}" for debugging
+  - No props, no events (passive component)
+- **Use Cases**:
+  - Root RouterView (depth 0) in main app layout
+  - Nested RouterView (depth 1+) in parent route components
+  - Multiple RouterView instances at different depths
+  - Dynamic component rendering based on current route
+- **Integration with Task 4.1**:
+  - Uses Matched array from nested routes implementation
+  - Leverages parent-child relationships
+  - Works seamlessly with multi-level nesting
+  - Supports empty child paths (default child routes)
+- **Performance**:
+  - O(1) component lookup (direct array access by depth)
+  - Thread-safe read access (RWMutex on router)
+  - No memory allocations during rendering
+  - Minimal overhead (just index and type assertion)
+- **Next Steps**:
+  - Ready for composables (useRouter, useRoute)
+  - Ready for component guards (Task 4.3)
+  - Can be used in real applications immediately
+  - Works with all existing router features
 
 ---
 

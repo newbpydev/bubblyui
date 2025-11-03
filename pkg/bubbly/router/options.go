@@ -112,6 +112,31 @@ func WithGuard(guard NavigationGuard) RouteOption {
 	}
 }
 
+// WithComponent sets the component to render for this route.
+//
+// The component is used by RouterView to render the matched route.
+// The component should implement bubbly.Component interface.
+//
+// Parameters:
+//   - component: The component to render (should be bubbly.Component)
+//
+// Returns:
+//   - RouteOption: An option function that sets the component
+//
+// Example:
+//
+//	userComponent := bubbly.NewComponent("User").Build()
+//
+//	builder.RouteWithOptions("/user/:id",
+//		WithName("user"),
+//		WithComponent(userComponent),
+//	)
+func WithComponent(component interface{}) RouteOption {
+	return func(r *RouteRecord) {
+		r.Component = component
+	}
+}
+
 // WithChildren sets or appends child routes for nested routing.
 //
 // Child routes create a hierarchical routing structure where routes
