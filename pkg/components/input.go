@@ -84,6 +84,11 @@ type InputProps struct {
 	// Optional - defaults to false.
 	ShowCursorPosition bool
 
+	// NoBorder removes the border if true.
+	// Default is false (border is shown).
+	// Useful when embedding in other bordered containers.
+	NoBorder bool
+
 	// Common props for all components
 	CommonProps
 }
@@ -240,13 +245,13 @@ func Input(props InputProps) bubbly.Component {
 				if msg, ok := data.(tea.Msg); ok {
 					var cmd tea.Cmd
 					ti, cmd = ti.Update(msg)
-					
+
 					// Sync value back to props.Value
 					newValue := ti.Value()
 					if newValue != props.Value.Get().(string) {
 						props.Value.Set(newValue)
 					}
-					
+
 					// Execute command if any (for cursor blink, etc)
 					if cmd != nil {
 						// Commands are handled by Bubbletea
@@ -298,26 +303,42 @@ func Input(props InputProps) bubbly.Component {
 				inputView += posIndicator
 			}
 
-			// Wrap in border
-			borderStyle := lipgloss.NewStyle().
-				Border(theme.GetBorderStyle()).
-				Padding(0, 1)
+			var result string
 
-			// Set border color based on state
-			if hasError {
-				borderStyle = borderStyle.BorderForeground(theme.Danger)
-			} else if isFocused {
-				borderStyle = borderStyle.BorderForeground(theme.Primary)
+			// Apply border unless NoBorder is true
+			if !props.NoBorder {
+				// Wrap in border
+				borderStyle := lipgloss.NewStyle().
+					Border(theme.GetBorderStyle()).
+					Padding(0, 1)
+
+				// Set border color based on state
+				if hasError {
+					borderStyle = borderStyle.BorderForeground(theme.Danger)
+				} else if isFocused {
+					borderStyle = borderStyle.BorderForeground(theme.Primary)
+				} else {
+					borderStyle = borderStyle.BorderForeground(theme.Secondary)
+				}
+
+				// Apply custom style if provided
+				if props.Style != nil {
+					borderStyle = borderStyle.Inherit(*props.Style)
+				}
+
+				result = borderStyle.Render(inputView)
 			} else {
-				borderStyle = borderStyle.BorderForeground(theme.Secondary)
-			}
+				// No border, just apply padding and custom style
+				noBorderStyle := lipgloss.NewStyle().
+					Padding(0, 1)
 
-			// Apply custom style if provided
-			if props.Style != nil {
-				borderStyle = borderStyle.Inherit(*props.Style)
-			}
+				// Apply custom style if provided
+				if props.Style != nil {
+					noBorderStyle = noBorderStyle.Inherit(*props.Style)
+				}
 
-			result := borderStyle.Render(inputView)
+				result = noBorderStyle.Render(inputView)
+			}
 
 			// Add error message if present
 			if currentError != nil {

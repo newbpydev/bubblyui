@@ -1,6 +1,8 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -106,19 +108,10 @@ func GridLayout(props GridLayoutProps) bubbly.Component {
 				for col := 0; col < p.Columns && itemIndex < len(p.Items); col++ {
 					item := p.Items[itemIndex]
 
-					// Create cell style
-					cellStyle := lipgloss.NewStyle().
-						Width(p.CellWidth).
-						Padding(1)
-
-					if p.CellHeight > 0 {
-						cellStyle = cellStyle.Height(p.CellHeight)
-					}
-
-					// Render cell content
+					// Render cell content directly without width constraint
+					// This allows bordered components like cards to render properly
 					cellContent := item.View()
-					cell := cellStyle.Render(cellContent)
-					rowCells = append(rowCells, cell)
+					rowCells = append(rowCells, cellContent)
 
 					itemIndex++
 				}
@@ -150,9 +143,10 @@ func GridLayout(props GridLayoutProps) bubbly.Component {
 			}
 
 			// Create vertical gap spacer
-			vGapSpacer := lipgloss.NewStyle().
-				Height(p.Gap).
-				Render("")
+			vGapSpacer := ""
+			if p.Gap > 0 {
+				vGapSpacer = strings.Repeat("\n", p.Gap)
+			}
 
 			// Join rows with vertical gaps
 			var rowsWithGaps []string

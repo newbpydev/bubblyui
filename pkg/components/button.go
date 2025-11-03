@@ -68,6 +68,11 @@ type ButtonProps struct {
 	// Optional - if nil, button will not respond to clicks.
 	OnClick func()
 
+	// NoBorder removes the border if true.
+	// Default is false (border is shown).
+	// Useful when embedding in other bordered containers.
+	NoBorder bool
+
 	// Common props for all components
 	CommonProps
 }
@@ -141,19 +146,30 @@ func Button(props ButtonProps) bubbly.Component {
 				Padding(0, 2).
 				Bold(true)
 
+			// Style based on disabled state
 			if props.Disabled {
 				// Disabled state: muted colors, no background
 				buttonStyle = buttonStyle.
-					Foreground(theme.Muted).
-					Border(theme.GetBorderStyle()).
-					BorderForeground(theme.Muted)
+					Foreground(theme.Muted)
+
+				// Add border unless NoBorder is true
+				if !props.NoBorder {
+					buttonStyle = buttonStyle.
+						Border(theme.GetBorderStyle()).
+						BorderForeground(theme.Muted)
+				}
 			} else {
 				// Enabled state: variant colors with background
 				buttonStyle = buttonStyle.
 					Foreground(lipgloss.Color("230")). // Light text
-					Background(variantColor).
-					Border(theme.GetBorderStyle()).
-					BorderForeground(variantColor)
+					Background(variantColor)
+
+				// Add border unless NoBorder is true
+				if !props.NoBorder {
+					buttonStyle = buttonStyle.
+						Border(theme.GetBorderStyle()).
+						BorderForeground(variantColor)
+				}
 			}
 
 			// Apply custom style if provided

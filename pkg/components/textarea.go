@@ -55,6 +55,15 @@ type TextAreaProps struct {
 	// Default: false (enabled).
 	Disabled bool
 
+	// Width sets the width of the textarea in characters.
+	// Optional - if 0, defaults to 40 characters.
+	Width int
+
+	// NoBorder removes the border if true.
+	// Default is false (border is shown).
+	// Useful when embedding in other bordered containers.
+	NoBorder bool
+
 	// Common props for all components
 	CommonProps
 }
@@ -171,19 +180,31 @@ func TextArea(props TextAreaProps) bubbly.Component {
 				rows = 3
 			}
 
+			// Determine width (default to 40 if not specified)
+			width := props.Width
+			if width <= 0 {
+				width = 40
+			}
+
 			// Build textarea style
 			textareaStyle := lipgloss.NewStyle().
-				Border(theme.GetBorderStyle()).
 				Padding(0, 1).
-				Width(40) // Default width
+				Width(width)
 
-			// Set border color based on state
-			if props.Disabled {
-				textareaStyle = textareaStyle.BorderForeground(theme.Muted)
-			} else if validationError.GetTyped() != nil {
-				textareaStyle = textareaStyle.BorderForeground(theme.Danger)
-			} else {
-				textareaStyle = textareaStyle.BorderForeground(theme.Secondary)
+			// Add border unless NoBorder is true
+			if !props.NoBorder {
+				textareaStyle = textareaStyle.Border(theme.GetBorderStyle())
+			}
+
+			// Set border color based on state (only if border is shown)
+			if !props.NoBorder {
+				if props.Disabled {
+					textareaStyle = textareaStyle.BorderForeground(theme.Muted)
+				} else if validationError.GetTyped() != nil {
+					textareaStyle = textareaStyle.BorderForeground(theme.Danger)
+				} else {
+					textareaStyle = textareaStyle.BorderForeground(theme.Secondary)
+				}
 			}
 
 			// Apply custom style if provided
