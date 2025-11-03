@@ -13,7 +13,7 @@ func TestDefaultTheme(t *testing.T) {
 		field    string
 		expected lipgloss.Color
 	}{
-		{"Primary color", "primary", lipgloss.Color("63")},
+		{"Primary color", "primary", lipgloss.Color("75")}, // Updated for accessibility (3:1 contrast)
 		{"Secondary color", "secondary", lipgloss.Color("240")},
 		{"Success color", "success", lipgloss.Color("46")},
 		{"Warning color", "warning", lipgloss.Color("226")},

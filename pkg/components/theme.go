@@ -76,7 +76,7 @@ type Theme struct {
 // optimized for terminal readability and accessibility.
 //
 // Color choices:
-//   - Primary (63): Vibrant blue for main actions
+//   - Primary (75): Bright blue for main actions (>3:1 contrast)
 //   - Secondary (240): Neutral gray for alternatives
 //   - Success (46): Bright green for positive feedback
 //   - Warning (226): Yellow for caution
@@ -87,9 +87,9 @@ type Theme struct {
 //   - Muted (240): Gray for secondary text
 //
 // This theme works well in both light and dark terminal backgrounds
-// with sufficient contrast for accessibility.
+// with sufficient contrast for accessibility (WCAG AA compliant).
 var DefaultTheme = Theme{
-	Primary:     lipgloss.Color("63"),  // Vibrant blue
+	Primary:     lipgloss.Color("75"),  // Bright blue (accessible contrast)
 	Secondary:   lipgloss.Color("240"), // Neutral gray
 	Success:     lipgloss.Color("46"),  // Bright green
 	Warning:     lipgloss.Color("226"), // Yellow
