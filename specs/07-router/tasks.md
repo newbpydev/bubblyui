@@ -7,14 +7,14 @@
 - [x] 02-component-model completed
 - [x] 03-lifecycle-hooks completed
 - [x] 04-composition-api completed
-- [ ] Route data structures defined
-- [ ] Test framework configured for routing tests
+- [x] Route data structures defined (RoutePattern, Segment, SegmentKind)
+- [x] Test framework configured for routing tests (testify)
 
 ---
 
 ## Phase 1: Core Route Matching (5 tasks, 15 hours)
 
-### Task 1.1: Route Pattern Compilation
+### Task 1.1: Route Pattern Compilation ✅ COMPLETED
 **Description**: Implement path-to-pattern compilation for route matching
 
 **Prerequisites**: None
@@ -22,8 +22,8 @@
 **Unlocks**: Task 1.2 (Route Matching Algorithm)
 
 **Files**:
-- `pkg/bubbly/router/pattern.go`
-- `pkg/bubbly/router/pattern_test.go`
+- `pkg/bubbly/router/pattern.go` ✅
+- `pkg/bubbly/router/pattern_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -40,14 +40,49 @@ type Segment struct {
 ```
 
 **Tests**:
-- [ ] Static segments compile correctly
-- [ ] Dynamic params (:id) compile correctly
-- [ ] Optional params (:id?) compile correctly
-- [ ] Wildcards (:path*) compile correctly
-- [ ] Invalid patterns return errors
-- [ ] Regex is generated correctly
+- [x] Static segments compile correctly
+- [x] Dynamic params (:id) compile correctly
+- [x] Optional params (:id?) compile correctly
+- [x] Wildcards (:path*) compile correctly
+- [x] Invalid patterns return errors
+- [x] Regex is generated correctly
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 93.3% (exceeds 80% target)
+- **Tests**: All 4 test suites passing (38 test cases)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings
+- **Architecture**: 
+  - Refactored for low cyclomatic complexity (extracted helper functions)
+  - `parseSegments()` - parses path parts into segments
+  - `parseParamSegment()` - handles parameter segments
+  - `parseWildcardSegment()` - handles wildcard segments (:path*)
+  - `parseOptionalSegment()` - handles optional segments (:id?)
+  - `parseRegularParam()` - handles regular params (:id)
+  - `validateParamName()` - validates param names and checks duplicates
+  - `generateRegex()` - creates regex from segments
+  - `isValidParamName()` - validates alphanumeric + underscore names
+- **Features**:
+  - Static segments: `/users/list`
+  - Dynamic params: `/user/:id`
+  - Optional params: `/profile/:id?`
+  - Wildcards: `/docs/:path*`
+  - Path normalization (trailing slash handling)
+  - Duplicate param detection
+  - Invalid pattern validation
+  - Regex-based matching with parameter extraction
+- **Edge Cases Handled**:
+  - Empty paths
+  - Missing leading slash
+  - Duplicate parameter names
+  - Wildcards not at end
+  - Empty parameter names
+  - Invalid characters in params
+  - Root path (`/`)
+  - Trailing slashes
+- **Performance**: Regex compilation cached in RoutePattern struct
 
 ---
 
