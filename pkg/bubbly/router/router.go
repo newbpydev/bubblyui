@@ -155,19 +155,6 @@ type Router struct {
 	mu           sync.RWMutex          // Protects currentRoute and hooks
 }
 
-// History is a placeholder for the history stack implementation.
-//
-// This will be fully implemented in Task 3.1 (History Stack).
-// For now, it's a simple struct to satisfy the Router's structure requirements.
-//
-// The history stack will manage:
-//   - Navigation history entries
-//   - Current position in history
-//   - Forward/back navigation
-//   - History state preservation
-type History struct {
-	// Implementation in Task 3.1
-}
 
 // NewRouter creates a new router instance with initialized components.
 //
