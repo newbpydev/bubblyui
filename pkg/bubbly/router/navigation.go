@@ -114,59 +114,8 @@ var (
 // History management will be added in Task 3.1.
 func (r *Router) Push(target *NavigationTarget) tea.Cmd {
 	return func() tea.Msg {
-		// Validate target
-		if err := validateTarget(target); err != nil {
-			return NavigationErrorMsg{
-				Error: err,
-				From:  r.CurrentRoute(),
-				To:    target,
-			}
-		}
-
-		// Match route
-		newRoute, err := r.matchTarget(target)
-		if err != nil {
-			return NavigationErrorMsg{
-				Error: err,
-				From:  r.CurrentRoute(),
-				To:    target,
-			}
-		}
-
-		// Execute before guards
-		oldRoute := r.CurrentRoute()
-		guardResult := r.executeBeforeGuards(newRoute, oldRoute)
-
-		// Handle guard result
-		switch guardResult.action {
-		case guardCancel:
-			return NavigationErrorMsg{
-				Error: ErrNavigationCancelled,
-				From:  oldRoute,
-				To:    target,
-			}
-
-		case guardRedirect:
-			// Redirect to different route
-			return r.Push(guardResult.target)()
-
-		case guardContinue:
-			// Continue with navigation
-		}
-
-		// Update current route (thread-safe)
-		r.mu.Lock()
-		r.currentRoute = newRoute
-		r.mu.Unlock()
-
-		// Execute after hooks
-		r.executeAfterHooks(newRoute, oldRoute)
-
-		// Return success message
-		return RouteChangedMsg{
-			To:   newRoute,
-			From: oldRoute,
-		}
+		// Use pushWithTracking for circular redirect detection
+		return r.pushWithTracking(target, nil)
 	}
 }
 
@@ -214,60 +163,8 @@ func (r *Router) Push(target *NavigationTarget) tea.Cmd {
 // History management will be added in Task 3.1.
 func (r *Router) Replace(target *NavigationTarget) tea.Cmd {
 	return func() tea.Msg {
-		// Validate target
-		if err := validateTarget(target); err != nil {
-			return NavigationErrorMsg{
-				Error: err,
-				From:  r.CurrentRoute(),
-				To:    target,
-			}
-		}
-
-		// Match route
-		newRoute, err := r.matchTarget(target)
-		if err != nil {
-			return NavigationErrorMsg{
-				Error: err,
-				From:  r.CurrentRoute(),
-				To:    target,
-			}
-		}
-
-		// Execute before guards
-		oldRoute := r.CurrentRoute()
-		guardResult := r.executeBeforeGuards(newRoute, oldRoute)
-
-		// Handle guard result
-		switch guardResult.action {
-		case guardCancel:
-			return NavigationErrorMsg{
-				Error: ErrNavigationCancelled,
-				From:  oldRoute,
-				To:    target,
-			}
-
-		case guardRedirect:
-			// Redirect to different route
-			return r.Replace(guardResult.target)()
-
-		case guardContinue:
-			// Continue with navigation
-		}
-
-		// Update current route (thread-safe)
-		// Note: No history update - that's the difference from Push()
-		r.mu.Lock()
-		r.currentRoute = newRoute
-		r.mu.Unlock()
-
-		// Execute after hooks
-		r.executeAfterHooks(newRoute, oldRoute)
-
-		// Return success message
-		return RouteChangedMsg{
-			To:   newRoute,
-			From: oldRoute,
-		}
+		// Use replaceWithTracking for circular redirect detection
+		return r.replaceWithTracking(target, nil)
 	}
 }
 
