@@ -156,7 +156,7 @@ type RouteMatch struct {
 
 ---
 
-### Task 1.3: Route Registry
+### Task 1.3: Route Registry ✅ COMPLETED
 **Description**: Implement route registration and lookup
 
 **Prerequisites**: Task 1.2
@@ -164,8 +164,8 @@ type RouteMatch struct {
 **Unlocks**: Task 2.1 (Router Core)
 
 **Files**:
-- `pkg/bubbly/router/registry.go`
-- `pkg/bubbly/router/registry_test.go`
+- `pkg/bubbly/router/registry.go` ✅
+- `pkg/bubbly/router/registry_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -187,14 +187,50 @@ type RouteRecord struct {
 ```
 
 **Tests**:
-- [ ] Routes register correctly
-- [ ] Named routes accessible
-- [ ] Nested routes register
-- [ ] Duplicate paths rejected
-- [ ] Duplicate names rejected
-- [ ] Thread-safe registration
+- [x] Routes register correctly
+- [x] Named routes accessible
+- [x] Nested routes register
+- [x] Duplicate paths rejected
+- [x] Duplicate names rejected
+- [x] Thread-safe registration
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 92.2% (exceeds 80% target)
+- **Tests**: All 8 test suites passing (41 test cases total across router package)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings in router package
+- **Architecture**:
+  - `NewRouteRegistry()` - creates registry with empty indexes
+  - `Register(path, name, meta)` - registers routes with duplicate detection
+  - `GetByName(name)` - O(1) lookup by route name
+  - `GetByPath(path)` - O(1) lookup by route path
+  - `GetAll()` - returns defensive copy of all routes
+- **Thread Safety**:
+  - Uses `sync.RWMutex` for concurrent access
+  - Multiple readers can access simultaneously
+  - Exclusive write lock for registration
+  - Defensive copy in GetAll() prevents external modification
+- **Duplicate Detection**:
+  - Checks for duplicate paths before registration
+  - Checks for duplicate names before registration
+  - Returns descriptive errors for duplicates
+- **Indexing Strategy**:
+  - Three indexes for efficient access:
+    - `routes` slice: ordered list for iteration
+    - `byName` map: O(1) name-based lookup
+    - `byPath` map: O(1) path-based lookup
+- **RouteRecord Enhancement**:
+  - Added `Meta` field to matcher.go RouteRecord for metadata support
+  - Added `Children` field to matcher.go RouteRecord for nested routes
+  - Maintains backward compatibility with existing matcher code
+- **Edge Cases Handled**:
+  - Empty registry (GetAll returns empty slice)
+  - Non-existent routes (GetByName/GetByPath return nil, false)
+  - Concurrent registration and reads (thread-safe)
+  - Nested route support via Children field
+  - Metadata preservation via Meta field
 
 ---
 

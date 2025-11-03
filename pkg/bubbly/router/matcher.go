@@ -32,15 +32,16 @@
 //
 // Route Precedence:
 // Routes are scored by specificity, with more specific routes taking precedence:
-//   1. More static segments = higher priority
-//   2. Fewer parameter segments = higher priority  
-//   3. Fewer optional segments = higher priority
-//   4. Fewer wildcard segments = higher priority
+//  1. More static segments = higher priority
+//  2. Fewer parameter segments = higher priority
+//  3. Fewer optional segments = higher priority
+//  4. Fewer wildcard segments = higher priority
 //
 // Example precedence:
-//   /users/new      (2 static)      → beats /users/:id
-//   /users/:id      (1 static, 1 param) → beats /:resource/:id
-//   /docs/:path*    (1 static, 1 wildcard) → lowest priority
+//
+//	/users/new      (2 static)      → beats /users/:id
+//	/users/:id      (1 static, 1 param) → beats /:resource/:id
+//	/docs/:path*    (1 static, 1 wildcard) → lowest priority
 //
 // Performance:
 // The matcher is optimized for speed with compiled patterns and efficient scoring.
@@ -74,11 +75,15 @@ var (
 // Fields:
 //   - Path: The original route pattern (e.g., "/users/:id")
 //   - Name: Human-readable identifier for the route (e.g., "user-detail")
+//   - Meta: Optional metadata map for route-specific data (e.g., auth requirements)
+//   - Children: Nested child routes for hierarchical routing
 //   - pattern: Compiled pattern containing segments and regex (internal)
 type RouteRecord struct {
-	Path    string
-	Name    string
-	pattern *RoutePattern
+	Path     string
+	Name     string
+	Meta     map[string]interface{} // Optional metadata (e.g., requiresAuth, title)
+	Children []*RouteRecord         // Nested child routes
+	pattern  *RoutePattern
 }
 
 // RouteMatcher manages a collection of routes and performs path matching.
@@ -153,10 +158,11 @@ type RouteMatch struct {
 //   - wildcardSegments: Fewer wildcards = more specific
 //
 // Examples:
-//   /users/new      → {static:2, param:0, optional:0, wildcard:0}    // Most specific
-//   /users/:id      → {static:1, param:1, optional:0, wildcard:0}    // Medium
-//   /profile/:id?   → {static:1, param:0, optional:1, wildcard:0}    // Less specific
-//   /docs/:path*    → {static:1, param:0, optional:0, wildcard:1}    // Least specific
+//
+//	/users/new      → {static:2, param:0, optional:0, wildcard:0}    // Most specific
+//	/users/:id      → {static:1, param:1, optional:0, wildcard:0}    // Medium
+//	/profile/:id?   → {static:1, param:0, optional:1, wildcard:0}    // Less specific
+//	/docs/:path*    → {static:1, param:0, optional:0, wildcard:1}    // Least specific
 type matchScore struct {
 	staticSegments   int
 	paramSegments    int
@@ -235,8 +241,8 @@ func (rm *RouteMatcher) AddRoute(path, name string) error {
 // Match finds the best matching route for the given path using intelligent precedence.
 //
 // The matching algorithm works in two phases:
-//   1. Pattern matching: Tests each registered route against the path
-//   2. Specificity scoring: Ranks matches by route specificity
+//  1. Pattern matching: Tests each registered route against the path
+//  2. Specificity scoring: Ranks matches by route specificity
 //
 // Parameters:
 //   - path: The incoming path to match (e.g., "/users/123", "/docs/guide")
@@ -255,11 +261,12 @@ func (rm *RouteMatcher) AddRoute(path, name string) error {
 //   - Wildcards: "/docs/:path*" → {"path": "guide/getting-started"}
 //
 // Route Precedence:
-//   Routes are ranked by specificity (most specific wins):
-//     1. More static segments
-//     2. Fewer parameter segments
-//     3. Fewer optional segments
-//     4. Fewer wildcard segments
+//
+//	Routes are ranked by specificity (most specific wins):
+//	  1. More static segments
+//	  2. Fewer parameter segments
+//	  3. Fewer optional segments
+//	  4. Fewer wildcard segments
 //
 // Example:
 //
@@ -323,10 +330,11 @@ func (rm *RouteMatcher) Match(path string) (*RouteMatch, error) {
 //   - wildcardSegments: Count of wildcard segments (lower = more specific)
 //
 // Example Scoring:
-//   "/users/new"      → {static:2, param:0, optional:0, wildcard:0}
-//   "/users/:id"      → {static:1, param:1, optional:0, wildcard:0}
-//   "/profile/:id?"   → {static:1, param:0, optional:1, wildcard:0}
-//   "/docs/:path*"    → {static:1, param:0, optional:0, wildcard:1}
+//
+//	"/users/new"      → {static:2, param:0, optional:0, wildcard:0}
+//	"/users/:id"      → {static:1, param:1, optional:0, wildcard:0}
+//	"/profile/:id?"   → {static:1, param:0, optional:1, wildcard:0}
+//	"/docs/:path*"    → {static:1, param:0, optional:0, wildcard:1}
 func calculateScore(segments []Segment) matchScore {
 	score := matchScore{}
 
@@ -360,16 +368,17 @@ func calculateScore(segments []Segment) matchScore {
 //   - bool: true if score 'a' is more specific than score 'b'
 //
 // Comparison Rules (in order):
-//   1. More static segments wins
-//   2. If static equal, fewer parameters wins
-//   3. If params equal, fewer optionals wins
-//   4. If optionals equal, fewer wildcards wins
-//   5. If all equal, routes are considered equally specific
+//  1. More static segments wins
+//  2. If static equal, fewer parameters wins
+//  3. If params equal, fewer optionals wins
+//  4. If optionals equal, fewer wildcards wins
+//  5. If all equal, routes are considered equally specific
 //
 // Example Comparisons:
-//   isMoreSpecific({static:2, param:0}, {static:1, param:1}) → true
-//   isMoreSpecific({static:1, param:0}, {static:1, param:1}) → true
-//   isMoreSpecific({static:1, param:1}, {static:1, param:1}) → false
+//
+//	isMoreSpecific({static:2, param:0}, {static:1, param:1}) → true
+//	isMoreSpecific({static:1, param:0}, {static:1, param:1}) → true
+//	isMoreSpecific({static:1, param:1}, {static:1, param:1}) → false
 func isMoreSpecific(a, b matchScore) bool {
 	// More static segments = more specific
 	if a.staticSegments != b.staticSegments {
