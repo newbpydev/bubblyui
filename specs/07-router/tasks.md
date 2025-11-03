@@ -299,7 +299,7 @@ func (qp *QueryParser) Build(params map[string]string) string
 
 ---
 
-### Task 1.5: Route Object
+### Task 1.5: Route Object ✅ COMPLETED
 **Description**: Define current route state structure
 
 **Prerequisites**: Task 1.3, Task 1.4
@@ -307,8 +307,8 @@ func (qp *QueryParser) Build(params map[string]string) string
 **Unlocks**: Task 2.1 (Router Core)
 
 **Files**:
-- `pkg/bubbly/router/route.go`
-- `pkg/bubbly/router/route_test.go`
+- `pkg/bubbly/router/route.go` ✅
+- `pkg/bubbly/router/route_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -325,13 +325,51 @@ type Route struct {
 ```
 
 **Tests**:
-- [ ] Route creation
-- [ ] Immutability (defensive copies)
-- [ ] FullPath generation
-- [ ] Matched route chain
-- [ ] Meta field access
+- [x] Route creation
+- [x] Immutability (defensive copies)
+- [x] FullPath generation
+- [x] Matched route chain
+- [x] Meta field access
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 93.2% (exceeds 80% target)
+- **Tests**: All 7 test suites passing (36 test cases for Route)
+- **Race detector**: Clean (no race conditions)
+- **Lint**: Zero warnings in router package
+- **Architecture**:
+  - `NewRoute()` - creates immutable Route with defensive copies
+  - `GetMeta(key)` - retrieves metadata with existence checking
+  - `generateFullPath()` - builds complete path with query and hash
+  - Helper functions for defensive copying (maps and slices)
+- **Immutability**:
+  - All maps (Params, Query, Meta) are defensively copied
+  - Slices (Matched) are defensively copied to prevent external modification
+  - RouteRecord pointers are shared (shallow copy) - correct behavior
+  - Nil maps/slices converted to empty for easier usage
+- **FullPath Generation**:
+  - Format: `path?query#hash`
+  - Query parameters sorted alphabetically (deterministic)
+  - Empty components omitted (no trailing ? or #)
+  - Uses QueryParser for consistent encoding
+- **Matched Chain**:
+  - Supports nested routes with parent-child relationships
+  - Slice is copied to prevent external append operations
+  - RouteRecords themselves are shared references (managed by registry)
+- **Meta Field Access**:
+  - `GetMeta(key)` returns (value, found) for safe access
+  - Supports any type via interface{}
+  - Type assertions required for concrete types
+- **Edge Cases Handled**:
+  - Nil maps converted to empty maps
+  - Nil slices converted to empty slices
+  - Empty paths and values handled gracefully
+  - Defensive copying prevents external mutation
+- **Thread Safety**:
+  - Route instances are immutable (safe for concurrent reads)
+  - No locks needed since state cannot change
+  - Defensive copies ensure external modifications don't affect Route
 
 ---
 
