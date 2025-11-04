@@ -329,3 +329,173 @@ func TestRouter_Guards_WorkWithReplace(t *testing.T) {
 	assert.True(t, guardCalled, "Guard should be called for Replace")
 	assert.True(t, hookCalled, "Hook should be called for Replace")
 }
+
+// TestRouter_Guards_MultipleGlobalGuards tests multiple global guards in sequence
+func TestRouter_Guards_MultipleGlobalGuards(t *testing.T) {
+	router := NewRouter()
+
+	guard1Called := false
+	guard2Called := false
+	guard3Called := false
+
+	// Register multiple global guards
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard1Called = true
+		next(nil) // Allow
+	})
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard2Called = true
+		next(nil) // Allow
+	})
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard3Called = true
+		next(nil) // Allow
+	})
+
+	err := router.registry.Register("/test", "test", nil)
+	require.NoError(t, err)
+
+	cmd := router.Push(&NavigationTarget{Path: "/test"})
+	msg := cmd()
+
+	assert.True(t, guard1Called, "First guard should be called")
+	assert.True(t, guard2Called, "Second guard should be called")
+	assert.True(t, guard3Called, "Third guard should be called")
+	assert.IsType(t, RouteChangedMsg{}, msg, "Navigation should succeed")
+}
+
+// TestRouter_Guards_SecondGuardCancels tests second guard canceling
+func TestRouter_Guards_SecondGuardCancels(t *testing.T) {
+	router := NewRouter()
+
+	guard1Called := false
+	guard2Called := false
+	guard3Called := false
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard1Called = true
+		next(nil) // Allow
+	})
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard2Called = true
+		next(&NavigationTarget{}) // Cancel
+	})
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guard3Called = true
+		next(nil)
+	})
+
+	err := router.registry.Register("/test", "test", nil)
+	require.NoError(t, err)
+
+	cmd := router.Push(&NavigationTarget{Path: "/test"})
+	msg := cmd()
+
+	assert.True(t, guard1Called, "First guard should be called")
+	assert.True(t, guard2Called, "Second guard should be called")
+	assert.False(t, guard3Called, "Third guard should not be called after cancel")
+	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be canceled")
+}
+
+// TestRouter_Guards_GuardWithFromRoute tests guards receive from route
+func TestRouter_Guards_GuardWithFromRoute(t *testing.T) {
+	router := NewRouter()
+
+	var receivedFrom *Route
+	var receivedTo *Route
+
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		receivedTo = to
+		receivedFrom = from
+		next(nil) // Allow
+	})
+
+	// Register two routes
+	err := router.registry.Register("/first", "first", nil)
+	require.NoError(t, err)
+	err = router.registry.Register("/second", "second", nil)
+	require.NoError(t, err)
+
+	// First navigation - from should be nil
+	cmd := router.Push(&NavigationTarget{Path: "/first"})
+	msg := cmd()
+	assert.IsType(t, RouteChangedMsg{}, msg)
+	assert.Nil(t, receivedFrom, "First navigation should have nil from route")
+	assert.NotNil(t, receivedTo, "Should have to route")
+	assert.Equal(t, "/first", receivedTo.Path)
+
+	// Second navigation - from should be /first
+	cmd = router.Push(&NavigationTarget{Path: "/second"})
+	msg = cmd()
+	assert.IsType(t, RouteChangedMsg{}, msg)
+	assert.NotNil(t, receivedFrom, "Second navigation should have from route")
+	assert.Equal(t, "/first", receivedFrom.Path, "From route should be /first")
+	assert.Equal(t, "/second", receivedTo.Path, "To route should be /second")
+}
+
+// TestRouter_Guards_NoBeforeEnterInMeta tests route without beforeEnter guard
+func TestRouter_Guards_NoBeforeEnterInMeta(t *testing.T) {
+	router := NewRouter()
+
+	// Register route without beforeEnter
+	err := router.registry.Register("/test", "test", map[string]interface{}{
+		"title": "Test Page",
+	})
+	require.NoError(t, err)
+
+	cmd := router.Push(&NavigationTarget{Path: "/test"})
+	msg := cmd()
+
+	assert.IsType(t, RouteChangedMsg{}, msg, "Navigation should succeed without beforeEnter")
+}
+
+// TestRouter_Guards_InvalidBeforeEnterType tests non-function beforeEnter in meta
+func TestRouter_Guards_InvalidBeforeEnterType(t *testing.T) {
+	router := NewRouter()
+
+	// Register route with invalid beforeEnter type
+	err := router.registry.Register("/test", "test", map[string]interface{}{
+		"beforeEnter": "not a function",
+	})
+	require.NoError(t, err)
+
+	cmd := router.Push(&NavigationTarget{Path: "/test"})
+	msg := cmd()
+
+	// Should succeed (invalid type is ignored)
+	assert.IsType(t, RouteChangedMsg{}, msg, "Navigation should succeed with invalid beforeEnter type")
+}
+
+// TestRouter_Guards_NilToRoute tests guards with nil to route
+func TestRouter_Guards_NilToRoute(t *testing.T) {
+	router := NewRouter()
+
+	guardCalled := false
+	router.BeforeEach(func(to, from *Route, next NextFunc) {
+		guardCalled = true
+		next(nil)
+	})
+
+	// This would be an internal error case, but test the guard behavior
+	result := router.executeBeforeGuards(nil, nil)
+	
+	assert.True(t, guardCalled, "Guard should be called even with nil route")
+	assert.Equal(t, guardContinue, result.action, "Should continue with nil route")
+}
+
+// TestRouter_Guards_NilMeta tests route with nil meta
+func TestRouter_Guards_NilMeta(t *testing.T) {
+	router := NewRouter()
+
+	err := router.registry.Register("/test", "test", nil)
+	require.NoError(t, err)
+
+	cmd := router.Push(&NavigationTarget{Path: "/test"})
+	msg := cmd()
+
+	assert.IsType(t, RouteChangedMsg{}, msg, "Navigation should succeed with nil meta")
+}
