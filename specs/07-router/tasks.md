@@ -2299,6 +2299,14 @@ const (
    - **Verification**: Example builds successfully, displays actual user IDs
    - **Impact**: Dynamic parameters now display correctly (User 123 vs User 456)
 
+4. **Nested Routes Not Rendering Child Components**:
+   - **Issue**: Dashboard child routes (Stats, Settings, Profile) all showing same placeholder text
+   - **Root Cause**: Dashboard Layout component had placeholder code instead of using RouterView at depth 1
+   - **Fix**: Implemented RouterView at depth 1 in Dashboard Layout using factory pattern
+   - **Location**: `cmd/examples/07-router/nested/main.go` lines 219-275
+   - **Verification**: Example builds successfully, child routes render correctly
+   - **Impact**: Nested routing now works - Stats, Settings, Profile each show unique content
+
 ---
 
 ### Task 6.4: Performance & Benchmarks

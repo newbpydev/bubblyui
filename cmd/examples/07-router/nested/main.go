@@ -20,6 +20,8 @@ type model struct {
 
 func main() {
 	// Create nested routes: Dashboard with child routes
+	var r *router.Router
+	
 	r, err := router.NewRouterBuilder().
 		RouteWithOptions("/",
 			router.WithName("home"),
@@ -27,7 +29,7 @@ func main() {
 		).
 		RouteWithOptions("/dashboard",
 			router.WithName("dashboard"),
-			router.WithComponent(createDashboardLayout()),
+			router.WithComponent(createDashboardLayoutFactory(&r)),
 			router.WithChildren(
 				&router.RouteRecord{
 					Path:      "stats",
@@ -216,16 +218,12 @@ func createHomeComponent() bubbly.Component {
 	return comp
 }
 
-func createDashboardLayout() bubbly.Component {
+func createDashboardLayoutFactory(routerPtr **router.Router) bubbly.Component {
 	comp, _ := bubbly.NewComponent("DashboardLayout").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.Provide("theme", components.DefaultTheme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
-			// This is a parent layout component
-			// In a real app, you'd use RouterView at depth 1 here to render child routes
-			// For simplicity, we'll show a placeholder
-
 			headerStyle := lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("35")).
@@ -250,10 +248,18 @@ func createDashboardLayout() bubbly.Component {
 				BorderForeground(lipgloss.Color("99")).
 				Width(50)
 
-			// Note: In a full implementation, this would be:
-			// childRouter := router.NewRouterView(router, 1)
-			// content := childRouter.View()
-			content := contentStyle.Render("Child route content would render here\n\nThis demonstrates the nested layout pattern\nwhere the parent (Dashboard) provides the\noverall structure and the child routes\n(Stats, Settings, Profile) render within it.")
+			// Render child route at depth 1
+			var childContent string
+			if *routerPtr != nil {
+				childRouter := router.NewRouterView(*routerPtr, 1)
+				childContent = childRouter.View()
+			}
+			
+			if childContent == "" {
+				childContent = "No child route selected.\nNavigate to Stats, Settings, or Profile."
+			}
+
+			content := contentStyle.Render(childContent)
 
 			main := lipgloss.JoinHorizontal(
 				lipgloss.Top,
