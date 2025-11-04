@@ -2,12 +2,24 @@ package router
 
 import (
 	"errors"
+	"runtime/debug"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 var (
 	// ErrNavigationCancelled is returned when navigation is cancelled by a guard
 	ErrNavigationCancelled = errors.New("navigation cancelled by guard")
 )
+
+// getPathOrEmpty returns the path from a route or empty string if route is nil
+func getPathOrEmpty(route *Route) string {
+	if route == nil {
+		return ""
+	}
+	return route.Path
+}
 
 // guardAction represents the action a guard wants to take
 type guardAction int
@@ -147,7 +159,7 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 	r.mu.RUnlock()
 
 	// Execute global guards sequentially
-	for _, guard := range guards {
+	for i, guard := range guards {
 		result := &guardResult{action: guardContinue}
 
 		// Create next function that captures the result
@@ -165,8 +177,42 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 			}
 		}
 
-		// Execute guard
-		guard(to, from, next)
+		// Execute guard with panic recovery
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// Report panic to observability system
+					if reporter := observability.GetErrorReporter(); reporter != nil {
+						routerErr := &RouterError{
+							Code:    ErrCodeGuardRejected,
+							Message: "Guard panicked during execution",
+							From:    from,
+							To:      &NavigationTarget{Path: to.Path},
+						}
+
+						reporter.ReportError(routerErr, &observability.ErrorContext{
+							ComponentName: "router",
+							EventName:     "guard_execution",
+							Timestamp:     time.Now(),
+							StackTrace:    debug.Stack(),
+							Tags: map[string]string{
+								"guard_type":  "global_before",
+								"guard_index": string(rune(i)),
+								"from_path":   getPathOrEmpty(from),
+								"to_path":     to.Path,
+							},
+							Extra: map[string]interface{}{
+								"panic_value": r,
+							},
+						})
+					}
+					// Cancel navigation on panic
+					result.action = guardCancel
+				}
+			}()
+
+			guard(to, from, next)
+		}()
 
 		// Check result
 		if result.action == guardCancel {
@@ -199,7 +245,42 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 				}
 			}
 
-			beforeEnter(to, from, next)
+			// Execute guard with panic recovery
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						// Report panic to observability system
+						if reporter := observability.GetErrorReporter(); reporter != nil {
+							routerErr := &RouterError{
+								Code:    ErrCodeGuardRejected,
+								Message: "Route guard panicked during execution",
+								From:    from,
+								To:      &NavigationTarget{Path: to.Path},
+							}
+
+							reporter.ReportError(routerErr, &observability.ErrorContext{
+								ComponentName: "router",
+								EventName:     "guard_execution",
+								Timestamp:     time.Now(),
+								StackTrace:    debug.Stack(),
+								Tags: map[string]string{
+									"guard_type": "route_before_enter",
+									"route_name": to.Name,
+									"from_path":  getPathOrEmpty(from),
+									"to_path":    to.Path,
+								},
+								Extra: map[string]interface{}{
+									"panic_value": r,
+								},
+							})
+						}
+						// Cancel navigation on panic
+						result.action = guardCancel
+					}
+				}()
+
+				beforeEnter(to, from, next)
+			}()
 
 			if result.action == guardCancel {
 				return &guardResult{action: guardCancel}
