@@ -786,16 +786,16 @@ func (cb *CommandBatcher) DisableDeduplication()
 
 ## Phase 4: Wrapper Helper (2 tasks, 6 hours)
 
-### Task 4.1: bubbly.Wrap() Implementation
+### Task 4.1: bubbly.Wrap() Implementation ✅ COMPLETED
 **Description**: One-line wrapper for automatic integration
 
-**Prerequisites**: Task 3.3
+**Prerequisites**: Task 3.3 ✅
 
 **Unlocks**: Task 4.2 (Wrapper Tests)
 
 **Files**:
-- `pkg/bubbly/wrapper.go`
-- `pkg/bubbly/wrapper_test.go`
+- `pkg/bubbly/wrapper.go` ✅
+- `pkg/bubbly/wrapper_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -815,13 +815,37 @@ func (m *autoWrapperModel) View() string
 ```
 
 **Tests**:
-- [ ] Wrap creates model
-- [ ] Init forwards correctly
-- [ ] Update handles commands
-- [ ] View renders correctly
-- [ ] Commands batch automatically
+- [x] Wrap creates model ✅
+- [x] Init forwards correctly ✅
+- [x] Update handles commands ✅
+- [x] View renders correctly ✅
+- [x] Commands batch automatically ✅
+- [x] Backward compatibility ✅
+- [x] Bubbletea integration (single-threaded model) ✅
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- Created `Wrap()` function that returns `tea.Model` wrapping a BubblyUI component
+- Implemented `autoWrapperModel` struct with `component Component` field
+- Implemented `Init()` method - forwards to component.Init()
+- Implemented `Update()` method - forwards to component.Update() and updates component reference
+- Implemented `View()` method - forwards to component.View()
+- Comprehensive table-driven tests covering:
+  - Model creation with auto commands enabled/disabled
+  - Init forwarding with/without setup
+  - Update message handling (key messages, StateChangedMsg, custom messages)
+  - View rendering (simple template, template with state)
+  - Command batching (no commands without auto mode, batching with auto mode)
+  - Backward compatibility (template only, setup+template, auto commands on/off)
+  - Bubbletea integration (100 sequential updates simulating event loop)
+- All tests pass with race detector (`go test -race`)
+- Zero lint warnings (`go vet`)
+- Package builds successfully
+- **IMPORTANT**: Wrapper is NOT thread-safe by design - Bubbletea models run in single goroutine
+- **Key Design**: Thin wrapper with zero state - all state managed by component
+- **Performance**: Minimal overhead - just method forwarding
+- **Backward Compatible**: Works with components that don't use automatic command generation
+
+**Actual Effort**: 2.5 hours (under estimate due to TDD approach and clear spec)
 
 ---
 
