@@ -38,6 +38,9 @@ const (
 // This optimization reduces the number of Update() cycles and improves
 // performance when many state changes occur in a single tick.
 //
+// Deduplication can be enabled to remove redundant commands (e.g., multiple
+// updates to the same ref, keeping only the last one).
+//
 // Thread Safety:
 //
 // CommandBatcher is not thread-safe. Create separate instances for concurrent use.
@@ -45,13 +48,15 @@ const (
 // Example:
 //
 //	batcher := NewCommandBatcher(CoalesceAll)
+//	batcher.EnableDeduplication() // Optional: remove duplicate commands
 //	commands := []tea.Cmd{cmd1, cmd2, cmd3}
 //	batchedCmd := batcher.Batch(commands)
 //
 //	// In component Update():
 //	return model, batchedCmd
 type CommandBatcher struct {
-	strategy CoalescingStrategy
+	strategy           CoalescingStrategy
+	deduplicateEnabled bool // Enable command deduplication
 }
 
 // NewCommandBatcher creates a new CommandBatcher with the specified strategy.
@@ -61,8 +66,31 @@ type CommandBatcher struct {
 //	batcher := NewCommandBatcher(CoalesceAll)
 func NewCommandBatcher(strategy CoalescingStrategy) *CommandBatcher {
 	return &CommandBatcher{
-		strategy: strategy,
+		strategy:           strategy,
+		deduplicateEnabled: false, // Disabled by default
 	}
+}
+
+// EnableDeduplication enables command deduplication for this batcher.
+//
+// When enabled, duplicate commands (e.g., multiple state changes to the same
+// ref) are removed before batching, keeping only the last occurrence.
+//
+// Example:
+//
+//	batcher := NewCommandBatcher(CoalesceAll)
+//	batcher.EnableDeduplication()
+func (cb *CommandBatcher) EnableDeduplication() {
+	cb.deduplicateEnabled = true
+}
+
+// DisableDeduplication disables command deduplication for this batcher.
+//
+// Example:
+//
+//	batcher.DisableDeduplication()
+func (cb *CommandBatcher) DisableDeduplication() {
+	cb.deduplicateEnabled = false
 }
 
 // Batch combines multiple commands into a single command using the configured strategy.
@@ -72,6 +100,7 @@ func NewCommandBatcher(strategy CoalescingStrategy) *CommandBatcher {
 // Returns a batched command for multiple commands.
 //
 // Nil commands in the input are filtered out before batching.
+// If deduplication is enabled, duplicate commands are removed before batching.
 //
 // Example:
 //
@@ -95,6 +124,19 @@ func (cb *CommandBatcher) Batch(commands []tea.Cmd) tea.Cmd {
 
 	if len(filtered) == 1 {
 		return filtered[0]
+	}
+
+	// Deduplicate if enabled (Task 3.3)
+	if cb.deduplicateEnabled {
+		filtered = cb.deduplicateCommands(filtered)
+
+		// After deduplication, check edge cases again
+		if len(filtered) == 0 {
+			return nil
+		}
+		if len(filtered) == 1 {
+			return filtered[0]
+		}
 	}
 
 	// Batch commands based on strategy
