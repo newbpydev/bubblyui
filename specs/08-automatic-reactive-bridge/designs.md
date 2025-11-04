@@ -103,42 +103,93 @@ All state changes visible in one render
 
 ## Type Definitions
 
-### Core Types
+### Package Architecture
+
+**IMPORTANT**: To avoid import cycles, core types are defined in the `bubbly` package:
+- `CommandQueue` - in `pkg/bubbly/command_queue.go`
+- `CommandGenerator` - in `pkg/bubbly/command_queue.go`
+- `StateChangedMsg` - in `pkg/bubbly/command_queue.go`
+
+The `commands` package (`pkg/bubbly/commands/`) re-exports these types for convenience and provides implementations like `DefaultCommandGenerator`.
+
+### Core Types (in `pkg/bubbly/`)
 
 ```go
-// CommandRef is a Ref that generates commands on changes
-type CommandRef[T any] struct {
-    *Ref[T]
-    commandGen CommandGenerator
-    queue      *CommandQueue
-}
-
 // CommandGenerator creates tea.Cmd from state changes
+// Defined in pkg/bubbly/command_queue.go
+// Re-exported in pkg/bubbly/commands/generator.go for convenience
 type CommandGenerator interface {
     Generate(componentID string, refID string, oldValue, newValue interface{}) tea.Cmd
 }
 
 // CommandQueue stores pending commands for a component
+// Defined in pkg/bubbly/command_queue.go
+// Re-exported in pkg/bubbly/commands/generator.go for convenience
 type CommandQueue struct {
     commands []tea.Cmd
     mu       sync.Mutex
 }
 
 // StateChangedMsg signals a state change occurred
+// Defined in pkg/bubbly/command_queue.go
+// Re-exported in pkg/bubbly/commands/generator.go for convenience
 type StateChangedMsg struct {
     ComponentID string
     RefID       string
+    OldValue    interface{}  // Previous value (for debugging/logging)
+    NewValue    interface{}  // New value (for debugging/logging)
     Timestamp   time.Time
 }
 
-// ComponentRuntime manages command generation for a component
-type ComponentRuntime struct {
-    id          string
-    commandQueue *CommandQueue
-    batcher     *CommandBatcher
+// componentImpl enhanced with command queue (Task 2.1 ✅ COMPLETED)
+// Defined in pkg/bubbly/component.go
+type componentImpl struct {
+    // ... existing fields
+    commandQueue *CommandQueue      // Queue for pending commands
+    commandGen   CommandGenerator   // Generator for creating commands
+    autoCommands bool                // Auto command generation flag
+}
+```
+
+### Implemented Types (in `pkg/bubbly/commands/`)
+
+```go
+// CommandRef is a Ref that generates commands on changes (Task 1.3 ✅ COMPLETED)
+// Defined in pkg/bubbly/commands/command_ref.go
+type CommandRef[T any] struct {
+    *bubbly.Ref[T]
+    componentID string
+    refID       string
+    commandGen  CommandGenerator
+    queue       *CommandQueue
+    enabled     bool
 }
 
+// DefaultCommandGenerator is the standard implementation (Task 1.2 ✅ COMPLETED)
+// Defined in pkg/bubbly/commands/default_generator.go
+type DefaultCommandGenerator struct{}
+
+func (g *DefaultCommandGenerator) Generate(
+    componentID, refID string,
+    oldValue, newValue interface{},
+) tea.Cmd {
+    return func() tea.Msg {
+        return StateChangedMsg{
+            ComponentID: componentID,
+            RefID:       refID,
+            OldValue:    oldValue,
+            NewValue:    newValue,
+            Timestamp:   time.Now(),
+        }
+    }
+}
+```
+
+### Future Types (not yet implemented)
+
+```go
 // CommandBatcher coalesces multiple commands
+// Will be defined in pkg/bubbly/commands/batcher.go (Task 3.1)
 type CommandBatcher struct {
     strategy CoalescingStrategy
 }
@@ -195,24 +246,7 @@ func (c *Context) Ref(value interface{}) *Ref[interface{}] {
 }
 ```
 
-### Default Command Generator
-
-```go
-type DefaultCommandGenerator struct{}
-
-func (g *DefaultCommandGenerator) Generate(
-    componentID, refID string,
-    oldValue, newValue interface{},
-) tea.Cmd {
-    return func() tea.Msg {
-        return StateChangedMsg{
-            ComponentID: componentID,
-            RefID:       refID,
-            Timestamp:   time.Now(),
-        }
-    }
-}
-```
+**Note**: The above code example shows the intended future integration. Currently (Task 2.1 completed), the command queue infrastructure is in place but not yet integrated into Context.Ref() creation. This will be implemented in later tasks.
 
 ---
 
@@ -751,6 +785,46 @@ ctx.On("click", func(_ interface{}) {
 
 ---
 
+## Known Limitations & Solutions
+
+### 1. Import Cycle Between `bubbly` and `commands` Packages
+
+**Problem**: Initial design placed `CommandQueue`, `CommandGenerator`, and `StateChangedMsg` in the `commands` package. However, `CommandRef` needed to import `bubbly.Ref`, creating a cycle:
+```
+bubbly → commands → bubbly (cycle!)
+```
+
+**Current Design**: 
+- Core types moved to `bubbly` package in `command_queue.go`
+- `commands` package re-exports types for convenience
+- `commands` package provides implementations only (e.g., `DefaultCommandGenerator`)
+
+**Solution Design**:
+```go
+// pkg/bubbly/command_queue.go
+type CommandQueue struct { ... }
+type CommandGenerator interface { ... }
+type StateChangedMsg struct { ... }
+
+// pkg/bubbly/commands/generator.go
+type CommandGenerator = bubbly.CommandGenerator  // Re-export
+type DefaultCommandGenerator struct{}            // Implementation
+```
+
+**Benefits**:
+- ✅ No import cycles
+- ✅ Clean separation: core types in `bubbly`, implementations in `commands`
+- ✅ Backward compatibility via re-exports
+- ✅ Future `CommandRef` can be in `bubbly` package
+
+**Priority**: CRITICAL - Fixed in Task 2.1
+
+**Status**: ✅ RESOLVED
+
+---
+
 ## Summary
 
 The Automatic Reactive Bridge eliminates the manual bridge pattern between BubblyUI and Bubbletea by automatically generating commands from state changes. When `Ref.Set()` is called, a command is generated and queued, triggering the Bubbletea update cycle without manual `Emit()` calls. The system provides a `Wrap()` helper for single-line integration, maintains backward compatibility with manual patterns, and achieves Vue-like developer experience while respecting Bubbletea's message-passing architecture. Performance overhead is < 10ns per state change, and the implementation is production-ready with proper error handling and observability integration.
+
+**Architecture Note**: Core types (`CommandQueue`, `CommandGenerator`, `StateChangedMsg`) are defined in the `bubbly` package to avoid import cycles. The `commands` package re-exports these types and provides implementations.

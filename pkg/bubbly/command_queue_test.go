@@ -1,4 +1,4 @@
-package commands
+package bubbly
 
 import (
 	"sync"
@@ -20,10 +20,10 @@ func TestNewCommandQueue(t *testing.T) {
 // TestCommandQueue_Enqueue tests adding commands to the queue
 func TestCommandQueue_Enqueue(t *testing.T) {
 	tests := []struct {
-		name           string
-		commands       []tea.Cmd
-		expectedLen    int
-		description    string
+		name        string
+		commands    []tea.Cmd
+		expectedLen int
+		description string
 	}{
 		{
 			name: "single command",

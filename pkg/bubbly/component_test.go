@@ -1023,3 +1023,35 @@ func TestComponent_Integration_NestedComponentsLifecycle(t *testing.T) {
 		})
 	}
 }
+
+// TestComponentRuntime_CommandQueueInitialization tests that components have command queue infrastructure
+// Task 2.1: Component Runtime Enhancement
+func TestComponentRuntime_CommandQueueInitialization(t *testing.T) {
+	t.Run("component_has_command_queue", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+
+		// Component should have a non-nil command queue
+		assert.NotNil(t, c.commandQueue, "Component should have command queue initialized")
+	})
+
+	t.Run("command_generator_initialized", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+
+		// Component should have a command generator
+		assert.NotNil(t, c.commandGen, "Component should have command generator initialized")
+	})
+
+	t.Run("auto_commands_defaults_to_false", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+
+		// autoCommands should default to false for backward compatibility
+		assert.False(t, c.autoCommands, "autoCommands should default to false")
+	})
+
+	t.Run("queue_is_empty_initially", func(t *testing.T) {
+		c := newComponentImpl("TestComponent")
+
+		// Queue should be empty on creation
+		assert.Equal(t, 0, c.commandQueue.Len(), "Command queue should be empty initially")
+	})
+}

@@ -130,6 +130,11 @@ type componentImpl struct {
 	handlersMu sync.RWMutex              // Protects handlers map
 	handlers   map[string][]EventHandler // Event name -> handlers
 
+	// Command generation (Automatic Reactive Bridge - Feature 08)
+	commandQueue *CommandQueue    // Queue for pending commands from state changes
+	commandGen   CommandGenerator // Generator for creating commands from state changes
+	autoCommands bool             // Whether automatic command generation is enabled
+
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
@@ -155,13 +160,16 @@ func newComponentImpl(name string) *componentImpl {
 	id := componentIDCounter.Add(1)
 
 	return &componentImpl{
-		name:        name,
-		id:          fmt.Sprintf("component-%d", id),
-		state:       make(map[string]interface{}),
-		provides:    make(map[string]interface{}),
-		injectCache: make(map[string]interface{}),
-		handlers:    make(map[string][]EventHandler),
-		children:    []Component{},
+		name:         name,
+		id:           fmt.Sprintf("component-%d", id),
+		state:        make(map[string]interface{}),
+		provides:     make(map[string]interface{}),
+		injectCache:  make(map[string]interface{}),
+		handlers:     make(map[string][]EventHandler),
+		children:     []Component{},
+		commandQueue: NewCommandQueue(),
+		commandGen:   &defaultCommandGenerator{},
+		autoCommands: false, // Disabled by default for backward compatibility
 	}
 }
 
