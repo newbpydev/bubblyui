@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestErrorCode_String tests error code string representation

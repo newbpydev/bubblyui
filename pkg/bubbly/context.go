@@ -1,6 +1,13 @@
 package bubbly
 
-import "fmt"
+import (
+	"fmt"
+	"sync/atomic"
+)
+
+// refIDCounter is an atomic counter for generating unique ref IDs.
+// It's incremented each time a new ref is created with automatic command generation.
+var refIDCounter atomic.Uint64
 
 // Context provides the API available during component setup.
 // It allows components to create reactive state, register event handlers,
@@ -49,13 +56,59 @@ type Context struct {
 // Ref creates a new reactive reference with the given initial value.
 // The returned Ref can be used to get and set values reactively.
 //
-// Example:
+// When automatic command generation is enabled (component.autoCommands = true),
+// this method creates a Ref with a setHook that automatically generates Bubbletea
+// commands when Set() is called, triggering UI updates without manual event emission.
+//
+// When automatic command generation is disabled (default), this method creates
+// a standard Ref with no automatic command generation, maintaining backward
+// compatibility with existing code.
+//
+// Example (manual mode - default):
 //
 //	count := ctx.Ref(0)
 //	count.Set(42)
-//	value := count.GetTyped()
+//	ctx.Emit("update", nil) // Manual emit required
+//
+// Example (automatic mode):
+//
+//	// In component builder: .WithAutoCommands(true)
+//	count := ctx.Ref(0)
+//	count.Set(42) // UI updates automatically!
 func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
-	return NewRef(value)
+	// Create base ref
+	ref := NewRef(value)
+
+	// If auto commands disabled or component not set, return standard ref
+	if !ctx.component.autoCommands || ctx.component == nil {
+		return ref
+	}
+
+	// Auto commands enabled - attach command generation hook
+	// Generate unique ref ID
+	refID := refIDCounter.Add(1)
+	refIDStr := fmt.Sprintf("ref-%d", refID)
+
+	// Capture context for the hook
+	componentID := ctx.component.id
+	commandGen := ctx.component.commandGen
+	queue := ctx.component.commandQueue
+
+	// Set the hook that generates commands on Set()
+	ref.setHook = func(oldValue, newValue interface{}) {
+		// Generate command for the state change
+		cmd := commandGen.Generate(
+			componentID,
+			refIDStr,
+			oldValue,
+			newValue,
+		)
+
+		// Enqueue command for component to return from Update()
+		queue.Enqueue(cmd)
+	}
+
+	return ref
 }
 
 // Computed creates a new computed value that automatically updates

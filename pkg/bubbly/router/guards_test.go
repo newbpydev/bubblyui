@@ -482,7 +482,7 @@ func TestRouter_Guards_NilToRoute(t *testing.T) {
 
 	// This would be an internal error case, but test the guard behavior
 	result := router.executeBeforeGuards(nil, nil)
-	
+
 	assert.True(t, guardCalled, "Guard should be called even with nil route")
 	assert.Equal(t, guardContinue, result.action, "Should continue with nil route")
 }

@@ -768,3 +768,233 @@ func TestContext_Inject_ReactiveValues(t *testing.T) {
 	// Child should see the change (same ref instance)
 	assert.Equal(t, "light", injectedRef.GetTyped(), "Child should see reactive changes")
 }
+
+// TestContext_Ref_AutoCommandsDisabled tests that Context.Ref creates standard Ref when auto commands disabled
+func TestContext_Ref_AutoCommandsDisabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialValue interface{}
+		newValue     interface{}
+	}{
+		{
+			name:         "int ref without auto commands",
+			initialValue: 0,
+			newValue:     42,
+		},
+		{
+			name:         "string ref without auto commands",
+			initialValue: "hello",
+			newValue:     "world",
+		},
+		{
+			name:         "bool ref without auto commands",
+			initialValue: false,
+			newValue:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			c.autoCommands = false // Explicitly disabled (default)
+			ctx := &Context{component: c}
+
+			// Act
+			ref := ctx.Ref(tt.initialValue)
+			ref.Set(tt.newValue)
+
+			// Assert
+			assert.Equal(t, tt.newValue, ref.Get(), "Ref should update value")
+			assert.Equal(t, 0, c.commandQueue.Len(), "No commands should be generated when auto mode disabled")
+		})
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled tests that Context.Ref creates CommandRef when auto commands enabled
+func TestContext_Ref_AutoCommandsEnabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialValue interface{}
+		newValue     interface{}
+	}{
+		{
+			name:         "int ref with auto commands",
+			initialValue: 0,
+			newValue:     42,
+		},
+		{
+			name:         "string ref with auto commands",
+			initialValue: "hello",
+			newValue:     "world",
+		},
+		{
+			name:         "bool ref with auto commands",
+			initialValue: false,
+			newValue:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			c.autoCommands = true // Enable auto commands
+			ctx := &Context{component: c}
+
+			// Act
+			ref := ctx.Ref(tt.initialValue)
+			ref.Set(tt.newValue)
+
+			// Assert
+			assert.Equal(t, tt.newValue, ref.Get(), "Ref should update value synchronously")
+			assert.Equal(t, 1, c.commandQueue.Len(), "Command should be generated when auto mode enabled")
+
+			// Verify command generates correct message
+			cmds := c.commandQueue.DrainAll()
+			require.Len(t, cmds, 1, "Should have exactly one command")
+
+			msg := cmds[0]()
+			stateMsg, ok := msg.(StateChangedMsg)
+			require.True(t, ok, "Command should return StateChangedMsg")
+			assert.Equal(t, c.id, stateMsg.ComponentID, "Message should have correct component ID")
+			assert.Equal(t, tt.initialValue, stateMsg.OldValue, "Message should have correct old value")
+			assert.Equal(t, tt.newValue, stateMsg.NewValue, "Message should have correct new value")
+		})
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled_MultipleChanges tests command batching with multiple Set() calls
+func TestContext_Ref_AutoCommandsEnabled_MultipleChanges(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	ctx := &Context{component: c}
+
+	// Act
+	ref1 := ctx.Ref(0)
+	ref2 := ctx.Ref("hello")
+	ref3 := ctx.Ref(false)
+
+	ref1.Set(1)
+	ref2.Set("world")
+	ref3.Set(true)
+
+	// Assert
+	assert.Equal(t, 3, c.commandQueue.Len(), "Should have 3 commands queued")
+
+	// Verify all commands
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 3, "Should have exactly 3 commands")
+
+	// Execute commands and verify messages
+	for i, cmd := range cmds {
+		msg := cmd()
+		stateMsg, ok := msg.(StateChangedMsg)
+		require.True(t, ok, "Command %d should return StateChangedMsg", i)
+		assert.Equal(t, c.id, stateMsg.ComponentID, "Message %d should have correct component ID", i)
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled_ThreadSafe tests concurrent Ref creation and updates
+func TestContext_Ref_AutoCommandsEnabled_ThreadSafe(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	ctx := &Context{component: c}
+
+	// Act - Create and update refs concurrently
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(val int) {
+			ref := ctx.Ref(val)
+			ref.Set(val * 2)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	// Assert
+	assert.Equal(t, 10, c.commandQueue.Len(), "Should have 10 commands queued")
+	assert.NotPanics(t, func() {
+		c.commandQueue.DrainAll()
+	}, "Should handle concurrent access without panicking")
+}
+
+// TestContext_Ref_BackwardCompatibility tests that existing code works without auto commands
+func TestContext_Ref_BackwardCompatibility(t *testing.T) {
+	// Arrange - Component without auto commands (default)
+	c := newComponentImpl("TestComponent")
+	ctx := &Context{component: c}
+
+	// Act - Use Ref as before
+	count := ctx.Ref(0)
+	count.Set(1)
+	count.Set(2)
+	count.Set(3)
+
+	// Assert
+	assert.Equal(t, 3, count.Get(), "Ref should work normally")
+	assert.Equal(t, 0, c.commandQueue.Len(), "No commands should be generated by default")
+}
+
+// TestContext_Ref_AutoCommandsEnabled_CommandExecution tests that commands execute correctly
+func TestContext_Ref_AutoCommandsEnabled_CommandExecution(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	ctx := &Context{component: c}
+
+	// Act
+	ref := ctx.Ref(10)
+	ref.Set(20)
+
+	// Get command
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 1, "Should have one command")
+
+	// Execute command
+	msg := cmds[0]()
+
+	// Assert
+	stateMsg, ok := msg.(StateChangedMsg)
+	require.True(t, ok, "Should return StateChangedMsg")
+	assert.Equal(t, c.id, stateMsg.ComponentID)
+	assert.Equal(t, 10, stateMsg.OldValue)
+	assert.Equal(t, 20, stateMsg.NewValue)
+	assert.NotZero(t, stateMsg.Timestamp, "Timestamp should be set")
+}
+
+// TestContext_Ref_AutoCommandsEnabled_RefIDUnique tests that each ref gets unique ID
+func TestContext_Ref_AutoCommandsEnabled_RefIDUnique(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	ctx := &Context{component: c}
+
+	// Act
+	ref1 := ctx.Ref(1)
+	ref2 := ctx.Ref(2)
+	ref3 := ctx.Ref(3)
+
+	ref1.Set(10)
+	ref2.Set(20)
+	ref3.Set(30)
+
+	// Assert
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 3, "Should have 3 commands")
+
+	// Collect ref IDs
+	refIDs := make(map[string]bool)
+	for _, cmd := range cmds {
+		msg := cmd().(StateChangedMsg)
+		refIDs[msg.RefID] = true
+	}
+
+	assert.Len(t, refIDs, 3, "Each ref should have unique ID")
+}

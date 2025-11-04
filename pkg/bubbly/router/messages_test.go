@@ -389,7 +389,7 @@ func TestMessages_MarkerMethods(t *testing.T) {
 		}
 		// Call marker method directly
 		msg.isNavigationMsg()
-		
+
 		// Verify it implements interface
 		var _ NavigationMsg = msg
 	})
@@ -401,7 +401,7 @@ func TestMessages_MarkerMethods(t *testing.T) {
 		}
 		// Call marker method directly
 		msg.isNavigationMsg()
-		
+
 		// Verify it implements interface
 		var _ NavigationMsg = msg
 	})

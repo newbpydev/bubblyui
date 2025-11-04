@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // mockComponent is a simple component for testing

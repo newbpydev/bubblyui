@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 

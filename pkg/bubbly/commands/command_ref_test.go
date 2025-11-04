@@ -3,9 +3,10 @@ package commands
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestCommandRef_Creation tests that CommandRef wraps Ref correctly

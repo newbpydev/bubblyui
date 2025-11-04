@@ -77,6 +77,7 @@ type Ref[T any] struct {
 	value      T
 	watchers   []*watcher[T]
 	dependents []Dependency
+	setHook    func(oldValue, newValue T) // Optional hook called after Set()
 }
 
 // NewRef creates a new reactive reference with the given initial value.
@@ -142,6 +143,9 @@ func (r *Ref[T]) GetTyped() T {
 // When the value changes, all dependent computed values are invalidated,
 // causing them to recompute on their next Get() call.
 //
+// If a setHook is registered (for automatic command generation), it will be
+// called after the value is updated and watchers are notified.
+//
 // Example:
 //
 //	ref := NewRef(10)
@@ -151,13 +155,14 @@ func (r *Ref[T]) Set(value T) {
 	oldValue := r.value
 	r.value = value
 
-	// Copy watchers slice while holding the lock
+	// Copy watchers slice and hook while holding the lock
 	// Use exact length to avoid over-allocation
 	var watchersCopy []*watcher[T]
 	if len(r.watchers) > 0 {
 		watchersCopy = make([]*watcher[T], len(r.watchers))
 		copy(watchersCopy, r.watchers)
 	}
+	hook := r.setHook
 	r.mu.Unlock()
 
 	// Invalidate all dependent computed values
@@ -166,6 +171,11 @@ func (r *Ref[T]) Set(value T) {
 	// Notify watchers outside the lock (only if there are watchers)
 	if len(watchersCopy) > 0 {
 		r.notifyWatchers(value, oldValue, watchersCopy)
+	}
+
+	// Call setHook if registered (for automatic command generation)
+	if hook != nil {
+		hook(oldValue, value)
 	}
 }
 
