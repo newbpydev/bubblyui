@@ -64,6 +64,10 @@ type ComponentBuilder struct {
 	// errors tracks validation errors encountered during configuration.
 	// Errors are accumulated and checked in Build().
 	errors []error
+
+	// autoCommands indicates whether automatic command generation is enabled.
+	// When true, Build() will initialize the command queue and generator.
+	autoCommands bool
 }
 
 // NewComponent creates a new ComponentBuilder for building a component.
@@ -228,6 +232,53 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	return b
 }
 
+// WithAutoCommands enables or disables automatic command generation for the component.
+// When enabled, the component will automatically generate Bubbletea commands when
+// reactive state changes (via Ref.Set()), eliminating the need for manual Emit() calls.
+//
+// Automatic command generation provides a Vue-like developer experience where state
+// changes trigger UI updates automatically. The component's Build() method will
+// initialize the command queue and default command generator when this is enabled.
+//
+// Example with automatic commands:
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(true).
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	            // UI updates automatically - no manual Emit() needed!
+//	        })
+//	    }).
+//	    Template(func(ctx RenderContext) string {
+//	        return fmt.Sprintf("Count: %d", ctx.Get("count"))
+//	    }).
+//	    Build()
+//
+// Example with manual control (default):
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(false).  // or omit this line
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	            ctx.Emit("update", nil)  // Manual emit required
+//	        })
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - enabled: true to enable automatic commands, false to disable (default: false)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithAutoCommands(enabled bool) *ComponentBuilder {
+	b.autoCommands = enabled
+	return b
+}
+
 // Build validates the component configuration and returns the final Component.
 // This is the terminal method in the builder chain that performs validation
 // and creates the component instance.
@@ -238,6 +289,11 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 //
 // If validation fails, Build returns nil and an error describing what's wrong.
 // If validation succeeds, Build returns the configured Component ready for use.
+//
+// When WithAutoCommands(true) was called, Build will also:
+//   - Initialize the command queue for pending commands
+//   - Set up the default command generator
+//   - Enable automatic command generation for reactive state changes
 //
 // Example:
 //
@@ -272,6 +328,13 @@ func (b *ComponentBuilder) Build() (Component, error) {
 			ComponentName: b.component.name,
 			Errors:        b.errors,
 		}
+	}
+
+	// Initialize command infrastructure if automatic commands enabled
+	if b.autoCommands {
+		b.component.autoCommands = true
+		b.component.commandQueue = NewCommandQueue()
+		b.component.commandGen = &defaultCommandGenerator{}
 	}
 
 	// Return the component (implements Component interface)

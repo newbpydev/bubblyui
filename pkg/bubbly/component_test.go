@@ -1026,19 +1026,20 @@ func TestComponent_Integration_NestedComponentsLifecycle(t *testing.T) {
 
 // TestComponentRuntime_CommandQueueInitialization tests that components have command queue infrastructure
 // Task 2.1: Component Runtime Enhancement
+// Updated in Task 2.5: Command queue only initialized when WithAutoCommands(true) is used
 func TestComponentRuntime_CommandQueueInitialization(t *testing.T) {
-	t.Run("component_has_command_queue", func(t *testing.T) {
+	t.Run("component_queue_nil_by_default", func(t *testing.T) {
 		c := newComponentImpl("TestComponent")
 
-		// Component should have a non-nil command queue
-		assert.NotNil(t, c.commandQueue, "Component should have command queue initialized")
+		// Component should NOT have command queue by default (Task 2.5)
+		assert.Nil(t, c.commandQueue, "Command queue should be nil by default")
 	})
 
-	t.Run("command_generator_initialized", func(t *testing.T) {
+	t.Run("command_generator_nil_by_default", func(t *testing.T) {
 		c := newComponentImpl("TestComponent")
 
-		// Component should have a command generator
-		assert.NotNil(t, c.commandGen, "Component should have command generator initialized")
+		// Component should NOT have command generator by default (Task 2.5)
+		assert.Nil(t, c.commandGen, "Command generator should be nil by default")
 	})
 
 	t.Run("auto_commands_defaults_to_false", func(t *testing.T) {
@@ -1048,10 +1049,18 @@ func TestComponentRuntime_CommandQueueInitialization(t *testing.T) {
 		assert.False(t, c.autoCommands, "autoCommands should default to false")
 	})
 
-	t.Run("queue_is_empty_initially", func(t *testing.T) {
-		c := newComponentImpl("TestComponent")
+	t.Run("queue_initialized_with_auto_commands", func(t *testing.T) {
+		// Build component with auto commands enabled (Task 2.5)
+		component, err := NewComponent("TestComponent").
+			WithAutoCommands(true).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
 
-		// Queue should be empty on creation
-		assert.Equal(t, 0, c.commandQueue.Len(), "Command queue should be empty initially")
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+
+		// Queue should be initialized and empty
+		require.NotNil(t, impl.commandQueue, "Command queue should be initialized when auto commands enabled")
+		assert.Equal(t, 0, impl.commandQueue.Len(), "Command queue should be empty initially")
 	})
 }

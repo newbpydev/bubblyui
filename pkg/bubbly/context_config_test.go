@@ -146,6 +146,11 @@ func TestContext_ManualRef(t *testing.T) {
 			// Arrange
 			c := newComponentImpl("TestComponent")
 			c.autoCommands = tt.autoCommandsState
+			// Initialize command infrastructure if auto commands enabled (Task 2.5)
+			if tt.autoCommandsState {
+				c.commandQueue = NewCommandQueue()
+				c.commandGen = &defaultCommandGenerator{}
+			}
 			ctx := &Context{component: c}
 
 			// Act
@@ -155,9 +160,11 @@ func TestContext_ManualRef(t *testing.T) {
 			assert.NotNil(t, ref, "ManualRef should return a ref")
 			assert.Equal(t, tt.value, ref.Get(), "Ref should have correct initial value")
 
-			// Verify no commands generated on Set
+			// Verify no commands generated on Set (only check if queue exists)
 			ref.Set("changed")
-			assert.Equal(t, 0, c.commandQueue.Len(), "ManualRef should not generate commands")
+			if c.commandQueue != nil {
+				assert.Equal(t, 0, c.commandQueue.Len(), "ManualRef should not generate commands")
+			}
 		})
 	}
 }
@@ -167,6 +174,9 @@ func TestContext_ManualRef_RestoresState(t *testing.T) {
 	// Arrange
 	c := newComponentImpl("TestComponent")
 	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
 	ctx := &Context{component: c}
 
 	// Act
@@ -273,6 +283,9 @@ func TestContext_SetCommandGenerator_Integration(t *testing.T) {
 	// Arrange
 	c := newComponentImpl("TestComponent")
 	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
 	ctx := &Context{component: c}
 	ctx.SetCommandGenerator(mockGen)
 
@@ -324,6 +337,9 @@ func TestContext_ManualRef_ThreadSafe(t *testing.T) {
 	// Arrange
 	c := newComponentImpl("TestComponent")
 	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
 	ctx := &Context{component: c}
 
 	// Act - Create manual refs concurrently

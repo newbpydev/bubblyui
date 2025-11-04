@@ -168,8 +168,8 @@ func newComponentImpl(name string) *componentImpl {
 		injectCache:  make(map[string]interface{}),
 		handlers:     make(map[string][]EventHandler),
 		children:     []Component{},
-		commandQueue: NewCommandQueue(),
-		commandGen:   &defaultCommandGenerator{},
+		commandQueue: nil,   // Initialized by Build() when WithAutoCommands(true)
+		commandGen:   nil,   // Initialized by Build() when WithAutoCommands(true)
 		autoCommands: false, // Disabled by default for backward compatibility
 	}
 }
