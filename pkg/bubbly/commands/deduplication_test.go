@@ -331,3 +331,146 @@ func TestGenerateCommandKey_NonStateChanged(t *testing.T) {
 	// (implementation-specific, but should be non-empty and consistent)
 	assert.NotEmpty(t, key, "should generate non-empty key for custom messages")
 }
+
+// TestGenerateCommandKey_NilCommand tests key generation for nil command.
+func TestGenerateCommandKey_NilCommand(t *testing.T) {
+	key := generateCommandKey(nil)
+	assert.Equal(t, "", key, "should return empty string for nil command")
+}
+
+// TestGenerateCommandKey_CustomMessageTypes tests key generation for various custom message types.
+func TestGenerateCommandKey_CustomMessageTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		cmd      tea.Cmd
+		expected string
+	}{
+		{
+			name: "custom struct message",
+			cmd: func() tea.Msg {
+				return struct{ Name string }{Name: "test"}
+			},
+			expected: "struct { Name string }",
+		},
+		{
+			name: "string message",
+			cmd: func() tea.Msg {
+				return "string message"
+			},
+			expected: "string",
+		},
+		{
+			name: "integer message",
+			cmd: func() tea.Msg {
+				return 42
+			},
+			expected: "int",
+		},
+		{
+			name: "nil message from command",
+			cmd: func() tea.Msg {
+				return nil
+			},
+			expected: "<nil>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := generateCommandKey(tt.cmd)
+			assert.Equal(t, tt.expected, key, "key should match expected type name")
+		})
+	}
+}
+
+// TestDeduplicateCommands_EdgeCases tests additional edge cases for deduplication.
+func TestDeduplicateCommands_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		commands []tea.Cmd
+		want     int
+	}{
+		{
+			name:     "all nil commands",
+			commands: []tea.Cmd{nil, nil, nil},
+			want:     0,
+		},
+		{
+			name:     "single nil command",
+			commands: []tea.Cmd{nil},
+			want:     0,
+		},
+		{
+			name: "mixed nil and valid with duplicates",
+			commands: []tea.Cmd{
+				nil,
+				func() tea.Msg {
+					return bubbly.StateChangedMsg{
+						ComponentID: "comp1",
+						RefID:       "ref1",
+					}
+				},
+				nil,
+				func() tea.Msg {
+					return bubbly.StateChangedMsg{
+						ComponentID: "comp1",
+						RefID:       "ref1",
+					}
+				},
+				nil,
+			},
+			want: 1, // Only one unique ref after filtering nils and deduplication
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batcher := NewCommandBatcher(CoalesceAll)
+			result := batcher.deduplicateCommands(tt.commands)
+
+			if tt.want == 0 {
+				assert.Nil(t, result, "should return nil for empty result")
+			} else {
+				assert.Equal(t, tt.want, len(result), "should return correct number of commands")
+			}
+		})
+	}
+}
+
+// TestDeduplicateCommands_SingleCommandOptimization tests the single command optimization.
+func TestDeduplicateCommands_SingleCommandOptimization(t *testing.T) {
+	tests := []struct {
+		name     string
+		commands []tea.Cmd
+	}{
+		{
+			name: "single valid command",
+			commands: []tea.Cmd{
+				func() tea.Msg {
+					return bubbly.StateChangedMsg{
+						ComponentID: "comp1",
+						RefID:       "ref1",
+					}
+				},
+			},
+		},
+		{
+			name:     "single nil command",
+			commands: []tea.Cmd{nil},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batcher := NewCommandBatcher(CoalesceAll)
+			result := batcher.deduplicateCommands(tt.commands)
+
+			if tt.commands[0] == nil {
+				assert.Nil(t, result, "should return nil for single nil command")
+			} else {
+				assert.NotNil(t, result, "should return command for single valid command")
+				assert.Equal(t, 1, len(result), "should return exactly one command")
+			}
+		})
+	}
+}

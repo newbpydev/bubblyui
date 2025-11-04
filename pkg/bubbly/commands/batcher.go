@@ -32,6 +32,20 @@ const (
 	NoCoalesce
 )
 
+// String returns the string representation of the CoalescingStrategy.
+func (cs CoalescingStrategy) String() string {
+	switch cs {
+	case CoalesceAll:
+		return "CoalesceAll"
+	case CoalesceByType:
+		return "CoalesceByType"
+	case NoCoalesce:
+		return "NoCoalesce"
+	default:
+		return "Unknown"
+	}
+}
+
 // CommandBatcher batches multiple Bubbletea commands into a single command.
 //
 // The batcher uses a CoalescingStrategy to determine how to combine commands.
