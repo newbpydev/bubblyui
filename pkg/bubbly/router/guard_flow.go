@@ -139,6 +139,9 @@ func (r *Router) pushWithTracking(target *NavigationTarget, tracker *redirectTra
 		// Continue with navigation
 	}
 
+	// Add to history stack (for back/forward navigation)
+	r.history.Push(newRoute)
+
 	// Update current route (thread-safe)
 	r.mu.Lock()
 	r.currentRoute = newRoute

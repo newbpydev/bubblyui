@@ -251,12 +251,21 @@ func (rb *RouterBuilder) Build() (*Router, error) {
 	// Create new router
 	router := NewRouter()
 
-	// Register routes
+	// Register routes with full RouteRecord (including Component)
 	for _, record := range rb.routes {
-		err := router.registry.Register(record.Path, record.Name, record.Meta)
+		// Compile pattern for the route
+		pattern, err := CompilePattern(record.Path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to register route %s: %w", record.Path, err)
+			return nil, fmt.Errorf("failed to compile pattern for %s: %w", record.Path, err)
 		}
+		record.pattern = pattern
+		
+		// Add route record directly to registry (preserving Component field)
+		router.registry.mu.Lock()
+		router.registry.routes = append(router.registry.routes, record)
+		router.registry.byName[record.Name] = record
+		router.registry.byPath[record.Path] = record
+		router.registry.mu.Unlock()
 	}
 
 	// Register guards
