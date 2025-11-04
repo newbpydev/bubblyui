@@ -79,8 +79,14 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 	// Create base ref
 	ref := NewRef(value)
 
+	// Check if auto commands enabled (thread-safe read)
+	ctx.component.autoCommandsMu.RLock()
+	autoEnabled := ctx.component.autoCommands
+	commandGen := ctx.component.commandGen
+	ctx.component.autoCommandsMu.RUnlock()
+
 	// If auto commands disabled or component not set, return standard ref
-	if !ctx.component.autoCommands || ctx.component == nil {
+	if !autoEnabled || ctx.component == nil {
 		return ref
 	}
 
@@ -91,7 +97,6 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 
 	// Capture context for the hook
 	componentID := ctx.component.id
-	commandGen := ctx.component.commandGen
 	queue := ctx.component.commandQueue
 
 	// Set the hook that generates commands on Set()
@@ -474,4 +479,135 @@ func (ctx *Context) Provide(key string, value interface{}) {
 //	user := ctx.Inject("currentUser", nil)
 func (ctx *Context) Inject(key string, defaultValue interface{}) interface{} {
 	return ctx.component.inject(key, defaultValue)
+}
+
+// EnableAutoCommands enables automatic command generation for reactive state changes.
+// When enabled, calling Ref.Set() automatically generates Bubbletea commands that
+// trigger UI updates without manual event emission.
+//
+// This method is idempotent - calling it multiple times has no adverse effects.
+// If no command generator is set, a default generator is automatically assigned.
+//
+// Example:
+//
+//	ctx.EnableAutoCommands()
+//	count := ctx.Ref(0)
+//	count.Set(42) // Automatically triggers UI update
+func (ctx *Context) EnableAutoCommands() {
+	ctx.component.autoCommandsMu.Lock()
+	defer ctx.component.autoCommandsMu.Unlock()
+
+	ctx.component.autoCommands = true
+
+	// Ensure a command generator is set
+	if ctx.component.commandGen == nil {
+		ctx.component.commandGen = &defaultCommandGenerator{}
+	}
+}
+
+// DisableAutoCommands disables automatic command generation for reactive state changes.
+// When disabled, Ref.Set() calls do not generate commands, and manual event emission
+// is required to trigger UI updates.
+//
+// This is useful for performance-critical code paths where you want to batch multiple
+// state changes and trigger a single update manually.
+//
+// Example:
+//
+//	ctx.DisableAutoCommands()
+//	// Batch updates without triggering commands
+//	for i := 0; i < 1000; i++ {
+//	    count.Set(i)
+//	}
+//	ctx.EnableAutoCommands()
+//	ctx.Emit("batch-complete", nil) // Single manual update
+func (ctx *Context) DisableAutoCommands() {
+	ctx.component.autoCommandsMu.Lock()
+	defer ctx.component.autoCommandsMu.Unlock()
+
+	ctx.component.autoCommands = false
+}
+
+// IsAutoCommandsEnabled returns whether automatic command generation is currently enabled.
+// This can be used to check the current state before conditionally enabling/disabling.
+//
+// Example:
+//
+//	if !ctx.IsAutoCommandsEnabled() {
+//	    ctx.EnableAutoCommands()
+//	}
+func (ctx *Context) IsAutoCommandsEnabled() bool {
+	ctx.component.autoCommandsMu.RLock()
+	defer ctx.component.autoCommandsMu.RUnlock()
+
+	return ctx.component.autoCommands
+}
+
+// ManualRef creates a reactive reference that never generates automatic commands,
+// regardless of the component's auto-commands setting.
+//
+// This is useful when you need explicit control over when UI updates occur, even
+// in a component that has automatic command generation enabled globally.
+//
+// The returned Ref behaves exactly like a standard Ref - you must manually emit
+// events to trigger UI updates after calling Set().
+//
+// Example:
+//
+//	// Component has auto-commands enabled
+//	ctx.EnableAutoCommands()
+//
+//	// But this ref needs manual control
+//	internalCounter := ctx.ManualRef(0)
+//	internalCounter.Set(100) // No command generated
+//	ctx.Emit("update", nil)  // Manual update required
+func (ctx *Context) ManualRef(value interface{}) *Ref[interface{}] {
+	// Lock to safely read and modify autoCommands
+	ctx.component.autoCommandsMu.Lock()
+	wasAuto := ctx.component.autoCommands
+	ctx.component.autoCommands = false
+	ctx.component.autoCommandsMu.Unlock()
+
+	// Create ref (will be standard ref without command generation)
+	ref := ctx.Ref(value)
+
+	// Restore auto commands state
+	ctx.component.autoCommandsMu.Lock()
+	ctx.component.autoCommands = wasAuto
+	ctx.component.autoCommandsMu.Unlock()
+
+	return ref
+}
+
+// SetCommandGenerator sets a custom command generator for this component.
+// The generator is used to create Bubbletea commands when reactive state changes.
+//
+// This allows you to customize how commands are generated, for example to add
+// logging, metrics, or custom message types.
+//
+// Setting a nil generator is allowed and will use the component's current generator
+// (or none if not set). To reset to the default generator, call EnableAutoCommands().
+//
+// Example:
+//
+//	type LoggingGenerator struct{}
+//
+//	func (g *LoggingGenerator) Generate(componentID, refID string, oldValue, newValue interface{}) tea.Cmd {
+//	    log.Printf("State change: %s.%s: %v -> %v", componentID, refID, oldValue, newValue)
+//	    return func() tea.Msg {
+//	        return StateChangedMsg{
+//	            ComponentID: componentID,
+//	            RefID:       refID,
+//	            OldValue:    oldValue,
+//	            NewValue:    newValue,
+//	        }
+//	    }
+//	}
+//
+//	ctx.SetCommandGenerator(&LoggingGenerator{})
+func (ctx *Context) SetCommandGenerator(gen CommandGenerator) {
+	ctx.component.autoCommandsMu.Lock()
+	defer ctx.component.autoCommandsMu.Unlock()
+
+	ctx.component.commandGen = gen
 }

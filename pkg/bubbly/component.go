@@ -131,9 +131,10 @@ type componentImpl struct {
 	handlers   map[string][]EventHandler // Event name -> handlers
 
 	// Command generation (Automatic Reactive Bridge - Feature 08)
-	commandQueue *CommandQueue    // Queue for pending commands from state changes
-	commandGen   CommandGenerator // Generator for creating commands from state changes
-	autoCommands bool             // Whether automatic command generation is enabled
+	commandQueue   *CommandQueue    // Queue for pending commands from state changes
+	commandGen     CommandGenerator // Generator for creating commands from state changes
+	autoCommands   bool             // Whether automatic command generation is enabled
+	autoCommandsMu sync.RWMutex     // Protects autoCommands and commandGen fields
 
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
