@@ -98,21 +98,19 @@ func (cb *CommandBatcher) Batch(commands []tea.Cmd) tea.Cmd {
 	}
 
 	// Batch commands based on strategy
-	// For Task 3.1, all strategies use tea.Batch
-	// Task 3.2 will implement actual coalescing logic
+	// Task 3.2: Strategy methods implemented in strategies.go
 	switch cb.strategy {
 	case CoalesceAll:
-		// For now, delegate to tea.Batch
-		// Task 3.2 will implement actual message coalescing
-		return tea.Batch(filtered...)
+		// Execute all commands immediately and return batch message
+		return cb.batchAll(filtered)
 	case CoalesceByType:
-		// Placeholder for Task 3.2 implementation
-		return tea.Batch(filtered...)
+		// Group by type before batching (placeholder for now)
+		return cb.batchByType(filtered)
 	case NoCoalesce:
 		// Execute all commands individually via tea.Batch
-		return tea.Batch(filtered...)
+		return cb.noCoalesce(filtered)
 	default:
-		// Unknown strategy, use safe default
-		return tea.Batch(filtered...)
+		// Unknown strategy, use safe default (no coalescing)
+		return cb.noCoalesce(filtered)
 	}
 }
