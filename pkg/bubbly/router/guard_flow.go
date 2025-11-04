@@ -245,14 +245,4 @@ func (r *Router) replaceWithTracking(target *NavigationTarget, tracker *redirect
 	}
 }
 
-// NavigationMsg is a marker interface for navigation messages.
-//
-// This interface is implemented by RouteChangedMsg and NavigationErrorMsg
-// to allow type-safe handling of navigation results.
-type NavigationMsg interface {
-	isNavigationMsg()
-}
-
-// Implement NavigationMsg interface
-func (RouteChangedMsg) isNavigationMsg()    {}
-func (NavigationErrorMsg) isNavigationMsg() {}
+// NavigationMsg interface and implementations are defined in messages.go

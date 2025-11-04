@@ -2003,7 +2003,7 @@ func ProvideRouter(ctx *bubbly.Context, router *Router)
 
 ## Phase 6: Integration & Polish (4 tasks, 12 hours)
 
-### Task 6.1: Bubbletea Message Integration
+### Task 6.1: Bubbletea Message Integration ✅ COMPLETED
 **Description**: Route change messages and command generation
 
 **Prerequisites**: Task 5.3
@@ -2011,8 +2011,8 @@ func ProvideRouter(ctx *bubbly.Context, router *Router)
 **Unlocks**: Task 6.2 (Error Handling)
 
 **Files**:
-- `pkg/bubbly/router/messages.go`
-- `pkg/bubbly/router/messages_test.go`
+- `pkg/bubbly/router/messages.go` ✅
+- `pkg/bubbly/router/messages_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -2029,12 +2029,54 @@ type NavigationErrorMsg struct {
 ```
 
 **Tests**:
-- [ ] Messages generated correctly
-- [ ] Commands return messages
-- [ ] Integration with Update()
-- [ ] Error messages work
+- [x] Messages generated correctly
+- [x] Commands return messages
+- [x] Integration with Update()
+- [x] Error messages work
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- **Coverage**: 90.4% (exceeds 80% target)
+- **Tests**: All tests passing with race detector
+- **Architecture**:
+  - Extracted message types from `navigation.go` and `guard_flow.go` into dedicated `messages.go`
+  - Created `NavigationMsg` interface for type-safe polymorphic handling
+  - Both message types implement the interface via `isNavigationMsg()` marker method
+- **Message Types**:
+  - `RouteChangedMsg`: Sent on successful navigation with `To` and `From` routes
+  - `NavigationErrorMsg`: Sent on navigation failure with `Error`, `From` route, and `To` target
+- **Bubbletea Integration**:
+  - Messages work seamlessly with `tea.Msg` type in Update() methods
+  - Commands (`Push`, `Replace`, `Back`, `Forward`, `Go`) return appropriate messages
+  - Type switch pattern enables clean message handling in applications
+- **Test Coverage**:
+  - Message creation with various scenarios (nil values, params, query strings)
+  - Command generation (Push/Replace success and failure cases)
+  - Bubbletea Update() integration patterns
+  - Type safety verification (interface implementation)
+  - Nil safety (handling nil From routes, nil To targets)
+  - Concurrent message handling (thread-safe type checking)
+- **Edge Cases Handled**:
+  - First navigation (From route is nil)
+  - Navigation errors (route not found, nil target, empty target)
+  - Custom error messages
+  - Polymorphic message handling via NavigationMsg interface
+- **Quality Gates**:
+  - ✅ All tests pass with `-race` flag
+  - ✅ Coverage 90.4% (exceeds 80% requirement)
+  - ✅ Zero lint warnings (go vet clean)
+  - ✅ Code formatted with gofmt
+  - ✅ Builds successfully
+- **Integration Points**:
+  - Used by all navigation methods (Push, Replace, Back, Forward, Go)
+  - Handled in application Update() methods via type switch
+  - Compatible with existing guard flow and history navigation
+- **Documentation**:
+  - Comprehensive godoc comments on all exported types
+  - Usage examples in comments
+  - Clear field descriptions
+  - Integration patterns documented
 
 ---
 

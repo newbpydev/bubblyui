@@ -385,3 +385,128 @@ func TestWithComponent(t *testing.T) {
 
 	assert.Equal(t, component, route.Component)
 }
+
+// TestRouterView_Init tests the Init method
+func TestRouterView_Init(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	cmd := rv.Init()
+	assert.Nil(t, cmd, "Init should return nil")
+}
+
+// TestRouterView_Update tests the Update method
+func TestRouterView_Update(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	tests := []struct {
+		name string
+		msg  tea.Msg
+	}{
+		{
+			name: "key message",
+			msg:  tea.KeyMsg{Type: tea.KeyEnter},
+		},
+		{
+			name: "route changed message",
+			msg: RouteChangedMsg{
+				To:   &Route{Path: "/test", FullPath: "/test"},
+				From: nil,
+			},
+		},
+		{
+			name: "nil message",
+			msg:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, cmd := rv.Update(tt.msg)
+			assert.Equal(t, rv, model, "Update should return same RouterView")
+			assert.Nil(t, cmd, "Update should return nil command")
+		})
+	}
+}
+
+// TestRouterView_Name tests the Name method
+func TestRouterView_Name(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	name := rv.Name()
+	assert.Equal(t, "RouterView", name)
+}
+
+// TestRouterView_ID tests the ID method
+func TestRouterView_ID(t *testing.T) {
+	router := NewRouter()
+
+	tests := []struct {
+		name     string
+		depth    int
+		expected string
+	}{
+		{
+			name:     "depth 0",
+			depth:    0,
+			expected: "router-view-0",
+		},
+		{
+			name:     "depth 1",
+			depth:    1,
+			expected: "router-view-1",
+		},
+		{
+			name:     "depth 2",
+			depth:    2,
+			expected: "router-view-2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rv := NewRouterView(router, tt.depth)
+			id := rv.ID()
+			assert.Equal(t, tt.expected, id)
+		})
+	}
+}
+
+// TestRouterView_Props tests the Props method
+func TestRouterView_Props(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	props := rv.Props()
+	assert.Nil(t, props, "Props should return nil")
+}
+
+// TestRouterView_Emit tests the Emit method
+func TestRouterView_Emit(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	// Should not panic
+	rv.Emit("test-event", "test-data")
+	rv.Emit("", nil)
+}
+
+// TestRouterView_On tests the On method
+func TestRouterView_On(t *testing.T) {
+	router := NewRouter()
+	rv := NewRouterView(router, 0)
+
+	handlerCalled := false
+	handler := func(data interface{}) {
+		handlerCalled = true
+	}
+
+	// Should not panic
+	rv.On("test-event", handler)
+	rv.On("", nil)
+
+	// Handler should never be called since RouterView doesn't handle events
+	assert.False(t, handlerCalled, "Handler should not be called")
+}

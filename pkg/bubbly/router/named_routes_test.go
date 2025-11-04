@@ -379,3 +379,75 @@ func TestPushNamed_MissingParams(t *testing.T) {
 	// Should return nil (error case)
 	assert.Nil(t, cmd)
 }
+
+// TestNormalizePath tests the normalizePath helper function
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "already normalized",
+			input:    "/users",
+			expected: "/users",
+		},
+		{
+			name:     "double slashes",
+			input:    "/users//profile",
+			expected: "/users/profile",
+		},
+		{
+			name:     "multiple double slashes",
+			input:    "/users///profile////settings",
+			expected: "/users/profile/settings",
+		},
+		{
+			name:     "trailing slash (not root)",
+			input:    "/users/",
+			expected: "/users",
+		},
+		{
+			name:     "trailing slash with double slashes",
+			input:    "/users//profile/",
+			expected: "/users/profile",
+		},
+		{
+			name:     "missing leading slash",
+			input:    "users",
+			expected: "/users",
+		},
+		{
+			name:     "missing leading slash with double slashes",
+			input:    "users//profile",
+			expected: "/users/profile",
+		},
+		{
+			name:     "root path",
+			input:    "/",
+			expected: "/",
+		},
+		{
+			name:     "root with trailing slash",
+			input:    "//",
+			expected: "/",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "/",
+		},
+		{
+			name:     "complex path with all issues",
+			input:    "users//profile///settings/",
+			expected: "/users/profile/settings",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizePath(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

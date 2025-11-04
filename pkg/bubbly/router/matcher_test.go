@@ -406,3 +406,165 @@ func BenchmarkRouteMatcher_Match(b *testing.B) {
 		_, _ = matcher.Match(path)
 	}
 }
+
+// TestIsMoreSpecific tests the isMoreSpecific comparison function
+func TestIsMoreSpecific(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        matchScore
+		b        matchScore
+		expected bool
+	}{
+		{
+			name: "more static segments wins",
+			a: matchScore{
+				staticSegments:   2,
+				paramSegments:    0,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			expected: true,
+		},
+		{
+			name: "fewer static segments loses",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    0,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   2,
+				paramSegments:    0,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			expected: false,
+		},
+		{
+			name: "equal static, fewer params wins",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    0,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			expected: true,
+		},
+		{
+			name: "equal static, more params loses",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    2,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			expected: false,
+		},
+		{
+			name: "equal static and params, fewer optionals wins",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 0,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 0,
+			},
+			expected: true,
+		},
+		{
+			name: "equal static and params, more optionals loses",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 2,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 0,
+			},
+			expected: false,
+		},
+		{
+			name: "all equal except wildcards, fewer wildcards wins",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 0,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 1,
+			},
+			expected: true,
+		},
+		{
+			name: "all equal except wildcards, more wildcards loses",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 2,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 1,
+			},
+			expected: false,
+		},
+		{
+			name: "completely equal scores",
+			a: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 1,
+			},
+			b: matchScore{
+				staticSegments:   1,
+				paramSegments:    1,
+				optionalSegments: 1,
+				wildcardSegments: 1,
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isMoreSpecific(tt.a, tt.b)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
