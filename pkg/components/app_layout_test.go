@@ -4,8 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestAppLayout_Creation tests that AppLayout component can be created.
