@@ -271,46 +271,91 @@ func (c *componentImpl) Init() tea.Cmd {
 //
 // The Update method is called for every message in the Bubbletea event loop.
 // It:
-//   - Processes the incoming message
+//   - Processes the incoming message (including StateChangedMsg)
 //   - Updates child components with the message
 //   - Executes onUpdated lifecycle hooks
+//   - Drains pending commands from the command queue
 //   - Returns the updated model and batched commands
 //
 // The onUpdated hooks execute after child updates to ensure state changes
 // from children are reflected before hook execution.
+//
+// For automatic reactive bridge (Feature 08):
+//   - StateChangedMsg triggers lifecycle hooks when component ID matches
+//   - Command queue is drained and commands are batched with child commands
+//   - All commands are returned via tea.Batch for execution by Bubbletea runtime
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	// Handle StateChangedMsg from automatic reactive bridge
+	switch msg := msg.(type) {
+	case StateChangedMsg:
+		// Only process if this message is for this component
+		if msg.ComponentID == c.id {
+			// State already updated synchronously by Ref.Set()
+			// Execute onUpdated hooks to trigger side effects
+			if c.lifecycle != nil {
+				c.lifecycle.executeUpdated()
+			}
+		}
+	}
+
 	// Update child components
 	if len(c.children) > 0 {
-		cmds := make([]tea.Cmd, len(c.children))
+		childCmds := make([]tea.Cmd, len(c.children))
 		for i, child := range c.children {
 			updatedChild, cmd := child.Update(msg)
 			// Update the child in the slice
 			if impl, ok := updatedChild.(*componentImpl); ok {
 				c.children[i] = impl
 			}
-			cmds[i] = cmd
+			childCmds[i] = cmd
 		}
 
-		// Execute onUpdated hooks after child updates
+		// Collect child commands
+		cmds = append(cmds, childCmds...)
+
+		// Execute onUpdated hooks after child updates (for non-StateChangedMsg)
+		// StateChangedMsg already executed hooks above
+		if _, isStateChanged := msg.(StateChangedMsg); !isStateChanged {
+			if c.lifecycle != nil {
+				c.lifecycle.executeUpdated()
+			}
+		}
+
+		// Reset update counter after each Update() cycle completes
 		if c.lifecycle != nil {
-			c.lifecycle.executeUpdated()
-			// Reset update counter after each Update() cycle completes
-			// This prevents false positives from accumulating across updates
 			c.lifecycle.resetUpdateCount()
 		}
+	} else {
+		// Execute onUpdated hooks for components without children (for non-StateChangedMsg)
+		// StateChangedMsg already executed hooks above
+		if _, isStateChanged := msg.(StateChangedMsg); !isStateChanged {
+			if c.lifecycle != nil {
+				c.lifecycle.executeUpdated()
+			}
+		}
 
-		return c, tea.Batch(cmds...)
-	}
-
-	// Execute onUpdated hooks for components without children
-	if c.lifecycle != nil {
-		c.lifecycle.executeUpdated()
 		// Reset update counter after each Update() cycle completes
-		// This prevents false positives from accumulating across updates
-		c.lifecycle.resetUpdateCount()
+		if c.lifecycle != nil {
+			c.lifecycle.resetUpdateCount()
+		}
 	}
 
-	return c, nil
+	// Drain pending commands from command queue (automatic reactive bridge)
+	if c.commandQueue != nil {
+		pendingCmds := c.commandQueue.DrainAll()
+		if len(pendingCmds) > 0 {
+			cmds = append(cmds, pendingCmds...)
+		}
+	}
+
+	// Return batched commands (or nil if no commands)
+	if len(cmds) == 0 {
+		return c, nil
+	}
+
+	return c, tea.Batch(cmds...)
 }
 
 // View implements tea.Model.View().
