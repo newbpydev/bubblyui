@@ -2291,6 +2291,14 @@ const (
    - **Verification**: All router tests pass with race detector, examples build and render correctly
    - **Impact**: All components now render properly via RouterView in all examples
 
+3. **Dynamic Route Parameters Not Displaying**:
+   - **Issue**: User Detail component showing "[from route params]" instead of actual user ID (123 or 456)
+   - **Root Cause**: Component template couldn't access router to get current route parameters
+   - **Fix**: Used factory pattern with router pointer to access current route params in template
+   - **Location**: `cmd/examples/07-router/basic/main.go` lines 253-285
+   - **Verification**: Example builds successfully, displays actual user IDs
+   - **Impact**: Dynamic parameters now display correctly (User 123 vs User 456)
+
 ---
 
 ### Task 6.4: Performance & Benchmarks

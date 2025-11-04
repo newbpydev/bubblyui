@@ -20,6 +20,9 @@ type model struct {
 
 func main() {
 	// Create router with routes and components
+	// Note: We'll use a factory pattern for the user detail component
+	var r *router.Router
+	
 	r, err := router.NewRouterBuilder().
 		RouteWithOptions("/",
 			router.WithName("home"),
@@ -35,7 +38,7 @@ func main() {
 		).
 		RouteWithOptions("/user/:id",
 			router.WithName("user-detail"),
-			router.WithComponent(createUserDetailComponent()),
+			router.WithComponent(createUserDetailComponentFactory(&r)),
 		).
 		Build()
 
@@ -247,17 +250,27 @@ func createContactComponent() bubbly.Component {
 	return comp
 }
 
-func createUserDetailComponent() bubbly.Component {
+func createUserDetailComponentFactory(routerPtr **router.Router) bubbly.Component {
 	comp, _ := bubbly.NewComponent("UserDetail").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.Provide("theme", components.DefaultTheme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
-			// Note: In a real app, you'd use router.UseRoute(ctx) to get reactive route updates
-			// For this example, we'll create a simpler version that shows the concept
+			// Get the current route from the router
+			var userID string
+			if *routerPtr != nil {
+				route := (*routerPtr).CurrentRoute()
+				if route != nil && route.Params != nil {
+					userID = route.Params["id"]
+				}
+			}
+			
+			if userID == "" {
+				userID = "[unknown]"
+			}
 
-			// Create user detail content
-			content := "User Profile\n\nUser ID: [from route params]\n\nThis demonstrates dynamic route parameters.\nThe :id parameter in the route path /user/:id\nis extracted and displayed here.\n\nTry navigating to different users using keys 4 and 5!"
+			// Create user detail content with actual ID
+			content := fmt.Sprintf("User Profile\n\nUser ID: %s\n\nThis demonstrates dynamic route parameters.\nThe :id parameter in the route path /user/:id\nis extracted and displayed here.\n\nTry navigating to different users using keys 4 and 5!", userID)
 
 			card := components.Card(components.CardProps{
 				Title:   "👤 User Detail",
