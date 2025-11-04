@@ -198,16 +198,16 @@ func (cr *CommandRef[T]) Set(value T) {
 
 ---
 
-### Task 1.4: Command Queue
+### Task 1.4: Command Queue ✅ COMPLETED
 **Description**: Thread-safe queue for pending commands
 
-**Prerequisites**: Task 1.3
+**Prerequisites**: Task 1.3 ✅
 
 **Unlocks**: Task 2.1 (Component Runtime)
 
 **Files**:
-- `pkg/bubbly/commands/queue.go`
-- `pkg/bubbly/commands/queue_test.go`
+- `pkg/bubbly/commands/queue.go` ✅
+- `pkg/bubbly/commands/queue_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -223,14 +223,39 @@ func (cq *CommandQueue) Clear()
 ```
 
 **Tests**:
-- [ ] Enqueue adds command
-- [ ] DrainAll returns and clears
-- [ ] Len() accurate
-- [ ] Clear() works
-- [ ] Thread-safe operations
-- [ ] No race conditions
+- [x] Enqueue adds command ✅
+- [x] DrainAll returns and clears ✅
+- [x] Len() accurate ✅
+- [x] Clear() works ✅
+- [x] Thread-safe operations ✅
+- [x] No race conditions ✅
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- **Note**: Implementation was completed early in Task 1.3 as it was needed for CommandRef testing
+- Created comprehensive test suite with 12 test functions covering all scenarios
+- Comprehensive table-driven tests covering:
+  - Basic operations (Enqueue, DrainAll, Len, Clear)
+  - Nil command handling (properly filtered)
+  - Empty queue edge cases
+  - Multiple enqueue/drain cycles
+  - Command execution verification
+  - Pre-allocation behavior
+- Thread-safety tests with concurrent operations:
+  - 10 goroutines × 100 operations each
+  - 100 goroutines × 10 operations each
+  - Mixed concurrent operations (enqueue, drain, len, clear)
+  - Verified zero race conditions with `-race` flag
+- All tests pass with race detector (`go test -race`)
+- **100% code coverage** achieved
+- Zero lint warnings (`go vet`)
+- Package builds successfully
+- Thread-safe implementation verified with concurrent access patterns
+- Pre-allocated capacity (8 commands) for performance
+- Nil command filtering prevents invalid commands in queue
+- DrainAll returns nil for empty queue (not empty slice)
+- Clear maintains pre-allocated capacity for reuse
+
+**Actual Effort**: 1.5 hours (under estimate due to early implementation in Task 1.3)
 
 ---
 

@@ -46,6 +46,7 @@ func TestCommandRef_Creation(t *testing.T) {
 			cmdRef := &CommandRef[interface{}]{
 				Ref:         ref,
 				componentID: "test-component",
+				refID:       "test-ref",
 				commandGen:  gen,
 				queue:       queue,
 				enabled:     tt.enabled,
@@ -105,6 +106,7 @@ func TestCommandRef_SetEnabled(t *testing.T) {
 			cmdRef := &CommandRef[interface{}]{
 				Ref:         ref,
 				componentID: "test-component",
+				refID:       "test-ref",
 				commandGen:  gen,
 				queue:       queue,
 				enabled:     true,
@@ -145,6 +147,7 @@ func TestCommandRef_SetDisabled(t *testing.T) {
 	cmdRef := &CommandRef[int]{
 		Ref:         ref,
 		componentID: "test-component",
+		refID:       "test-ref",
 		commandGen:  gen,
 		queue:       queue,
 		enabled:     false, // Disabled
@@ -169,6 +172,7 @@ func TestCommandRef_MultipleSetsCalls(t *testing.T) {
 	cmdRef := &CommandRef[int]{
 		Ref:         ref,
 		componentID: "test-component",
+		refID:       "test-ref",
 		commandGen:  gen,
 		queue:       queue,
 		enabled:     true,
@@ -215,6 +219,7 @@ func TestCommandRef_ThreadSafety(t *testing.T) {
 	cmdRef := &CommandRef[int]{
 		Ref:         ref,
 		componentID: "test-component",
+		refID:       "test-ref",
 		commandGen:  gen,
 		queue:       queue,
 		enabled:     true,
@@ -256,6 +261,7 @@ func TestCommandRef_ValueUpdatesSynchronous(t *testing.T) {
 	cmdRef := &CommandRef[int]{
 		Ref:         ref,
 		componentID: "test-component",
+		refID:       "test-ref",
 		commandGen:  gen,
 		queue:       queue,
 		enabled:     true,
@@ -280,6 +286,7 @@ func TestCommandRef_DisabledModeBypassesQueue(t *testing.T) {
 	cmdRef := &CommandRef[int]{
 		Ref:         ref,
 		componentID: "test-component",
+		refID:       "test-ref",
 		commandGen:  gen,
 		queue:       queue,
 		enabled:     false,

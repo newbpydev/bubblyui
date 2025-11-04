@@ -33,6 +33,7 @@ import (
 //	cmdRef := &CommandRef[int]{
 //	    Ref:         ref,
 //	    componentID: "counter-1",
+//	    refID:       "count",
 //	    commandGen:  gen,
 //	    queue:       queue,
 //	    enabled:     true,
@@ -48,6 +49,9 @@ type CommandRef[T any] struct {
 
 	// componentID identifies the component owning this ref
 	componentID string
+
+	// refID uniquely identifies this ref within the component
+	refID string
 
 	// commandGen generates tea.Cmd from state changes
 	commandGen CommandGenerator
@@ -106,7 +110,7 @@ func (cr *CommandRef[T]) Set(value T) {
 	// Generate command for the state change
 	cmd := cr.commandGen.Generate(
 		cr.componentID,
-		"", // TODO: Need ref ID - will add in queue implementation
+		cr.refID,
 		oldValue,
 		value,
 	)
