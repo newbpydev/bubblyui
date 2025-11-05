@@ -177,6 +177,42 @@ func (cq *CommandQueue) Clear() {
 	cq.commands = make([]tea.Cmd, 0, 8)
 }
 
+// Peek returns a snapshot of all commands in the queue without removing them.
+//
+// This method is primarily used for debugging and inspection purposes.
+// It returns a copy of the command slice, so modifications to the returned
+// slice do not affect the queue.
+//
+// Thread Safety:
+//
+// This method is thread-safe and can be called concurrently. However, the
+// returned slice is a snapshot at the time of the call. Concurrent modifications
+// to the queue may result in the snapshot being stale.
+//
+// Example:
+//
+//	commands := queue.Peek()
+//	for _, cmd := range commands {
+//	    // Inspect command without modifying queue
+//	}
+//
+// Returns:
+//   - []tea.Cmd: Copy of commands currently in the queue
+//   - nil if queue is empty
+func (cq *CommandQueue) Peek() []tea.Cmd {
+	cq.mu.Lock()
+	defer cq.mu.Unlock()
+
+	if len(cq.commands) == 0 {
+		return nil
+	}
+
+	// Return a copy to prevent external modification
+	commands := make([]tea.Cmd, len(cq.commands))
+	copy(commands, cq.commands)
+	return commands
+}
+
 // defaultCommandGenerator is the internal default implementation of CommandGenerator.
 // It is unexported and used as the default generator for components.
 // For public API, use commands.DefaultCommandGenerator from the commands package.
