@@ -73,11 +73,12 @@ func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
 //	value := count.GetTyped()  // Read current value
 //	count.Set(42)         // Update value and notify watchers
 type Ref[T any] struct {
-	mu         sync.RWMutex
-	value      T
-	watchers   []*watcher[T]
-	dependents []Dependency
-	setHook    func(oldValue, newValue T) // Optional hook called after Set()
+	mu              sync.RWMutex
+	value           T
+	watchers        []*watcher[T]
+	dependents      []Dependency
+	setHook         func(oldValue, newValue T) // Optional hook called after Set()
+	templateChecker func() bool                // Optional checker for template context
 }
 
 // NewRef creates a new reactive reference with the given initial value.
@@ -146,11 +147,27 @@ func (r *Ref[T]) GetTyped() T {
 // If a setHook is registered (for automatic command generation), it will be
 // called after the value is updated and watchers are notified.
 //
+// Template Context Safety:
+// If a templateChecker is registered and indicates we're currently inside a template,
+// Set() will panic with a clear error message. Templates must be pure functions with
+// no side effects - state mutations should only occur in event handlers or lifecycle hooks.
+//
 // Example:
 //
 //	ref := NewRef(10)
 //	ref.Set(20)  // Updates value to 20 and notifies watchers
 func (r *Ref[T]) Set(value T) {
+	// Check if we're in a template context (if checker is registered)
+	// This must be done BEFORE acquiring the lock to avoid deadlock
+	r.mu.RLock()
+	checker := r.templateChecker
+	r.mu.RUnlock()
+
+	if checker != nil && checker() {
+		panic("Cannot call Ref.Set() in template - templates must be pure functions with no side effects. " +
+			"Move state updates to event handlers (ctx.On) or lifecycle hooks (onMounted, onUpdated).")
+	}
+
 	r.mu.Lock()
 	oldValue := r.value
 	r.value = value

@@ -136,6 +136,10 @@ type componentImpl struct {
 	autoCommands   bool             // Whether automatic command generation is enabled
 	autoCommandsMu sync.RWMutex     // Protects autoCommands and commandGen fields
 
+	// Template context tracking (for safety checks)
+	inTemplate   bool         // Whether currently executing inside template function
+	inTemplateMu sync.RWMutex // Protects inTemplate flag
+
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
@@ -360,16 +364,21 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.View().
-// It calls the template function to generate the UI string.
+// It renders the component's UI using the template function.
 //
-// The View method is called whenever the UI needs to be rendered.
-// It:
-//   - Executes onMounted hooks on first render
-//   - Creates a RenderContext for the template
-//   - Calls the template function with the context
+// The View method:
+//   - Executes onMounted lifecycle hooks on first render (if not already mounted)
+//   - Marks template context as active (for safety checks)
+//   - Calls the template function with a RenderContext
+//   - Clears template context (even if template panics via defer)
 //   - Returns the rendered string
 //
 // If no template is provided, it returns an empty string.
+//
+// Template Context Safety:
+// During template rendering, the component tracks that it's in a template context.
+// This allows Ref.Set() to detect and prevent illegal state mutations inside templates.
+// Templates must be pure functions with no side effects.
 func (c *componentImpl) View() string {
 	// Execute onMounted hooks on first render
 	if c.lifecycle != nil && !c.lifecycle.IsMounted() {
@@ -380,8 +389,17 @@ func (c *componentImpl) View() string {
 		return ""
 	}
 
-	ctx := RenderContext{component: c}
-	return c.template(ctx)
+	// Mark template context as active
+	// Use Context to access the methods (though we could access component directly)
+	ctx := Context{component: c}
+	ctx.enterTemplate()
+
+	// Ensure we exit template context even if template panics
+	defer ctx.exitTemplate()
+
+	// Render with RenderContext
+	renderCtx := RenderContext{component: c}
+	return c.template(renderCtx)
 }
 
 // Unmount cleans up the component and its children.

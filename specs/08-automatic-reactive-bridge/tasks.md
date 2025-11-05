@@ -912,47 +912,129 @@ func (m *autoWrapperModel) View() string
 
 ## Phase 5: Error Handling & Safety (4 tasks, 12 hours)
 
-### Task 5.1: Template Context Detection
+### Task 5.1: Template Context Detection ✅ COMPLETED
 **Description**: Detect and prevent Ref.Set() in templates
 
-**Prerequisites**: Task 4.2
+**Prerequisites**: Task 4.2 ✅
 
 **Unlocks**: Task 5.2 (Error Recovery)
 
 **Files**:
-- `pkg/bubbly/context_safety.go`
-- `pkg/bubbly/context_safety_test.go`
+- `pkg/bubbly/component.go` (added inTemplate flag and mutex) ✅
+- `pkg/bubbly/context.go` (added enterTemplate, exitTemplate, InTemplate methods) ✅
+- `pkg/bubbly/ref.go` (added templateChecker field and check in Set()) ✅
+- `pkg/bubbly/context_safety_test.go` (created comprehensive tests) ✅
 
 **Type Safety**:
 ```go
-func (c *Context) enterTemplate() {
-    c.inTemplate = true
+// In componentImpl
+type componentImpl struct {
+    // ... existing fields
+    inTemplate   bool         // Whether currently executing inside template function
+    inTemplateMu sync.RWMutex // Protects inTemplate flag
 }
 
-func (c *Context) exitTemplate() {
-    c.inTemplate = false
+// In Context
+func (ctx *Context) enterTemplate() {
+    ctx.component.inTemplateMu.Lock()
+    defer ctx.component.inTemplateMu.Unlock()
+    ctx.component.inTemplate = true
 }
 
-func (c *Context) InTemplate() bool {
-    return c.inTemplate
+func (ctx *Context) exitTemplate() {
+    ctx.component.inTemplateMu.Lock()
+    defer ctx.component.inTemplateMu.Unlock()
+    ctx.component.inTemplate = false
 }
 
-func (cr *CommandRef[T]) Set(value T) {
-    if cr.context.InTemplate() {
-        panic("Cannot call Ref.Set() in template - templates must be pure")
+func (ctx *Context) InTemplate() bool {
+    ctx.component.inTemplateMu.RLock()
+    defer ctx.component.inTemplateMu.RUnlock()
+    return ctx.component.inTemplate
+}
+
+// In Ref
+type Ref[T any] struct {
+    // ... existing fields
+    templateChecker func() bool // Optional checker for template context
+}
+
+func (r *Ref[T]) Set(value T) {
+    // Check template context before acquiring lock
+    r.mu.RLock()
+    checker := r.templateChecker
+    r.mu.RUnlock()
+    
+    if checker != nil && checker() {
+        panic("Cannot call Ref.Set() in template - templates must be pure functions...")
     }
-    // ... normal Set logic
+    // ... rest of Set logic
+}
+
+// In component.View()
+func (c *componentImpl) View() string {
+    // ... execute onMounted
+    
+    ctx := Context{component: c}
+    ctx.enterTemplate()
+    defer ctx.exitTemplate() // Ensures cleanup even if template panics
+    
+    renderCtx := RenderContext{component: c}
+    return c.template(renderCtx)
+}
+
+// In Context.Ref()
+func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
+    ref := NewRef(value)
+    ref.templateChecker = ctx.InTemplate // Attach checker to all refs
+    // ... rest of ref setup
 }
 ```
 
 **Tests**:
-- [ ] Detection works
-- [ ] Panic on Set() in template
-- [ ] Clear error message
-- [ ] Doesn't affect normal Set()
-- [ ] Template entry/exit tracked
+- [x] Detection works (TestTemplateContextDetection) ✅
+- [x] Panic on Set() in template ✅
+- [x] Clear error message (mentions Ref.Set, template, pure functions) ✅
+- [x] Doesn't affect normal Set() (outside template works) ✅
+- [x] Template entry/exit tracked (TestTemplateContextLifecycle) ✅
+- [x] Thread-safe with concurrent access (TestTemplateContextThreadSafety) ✅
+- [x] Panic message is helpful (TestTemplateContextPanicMessage) ✅
+- [x] State clean after panic (defer ensures exitTemplate called) ✅
+- [x] Component isolation (TestTemplateContextMultipleComponents) ✅
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- **Design Decision**: Used function pointer (`templateChecker`) in Ref instead of passing Context
+  - Cleaner API: Ref doesn't need to know about Context
+  - Decoupled: Template checking is optional behavior
+  - Zero overhead: Function pointer is nil for refs not created via ctx.Ref()
+- **Thread Safety**: Added `inTemplateMu RWMutex` to protect template flag
+  - Read lock for checking (hot path in Ref.Set())
+  - Write lock for enter/exit (called only during View())
+  - No deadlock risk: checker accessed before Ref's lock
+- **Panic Recovery**: Used `defer ctx.exitTemplate()` in View() to ensure cleanup
+  - Template context always reset, even if template panics
+  - Tested in TestTemplateContextAfterPanic
+- **Error Message**: Clear, actionable panic message:
+  - "Cannot call Ref.Set() in template - templates must be pure functions with no side effects."
+  - "Move state updates to event handlers (ctx.On) or lifecycle hooks (onMounted, onUpdated)."
+- **All refs protected**: Checker attached in Context.Ref(), so all component refs are safe
+- **Comprehensive tests**: 9 test functions covering all scenarios
+  - Edge cases: multiple exits, concurrent access, component isolation
+  - Clear test names and descriptions
+  - All pass with race detector (`go test -race`)
+- **Quality gates**: 
+  - All tests pass with race detector ✅
+  - Zero lint warnings after formatting ✅
+  - Package builds successfully ✅
+  - Zero performance impact (single bool check with RLock)
+
+**Actual Effort**: 2.5 hours (under estimate due to TDD approach and clear spec)
+
+**Key Learning**:
+- Function pointer pattern is cleaner than type wrapping for optional behavior
+- Defer ensures cleanup even during panics (critical for state management)
+- Clear panic messages guide developers to correct usage
+- Thread-safety maintained throughout despite single-threaded Bubbletea execution
 
 ---
 

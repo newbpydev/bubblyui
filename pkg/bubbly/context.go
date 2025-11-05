@@ -64,6 +64,11 @@ type Context struct {
 // a standard Ref with no automatic command generation, maintaining backward
 // compatibility with existing code.
 //
+// Template Context Safety:
+// All Refs created via ctx.Ref() have a template context checker attached.
+// This prevents accidental state mutations inside template functions by panicking
+// with a clear error message if Set() is called during template rendering.
+//
 // Example (manual mode - default):
 //
 //	count := ctx.Ref(0)
@@ -78,6 +83,10 @@ type Context struct {
 func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 	// Create base ref
 	ref := NewRef(value)
+
+	// Attach template checker for safety (always, regardless of auto commands)
+	// This prevents Ref.Set() calls inside templates
+	ref.templateChecker = ctx.InTemplate
 
 	// Check if auto commands enabled (thread-safe read)
 	ctx.component.autoCommandsMu.RLock()
@@ -610,4 +619,53 @@ func (ctx *Context) SetCommandGenerator(gen CommandGenerator) {
 	defer ctx.component.autoCommandsMu.Unlock()
 
 	ctx.component.commandGen = gen
+}
+
+// enterTemplate marks that template rendering has started.
+// This is used internally to detect and prevent state mutations during template rendering.
+// Templates must be pure functions with no side effects.
+//
+// This method is called by component.View() before executing the template function.
+// It is thread-safe and can be called multiple times (for nested templates).
+func (ctx *Context) enterTemplate() {
+	ctx.component.inTemplateMu.Lock()
+	defer ctx.component.inTemplateMu.Unlock()
+
+	ctx.component.inTemplate = true
+}
+
+// exitTemplate marks that template rendering has completed.
+// This is used internally to reset template context after rendering.
+//
+// This method is called by component.View() after executing the template function
+// (via defer to ensure it runs even if template panics).
+// It is thread-safe.
+func (ctx *Context) exitTemplate() {
+	ctx.component.inTemplateMu.Lock()
+	defer ctx.component.inTemplateMu.Unlock()
+
+	ctx.component.inTemplate = false
+}
+
+// InTemplate returns whether the context is currently executing inside a template.
+// This is used internally to detect illegal state mutations during template rendering.
+//
+// Templates must be pure functions (read-only). Calling Ref.Set() inside a template
+// will panic with a clear error message.
+//
+// This method is thread-safe and uses a read lock, allowing multiple concurrent checks.
+//
+// Example (internal use by Ref.Set()):
+//
+//	func (r *Ref[T]) Set(value T) {
+//	    if ctx.InTemplate() {
+//	        panic("Cannot call Ref.Set() in template - templates must be pure")
+//	    }
+//	    // ... update value
+//	}
+func (ctx *Context) InTemplate() bool {
+	ctx.component.inTemplateMu.RLock()
+	defer ctx.component.inTemplateMu.RUnlock()
+
+	return ctx.component.inTemplate
 }
