@@ -143,6 +143,9 @@ type componentImpl struct {
 	// Loop detection (Automatic Reactive Bridge - Feature 08)
 	loopDetector *loopDetector // Detects infinite command generation loops
 
+	// Debug logging (Automatic Reactive Bridge - Feature 08)
+	commandLogger CommandLogger // Logger for command generation debugging
+
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
@@ -175,10 +178,11 @@ func newComponentImpl(name string) *componentImpl {
 		injectCache:  make(map[string]interface{}),
 		handlers:     make(map[string][]EventHandler),
 		children:     []Component{},
-		commandQueue: nil,   // Initialized by Build() when WithAutoCommands(true)
-		commandGen:   nil,   // Initialized by Build() when WithAutoCommands(true)
-		autoCommands: false, // Disabled by default for backward compatibility
-		loopDetector: newLoopDetector(), // Always initialized for loop detection
+		commandQueue:  nil,   // Initialized by Build() when WithAutoCommands(true)
+		commandGen:    nil,   // Initialized by Build() when WithAutoCommands(true)
+		autoCommands:  false, // Disabled by default for backward compatibility
+		loopDetector:  newLoopDetector(), // Always initialized for loop detection
+		commandLogger: nil, // Initialized by Build() when WithCommandDebug(true)
 	}
 }
 

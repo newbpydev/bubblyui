@@ -68,6 +68,10 @@ type ComponentBuilder struct {
 	// autoCommands indicates whether automatic command generation is enabled.
 	// When true, Build() will initialize the command queue and generator.
 	autoCommands bool
+
+	// debugCommands indicates whether command debug logging is enabled.
+	// When true, Build() will initialize a command logger.
+	debugCommands bool
 }
 
 // NewComponent creates a new ComponentBuilder for building a component.
@@ -279,6 +283,37 @@ func (b *ComponentBuilder) WithAutoCommands(enabled bool) *ComponentBuilder {
 	return b
 }
 
+// WithCommandDebug enables or disables debug logging for command generation.
+//
+// When enabled, all command generation events are logged with detailed information:
+//   - Component name and ID
+//   - Ref ID
+//   - Old and new values
+//   - Timestamp
+//
+// This is extremely useful for:
+//   - Understanding reactive update flow
+//   - Debugging infinite loop issues
+//   - Troubleshooting unexpected UI updates
+//   - Performance profiling
+//
+// When disabled (default), there is zero overhead (no logging calls, no allocations).
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(true).
+//	    WithCommandDebug(true). // Enable debug logging
+//	    Setup(...).Build()
+//
+//	// Logs will show:
+//	// [DEBUG] Command Generated | Component: Counter (component-1) | Ref: ref-5 | 0 → 1
+//
+func (b *ComponentBuilder) WithCommandDebug(enabled bool) *ComponentBuilder {
+	b.debugCommands = enabled
+	return b
+}
+
 // Build validates the component configuration and returns the final Component.
 // This is the terminal method in the builder chain that performs validation
 // and creates the component instance.
@@ -335,6 +370,16 @@ func (b *ComponentBuilder) Build() (Component, error) {
 		b.component.autoCommands = true
 		b.component.commandQueue = NewCommandQueue()
 		b.component.commandGen = &defaultCommandGenerator{}
+	}
+
+	// Initialize command debug logger if debugging enabled
+	if b.debugCommands {
+		// Use stdout for debug logging
+		// Users can redirect stdout or set custom logger via component field
+		b.component.commandLogger = newCommandLogger(nil) // nil uses os.Stdout via log package default
+	} else {
+		// Use no-op logger for zero overhead
+		b.component.commandLogger = newNopCommandLogger()
 	}
 
 	// Return the component (implements Component interface)

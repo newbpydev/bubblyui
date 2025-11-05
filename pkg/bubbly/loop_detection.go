@@ -2,6 +2,8 @@ package bubbly
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"sync"
 )
 
@@ -77,4 +79,53 @@ func (e *commandLoopError) Error() string {
 		e.CommandCount,
 		e.MaxCommands,
 	)
+}
+
+// CommandLogger is the package-private interface for logging command generation.
+// This is defined here to avoid import cycles with pkg/bubbly/commands.
+//
+// The public API is in pkg/bubbly/commands/debug.go.
+type CommandLogger interface {
+	LogCommand(componentName, componentID, refID string, oldValue, newValue interface{})
+}
+
+// commandLoggerImpl is the internal implementation that logs to an io.Writer.
+type commandLoggerImpl struct {
+	logger *log.Logger
+}
+
+// newCommandLogger creates a new command logger for internal use.
+func newCommandLogger(writer io.Writer) CommandLogger {
+	if writer == nil {
+		writer = io.Discard
+	}
+
+	return &commandLoggerImpl{
+		logger: log.New(writer, "", log.LstdFlags),
+	}
+}
+
+// LogCommand logs the command generation event.
+func (cl *commandLoggerImpl) LogCommand(componentName, componentID, refID string, oldValue, newValue interface{}) {
+	cl.logger.Printf(
+		"[DEBUG] Command Generated | Component: %s (%s) | Ref: %s | %v → %v",
+		componentName,
+		componentID,
+		refID,
+		oldValue,
+		newValue,
+	)
+}
+
+// nopCommandLogger is a no-operation logger (zero overhead when disabled).
+type nopCommandLogger struct{}
+
+// newNopCommandLogger creates a no-operation logger.
+func newNopCommandLogger() CommandLogger {
+	return &nopCommandLogger{}
+}
+
+// LogCommand does nothing (inlined for zero overhead).
+func (nl *nopCommandLogger) LogCommand(componentName, componentID, refID string, oldValue, newValue interface{}) {
+	// No-op: zero overhead when debugging is disabled
 }

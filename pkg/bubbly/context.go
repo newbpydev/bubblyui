@@ -113,6 +113,7 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 	componentName := ctx.component.name
 	queue := ctx.component.commandQueue
 	detector := ctx.component.loopDetector
+	logger := ctx.component.commandLogger
 
 	// Set the hook that generates commands on Set()
 	ref.setHook = func(oldValue, newValue interface{}) {
@@ -188,6 +189,11 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 				// Do not generate command - loop detected
 				return
 			}
+		}
+
+		// Log command generation if debug mode enabled
+		if logger != nil {
+			logger.LogCommand(componentName, componentID, refIDStr, oldValue, newValue)
 		}
 
 		// Generate command for the state change
