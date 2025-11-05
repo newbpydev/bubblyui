@@ -25,6 +25,26 @@ func (e *HandlerPanicError) Error() string {
 		e.ComponentName, e.EventName, e.PanicValue)
 }
 
+// CommandGenerationError wraps a panic that occurred during automatic command generation.
+// This allows the application to continue running even if command generation fails.
+// The state update still succeeds - only the command generation fails.
+//
+// This type is defined here to avoid import cycles between bubbly and observability packages.
+type CommandGenerationError struct {
+	// ComponentID is the ID of the component where the panic occurred
+	ComponentID string
+	// RefID is the ID of the ref being updated
+	RefID string
+	// PanicValue is the value passed to panic()
+	PanicValue interface{}
+}
+
+// Error implements the error interface for CommandGenerationError.
+func (e *CommandGenerationError) Error() string {
+	return fmt.Sprintf("panic in command generation: component '%s', ref '%s', panic: %v",
+		e.ComponentID, e.RefID, e.PanicValue)
+}
+
 // ErrorReporter is a pluggable interface for error tracking backends.
 // Implementations can send errors to services like Sentry, Rollbar, or custom backends.
 //

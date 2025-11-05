@@ -1038,42 +1038,105 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 
 ---
 
-### Task 5.2: Command Generation Error Recovery
+### Task 5.2: Command Generation Error Recovery ✅ COMPLETED
 **Description**: Panic recovery in command generation
 
-**Prerequisites**: Task 5.1
+**Prerequisites**: Task 5.1 ✅
 
 **Unlocks**: Task 5.3 (Observability)
 
 **Files**:
-- `pkg/bubbly/commands/recovery.go`
-- `pkg/bubbly/commands/recovery_test.go`
+- `pkg/bubbly/context.go` (modified - added panic recovery to setHook) ✅
+- `pkg/bubbly/command_recovery_test.go` (created - comprehensive test suite) ✅
+- `pkg/bubbly/observability/reporter.go` (modified - added CommandGenerationError) ✅
 
 **Type Safety**:
 ```go
-func (cr *CommandRef[T]) Set(value T) {
+// In context.go setHook
+ref.setHook = func(oldValue, newValue interface{}) {
     defer func() {
         if r := recover(); r != nil {
-            // Log error but don't crash app
-            log.Printf("Command generation panic: %v", r)
-            
-            // Update value anyway (Set() should succeed)
-            cr.Ref.Set(value)
+            // Report panic to observability system
+            if reporter := observability.GetErrorReporter(); reporter != nil {
+                cmdErr := &observability.CommandGenerationError{
+                    ComponentID: componentID,
+                    RefID:       refIDStr,
+                    PanicValue:  r,
+                }
+                
+                errorCtx := &observability.ErrorContext{
+                    ComponentName: ctx.component.name,
+                    ComponentID:   componentID,
+                    EventName:     "command:generation",
+                    Timestamp:     time.Now(),
+                    StackTrace:    debug.Stack(),
+                    Tags: map[string]string{
+                        "error_type": "command_generation_panic",
+                        "ref_id":     refIDStr,
+                    },
+                    Extra: map[string]interface{}{
+                        "old_value": oldValue,
+                        "new_value": newValue,
+                        "panic":     r,
+                        "command_generation_error": cmdErr,
+                    },
+                }
+                
+                reporter.ReportPanic(&observability.HandlerPanicError{
+                    ComponentName: errorCtx.ComponentName,
+                    EventName:     errorCtx.EventName,
+                    PanicValue:    r,
+                }, errorCtx)
+            }
+            // Continue execution - state update succeeded, only command generation failed
         }
     }()
     
-    // ... normal Set logic with command generation
+    // Generate command (may panic)
+    cmd := commandGen.Generate(componentID, refIDStr, oldValue, newValue)
+    queue.Enqueue(cmd)
 }
 ```
 
 **Tests**:
-- [ ] Panic recovered
-- [ ] Value still updates
-- [ ] Error logged
-- [ ] App continues running
-- [ ] Stack trace captured
+- [x] Panic recovered ✅
+- [x] Value still updates ✅
+- [x] Error reported to observability system ✅
+- [x] App continues running ✅
+- [x] Stack trace captured ✅
+- [x] Thread-safe concurrent updates ✅
+- [x] Works without reporter configured ✅
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- **Design**: Panic recovery added as defer in setHook (lines 115-156 in context.go)
+- **Value Update Guarantee**: Ref.Set() updates value BEFORE calling setHook, so state update always succeeds even if command generation panics
+- **Observability Integration**: 
+  - Created `CommandGenerationError` type in observability package
+  - Full error context with stack traces, tags, and extra data
+  - Reports to configured ErrorReporter (Sentry, Console, etc.)
+  - Zero overhead when no reporter configured
+- **Thread Safety**: Panic recovery is thread-safe, tested with 100 concurrent updates
+- **Test Coverage**: 6 comprehensive test functions covering all scenarios:
+  - Panic with string, error, nil values
+  - Normal operation (no panic)
+  - Value update verification (5 consecutive updates)
+  - Observability reporting verification
+  - Stack trace capture verification
+  - Operation without reporter
+  - Concurrent updates (10 goroutines × 10 updates each)
+- **Quality Gates**: 
+  - All tests pass with race detector ✅
+  - Zero lint warnings after formatting ✅
+  - Package builds successfully ✅
+  - Integration with observability system verified ✅
+
+**Actual Effort**: 2 hours (under estimate due to TDD approach and existing observability infrastructure)
+
+**Key Learning**:
+- Panic recovery must be in defer BEFORE the potentially panicking code
+- State updates should complete before async operations (commands) to guarantee consistency
+- Observability integration is mandatory for production-ready panic recovery
+- CommandGenerationError stored in Extra field for detailed error tracking
 
 ---
 

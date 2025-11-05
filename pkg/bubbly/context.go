@@ -2,7 +2,11 @@ package bubbly
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync/atomic"
+	"time"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // refIDCounter is an atomic counter for generating unique ref IDs.
@@ -110,6 +114,47 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 
 	// Set the hook that generates commands on Set()
 	ref.setHook = func(oldValue, newValue interface{}) {
+		// Recover from panics in command generation
+		// Value has already been updated before this hook runs, so state update always succeeds
+		defer func() {
+			if r := recover(); r != nil {
+				// Report panic to observability system
+				if reporter := observability.GetErrorReporter(); reporter != nil {
+					cmdErr := &observability.CommandGenerationError{
+						ComponentID: componentID,
+						RefID:       refIDStr,
+						PanicValue:  r,
+					}
+
+					errorCtx := &observability.ErrorContext{
+						ComponentName: ctx.component.name,
+						ComponentID:   componentID,
+						EventName:     "command:generation",
+						Timestamp:     time.Now(),
+						StackTrace:    debug.Stack(),
+						Tags: map[string]string{
+							"error_type": "command_generation_panic",
+							"ref_id":     refIDStr,
+						},
+						Extra: map[string]interface{}{
+							"old_value":                oldValue,
+							"new_value":                newValue,
+							"panic":                    r,
+							"command_generation_error": cmdErr,
+						},
+					}
+
+					// Report using HandlerPanicError for interface compatibility
+					reporter.ReportPanic(&observability.HandlerPanicError{
+						ComponentName: errorCtx.ComponentName,
+						EventName:     errorCtx.EventName,
+						PanicValue:    r,
+					}, errorCtx)
+				}
+				// Continue execution - state update succeeded, only command generation failed
+			}
+		}()
+
 		// Generate command for the state change
 		cmd := commandGen.Generate(
 			componentID,
