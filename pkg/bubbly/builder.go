@@ -308,7 +308,6 @@ func (b *ComponentBuilder) WithAutoCommands(enabled bool) *ComponentBuilder {
 //
 //	// Logs will show:
 //	// [DEBUG] Command Generated | Component: Counter (component-1) | Ref: ref-5 | 0 → 1
-//
 func (b *ComponentBuilder) WithCommandDebug(enabled bool) *ComponentBuilder {
 	b.debugCommands = enabled
 	return b

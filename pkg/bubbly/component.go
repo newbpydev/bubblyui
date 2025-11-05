@@ -171,18 +171,18 @@ func newComponentImpl(name string) *componentImpl {
 	id := componentIDCounter.Add(1)
 
 	return &componentImpl{
-		name:         name,
-		id:           fmt.Sprintf("component-%d", id),
-		state:        make(map[string]interface{}),
-		provides:     make(map[string]interface{}),
-		injectCache:  make(map[string]interface{}),
-		handlers:     make(map[string][]EventHandler),
-		children:     []Component{},
-		commandQueue:  nil,   // Initialized by Build() when WithAutoCommands(true)
-		commandGen:    nil,   // Initialized by Build() when WithAutoCommands(true)
-		autoCommands:  false, // Disabled by default for backward compatibility
+		name:          name,
+		id:            fmt.Sprintf("component-%d", id),
+		state:         make(map[string]interface{}),
+		provides:      make(map[string]interface{}),
+		injectCache:   make(map[string]interface{}),
+		handlers:      make(map[string][]EventHandler),
+		children:      []Component{},
+		commandQueue:  nil,               // Initialized by Build() when WithAutoCommands(true)
+		commandGen:    nil,               // Initialized by Build() when WithAutoCommands(true)
+		autoCommands:  false,             // Disabled by default for backward compatibility
 		loopDetector:  newLoopDetector(), // Always initialized for loop detection
-		commandLogger: nil, // Initialized by Build() when WithCommandDebug(true)
+		commandLogger: nil,               // Initialized by Build() when WithCommandDebug(true)
 	}
 }
 
