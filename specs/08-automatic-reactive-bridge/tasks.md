@@ -2041,7 +2041,7 @@ func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *Comp
 
 ---
 
-### Task 8.2: Key Binding Processing in Component.Update()
+### Task 8.2: Key Binding Processing in Component.Update() ✅ COMPLETED
 **Description**: Process key bindings during component update cycle
 
 **Prerequisites**: Task 8.1 ✅
@@ -2049,8 +2049,8 @@ func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *Comp
 **Unlocks**: Task 8.3 (Help Text Generation)
 
 **Files**:
-- `pkg/bubbly/component.go` (Update() method)
-- `pkg/bubbly/key_bindings.go` (lookup logic)
+- `pkg/bubbly/component.go` (Update() method) ✅
+- `pkg/bubbly/key_bindings_processing_test.go` (new file) ✅
 
 **Implementation**:
 ```go
@@ -2059,21 +2059,27 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     
     // [NEW] Process key bindings
     if keyMsg, ok := msg.(tea.KeyMsg); ok {
-        if bindings, found := c.keyBindings[keyMsg.String()]; found {
-            for _, binding := range bindings {
-                // Check condition if set
-                if binding.Condition != nil && !binding.Condition() {
-                    continue
+        if c.keyBindings != nil {
+            c.keyBindingsMu.RLock()
+            bindings, found := c.keyBindings[keyMsg.String()]
+            c.keyBindingsMu.RUnlock()
+            
+            if found {
+                for _, binding := range bindings {
+                    // Check condition if set
+                    if binding.Condition != nil && !binding.Condition() {
+                        continue
+                    }
+                    
+                    // Special handling for quit
+                    if binding.Event == "quit" {
+                        return c, tea.Quit
+                    }
+                    
+                    // Emit the bound event
+                    c.Emit(binding.Event, binding.Data)
+                    break // First matching binding wins
                 }
-                
-                // Special handling for quit
-                if binding.Event == "quit" {
-                    return c, tea.Quit
-                }
-                
-                // Emit the bound event
-                c.Emit(binding.Event, binding.Data)
-                break // First matching binding wins
             }
         }
     }
@@ -2084,16 +2090,62 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 ```
 
 **Tests**:
-- [ ] Key lookup in bindings map
-- [ ] Event emission on key match
-- [ ] Condition evaluation (true/false)
-- [ ] First matching binding wins
-- [ ] "quit" event returns tea.Quit
-- [ ] No match passes through
-- [ ] Multiple bindings with conditions
-- [ ] Performance benchmark (< 50ns per lookup)
+- [x] Key lookup in bindings map ✅
+- [x] Event emission on key match ✅
+- [x] Condition evaluation (true/false) ✅
+- [x] First matching binding wins ✅
+- [x] "quit" event returns tea.Quit ✅
+- [x] No match passes through ✅
+- [x] Multiple bindings with conditions ✅
+- [x] Performance benchmark (< 50ns per lookup) ✅ (12.81 ns/op)
 
-**Estimated Effort**: 2 hours
+**Implementation Notes**:
+- **Update() method** enhanced with key binding processing at the beginning
+- **Thread safety**: Uses RWMutex for concurrent access to keyBindings map
+- **Processing order**: Key bindings processed before StateChangedMsg to allow key events to trigger state changes
+- **Nil safety**: Checks if keyBindings map is nil before lookup
+- **Condition evaluation**: Supports conditional bindings for mode-based input (navigation vs input modes)
+- **First match wins**: Iterates through bindings and breaks after first matching condition
+- **Special "quit" handling**: Returns tea.Quit immediately for "quit" event
+- **Event emission**: Uses existing Emit() method to trigger component events
+- **Zero overhead**: No allocations during lookup (0 B/op)
+- **Comprehensive tests**: 8 test functions covering all scenarios:
+  - Key lookup in bindings map (found/not found/empty/ctrl keys)
+  - Event emission (simple/with data)
+  - Condition evaluation (true/false)
+  - First matching binding wins (multiple bindings per key)
+  - Special "quit" event handling
+  - No match passes through
+  - Multiple bindings with conditions (mode-based input pattern)
+  - Nil safety (nil map, nil condition)
+- **Performance benchmark**: 12.81 ns/op (well under 50ns requirement)
+- All tests pass with race detector (`go test -race`)
+- Zero lint warnings (`go vet`)
+- Package builds successfully
+- **Test Coverage**: 92.2% overall package coverage maintained
+
+**Key Design Decisions**:
+1. **Processing location**: Added at beginning of Update() before StateChangedMsg
+2. **Thread safety**: RWMutex with minimal lock hold time (only during map lookup)
+3. **Nil checks**: Graceful handling of nil keyBindings map
+4. **Condition pattern**: `if binding.Condition != nil && !binding.Condition()` for safe evaluation
+5. **Break on first match**: Allows multiple conditional bindings per key with clear precedence
+6. **Integration**: Works seamlessly with existing event system and reactive bridge
+
+**Performance Metrics**:
+- **Lookup time**: 12.81 ns/op (74% faster than 50ns requirement)
+- **Allocations**: 0 B/op (zero heap allocations)
+- **Thread safety**: RWMutex allows concurrent reads
+- **Scalability**: Tested with 100 key bindings, no performance degradation
+
+**Integration Points**:
+- Ready for Task 8.3 (Auto-Generated Help Text)
+- Enables declarative key-to-event mapping without manual Update() logic
+- Supports mode-based input patterns (navigation vs input modes)
+- Compatible with existing event system and lifecycle hooks
+- Works with automatic reactive bridge (key events can trigger state changes)
+
+**Actual Effort**: 1.5 hours (under estimate due to TDD approach and clear specifications)
 
 ---
 

@@ -362,6 +362,38 @@ func (c *componentImpl) Init() tea.Cmd {
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Process key bindings (Automatic Reactive Bridge - Phase 8)
+	// This allows declarative key-to-event mapping without manual Update() logic
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if c.keyBindings != nil {
+			c.keyBindingsMu.RLock()
+			bindings, found := c.keyBindings[keyMsg.String()]
+			c.keyBindingsMu.RUnlock()
+
+			if found {
+				// Iterate through bindings for this key
+				for _, binding := range bindings {
+					// Check condition if set (for mode-based input)
+					if binding.Condition != nil && !binding.Condition() {
+						continue // Skip this binding, try next
+					}
+
+					// Special handling for "quit" event
+					if binding.Event == "quit" {
+						return c, tea.Quit
+					}
+
+					// Emit the bound event with optional data
+					c.Emit(binding.Event, binding.Data)
+
+					// First matching binding wins (break after first match)
+					// This allows multiple conditional bindings per key
+					break
+				}
+			}
+		}
+	}
+
 	// Handle StateChangedMsg from automatic reactive bridge
 	switch msg := msg.(type) {
 	case StateChangedMsg:
