@@ -80,6 +80,26 @@ type Component interface {
 	//	    // Handle click event
 	//	})
 	On(event string, handler EventHandler)
+
+	// KeyBindings returns the component's registered key bindings.
+	// This is primarily used for:
+	//   - Auto-generating help text
+	//   - Debugging key binding configuration
+	//   - Introspection by parent components
+	//
+	// The returned map is keyed by the keyboard key string (e.g., "space", "ctrl+c")
+	// and contains a slice of KeyBinding structs for that key. Multiple bindings
+	// per key are supported for conditional/mode-based input.
+	//
+	// Example:
+	//
+	//	bindings := component.KeyBindings()
+	//	for key, bindingList := range bindings {
+	//	    for _, binding := range bindingList {
+	//	        fmt.Printf("%s: %s\n", key, binding.Description)
+	//	    }
+	//	}
+	KeyBindings() map[string][]KeyBinding
 }
 
 // componentImpl is the internal implementation of the Component interface.
@@ -146,6 +166,10 @@ type componentImpl struct {
 	// Debug logging (Automatic Reactive Bridge - Feature 08)
 	commandLogger CommandLogger // Logger for command generation debugging
 
+	// Key bindings (Automatic Reactive Bridge - Feature 08, Phase 8)
+	keyBindings   map[string][]KeyBinding // Key -> []Binding (supports multiple bindings per key)
+	keyBindingsMu sync.RWMutex            // Protects keyBindings map
+
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
@@ -199,6 +223,44 @@ func (c *componentImpl) ID() string {
 // Props returns the component's props.
 func (c *componentImpl) Props() interface{} {
 	return c.props
+}
+
+// KeyBindings returns the component's registered key bindings.
+// The returned map is thread-safe (protected by RWMutex) and contains
+// all key bindings registered via the builder methods.
+//
+// This method is primarily used for:
+//   - Auto-generating help text from key descriptions
+//   - Debugging key binding configuration
+//   - Introspection by parent components or testing
+//
+// Example:
+//
+//	bindings := component.KeyBindings()
+//	for key, bindingList := range bindings {
+//	    for _, binding := range bindingList {
+//	        fmt.Printf("%s: %s\n", key, binding.Description)
+//	    }
+//	}
+func (c *componentImpl) KeyBindings() map[string][]KeyBinding {
+	c.keyBindingsMu.RLock()
+	defer c.keyBindingsMu.RUnlock()
+
+	// Return a copy to prevent external modification
+	if c.keyBindings == nil {
+		return make(map[string][]KeyBinding)
+	}
+
+	// Create a shallow copy of the map
+	result := make(map[string][]KeyBinding, len(c.keyBindings))
+	for key, bindings := range c.keyBindings {
+		// Copy the slice to prevent external modification
+		bindingsCopy := make([]KeyBinding, len(bindings))
+		copy(bindingsCopy, bindings)
+		result[key] = bindingsCopy
+	}
+
+	return result
 }
 
 // Emit sends an event with associated data and bubbles it up to parent components.

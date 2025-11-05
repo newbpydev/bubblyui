@@ -313,6 +313,149 @@ func (b *ComponentBuilder) WithCommandDebug(enabled bool) *ComponentBuilder {
 	return b
 }
 
+// WithKeyBinding registers a simple key-to-event binding.
+// This is a convenience method for the most common case: mapping a key to an event
+// with a description for help text generation.
+//
+// The binding will always be active (no condition). For conditional bindings,
+// use WithConditionalKeyBinding instead.
+//
+// Multiple bindings can be registered for the same key. When a key is pressed,
+// the first matching binding (based on condition evaluation) will be used.
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBinding("space", "increment", "Increment counter").
+//	    WithKeyBinding("ctrl+c", "quit", "Quit application").
+//	    WithKeyBinding("up", "selectPrevious", "Previous item").
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	        })
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - key: The keyboard key (e.g., "space", "ctrl+c", "up")
+//   - event: The event name to emit when key is pressed
+//   - description: Human-readable description for help text
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithKeyBinding(key, event, description string) *ComponentBuilder {
+	binding := KeyBinding{
+		Key:         key,
+		Event:       event,
+		Description: description,
+	}
+	return b.WithConditionalKeyBinding(binding)
+}
+
+// WithConditionalKeyBinding registers a key binding with optional condition and data.
+// This is the full-featured method that supports all KeyBinding fields including
+// conditional activation and custom data.
+//
+// Use this method when you need:
+//   - Mode-based input (different behavior based on application state)
+//   - Same key doing different things in different modes
+//   - Passing custom data to event handlers
+//
+// Example with mode-based input:
+//
+//	inputMode := false
+//	component := NewComponent("Form").
+//	    WithConditionalKeyBinding(KeyBinding{
+//	        Key:         "space",
+//	        Event:       "toggle",
+//	        Description: "Toggle in navigation mode",
+//	        Condition:   func() bool { return !inputMode },
+//	    }).
+//	    WithConditionalKeyBinding(KeyBinding{
+//	        Key:         "space",
+//	        Event:       "addChar",
+//	        Description: "Add space in input mode",
+//	        Data:        " ",
+//	        Condition:   func() bool { return inputMode },
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - binding: The KeyBinding configuration
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithConditionalKeyBinding(binding KeyBinding) *ComponentBuilder {
+	// Initialize keyBindings map in component if needed
+	if b.component.keyBindings == nil {
+		b.component.keyBindings = make(map[string][]KeyBinding)
+	}
+
+	// Append binding to the list for this key
+	// Multiple bindings per key are allowed (e.g., mode-based)
+	b.component.keyBindings[binding.Key] = append(
+		b.component.keyBindings[binding.Key],
+		binding,
+	)
+
+	return b
+}
+
+// WithKeyBindings registers multiple key bindings at once.
+// This is a convenience method for batch registration when you have
+// a predefined set of key bindings.
+//
+// The map keys are the keyboard keys, and the values are KeyBinding structs.
+// Note that the KeyBinding.Key field should match the map key.
+//
+// Example:
+//
+//	bindings := map[string]KeyBinding{
+//	    "space": {
+//	        Key:         "space",
+//	        Event:       "increment",
+//	        Description: "Increment counter",
+//	    },
+//	    "ctrl+c": {
+//	        Key:         "ctrl+c",
+//	        Event:       "quit",
+//	        Description: "Quit application",
+//	    },
+//	    "up": {
+//	        Key:         "up",
+//	        Event:       "selectPrevious",
+//	        Description: "Previous item",
+//	    },
+//	}
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBindings(bindings).
+//	    Build()
+//
+// Parameters:
+//   - bindings: Map of key to KeyBinding
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *ComponentBuilder {
+	// Initialize keyBindings map even if bindings is nil
+	// This ensures the map is always initialized for consistency
+	if b.component.keyBindings == nil {
+		b.component.keyBindings = make(map[string][]KeyBinding)
+	}
+
+	if bindings == nil {
+		return b
+	}
+
+	for _, binding := range bindings {
+		b.WithConditionalKeyBinding(binding)
+	}
+
+	return b
+}
+
 // Build validates the component configuration and returns the final Component.
 // This is the terminal method in the builder chain that performs validation
 // and creates the component instance.
