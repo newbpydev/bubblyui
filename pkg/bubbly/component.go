@@ -2,6 +2,8 @@ package bubbly
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -100,6 +102,37 @@ type Component interface {
 	//	    }
 	//	}
 	KeyBindings() map[string][]KeyBinding
+
+	// HelpText generates a formatted help string from registered key bindings.
+	// It automatically creates user-facing documentation by extracting key
+	// descriptions and formatting them in a consistent way.
+	//
+	// The generated format is: "key: description • key: description"
+	// - Keys are sorted alphabetically for consistency
+	// - Duplicate keys show only the first description
+	// - Empty descriptions are skipped
+	// - Separator is " • " (bullet point with spaces)
+	//
+	// This eliminates the need to manually maintain help text that can
+	// get out of sync with actual key bindings.
+	//
+	// Example:
+	//
+	//	component := NewComponent("Counter").
+	//	    WithKeyBinding("space", "increment", "Increment counter").
+	//	    WithKeyBinding("ctrl+c", "quit", "Quit application").
+	//	    Build()
+	//
+	//	helpText := component.HelpText()
+	//	// Returns: "ctrl+c: Quit application • space: Increment counter"
+	//
+	// Integration with templates:
+	//
+	//	Template(func(ctx RenderContext) string {
+	//	    comp := ctx.Component()
+	//	    return fmt.Sprintf("%s\n\nHelp: %s", content, comp.HelpText())
+	//	})
+	HelpText() string
 }
 
 // componentImpl is the internal implementation of the Component interface.
@@ -261,6 +294,81 @@ func (c *componentImpl) KeyBindings() map[string][]KeyBinding {
 	}
 
 	return result
+}
+
+// HelpText generates a formatted help string from registered key bindings.
+// It automatically creates user-facing documentation by extracting key
+// descriptions and formatting them consistently.
+//
+// The method:
+//   - Iterates through all key bindings
+//   - Extracts non-empty descriptions
+//   - Handles duplicate keys (shows first description only)
+//   - Sorts keys alphabetically for consistency
+//   - Formats as "key: description • key: description"
+//
+// Thread-safe: Uses RWMutex to safely access key bindings.
+//
+// Returns:
+//   - Empty string if no bindings or all descriptions are empty
+//   - Formatted help text with " • " separator between entries
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBinding("space", "increment", "Increment counter").
+//	    WithKeyBinding("ctrl+c", "quit", "Quit application").
+//	    Build()
+//
+//	helpText := component.HelpText()
+//	// Returns: "ctrl+c: Quit application • space: Increment counter"
+//
+// Integration with templates:
+//
+//	Template(func(ctx RenderContext) string {
+//	    comp := ctx.component
+//	    return fmt.Sprintf("%s\n\nHelp: %s", content, comp.HelpText())
+//	})
+func (c *componentImpl) HelpText() string {
+	c.keyBindingsMu.RLock()
+	defer c.keyBindingsMu.RUnlock()
+
+	// Early return if no bindings
+	if c.keyBindings == nil || len(c.keyBindings) == 0 {
+		return ""
+	}
+
+	// Collect help entries (key: description)
+	var helpEntries []string
+	seen := make(map[string]bool)
+
+	// Iterate through all key bindings
+	for key, bindings := range c.keyBindings {
+		// Skip if we've already processed this key (handles duplicates)
+		if seen[key] {
+			continue
+		}
+
+		// Find first binding with non-empty description
+		for _, binding := range bindings {
+			if binding.Description != "" {
+				helpEntries = append(helpEntries, fmt.Sprintf("%s: %s", key, binding.Description))
+				seen[key] = true
+				break // Only use first description for duplicate keys
+			}
+		}
+	}
+
+	// Return empty string if no descriptions found
+	if len(helpEntries) == 0 {
+		return ""
+	}
+
+	// Sort alphabetically for consistency
+	sort.Strings(helpEntries)
+
+	// Join with bullet separator
+	return strings.Join(helpEntries, " • ")
 }
 
 // Emit sends an event with associated data and bubbles it up to parent components.

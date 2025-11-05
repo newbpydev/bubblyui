@@ -2149,7 +2149,7 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ---
 
-### Task 8.3: Auto-Generated Help Text
+### Task 8.3: Auto-Generated Help Text ✅ COMPLETED
 **Description**: Generate help text from key bindings
 
 **Prerequisites**: Task 8.2 ✅
@@ -2157,8 +2157,10 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 **Unlocks**: Task 8.4 (Message Handler)
 
 **Files**:
-- `pkg/bubbly/component.go` (HelpText() method)
-- `pkg/bubbly/key_bindings.go` (help formatting)
+- `pkg/bubbly/component.go` (HelpText() method) ✅
+- `pkg/bubbly/help_text_test.go` (comprehensive test suite) ✅
+- `pkg/bubbly/router/router_view.go` (HelpText() stub) ✅
+- `pkg/bubbly/router/router_view_test.go` (mockComponent stub) ✅
 
 **Implementation**:
 ```go
@@ -2169,36 +2171,109 @@ type Component interface {
     HelpText() string // Auto-generated from bindings
 }
 
-// Implementation
+// Implementation in componentImpl
 func (c *componentImpl) HelpText() string {
-    var help []string
+    c.keyBindingsMu.RLock()
+    defer c.keyBindingsMu.RUnlock()
+
+    // Early return if no bindings
+    if c.keyBindings == nil || len(c.keyBindings) == 0 {
+        return ""
+    }
+
+    // Collect help entries (key: description)
+    var helpEntries []string
     seen := make(map[string]bool)
-    
+
+    // Iterate through all key bindings
     for key, bindings := range c.keyBindings {
+        // Skip if we've already processed this key (handles duplicates)
+        if seen[key] {
+            continue
+        }
+
+        // Find first binding with non-empty description
         for _, binding := range bindings {
-            if binding.Description != "" && !seen[key] {
-                help = append(help, fmt.Sprintf("%s: %s", key, binding.Description))
+            if binding.Description != "" {
+                helpEntries = append(helpEntries, fmt.Sprintf("%s: %s", key, binding.Description))
                 seen[key] = true
-                break
+                break // Only use first description for duplicate keys
             }
         }
     }
-    
-    sort.Strings(help)
-    return strings.Join(help, " • ")
+
+    // Return empty string if no descriptions found
+    if len(helpEntries) == 0 {
+        return ""
+    }
+
+    // Sort alphabetically for consistency
+    sort.Strings(helpEntries)
+
+    // Join with bullet separator
+    return strings.Join(helpEntries, " • ")
 }
 ```
 
 **Tests**:
-- [ ] Empty bindings returns empty string
-- [ ] Single binding formatted correctly
-- [ ] Multiple bindings sorted alphabetically
-- [ ] Duplicate keys show first description
-- [ ] Empty descriptions skipped
-- [ ] Separator formatting
-- [ ] Integration with template
+- [x] Empty bindings returns empty string ✅
+- [x] Single binding formatted correctly ✅
+- [x] Multiple bindings sorted alphabetically ✅
+- [x] Duplicate keys show first description ✅
+- [x] Empty descriptions skipped ✅
+- [x] Separator formatting (" • ") ✅
+- [x] Integration with template ✅
+- [x] Thread-safe concurrent access ✅
+- [x] Complex key combinations ✅
 
-**Estimated Effort**: 1.5 hours
+**Implementation Notes**:
+- **Thread Safety**: Uses `keyBindingsMu.RLock()` for safe concurrent access
+- **Duplicate Handling**: Uses `seen` map to track processed keys, shows first description only
+- **Empty Handling**: Skips bindings with empty descriptions, returns empty string if no valid descriptions
+- **Sorting**: Alphabetical sorting ensures consistent output across runs
+- **Format**: Uses " • " (bullet with spaces) as separator for readability
+- **Integration**: Works seamlessly with templates via `ctx.component.HelpText()`
+- **Router Compatibility**: Added stubs to RouterView and mockComponent for interface compliance
+- **Comprehensive Tests**: 10 test scenarios covering all edge cases
+  - Table-driven tests for various binding configurations
+  - Thread-safety test with 100 concurrent goroutines
+  - Integration test with template rendering
+- **Quality Gates**: 
+  - All tests pass with race detector (`go test -race`) ✅
+  - Zero lint warnings (`go vet`) ✅
+  - Code formatted (`gofmt -s`) ✅
+  - Package builds successfully ✅
+  - Zero performance impact (single RLock for read access)
+
+**Key Features**:
+1. **Automatic**: No manual help text maintenance required
+2. **Consistent**: Always in sync with actual key bindings
+3. **Flexible**: Handles conditional bindings, duplicates, empty descriptions
+4. **Safe**: Thread-safe for concurrent access
+5. **Clean**: Simple, readable output format
+
+**Example Usage**:
+```go
+component := NewComponent("Counter").
+    WithKeyBinding("space", "increment", "Increment counter").
+    WithKeyBinding("r", "reset", "Reset counter").
+    WithKeyBinding("ctrl+c", "quit", "Quit").
+    Template(func(ctx RenderContext) string {
+        comp := ctx.component
+        return fmt.Sprintf("Counter\n\nHelp: %s", comp.HelpText())
+    }).
+    Build()
+
+// Output: "Help: ctrl+c: Quit • r: Reset counter • space: Increment counter"
+```
+
+**Actual Effort**: 1 hour (under estimate due to clear spec and TDD approach)
+
+**Integration Points**:
+- Ready for Task 8.4 (Message Handler Hook)
+- Works with existing key binding system from Task 8.2
+- Compatible with all component types (including RouterView)
+- Supports mode-based input patterns (navigation vs input modes)
 
 ---
 

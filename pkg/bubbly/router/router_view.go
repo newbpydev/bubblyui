@@ -219,14 +219,32 @@ func (rv *RouterView) Emit(event string, data interface{}) {
 
 // On registers an event handler.
 //
-// This implements the bubbly.Component interface.
-// RouterView doesn't handle events, so this is a no-op.
+// On registers an event handler (no-op for RouterView).
+// RouterView doesn't handle events as it's just a view container.
 //
 // Parameters:
 //   - event: The event name (ignored)
 //   - handler: The event handler (ignored)
 func (rv *RouterView) On(event string, handler bubbly.EventHandler) {
 	// RouterView doesn't handle events
+}
+
+// KeyBindings returns the key bindings (no-op for RouterView).
+// RouterView doesn't have key bindings as it's just a view container.
+//
+// Returns:
+//   - nil map (no key bindings)
+func (rv *RouterView) KeyBindings() map[string][]bubbly.KeyBinding {
+	return nil
+}
+
+// HelpText returns help text (no-op for RouterView).
+// RouterView doesn't have help text as it's just a view container.
+//
+// Returns:
+//   - Empty string (no help text)
+func (rv *RouterView) HelpText() string {
+	return ""
 }
 
 // Ensure RouterView implements required interfaces

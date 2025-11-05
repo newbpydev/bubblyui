@@ -46,6 +46,14 @@ func (m *mockComponent) Emit(event string, data interface{}) {
 func (m *mockComponent) On(event string, handler bubbly.EventHandler) {
 }
 
+func (m *mockComponent) KeyBindings() map[string][]bubbly.KeyBinding {
+	return nil
+}
+
+func (m *mockComponent) HelpText() string {
+	return ""
+}
+
 // Ensure mockComponent implements bubbly.Component
 var _ bubbly.Component = (*mockComponent)(nil)
 

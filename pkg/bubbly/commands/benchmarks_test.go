@@ -100,14 +100,14 @@ func BenchmarkCommandGeneration_RefSet(b *testing.B) {
 			return "" // Minimal template for benchmark
 		}).
 		Build()
-	
+
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	// Init runs Setup, which assigns ref
 	_ = component.Init()
-	
+
 	if ref == nil {
 		b.Fatal("ref is nil after Init()")
 	}
