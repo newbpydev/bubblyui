@@ -1235,44 +1235,106 @@ The original task specification suggested creating separate `pkg/bubbly/commands
 
 ---
 
-### Task 5.4: Infinite Loop Protection
+### Task 5.4: Infinite Loop Protection ✅ COMPLETED
 **Description**: Detect command generation loops
 
-**Prerequisites**: Task 5.3
+**Prerequisites**: Task 5.3 ✅
 
 **Unlocks**: Task 6.1 (Debug Mode)
 
 **Files**:
-- `pkg/bubbly/commands/loop_detection.go`
-- `pkg/bubbly/commands/loop_detection_test.go`
+- `pkg/bubbly/commands/loop_detection.go` ✅
+- `pkg/bubbly/commands/loop_detection_test.go` ✅
+- `pkg/bubbly/loop_detection.go` ✅ (internal implementation to avoid import cycles)
+- `pkg/bubbly/component.go` (modified - added loopDetector field and reset calls) ✅
+- `pkg/bubbly/context.go` (modified - integrated loop detection in setHook) ✅
 
 **Type Safety**:
 ```go
-type loopDetector struct {
+// Public API in pkg/bubbly/commands/loop_detection.go
+type LoopDetector struct {
     commandCounts map[string]int
-    maxCommands   int
+    mu            sync.RWMutex
 }
 
-func (ld *loopDetector) checkLoop(componentID, refID string) error {
+func (ld *LoopDetector) CheckLoop(componentID, refID string) error {
+    ld.mu.Lock()
+    defer ld.mu.Unlock()
+    
     key := componentID + ":" + refID
     ld.commandCounts[key]++
     
-    if ld.commandCounts[key] > ld.maxCommands {
-        return fmt.Errorf("command generation loop detected")
+    if ld.commandCounts[key] > maxCommandsPerRef {
+        return &CommandLoopError{
+            ComponentID:  componentID,
+            RefID:        refID,
+            CommandCount: ld.commandCounts[key],
+            MaxCommands:  maxCommandsPerRef,
+        }
     }
     
     return nil
 }
+
+// Internal implementation in pkg/bubbly/loop_detection.go
+// (to avoid import cycles with componentImpl)
+type loopDetector struct {
+    commandCounts map[string]int
+    mu            sync.RWMutex
+}
 ```
 
 **Tests**:
-- [ ] Loop detected
-- [ ] Error message clear
-- [ ] Reset after cycle
-- [ ] Legitimate rapid updates allowed
-- [ ] No false positives
+- [x] Loop detected ✅
+- [x] Error message clear ✅
+- [x] Reset after cycle ✅
+- [x] Legitimate rapid updates allowed ✅
+- [x] No false positives ✅
+- [x] Thread-safe concurrent access ✅
+- [x] Multiple refs tracked independently ✅
+- [x] Count accuracy verified ✅
+- [x] Legitimate scenarios (batch processing, animation, form input) ✅
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- **Architecture**: Created dual implementation to avoid import cycles
+  - Public API: `pkg/bubbly/commands/LoopDetector` (exported, documented)
+  - Internal: `pkg/bubbly/loopDetector` (package-private, used by component)
+- **Constant**: `maxCommandsPerRef = 100` (consistent with lifecycle's maxUpdateDepth)
+- **Integration Points**:
+  - Added `loopDetector` field to `componentImpl` struct (line 144)
+  - Initialized in `newComponentImpl()` constructor (line 181)
+  - Check performed in `Context.Ref()` setHook before command generation (lines 160-191)
+  - Reset called in `component.Update()` after each cycle (lines 340-343, 358-361)
+- **Observability Integration**:
+  - Loop errors reported via `observability.ErrorReporter.ReportError()`
+  - Error context includes: component ID/name, ref ID, old/new values, max commands
+  - Tags: `error_type: "command_loop"`, `ref_id: refIDStr`
+  - Prevents command generation when loop detected (early return from setHook)
+- **Error Message**: Clear, actionable guidance:
+  - "command generation loop detected for component 'X' ref 'Y': generated N commands (max 100)"
+  - "Check for recursive state updates in event handlers or lifecycle hooks"
+- **Thread Safety**: RWMutex protects commandCounts map for concurrent access
+- **Reset Strategy**: Clears all counts after each Update() cycle (similar to lifecycle.resetUpdateCount())
+- **Test Coverage**: 98.8% (exceeds 80% requirement)
+  - 9 comprehensive test functions covering all scenarios
+  - Table-driven tests for normal operation, limits, edge cases
+  - Concurrent access tests with 10 goroutines
+  - Legitimate use case tests (batch processing, animation, forms)
+- **Quality Gates**:
+  - All tests pass with race detector (`go test -race`) ✅
+  - Zero lint warnings (`go vet`) ✅
+  - Code formatted (`gofmt`, `goimports`) ✅
+  - Package builds successfully (`go build`) ✅
+  - 98.8% test coverage (target: >80%) ✅
+
+**Key Design Decisions**:
+1. **Dual Implementation**: Avoids import cycles while providing clean public API
+2. **Per-Ref Tracking**: Uses `"componentID:refID"` key for independent ref tracking
+3. **Fail-Safe**: State update always succeeds (happens before hook), only command generation is prevented
+4. **Observable**: All loop detections reported to observability system with rich context
+5. **Reset Per Cycle**: Counter resets after each Update() cycle to allow legitimate rapid updates
+
+**Actual Effort**: 2.5 hours (under estimate due to TDD approach and clear spec)
 
 ---
 

@@ -140,6 +140,9 @@ type componentImpl struct {
 	inTemplate   bool         // Whether currently executing inside template function
 	inTemplateMu sync.RWMutex // Protects inTemplate flag
 
+	// Loop detection (Automatic Reactive Bridge - Feature 08)
+	loopDetector *loopDetector // Detects infinite command generation loops
+
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
@@ -175,6 +178,7 @@ func newComponentImpl(name string) *componentImpl {
 		commandQueue: nil,   // Initialized by Build() when WithAutoCommands(true)
 		commandGen:   nil,   // Initialized by Build() when WithAutoCommands(true)
 		autoCommands: false, // Disabled by default for backward compatibility
+		loopDetector: newLoopDetector(), // Always initialized for loop detection
 	}
 }
 
@@ -332,6 +336,11 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if c.lifecycle != nil {
 			c.lifecycle.resetUpdateCount()
 		}
+
+		// Reset loop detector after each Update() cycle completes
+		if c.loopDetector != nil {
+			c.loopDetector.reset()
+		}
 	} else {
 		// Execute onUpdated hooks for components without children (for non-StateChangedMsg)
 		// StateChangedMsg already executed hooks above
@@ -344,6 +353,11 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Reset update counter after each Update() cycle completes
 		if c.lifecycle != nil {
 			c.lifecycle.resetUpdateCount()
+		}
+
+		// Reset loop detector after each Update() cycle completes
+		if c.loopDetector != nil {
+			c.loopDetector.reset()
 		}
 	}
 

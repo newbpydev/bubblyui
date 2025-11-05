@@ -110,7 +110,9 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 
 	// Capture context for the hook
 	componentID := ctx.component.id
+	componentName := ctx.component.name
 	queue := ctx.component.commandQueue
+	detector := ctx.component.loopDetector
 
 	// Set the hook that generates commands on Set()
 	ref.setHook = func(oldValue, newValue interface{}) {
@@ -127,7 +129,7 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 					}
 
 					errorCtx := &observability.ErrorContext{
-						ComponentName: ctx.component.name,
+						ComponentName: componentName,
 						ComponentID:   componentID,
 						EventName:     "command:generation",
 						Timestamp:     time.Now(),
@@ -154,6 +156,39 @@ func (ctx *Context) Ref(value interface{}) *Ref[interface{}] {
 				// Continue execution - state update succeeded, only command generation failed
 			}
 		}()
+
+		// Check for command generation loop
+		if detector != nil {
+			if err := detector.checkLoop(componentID, refIDStr); err != nil {
+				// Report loop detection error to observability system
+				if reporter := observability.GetErrorReporter(); reporter != nil {
+					errorCtx := &observability.ErrorContext{
+						ComponentName: componentName,
+						ComponentID:   componentID,
+						EventName:     "command:loop_detected",
+						Timestamp:     time.Now(),
+						StackTrace:    debug.Stack(),
+						Tags: map[string]string{
+							"error_type": "command_loop",
+							"ref_id":     refIDStr,
+						},
+						Extra: map[string]interface{}{
+							"old_value":      oldValue,
+							"new_value":      newValue,
+							"loop_error":     err.Error(),
+							"max_commands":   maxCommandsPerRef,
+							"component_name": componentName,
+						},
+					}
+
+					// Report as error (not panic, since this is a controlled error condition)
+					reporter.ReportError(err, errorCtx)
+				}
+
+				// Do not generate command - loop detected
+				return
+			}
+		}
 
 		// Generate command for the state change
 		cmd := commandGen.Generate(
