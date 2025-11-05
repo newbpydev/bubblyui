@@ -1952,26 +1952,661 @@ Created a production-ready migration guide that:
 
 ---
 
-### Task 7.3: Example Applications
-**Description**: Complete examples using automatic mode
+## Phase 8: Message Handling Integration (5 tasks, 12 hours)
 
-**Prerequisites**: Task 7.2
+### Task 8.1: Key Binding Data Structures
+**Description**: Implement key binding types and registration
 
-**Unlocks**: Feature complete
+**Prerequisites**: Task 7.2 ✅
+
+**Unlocks**: Task 8.2 (Key Processing)
 
 **Files**:
-- `cmd/examples/08-automatic-bridge/counter/main.go`
-- `cmd/examples/08-automatic-bridge/todo/main.go`
-- `cmd/examples/08-automatic-bridge/form/main.go`
-- `cmd/examples/08-automatic-bridge/mixed/main.go`
+- `pkg/bubbly/key_bindings.go` (new file)
+- `pkg/bubbly/builder.go` (add key binding methods)
+- `pkg/bubbly/component.go` (add KeyBindings() method)
 
-**Examples**:
-- Zero-boilerplate counter
-- Auto-updating todo list
-- Form with validation
-- Mixed auto/manual patterns
+**Type Safety**:
+```go
+// KeyBinding represents a declarative key-to-event mapping
+type KeyBinding struct {
+    Key         string      // "space", "ctrl+c", "up"
+    Event       string      // Event name to emit
+    Description string      // For auto-generated help text
+    Data        interface{} // Optional data to pass
+    Condition   func() bool // Optional: only active when true
+}
 
-**Estimated Effort**: 4 hours
+// ComponentBuilder extensions
+type ComponentBuilder struct {
+    // ... existing fields
+    keyBindings map[string][]KeyBinding // Key -> []Binding
+}
+
+func (b *ComponentBuilder) WithKeyBinding(key, event, description string) *ComponentBuilder
+func (b *ComponentBuilder) WithConditionalKeyBinding(binding KeyBinding) *ComponentBuilder
+func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *ComponentBuilder
+```
+
+**Tests**:
+- [ ] KeyBinding struct initialization
+- [ ] WithKeyBinding registration
+- [ ] WithConditionalKeyBinding registration
+- [ ] WithKeyBindings batch registration
+- [ ] Multiple bindings per key
+- [ ] Builder fluent interface
+- [ ] Nil safety checks
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 8.2: Key Binding Processing in Component.Update()
+**Description**: Process key bindings during component update cycle
+
+**Prerequisites**: Task 8.1 ✅
+
+**Unlocks**: Task 8.3 (Help Text Generation)
+
+**Files**:
+- `pkg/bubbly/component.go` (Update() method)
+- `pkg/bubbly/key_bindings.go` (lookup logic)
+
+**Implementation**:
+```go
+func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var cmds []tea.Cmd
+    
+    // [NEW] Process key bindings
+    if keyMsg, ok := msg.(tea.KeyMsg); ok {
+        if bindings, found := c.keyBindings[keyMsg.String()]; found {
+            for _, binding := range bindings {
+                // Check condition if set
+                if binding.Condition != nil && !binding.Condition() {
+                    continue
+                }
+                
+                // Special handling for quit
+                if binding.Event == "quit" {
+                    return c, tea.Quit
+                }
+                
+                // Emit the bound event
+                c.Emit(binding.Event, binding.Data)
+                break // First matching binding wins
+            }
+        }
+    }
+    
+    // [EXISTING] Process lifecycle, etc.
+    // ...
+}
+```
+
+**Tests**:
+- [ ] Key lookup in bindings map
+- [ ] Event emission on key match
+- [ ] Condition evaluation (true/false)
+- [ ] First matching binding wins
+- [ ] "quit" event returns tea.Quit
+- [ ] No match passes through
+- [ ] Multiple bindings with conditions
+- [ ] Performance benchmark (< 50ns per lookup)
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 8.3: Auto-Generated Help Text
+**Description**: Generate help text from key bindings
+
+**Prerequisites**: Task 8.2 ✅
+
+**Unlocks**: Task 8.4 (Message Handler)
+
+**Files**:
+- `pkg/bubbly/component.go` (HelpText() method)
+- `pkg/bubbly/key_bindings.go` (help formatting)
+
+**Implementation**:
+```go
+// Component interface addition
+type Component interface {
+    // ... existing methods
+    KeyBindings() map[string][]KeyBinding
+    HelpText() string // Auto-generated from bindings
+}
+
+// Implementation
+func (c *componentImpl) HelpText() string {
+    var help []string
+    seen := make(map[string]bool)
+    
+    for key, bindings := range c.keyBindings {
+        for _, binding := range bindings {
+            if binding.Description != "" && !seen[key] {
+                help = append(help, fmt.Sprintf("%s: %s", key, binding.Description))
+                seen[key] = true
+                break
+            }
+        }
+    }
+    
+    sort.Strings(help)
+    return strings.Join(help, " • ")
+}
+```
+
+**Tests**:
+- [ ] Empty bindings returns empty string
+- [ ] Single binding formatted correctly
+- [ ] Multiple bindings sorted alphabetically
+- [ ] Duplicate keys show first description
+- [ ] Empty descriptions skipped
+- [ ] Separator formatting
+- [ ] Integration with template
+
+**Estimated Effort**: 1.5 hours
+
+---
+
+### Task 8.4: Message Handler Hook
+**Description**: Implement message handler for complex cases
+
+**Prerequisites**: Task 8.3 ✅
+
+**Unlocks**: Task 8.5 (Integration Tests)
+
+**Files**:
+- `pkg/bubbly/builder.go` (WithMessageHandler method)
+- `pkg/bubbly/component.go` (handler invocation)
+
+**Type Safety**:
+```go
+// MessageHandler function signature
+type MessageHandler func(comp Component, msg tea.Msg) tea.Cmd
+
+// ComponentBuilder extension
+type ComponentBuilder struct {
+    // ... existing fields
+    messageHandler MessageHandler
+}
+
+func (b *ComponentBuilder) WithMessageHandler(handler MessageHandler) *ComponentBuilder {
+    b.messageHandler = handler
+    return b
+}
+```
+
+**Implementation**:
+```go
+func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var cmds []tea.Cmd
+    
+    // [NEW] Call message handler first
+    if c.messageHandler != nil {
+        if cmd := c.messageHandler(c, msg); cmd != nil {
+            cmds = append(cmds, cmd)
+        }
+    }
+    
+    // [EXISTING] Process key bindings
+    // ...
+    
+    // [EXISTING] Process lifecycle
+    // ...
+    
+    return c, tea.Batch(cmds...)
+}
+```
+
+**Tests**:
+- [ ] Handler called with component and message
+- [ ] Handler can return nil
+- [ ] Handler can return command
+- [ ] Handler commands batched with others
+- [ ] Handler can emit events
+- [ ] Handler coexists with key bindings
+- [ ] Handler called before key bindings
+- [ ] Custom message types handled
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 8.5: Integration Tests and Benchmarks
+**Description**: Comprehensive tests for message handling integration
+
+**Prerequisites**: Task 8.4 ✅
+
+**Unlocks**: Phase 9 (Example Applications)
+
+**Files**:
+- `tests/integration/key_bindings_test.go` (new file)
+- `tests/integration/message_handler_test.go` (new file)
+- `pkg/bubbly/benchmarks_test.go` (performance tests)
+
+**Test Scenarios**:
+1. **Key bindings + auto-commands**
+   - Key press → event → Ref.Set() → UI update
+   - Verify command generation
+   - Verify batching
+
+2. **Message handler + key bindings**
+   - Handler processes custom message
+   - Key binding processes KeyMsg
+   - Both commands batched correctly
+
+3. **Conditional bindings with modes**
+   - Navigation mode: space toggles
+   - Input mode: space types
+   - Condition evaluation correct
+
+4. **Tree structure with nested components**
+   - Parent handles app-level keys
+   - Children handle component-specific keys
+   - No key conflicts
+
+5. **Layout components integration**
+   - PageLayout with child components
+   - GridLayout with multiple items
+   - All components receive messages
+
+**Benchmarks**:
+- [ ] Key lookup performance (target: < 10ns)
+- [ ] Condition evaluation (target: < 20ns)
+- [ ] Event emission (existing)
+- [ ] Command batching (existing)
+- [ ] End-to-end key → UI update (target: < 100ns overhead)
+
+**Tests**:
+- [ ] All integration scenarios pass
+- [ ] All benchmarks meet targets
+- [ ] Zero race conditions
+- [ ] Zero memory leaks
+- [ ] Tree structure verified
+- [ ] Layout components verified
+
+**Estimated Effort**: 4.5 hours
+
+---
+
+## Phase 9: Example Applications (9 examples, 16 hours)
+
+### Task 9.1: Zero-Boilerplate Counter
+**Description**: Simplest possible counter with key bindings
+
+**Prerequisites**: Task 8.5 ✅
+
+**Unlocks**: Task 9.2
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/01-counter/main.go`
+- `cmd/examples/08-automatic-bridge/01-counter/README.md`
+
+**Features**:
+- WithKeyBinding for increment/decrement
+- Auto-commands for state updates
+- Auto-generated help text
+- Single-file example (< 100 lines)
+
+**Code Structure**:
+```go
+component := bubbly.NewComponent("Counter").
+    WithAutoCommands(true).
+    WithKeyBinding("space", "increment", "Increment").
+    WithKeyBinding("ctrl+c", "quit", "Quit").
+    Setup(func(ctx *Context) {
+        count := ctx.Ref(0)
+        ctx.On("increment", func(_ interface{}) {
+            count.Set(count.Get().(int) + 1)
+        })
+    }).
+    Template(func(ctx RenderContext) string {
+        // Show count + help text
+    }).
+    Build()
+
+tea.NewProgram(bubbly.Wrap(component)).Run()
+```
+
+**Tests**:
+- [ ] Builds successfully
+- [ ] Runs without errors
+- [ ] Space key increments
+- [ ] Help text displays
+- [ ] Ctrl+C quits
+
+**Estimated Effort**: 1 hour
+
+---
+
+### Task 9.2: Todo List with Declarative Key Bindings
+**Description**: Full CRUD todo app with mode-based input
+
+**Prerequisites**: Task 9.1 ✅
+
+**Unlocks**: Task 9.3
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/02-todo/main.go`
+- `cmd/examples/08-automatic-bridge/02-todo/README.md`
+
+**Features**:
+- 10+ key bindings (CRUD operations)
+- Conditional bindings for navigation vs input modes
+- Auto-generated help text
+- List rendering with selection
+- Form input handling
+- Mode indicators with colors
+
+**Key Bindings**:
+```go
+.WithKeyBinding("ctrl+n", "new", "New todo").
+.WithKeyBinding("ctrl+e", "edit", "Edit selected").
+.WithKeyBinding("ctrl+d", "delete", "Delete selected").
+.WithKeyBinding("up", "selectPrevious", "Previous").
+.WithKeyBinding("down", "selectNext", "Next").
+.WithConditionalKeyBinding(KeyBinding{
+    Key: "space",
+    Event: "toggle",
+    Condition: func() bool { return !inputMode },
+}).
+.WithConditionalKeyBinding(KeyBinding{
+    Key: "space",
+    Event: "addChar",
+    Data: " ",
+    Condition: func() bool { return inputMode },
+})
+```
+
+**Tests**:
+- [ ] Builds successfully
+- [ ] All key bindings work
+- [ ] Mode switching works
+- [ ] Conditional bindings work
+- [ ] Help text shows all keys
+
+**Estimated Effort**: 2.5 hours
+
+---
+
+### Task 9.3: Form with Mode-Based Bindings
+**Description**: Multi-field form with navigation and input modes
+
+**Prerequisites**: Task 9.2 ✅
+
+**Unlocks**: Task 9.4
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/03-form/main.go`
+- `cmd/examples/08-automatic-bridge/03-form/README.md`
+
+**Features**:
+- 3+ form fields
+- Tab navigation between fields
+- Input mode for typing
+- Navigation mode for field selection
+- Validation on submit
+- Visual mode indicators
+
+**Implementation**:
+- Mode-aware key bindings
+- Field focus management
+- Validation feedback
+- Auto-generated help per mode
+
+**Tests**:
+- [ ] Tab navigates fields
+- [ ] Mode switching works
+- [ ] Validation triggers
+- [ ] Submit works correctly
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 9.4: Dashboard with Message Handler
+**Description**: Complex dashboard with custom messages
+
+**Prerequisites**: Task 9.3 ✅
+
+**Unlocks**: Task 9.5
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/04-dashboard/main.go`
+- `cmd/examples/08-automatic-bridge/04-dashboard/README.md`
+
+**Features**:
+- Custom message types (data updates)
+- Message handler for WindowSizeMsg
+- Message handler for MouseMsg (optional)
+- Key bindings for refresh
+- Live updating data
+
+**Implementation**:
+```go
+.WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+    switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        comp.Emit("resize", msg)
+    case CustomDataMsg:
+        comp.Emit("dataUpdate", msg.Data)
+    }
+    return nil
+}).
+.WithKeyBinding("r", "refresh", "Refresh data")
+```
+
+**Tests**:
+- [ ] Custom messages handled
+- [ ] Window resize works
+- [ ] Refresh key works
+- [ ] Handler + bindings coexist
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 9.5: Mixed Auto/Manual Patterns
+**Description**: Shows when to use each approach
+
+**Prerequisites**: Task 9.4 ✅
+
+**Unlocks**: Task 9.6
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/05-mixed/main.go`
+- `cmd/examples/08-automatic-bridge/05-mixed/README.md`
+
+**Features**:
+- Auto refs for UI updates
+- Manual refs for performance-critical
+- Key bindings for common keys
+- Message handler for complex logic
+- DisableAutoCommands for batch operations
+
+**Demonstrates**:
+- When to use ManualRef()
+- When to use message handler
+- When to temporarily disable auto-commands
+- Performance considerations
+
+**Tests**:
+- [ ] Both patterns work together
+- [ ] Manual refs don't auto-update
+- [ ] Auto refs do auto-update
+- [ ] Batch operations efficient
+
+**Estimated Effort**: 1.5 hours
+
+---
+
+### Task 9.6: Nested Components Tree (3 levels)
+**Description**: Tree structure with parent and children
+
+**Prerequisites**: Task 9.5 ✅
+
+**Unlocks**: Task 9.7
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/06-nested/main.go`
+- `cmd/examples/08-automatic-bridge/06-nested/README.md`
+
+**Tree Structure**:
+```
+AppComponent
+├── SidebarComponent
+│   ├── MenuComponent
+│   └── ActionsComponent
+└── ContentComponent
+    ├── HeaderComponent
+    └── BodyComponent
+```
+
+**Features**:
+- Each component has own key bindings
+- No key conflicts
+- Components communicate via events
+- Independent state management
+
+**Tests**:
+- [ ] All levels render correctly
+- [ ] Keys routed to correct component
+- [ ] No key conflicts
+- [ ] Parent-child communication works
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 9.7: Vue-like App Tree Structure
+**Description**: Complete application with entry point and nested components
+
+**Prerequisites**: Task 9.6 ✅
+
+**Unlocks**: Task 9.8
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/07-app-tree/main.go`
+- `cmd/examples/08-automatic-bridge/07-app-tree/components.go`
+- `cmd/examples/08-automatic-bridge/07-app-tree/README.md`
+
+**Tree Structure**:
+```
+AppComponent (Entry Point)
+├── HeaderComponent
+│   ├── LogoComponent
+│   └── NavComponent
+├── ContentComponent
+│   ├── SidebarComponent
+│   └── MainComponent
+└── FooterComponent
+```
+
+**Features**:
+- Entry AppComponent orchestrates all
+- Multiple files for organization
+- Real-world structure
+- Professional layout
+
+**Tests**:
+- [ ] Complete tree renders
+- [ ] All components interactive
+- [ ] Proper separation of concerns
+- [ ] Maintainable structure
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 9.8: Layout Components Showcase
+**Description**: Integration with BubblyUI layout components
+
+**Prerequisites**: Task 9.7 ✅
+
+**Unlocks**: Task 9.9
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/08-layouts/main.go`
+- `cmd/examples/08-automatic-bridge/08-layouts/README.md`
+
+**Features**:
+- PageLayout with header/sidebar/main/footer
+- PanelLayout with side panel
+- GridLayout for dashboard cards
+- Custom components inside layouts
+- Responsive behavior
+
+**Layout Integration**:
+```go
+.Template(func(ctx RenderContext) string {
+    layout := components.PageLayout(components.PageLayoutProps{
+        Header:  ctx.Get("header").(Component),
+        Sidebar: ctx.Get("sidebar").(Component),
+        Main:    ctx.Get("main").(Component),
+        Footer:  ctx.Get("footer").(Component),
+    })
+    layout.Init()
+    return layout.View()
+})
+```
+
+**Tests**:
+- [ ] All 3 layouts work
+- [ ] Custom components render inside
+- [ ] Layouts respond to size
+- [ ] Professional appearance
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 9.9: Advanced Conditional Keys
+**Description**: Complex conditional logic and priority
+
+**Prerequisites**: Task 9.8 ✅
+
+**Unlocks**: Feature Complete
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/09-advanced-keys/main.go`
+- `cmd/examples/08-automatic-bridge/09-advanced-keys/README.md`
+
+**Features**:
+- Multiple conditions per key
+- Dynamic mode switching (3+ modes)
+- Priority ordering of bindings
+- Context-aware key behavior
+- Complex state-driven conditions
+
+**Advanced Patterns**:
+```go
+// Same key, different events based on context
+.WithConditionalKeyBinding(KeyBinding{
+    Key: "enter",
+    Event: "submit",
+    Condition: func() bool { return mode == "form" && valid },
+}).
+.WithConditionalKeyBinding(KeyBinding{
+    Key: "enter",
+    Event: "open",
+    Condition: func() bool { return mode == "list" },
+}).
+.WithConditionalKeyBinding(KeyBinding{
+    Key: "enter",
+    Event: "execute",
+    Condition: func() bool { return mode == "command" },
+})
+```
+
+**Tests**:
+- [ ] All conditions evaluated correctly
+- [ ] Priority order respected
+- [ ] Dynamic mode switching works
+- [ ] Complex state conditions work
+
+**Estimated Effort**: 1 hour
 
 ---
 
@@ -1980,27 +2615,48 @@ Created a production-ready migration guide that:
 ```
 Prerequisites (Features 01-03)
     ↓
-Phase 1: Foundation
+Phase 1: Foundation (4 tasks, 8 hours)
     1.1 Generator Interface → 1.2 Default Generator → 1.3 CommandRef → 1.4 Queue
     ↓
-Phase 2: Integration
+Phase 2: Integration (5 tasks, 13 hours)
     2.1 Runtime → 2.2 Update() → 2.3 Context.Ref() → 2.4 Config → 2.5 Builder
     ↓
-Phase 3: Optimization
+Phase 3: Optimization (3 tasks, 7 hours)
     3.1 Batcher → 3.2 Strategies → 3.3 Deduplication
     ↓
-Phase 4: Wrapper
+Phase 4: Wrapper (2 tasks, 4 hours)
     4.1 Wrap() → 4.2 Integration Tests
     ↓
-Phase 5: Safety
+Phase 5: Safety (4 tasks, 9 hours)
     5.1 Template Detection → 5.2 Recovery → 5.3 Observability → 5.4 Loop Detection
     ↓
-Phase 6: Debug
+Phase 6: Debug (3 tasks, 8 hours)
     6.1 Debug Mode → 6.2 Inspector → 6.3 Benchmarks
     ↓
-Phase 7: Documentation
-    7.1 API Docs → 7.2 Migration Guide → 7.3 Examples
+Phase 7: Documentation (2 tasks, 5 hours)
+    7.1 API Docs → 7.2 Migration Guide
+    ↓
+Phase 8: Message Handling Integration (5 tasks, 12 hours) ⭐ NEW
+    8.1 Key Binding Structs → 8.2 Key Processing → 8.3 Help Text → 8.4 Message Handler → 8.5 Integration Tests
+    ↓
+Phase 9: Example Applications (9 examples, 16 hours) ⭐ EXPANDED
+    9.1 Counter → 9.2 Todo → 9.3 Form → 9.4 Dashboard → 9.5 Mixed →
+    9.6 Nested → 9.7 App Tree → 9.8 Layouts → 9.9 Advanced Keys
+    ↓
+Feature Complete! 🎉
 ```
+
+**Total Effort**: 
+- Original (Phases 1-7): 54 hours
+- Phase 8 (Message Handling): 12 hours
+- Phase 9 (Examples): 16 hours
+- **Grand Total: 82 hours** (~10 days of development)
+
+**Revolutionary Impact**:
+- **Zero boilerplate** for state management AND keyboard handling
+- **Vue-like component tree** structure
+- **Layout components** integration
+- **Declarative everything** - maximum DX
 
 ---
 

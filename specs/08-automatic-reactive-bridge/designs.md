@@ -823,6 +823,459 @@ type DefaultCommandGenerator struct{}            // Implementation
 
 ---
 
+## Declarative Key Binding System
+
+### Problem
+
+With automatic bridge and `Wrap()`, state management is elegant but keyboard handling still requires boilerplate. Examples 04-07 show 20-40 lines of imperative switch/case logic for routing keys to events.
+
+**Current Pattern (Still Boilerplate):**
+```go
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        switch msg.String() {
+        case "space": m.component.Emit("toggle", nil)
+        case "enter": m.component.Emit("submit", nil)
+        case "esc": m.component.Emit("cancel", nil)
+        // ... 15+ more cases
+        }
+    }
+    // ...
+}
+```
+
+**Goal**: Truly zero-boilerplate keyboard handling.
+
+### Solution: Declarative Key Bindings
+
+Register key bindings declaratively during component construction:
+
+```go
+component := bubbly.NewComponent("TodoApp").
+    WithAutoCommands(true).
+    WithKeyBinding("space", "toggle", "Toggle completion").
+    WithKeyBinding("enter", "submit", "Submit form").
+    WithKeyBinding("esc", "cancel", "Cancel").
+    WithKeyBinding("up", "selectPrevious", "Move up").
+    WithKeyBinding("k", "selectPrevious", "Move up (vim)").
+    WithKeyBinding("down", "selectNext", "Move down").
+    WithKeyBinding("j", "selectNext", "Move down (vim)").
+    Setup(func(ctx *Context) {
+        // Just handle semantic events!
+        ctx.On("toggle", func(_ interface{}) {
+            // State change auto-updates UI
+        })
+    }).
+    Build()
+```
+
+### Type Definitions
+
+```go
+// KeyBinding represents a declarative key-to-event mapping
+type KeyBinding struct {
+    Key         string      // "space", "ctrl+c", "up", "esc"
+    Event       string      // Event name to emit
+    Description string      // For auto-generated help text
+    Data        interface{} // Optional data to pass with event
+    Condition   func() bool // Optional: only active when true
+}
+
+// ComponentBuilder extensions
+type ComponentBuilder struct {
+    // ... existing fields
+    keyBindings   map[string][]KeyBinding // Key -> []Binding (multiple per key for conditions)
+    messageHandler func(Component, tea.Msg) tea.Cmd
+}
+
+func (b *ComponentBuilder) WithKeyBinding(key, event, description string) *ComponentBuilder {
+    if b.keyBindings == nil {
+        b.keyBindings = make(map[string][]KeyBinding)
+    }
+    b.keyBindings[key] = append(b.keyBindings[key], KeyBinding{
+        Key:         key,
+        Event:       event,
+        Description: description,
+    })
+    return b
+}
+
+func (b *ComponentBuilder) WithConditionalKeyBinding(binding KeyBinding) *ComponentBuilder {
+    if b.keyBindings == nil {
+        b.keyBindings = make(map[string][]KeyBinding)
+    }
+    b.keyBindings[binding.Key] = append(b.keyBindings[binding.Key], binding)
+    return b
+}
+
+func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *ComponentBuilder {
+    for key, binding := range bindings {
+        b.WithKeyBinding(key, binding.Event, binding.Description)
+    }
+    return b
+}
+
+// Component interface additions
+type Component interface {
+    // ... existing methods
+    KeyBindings() map[string][]KeyBinding
+    HelpText() string // Auto-generated from bindings
+}
+```
+
+### Component Update Flow
+
+```
+Bubbletea Message
+    ↓
+Wrap.Update(msg)
+    ↓
+Component.Update(msg)
+    ↓
+[1] Is KeyMsg?
+    ↓ Yes
+[2] Lookup key in keyBindings map
+    ↓ Found
+[3] Iterate bindings for this key
+    ↓
+[4] Check Condition() if set
+    ↓ True (or no condition)
+[5] Special handling: "quit" event → return tea.Quit
+    ↓ Not quit
+[6] Emit(binding.Event, binding.Data)
+    ↓
+[7] Process component lifecycle (event handlers run)
+    ↓
+[8] State changes generate commands (auto-bridge)
+    ↓
+[9] Drain command queue
+    ↓
+[10] Return batched commands
+```
+
+### Implementation in component.go
+
+```go
+func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var cmds []tea.Cmd
+    
+    // [NEW] Process key bindings
+    if keyMsg, ok := msg.(tea.KeyMsg); ok {
+        if bindings, found := c.keyBindings[keyMsg.String()]; found {
+            for _, binding := range bindings {
+                // Check condition if set
+                if binding.Condition != nil && !binding.Condition() {
+                    continue // Skip this binding
+                }
+                
+                // Special handling for quit
+                if binding.Event == "quit" {
+                    return c, tea.Quit
+                }
+                
+                // Emit the bound event
+                c.Emit(binding.Event, binding.Data)
+                break // First matching binding wins
+            }
+        }
+    }
+    
+    // [EXISTING] Process lifecycle, execute event handlers, etc.
+    // ... rest of Update() logic
+    
+    // [EXISTING] Drain command queue (auto-commands)
+    if c.autoCommands && c.commandQueue != nil {
+        queuedCmds := c.commandQueue.DrainAll()
+        cmds = append(cmds, queuedCmds...)
+    }
+    
+    return c, tea.Batch(cmds...)
+}
+
+// Auto-generate help text
+func (c *componentImpl) HelpText() string {
+    var help []string
+    seen := make(map[string]bool)
+    
+    for key, bindings := range c.keyBindings {
+        for _, binding := range bindings {
+            if binding.Description != "" && !seen[key] {
+                help = append(help, fmt.Sprintf("%s: %s", key, binding.Description))
+                seen[key] = true
+                break
+            }
+        }
+    }
+    
+    sort.Strings(help)
+    return strings.Join(help, " • ")
+}
+```
+
+### Conditional Key Bindings (Mode Support)
+
+```go
+.Setup(func(ctx *Context) {
+    inputMode := ctx.Ref(false)
+    
+    // Expose for conditions
+    ctx.Expose("inputMode", inputMode)
+}).
+WithConditionalKeyBinding(KeyBinding{
+    Key:   "space",
+    Event: "toggle",
+    Description: "Toggle completion",
+    Condition: func() bool {
+        mode := component.Get("inputMode").(*Ref[interface{}])
+        return !mode.Get().(bool) // Only in navigation mode
+    },
+}).
+WithConditionalKeyBinding(KeyBinding{
+    Key:   "space",
+    Event: "addChar",
+    Data:  " ",
+    Description: "Add space",
+    Condition: func() bool {
+        mode := component.Get("inputMode").(*Ref[interface{}])
+        return mode.Get().(bool) // Only in input mode
+    },
+})
+```
+
+### Benefits
+
+1. **Zero Boilerplate** - No wrapper model for keyboard handling
+2. **Declarative** - See all bindings at component definition
+3. **Self-Documenting** - Descriptions embedded with bindings
+4. **Auto-Help** - Generate help text automatically from bindings
+5. **Type-Safe** - Compile-time safety for keys and events
+6. **Composable** - Share and reuse binding sets
+7. **Mode-Aware** - Conditional bindings support navigation/input modes
+8. **Vue-like DX** - Focus on what, not how
+
+---
+
+## Message Handler Hook (Escape Hatch)
+
+### Problem
+
+Key bindings cover 90% of cases, but some applications need:
+- Custom Bubbletea message types
+- Complex conditional logic
+- Dynamic key interpretation
+- Access to raw messages
+
+**Solution**: Optional message handler for complex cases.
+
+### Type Definition
+
+```go
+type MessageHandler func(comp Component, msg tea.Msg) tea.Cmd
+
+// ComponentBuilder extension
+func (b *ComponentBuilder) WithMessageHandler(handler MessageHandler) *ComponentBuilder {
+    b.messageHandler = handler
+    return b
+}
+```
+
+### Usage Example
+
+```go
+component := bubbly.NewComponent("Dashboard").
+    WithAutoCommands(true).
+    // Standard key bindings for common keys
+    WithKeyBinding("r", "refresh", "Refresh").
+    WithKeyBinding("q", "quit", "Quit").
+    // Message handler for complex cases
+    WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+        switch msg := msg.(type) {
+        case MyCustomMsg:
+            // Handle custom message type
+            comp.Emit("customEvent", msg.Data)
+            return nil
+            
+        case tea.MouseMsg:
+            // Handle mouse events
+            if msg.Type == tea.MouseLeft {
+                comp.Emit("click", msg)
+            }
+            return nil
+            
+        case tea.WindowSizeMsg:
+            // Handle resize
+            comp.Emit("resize", msg)
+            return nil
+        }
+        return nil
+    }).
+    Setup(func(ctx *Context) {
+        ctx.On("customEvent", func(data interface{}) {
+            // Handle custom event
+        })
+    }).
+    Build()
+```
+
+### Update Flow with Handler
+
+```
+Bubbletea Message
+    ↓
+Wrap.Update(msg)
+    ↓
+Component.Update(msg)
+    ↓
+[1] Call messageHandler(comp, msg) if set
+    ↓ Returns command or nil
+[2] Collect handler command
+    ↓
+[3] Is KeyMsg?
+    ↓ Yes
+[4] Lookup key in keyBindings
+    ↓ Found
+[5] Process binding (emit event)
+    ↓
+[6] Process lifecycle (event handlers run)
+    ↓
+[7] Drain command queue (auto-commands)
+    ↓
+[8] Batch all commands (handler + auto + lifecycle)
+    ↓
+[9] Return batched commands
+```
+
+### Benefits
+
+1. **Flexibility** - Handle any message type
+2. **Coexistence** - Works alongside key bindings
+3. **Type-Safe** - Handler receives component and message
+4. **Command Return** - Can return Bubbletea commands directly
+5. **Escape Hatch** - Complex logic without boilerplate
+6. **Backward Compatible** - Optional feature
+
+### When to Use Which
+
+| Use Case | Solution | Example |
+|----------|----------|---------|
+| Simple key → event | Key Binding | "space" → "toggle" |
+| Multiple aliases | Key Binding | "k"/"up" → "moveUp" |
+| Mode-based keys | Conditional Binding | space toggles OR types space |
+| Custom messages | Message Handler | WindowSizeMsg, MouseMsg |
+| Complex logic | Message Handler | Dynamic key interpretation |
+| Auto-help needed | Key Binding | Generate help from bindings |
+
+**Recommended**: Use key bindings by default, add message handler only when needed.
+
+---
+
+## Component Tree Architecture (Vue-like)
+
+### Tree Structure
+
+BubblyUI components naturally form a tree, similar to Vue:
+
+```
+AppComponent (Root)
+├── HeaderComponent
+│   ├── LogoComponent
+│   └── NavComponent
+├── ContentComponent (Layout)
+│   ├── SidebarComponent
+│   │   ├── MenuComponent
+│   │   └── FiltersComponent
+│   └── MainComponent
+│       ├── DataTableComponent
+│       └── PaginationComponent
+└── FooterComponent
+```
+
+### Key Binding Propagation
+
+**Principle**: Keys are handled at the component that defines them, not propagated.
+
+```go
+// Root app component
+app := bubbly.NewComponent("App").
+    WithKeyBinding("ctrl+c", "quit", "Quit").
+    WithKeyBinding("?", "toggleHelp", "Show/hide help").
+    Setup(func(ctx *Context) {
+        // Create child components
+        header := createHeaderComponent()
+        content := createContentComponent()
+        footer := createFooterComponent()
+        
+        ctx.AddChild(header)
+        ctx.AddChild(content)
+        ctx.AddChild(footer)
+    }).
+    Build()
+
+// Child component (independent bindings)
+table := bubbly.NewComponent("Table").
+    WithKeyBinding("up", "selectPrevious", "Previous row").
+    WithKeyBinding("down", "selectNext", "Next row").
+    WithKeyBinding("enter", "open", "Open selected").
+    Setup(func(ctx *Context) {
+        // Table logic
+    }).
+    Build()
+```
+
+**Behavior**: Each component handles its own keys. No bubbling or capture phases.
+
+### Message Flow in Tree
+
+```
+Bubbletea sends KeyMsg("up")
+    ↓
+App.Update(KeyMsg) - checks app bindings
+    ↓ Not found, pass to children
+Content.Update(KeyMsg) - checks content bindings
+    ↓ Not found, pass to children
+Table.Update(KeyMsg) - checks table bindings
+    ↓ FOUND: "up" → "selectPrevious"
+    ✓ Emit("selectPrevious")
+```
+
+### Layout Components Integration
+
+Use BubblyUI layout components for structure:
+
+```go
+app := bubbly.NewComponent("App").
+    WithAutoCommands(true).
+    WithKeyBinding("ctrl+c", "quit", "Quit").
+    Setup(func(ctx *Context) {
+        // Create feature components
+        header := createHeaderComponent()
+        sidebar := createSidebarComponent()
+        main := createMainComponent()
+        footer := createFooterComponent()
+        
+        // Use PageLayout component
+        ctx.Expose("header", header)
+        ctx.Expose("sidebar", sidebar)
+        ctx.Expose("main", main)
+        ctx.Expose("footer", footer)
+    }).
+    Template(func(ctx RenderContext) string {
+        // Use PageLayout for structure
+        layout := components.PageLayout(components.PageLayoutProps{
+            Header:  ctx.Get("header").(Component),
+            Sidebar: ctx.Get("sidebar").(Component),
+            Main:    ctx.Get("main").(Component),
+            Footer:  ctx.Get("footer").(Component),
+        })
+        layout.Init()
+        return layout.View()
+    }).
+    Build()
+```
+
+---
+
 ## Summary
 
 The Automatic Reactive Bridge eliminates the manual bridge pattern between BubblyUI and Bubbletea by automatically generating commands from state changes. When `Ref.Set()` is called, a command is generated and queued, triggering the Bubbletea update cycle without manual `Emit()` calls. The system provides a `Wrap()` helper for single-line integration, maintains backward compatibility with manual patterns, and achieves Vue-like developer experience while respecting Bubbletea's message-passing architecture. Performance overhead is < 10ns per state change, and the implementation is production-ready with proper error handling and observability integration.
