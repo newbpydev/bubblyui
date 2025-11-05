@@ -2277,7 +2277,7 @@ component := NewComponent("Counter").
 
 ---
 
-### Task 8.4: Message Handler Hook
+### Task 8.4: Message Handler Hook ✅ COMPLETED
 **Description**: Implement message handler for complex cases
 
 **Prerequisites**: Task 8.3 ✅
@@ -2285,8 +2285,9 @@ component := NewComponent("Counter").
 **Unlocks**: Task 8.5 (Integration Tests)
 
 **Files**:
-- `pkg/bubbly/builder.go` (WithMessageHandler method)
-- `pkg/bubbly/component.go` (handler invocation)
+- `pkg/bubbly/builder.go` (WithMessageHandler method) ✅
+- `pkg/bubbly/component.go` (MessageHandler type, handler invocation) ✅
+- `pkg/bubbly/message_handler_test.go` (comprehensive tests) ✅
 
 **Type Safety**:
 ```go
@@ -2300,7 +2301,7 @@ type ComponentBuilder struct {
 }
 
 func (b *ComponentBuilder) WithMessageHandler(handler MessageHandler) *ComponentBuilder {
-    b.messageHandler = handler
+    b.component.messageHandler = handler
     return b
 }
 ```
@@ -2328,16 +2329,68 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 ```
 
 **Tests**:
-- [ ] Handler called with component and message
-- [ ] Handler can return nil
-- [ ] Handler can return command
-- [ ] Handler commands batched with others
-- [ ] Handler can emit events
-- [ ] Handler coexists with key bindings
-- [ ] Handler called before key bindings
-- [ ] Custom message types handled
+- [x] Handler called with component and message ✅
+- [x] Handler can return nil ✅
+- [x] Handler can return command ✅
+- [x] Handler commands batched with others ✅
+- [x] Handler can emit events ✅
+- [x] Handler coexists with key bindings ✅
+- [x] Handler called before key bindings ✅
+- [x] Custom message types handled ✅
+
+**Implementation Notes**:
+- **Type Definition**: Added `MessageHandler` type in `component.go` after `Component` interface with comprehensive godoc documentation
+- **Field**: Added `messageHandler MessageHandler` field to `componentImpl` struct (line 256)
+- **Builder Method**: Added `WithMessageHandler()` to `ComponentBuilder` with extensive examples in godoc (builder.go lines 459-533)
+- **Handler Invocation**: Implemented handler call in `Update()` method BEFORE key binding processing (component.go lines 525-532)
+  - Handler called first (before key bindings) as per spec
+  - Nil check ensures optional handler doesn't cause panics
+  - Commands from handler automatically batched with other commands
+  - Handler receives component reference (can call Emit()) and raw message
+- **Test Coverage**: Created `message_handler_test.go` with 9 comprehensive test functions:
+  - TestMessageHandler_CalledWithComponentAndMessage (table-driven, 2 cases)
+  - TestMessageHandler_ReturnNil
+  - TestMessageHandler_ReturnCommand
+  - TestMessageHandler_CommandsBatchedWithOthers
+  - TestMessageHandler_CanEmitEvents
+  - TestMessageHandler_CoexistsWithKeyBindings
+  - TestMessageHandler_CalledBeforeKeyBindings (verifies execution order)
+  - TestMessageHandler_CustomMessageTypes (table-driven, 2 cases)
+  - TestMessageHandler_NotSetDoesNotPanic
+- **Thread Safety**: Handler field set once during Build(), read during Update() (Bubbletea single-threaded), no mutex needed
+- **Key Learning**: Bubbletea's space key String() is `" "` (literal space), not `"space"`
+- **Quality Gates**: 
+  - All 9 tests pass ✅
+  - All tests pass with race detector (`go test -race`) ✅
+  - Zero lint warnings (`go vet`) ✅
+  - Package builds successfully ✅
+  - Coverage: 92.9% (excellent coverage maintained)
+  - Code formatted with gofmt ✅
+- **Integration**: Works seamlessly with:
+  - Key bindings (both execute, handler first)
+  - Auto-commands (commands batch correctly)
+  - Event system (handler can emit events)
+  - Custom message types (window resize, mouse, custom structs)
+
+**Actual Effort**: 1.5 hours (under estimate due to TDD approach and clear spec)
+
+**Use Cases Validated**:
+- Custom Bubbletea message types (CustomDataMsg)
+- Window resize handling (tea.WindowSizeMsg)
+- Mouse event handling (tea.MouseMsg)
+- Complex conditional logic
+- Event emission from handler
+- Command batching with auto-commands and key bindings
+
+**Design Decisions**:
+- Handler is optional (nil check prevents panics)
+- Called BEFORE key bindings (allows interception)
+- Handler signature provides full access: `func(comp Component, msg tea.Msg) tea.Cmd`
+- Commands batch automatically via existing tea.Batch logic
+- Stateless (no state stored, just a function pointer)
 
 **Estimated Effort**: 2 hours
+**Actual Effort**: 1.5 hours (faster due to TDD and clear spec)
 
 ---
 

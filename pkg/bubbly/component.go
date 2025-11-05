@@ -135,6 +135,55 @@ type Component interface {
 	HelpText() string
 }
 
+// MessageHandler is a function that handles Bubbletea messages before key bindings.
+// It provides an escape hatch for complex message handling scenarios that declarative
+// key bindings cannot cover, such as:
+//   - Custom Bubbletea message types
+//   - Window resize events (tea.WindowSizeMsg)
+//   - Mouse events (tea.MouseMsg)
+//   - Complex conditional logic
+//   - Dynamic key interpretation
+//
+// The handler receives:
+//   - comp: The Component instance (can call Emit(), access state, etc.)
+//   - msg: The raw Bubbletea message
+//
+// The handler can:
+//   - Emit events to the component via comp.Emit()
+//   - Return a tea.Cmd to be executed (or nil for no command)
+//   - Access component state and props
+//
+// The handler is called BEFORE key binding processing in Update(), allowing
+// it to handle messages that key bindings don't support. Commands returned by
+// the handler are automatically batched with other commands.
+//
+// Example with custom message type:
+//
+//	type CustomDataMsg struct {
+//	    Data string
+//	}
+//
+//	component := NewComponent("Dashboard").
+//	    WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+//	        switch msg := msg.(type) {
+//	        case CustomDataMsg:
+//	            comp.Emit("dataReceived", msg.Data)
+//	            return nil
+//	        case tea.WindowSizeMsg:
+//	            comp.Emit("resize", msg)
+//	            return nil
+//	        }
+//	        return nil
+//	    }).
+//	    Build()
+//
+// The handler coexists with key bindings and other message processing:
+//   - Handler called first (can intercept any message)
+//   - Then key bindings processed
+//   - Then state change messages processed
+//   - All commands batched automatically
+type MessageHandler func(comp Component, msg tea.Msg) tea.Cmd
+
 // componentImpl is the internal implementation of the Component interface.
 // It is unexported to enforce the use of the ComponentBuilder for creation.
 //
@@ -202,6 +251,9 @@ type componentImpl struct {
 	// Key bindings (Automatic Reactive Bridge - Feature 08, Phase 8)
 	keyBindings   map[string][]KeyBinding // Key -> []Binding (supports multiple bindings per key)
 	keyBindingsMu sync.RWMutex            // Protects keyBindings map
+
+	// Message handler (Automatic Reactive Bridge - Feature 08, Task 8.4)
+	messageHandler MessageHandler // Optional handler for complex message processing
 
 	// Lifecycle
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
@@ -469,6 +521,15 @@ func (c *componentImpl) Init() tea.Cmd {
 //   - All commands are returned via tea.Batch for execution by Bubbletea runtime
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	// [NEW] Call message handler first (Automatic Reactive Bridge - Task 8.4)
+	// Handler is called BEFORE key bindings to allow complex message processing
+	// Handler can return nil (no command) or a tea.Cmd to be batched
+	if c.messageHandler != nil {
+		if cmd := c.messageHandler(c, msg); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
 
 	// Process key bindings (Automatic Reactive Bridge - Phase 8)
 	// This allows declarative key-to-event mapping without manual Update() logic

@@ -456,6 +456,82 @@ func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *Comp
 	return b
 }
 
+// WithMessageHandler registers a custom message handler for complex message processing.
+// The message handler provides an escape hatch for scenarios that declarative key bindings
+// cannot handle, such as:
+//   - Custom Bubbletea message types (e.g., data updates, timers)
+//   - Window resize events (tea.WindowSizeMsg)
+//   - Mouse events (tea.MouseMsg)
+//   - Complex conditional logic
+//   - Dynamic message routing
+//
+// The handler is called BEFORE key binding processing in the component's Update() method,
+// allowing it to intercept and handle any message type. Commands returned by the handler
+// are automatically batched with other commands from key bindings and state changes.
+//
+// Handler characteristics:
+//   - Receives the component and raw Bubbletea message
+//   - Can emit events to the component via comp.Emit()
+//   - Can return a tea.Cmd (or nil for no command)
+//   - Coexists with key bindings (both can be used together)
+//   - Called on every Update() cycle before other processing
+//
+// Example with custom messages and window resize:
+//
+//	type DataUpdateMsg struct {
+//	    Data []Item
+//	}
+//
+//	component := NewComponent("Dashboard").
+//	    WithAutoCommands(true).
+//	    WithKeyBinding("r", "refresh", "Refresh data").
+//	    WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+//	        switch msg := msg.(type) {
+//	        case DataUpdateMsg:
+//	            // Handle custom data update message
+//	            comp.Emit("dataReceived", msg.Data)
+//	            return nil
+//
+//	        case tea.WindowSizeMsg:
+//	            // Handle window resize
+//	            comp.Emit("resize", map[string]int{
+//	                "width":  msg.Width,
+//	                "height": msg.Height,
+//	            })
+//	            return nil
+//
+//	        case tea.MouseMsg:
+//	            // Handle mouse click
+//	            if msg.Type == tea.MouseLeft {
+//	                comp.Emit("click", msg)
+//	            }
+//	            return nil
+//	        }
+//	        return nil // Let other processing continue
+//	    }).
+//	    Setup(func(ctx *Context) {
+//	        // Handle semantic events from both key bindings and message handler
+//	        ctx.On("dataReceived", func(data interface{}) {
+//	            // Update state...
+//	        })
+//	    }).
+//	    Build()
+//
+// When to use:
+//   - Use key bindings for simple key-to-event mapping (covers 90% of cases)
+//   - Use message handler for complex message types or dynamic routing
+//   - Both can coexist: key bindings for keyboard, handler for everything else
+//
+// Parameters:
+//   - handler: The MessageHandler function
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithMessageHandler(handler MessageHandler) *ComponentBuilder {
+	b.component.messageHandler = handler
+	return b
+}
+
 // Build validates the component configuration and returns the final Component.
 // This is the terminal method in the builder chain that performs validation
 // and creates the component instance.
