@@ -247,6 +247,15 @@ func (rv *RouterView) HelpText() string {
 	return ""
 }
 
+// IsInitialized returns whether the RouterView has been initialized.
+// RouterView is always considered initialized as it's a lightweight wrapper.
+//
+// Returns:
+//   - Always true (RouterView doesn't require initialization)
+func (rv *RouterView) IsInitialized() bool {
+	return true
+}
+
 // Ensure RouterView implements required interfaces
 var _ tea.Model = (*RouterView)(nil)
 var _ bubbly.Component = (*RouterView)(nil)

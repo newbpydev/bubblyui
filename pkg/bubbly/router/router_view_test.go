@@ -54,6 +54,10 @@ func (m *mockComponent) HelpText() string {
 	return ""
 }
 
+func (m *mockComponent) IsInitialized() bool {
+	return true
+}
+
 // Ensure mockComponent implements bubbly.Component
 var _ bubbly.Component = (*mockComponent)(nil)
 

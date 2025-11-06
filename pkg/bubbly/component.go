@@ -133,6 +133,29 @@ type Component interface {
 	//	    return fmt.Sprintf("%s\n\nHelp: %s", content, comp.HelpText())
 	//	})
 	HelpText() string
+
+	// IsInitialized returns whether the component has been initialized.
+	// A component is considered initialized after Init() has been called
+	// and the setup function has executed.
+	//
+	// This method is thread-safe and can be called concurrently.
+	//
+	// Use cases:
+	//   - Auto-initialization in Context.ExposeComponent() (Task 10.2)
+	//   - Checking component state before operations
+	//   - Debugging component lifecycle
+	//
+	// Example:
+	//
+	//	component := NewComponent("Counter").Build()
+	//	fmt.Println(component.IsInitialized()) // false
+	//
+	//	component.Init()
+	//	fmt.Println(component.IsInitialized()) // true
+	//
+	//	component.Init() // Safe to call again - idempotent
+	//	fmt.Println(component.IsInitialized()) // still true
+	IsInitialized() bool
 }
 
 // MessageHandler is a function that handles Bubbletea messages before key bindings.
@@ -259,6 +282,10 @@ type componentImpl struct {
 	lifecycle *LifecycleManager // Lifecycle manager for hooks
 	//nolint:unused // Will be used in Task 1.3
 	mounted bool // Whether component has been initialized
+
+	// Initialization tracking (Task 10.1: Auto-Initialization Enhancement)
+	initialized bool       // Whether Init() has been called and setup has executed
+	initMu      sync.Mutex // Protects initialized flag for thread-safe initialization
 }
 
 // newComponentImpl creates a new component instance with the given name.
@@ -470,18 +497,36 @@ func (c *componentImpl) On(event string, handler EventHandler) {
 	globalEventRegistry.trackEventListener(event)
 }
 
+// IsInitialized returns whether the component has been initialized.
+func (c *componentImpl) IsInitialized() bool {
+	c.initMu.Lock()
+	defer c.initMu.Unlock()
+	return c.initialized
+}
+
 // Init implements tea.Model.Init().
-// It runs the setup function if provided and initializes child components.
+// It initializes the component by running the setup function.
 //
 // The Init method is called once when the component is first initialized
 // by the Bubbletea runtime. It:
 //   - Executes the setup function (if provided) with a Context
-//   - Marks the component as mounted
+//   - Marks the component as mounted and initialized
 //   - Initializes all child components
 //   - Returns batched commands from children
 //
 // The setup function is only executed once, even if Init() is called multiple times.
+// This method is thread-safe and idempotent (safe to call multiple times).
 func (c *componentImpl) Init() tea.Cmd {
+	// Thread-safe check and set of initialized flag
+	c.initMu.Lock()
+	if c.initialized {
+		// Already initialized - return early
+		c.initMu.Unlock()
+		return nil
+	}
+	c.initialized = true
+	c.initMu.Unlock()
+
 	// Run setup function if provided and not already mounted
 	if c.setup != nil && !c.mounted {
 		ctx := &Context{component: c}

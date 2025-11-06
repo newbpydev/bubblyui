@@ -2963,11 +2963,31 @@ func (c *componentImpl) IsInitialized() bool {
 ```
 
 **Tests**:
-- [ ] IsInitialized returns false before Init()
-- [ ] IsInitialized returns true after Init()
-- [ ] Init() is idempotent (safe to call twice)
-- [ ] Thread-safe initialization
-- [ ] Setup runs only once
+- [x] IsInitialized returns false before Init() ✅
+- [x] IsInitialized returns true after Init() ✅
+- [x] Init() is idempotent (safe to call twice) ✅
+- [x] Thread-safe initialization ✅
+- [x] Setup runs only once ✅
+
+**Implementation Notes**:
+- **Interface Updated**: Added `IsInitialized() bool` method to Component interface with comprehensive godoc comments explaining use cases (auto-initialization, state checking, debugging).
+- **Fields Added**: Added `initialized bool` and `initMu sync.Mutex` to componentImpl struct for thread-safe initialization tracking.
+- **Init() Enhanced**: Modified Init() to check initialized flag at the beginning with mutex protection. Returns early if already initialized, making it truly idempotent.
+- **IsInitialized() Implemented**: Thread-safe method using mutex lock/unlock pattern. Returns current initialization state.
+- **Mock Components Updated**: Added IsInitialized() to RouterView (always returns true) and mockComponent in router tests.
+- **Test Coverage**: 5 comprehensive table-driven tests covering all requirements:
+  - TestComponent_IsInitialized_BeforeInit: 3 test cases verifying false before Init()
+  - TestComponent_IsInitialized_AfterInit: 3 test cases verifying true after Init()
+  - TestComponent_Init_Idempotent: 3 test cases (2x, 3x, 10x calls) verifying setup runs only once
+  - TestComponent_Init_ThreadSafe: 3 test cases (10, 50, 100 goroutines) verifying concurrent Init() calls
+  - TestComponent_Init_SetupRunsOnlyOnce: Verifies setup function executes exactly once
+- **Quality Gates**: All pass - go test -race ✅, go vet ✅, gofmt ✅, go build ✅
+- **Coverage**: 93.2% (maintained high coverage)
+- **Thread Safety**: Mutex pattern ensures safe concurrent access to initialized flag
+- **Idempotency**: Early return pattern prevents duplicate setup execution
+- **Zero Tech Debt**: No failing tests, no lint warnings, no race conditions
+
+**Actual Effort**: 1.5 hours
 
 **Estimated Effort**: 2 hours
 

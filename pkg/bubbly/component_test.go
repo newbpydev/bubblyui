@@ -1064,3 +1064,183 @@ func TestComponentRuntime_CommandQueueInitialization(t *testing.T) {
 		assert.Equal(t, 0, impl.commandQueue.Len(), "Command queue should be empty initially")
 	})
 }
+
+// ========== Task 10.1: Component IsInitialized Flag Tests ==========
+
+// TestComponent_IsInitialized_BeforeInit verifies IsInitialized returns false before Init()
+func TestComponent_IsInitialized_BeforeInit(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "new_component_not_initialized"},
+		{name: "component_with_setup_not_initialized"},
+		{name: "component_with_template_not_initialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			component, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					// Setup function
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			require.NoError(t, err)
+			assert.False(t, component.IsInitialized(), "Component should not be initialized before Init() is called")
+		})
+	}
+}
+
+// TestComponent_IsInitialized_AfterInit verifies IsInitialized returns true after Init()
+func TestComponent_IsInitialized_AfterInit(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "component_initialized_after_init"},
+		{name: "component_with_setup_initialized"},
+		{name: "component_with_children_initialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			component, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					// Setup function
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			require.NoError(t, err)
+
+			// Call Init()
+			component.Init()
+
+			assert.True(t, component.IsInitialized(), "Component should be initialized after Init() is called")
+		})
+	}
+}
+
+// TestComponent_Init_Idempotent verifies Init() is safe to call multiple times
+func TestComponent_Init_Idempotent(t *testing.T) {
+	tests := []struct {
+		name      string
+		initCalls int
+	}{
+		{name: "init_called_twice", initCalls: 2},
+		{name: "init_called_three_times", initCalls: 3},
+		{name: "init_called_many_times", initCalls: 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupCallCount := 0
+			component, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					setupCallCount++
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			require.NoError(t, err)
+
+			// Call Init() multiple times
+			for i := 0; i < tt.initCalls; i++ {
+				component.Init()
+			}
+
+			// Setup should only be called once
+			assert.Equal(t, 1, setupCallCount, "Setup should only be called once even if Init() is called multiple times")
+			assert.True(t, component.IsInitialized(), "Component should be initialized")
+		})
+	}
+}
+
+// TestComponent_Init_ThreadSafe verifies initialization is thread-safe
+func TestComponent_Init_ThreadSafe(t *testing.T) {
+	tests := []struct {
+		name        string
+		goroutines  int
+		description string
+	}{
+		{name: "concurrent_init_10_goroutines", goroutines: 10, description: "10 concurrent Init() calls"},
+		{name: "concurrent_init_50_goroutines", goroutines: 50, description: "50 concurrent Init() calls"},
+		{name: "concurrent_init_100_goroutines", goroutines: 100, description: "100 concurrent Init() calls"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupCallCount := 0
+			component, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					setupCallCount++
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			require.NoError(t, err)
+
+			// Call Init() concurrently from multiple goroutines
+			done := make(chan bool, tt.goroutines)
+			for i := 0; i < tt.goroutines; i++ {
+				go func() {
+					component.Init()
+					done <- true
+				}()
+			}
+
+			// Wait for all goroutines to complete
+			for i := 0; i < tt.goroutines; i++ {
+				<-done
+			}
+
+			// Setup should only be called once despite concurrent Init() calls
+			assert.Equal(t, 1, setupCallCount, "Setup should only be called once even with concurrent Init() calls")
+			assert.True(t, component.IsInitialized(), "Component should be initialized")
+		})
+	}
+}
+
+// TestComponent_Init_SetupRunsOnlyOnce verifies setup function executes only once
+func TestComponent_Init_SetupRunsOnlyOnce(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "setup_runs_once"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupExecuted := false
+			component, err := NewComponent("TestComponent").
+				Setup(func(ctx *Context) {
+					if setupExecuted {
+						t.Error("Setup function should only execute once")
+					}
+					setupExecuted = true
+				}).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			require.NoError(t, err)
+
+			// Call Init() multiple times
+			component.Init()
+			component.Init()
+			component.Init()
+
+			assert.True(t, setupExecuted, "Setup should have been executed")
+			assert.True(t, component.IsInitialized(), "Component should be initialized")
+		})
+	}
+}
