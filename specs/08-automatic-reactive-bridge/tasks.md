@@ -2901,6 +2901,280 @@ AppComponent (Entry Point)
 
 ---
 
+## Phase 10: Auto-Initialization Enhancement (4 tasks, 8 hours)
+
+### Task 10.1: Component IsInitialized Flag
+**Description**: Add initialization tracking to Component interface
+
+**Prerequisites**: Feature 02 (Component Model)
+
+**Unlocks**: Task 10.2
+
+**Files**:
+- `pkg/bubbly/component.go`
+- `pkg/bubbly/component_test.go`
+
+**Type Safety**:
+```go
+type Component interface {
+    Init() tea.Cmd
+    IsInitialized() bool  // New method
+    Update(msg tea.Msg) (Component, tea.Cmd)
+    View() string
+    // ... existing methods
+}
+
+type componentImpl struct {
+    // ... existing fields
+    initialized bool  // New field
+    initMu      sync.Mutex
+}
+```
+
+**Implementation**:
+```go
+func (c *componentImpl) Init() tea.Cmd {
+    c.initMu.Lock()
+    defer c.initMu.Unlock()
+    
+    if c.initialized {
+        return nil  // Already initialized
+    }
+    
+    // Run setup
+    if c.setupFn != nil {
+        c.setupFn(c.ctx)
+    }
+    
+    c.initialized = true
+    
+    // Execute lifecycle hooks
+    if c.lifecycle != nil {
+        return c.lifecycle.executeMounted()
+    }
+    return nil
+}
+
+func (c *componentImpl) IsInitialized() bool {
+    c.initMu.Lock()
+    defer c.initMu.Unlock()
+    return c.initialized
+}
+```
+
+**Tests**:
+- [ ] IsInitialized returns false before Init()
+- [ ] IsInitialized returns true after Init()
+- [ ] Init() is idempotent (safe to call twice)
+- [ ] Thread-safe initialization
+- [ ] Setup runs only once
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 10.2: Context.ExposeComponent Method
+**Description**: Add auto-initializing expose method to Context
+
+**Prerequisites**: Task 10.1
+
+**Unlocks**: Task 10.3
+
+**Files**:
+- `pkg/bubbly/context.go`
+- `pkg/bubbly/context_test.go`
+
+**Type Safety**:
+```go
+// Context methods
+func (ctx *Context) ExposeComponent(name string, comp Component) error
+
+// Implementation
+func (ctx *Context) ExposeComponent(name string, comp Component) error {
+    if comp == nil {
+        return fmt.Errorf("cannot expose nil component")
+    }
+    
+    // Auto-initialize if not already initialized
+    if !comp.IsInitialized() {
+        if cmd := comp.Init(); cmd != nil {
+            // Queue init command for parent to execute
+            if ctx.component != nil {
+                ctx.component.queueCommand(cmd)
+            }
+        }
+    }
+    
+    // Expose to context (uses existing Expose method)
+    ctx.Expose(name, comp)
+    return nil
+}
+```
+
+**Tests**:
+- [ ] Calls Init() on uninitialized component
+- [ ] Does not re-init already initialized component
+- [ ] Queues init commands correctly
+- [ ] Returns error for nil component
+- [ ] Component accessible via Get() after expose
+- [ ] Works with multiple components
+- [ ] Thread-safe
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 10.3: Update Examples to Use ExposeComponent
+**Description**: Refactor component-based examples to use auto-init
+
+**Prerequisites**: Task 10.2
+
+**Unlocks**: Task 10.4
+
+**Files**:
+- `cmd/examples/08-automatic-bridge/02-todos/02-todo-components/main.go`
+- `cmd/examples/08-automatic-bridge/02-todos/02-todo-components/README.md`
+- `cmd/examples/08-automatic-bridge/02-todos/02-todo-components/COMPARISON.md`
+
+**Refactoring**:
+
+**Before** (manual init):
+```go
+Setup(func(ctx *Context) {
+    todoForm, _ := components.CreateTodoForm(props)
+    todoList, _ := components.CreateTodoList(props)
+    todoStats, _ := components.CreateTodoStats(props)
+    
+    // Manual initialization
+    todoForm.Init()
+    todoList.Init()
+    todoStats.Init()
+    
+    ctx.Expose("todoForm", todoForm)
+    ctx.Expose("todoList", todoList)
+    ctx.Expose("todoStats", todoStats)
+})
+```
+
+**After** (auto-init):
+```go
+Setup(func(ctx *Context) {
+    todoForm, _ := components.CreateTodoForm(props)
+    todoList, _ := components.CreateTodoList(props)
+    todoStats, _ := components.CreateTodoStats(props)
+    
+    // Auto-initialization on expose
+    ctx.ExposeComponent("todoForm", todoForm)
+    ctx.ExposeComponent("todoList", todoList)
+    ctx.ExposeComponent("todoStats", todoStats)
+})
+```
+
+**Documentation Updates**:
+- Update README with auto-init pattern
+- Update COMPARISON.md with boilerplate reduction
+- Add migration notes
+- Document backward compatibility
+
+**Tests**:
+- [ ] Example builds successfully
+- [ ] Example runs without errors
+- [ ] All CRUD operations work
+- [ ] No runtime panics
+- [ ] Help text displays correctly
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 10.4: Documentation and Migration Guide
+**Description**: Document auto-initialization feature and migration path
+
+**Prerequisites**: Task 10.3
+
+**Unlocks**: Phase 10 Complete
+
+**Files**:
+- `docs/features/auto-initialization.md` (new)
+- `docs/migration/manual-to-auto-init.md` (new)
+- Update `README.md`
+- Update component examples
+
+**Documentation Structure**:
+
+**auto-initialization.md**:
+```markdown
+# Auto-Initialization of Child Components
+
+## Overview
+Automatic initialization eliminates manual `.Init()` calls when composing components.
+
+## API
+
+### ctx.ExposeComponent()
+```go
+func (ctx *Context) ExposeComponent(name string, comp Component) error
+```
+
+Automatically initializes component before exposing to context.
+
+## Benefits
+- Prevents runtime panics from uninitialized state
+- Reduces boilerplate (33% fewer lines)
+- Idempotent and thread-safe
+- Backward compatible
+
+## Usage
+
+### Basic Example
+[Code examples]
+
+### Error Handling
+[Error handling examples]
+
+### Migration Path
+[Migration examples]
+```
+
+**migration/manual-to-auto-init.md**:
+```markdown
+# Migration Guide: Manual to Auto-Initialization
+
+## Quick Start
+Replace manual pattern:
+```go
+comp.Init()
+ctx.Expose("comp", comp)
+```
+
+With auto-init:
+```go
+ctx.ExposeComponent("comp", comp)
+```
+
+## Benefits
+- 33% fewer lines for component composition
+- Impossible to forget initialization
+- Better developer experience
+
+## Gradual Migration
+[Step-by-step migration guide]
+
+## Backward Compatibility
+[Compatibility notes]
+```
+
+**Tests**:
+- [ ] Documentation complete
+- [ ] Code examples work
+- [ ] Migration guide clear
+- [ ] API docs updated
+- [ ] README updated
+
+**Estimated Effort**: 2 hours
+
+---
+
 ## Task Dependency Graph
 
 ```
@@ -2927,12 +3201,15 @@ Phase 6: Debug (3 tasks, 8 hours)
 Phase 7: Documentation (2 tasks, 5 hours)
     7.1 API Docs → 7.2 Migration Guide
     ↓
-Phase 8: Message Handling Integration (5 tasks, 12 hours) ⭐ NEW
+Phase 8: Message Handling Integration (5 tasks, 12 hours) ✅ COMPLETED
     8.1 Key Binding Structs → 8.2 Key Processing → 8.3 Help Text → 8.4 Message Handler → 8.5 Integration Tests
     ↓
-Phase 9: Example Applications (9 examples, 16 hours) ⭐ EXPANDED
+Phase 9: Example Applications (9 examples, 16 hours) 🔄 IN PROGRESS
     9.1 Counter → 9.2 Todo → 9.3 Form → 9.4 Dashboard → 9.5 Mixed →
     9.6 Nested → 9.7 App Tree → 9.8 Layouts → 9.9 Advanced Keys
+    ↓
+Phase 10: Auto-Initialization Enhancement (4 tasks, 8 hours) ⭐ NEW
+    10.1 IsInitialized Flag → 10.2 ExposeComponent Method → 10.3 Update Examples → 10.4 Documentation
     ↓
 Feature Complete! 🎉
 ```
@@ -2941,7 +3218,8 @@ Feature Complete! 🎉
 - Original (Phases 1-7): 54 hours
 - Phase 8 (Message Handling): 12 hours
 - Phase 9 (Examples): 16 hours
-- **Grand Total: 82 hours** (~10 days of development)
+- Phase 10 (Auto-Init): 8 hours
+- **Grand Total: 90 hours** (~11 days of development)
 
 **Revolutionary Impact**:
 - **Zero boilerplate** for state management AND keyboard handling
@@ -2988,6 +3266,16 @@ Feature Complete! 🎉
 - [ ] Error messages clear
 - [ ] Debug tools helpful
 
+### Auto-Initialization
+- [ ] IsInitialized() works correctly
+- [ ] ExposeComponent() auto-inits children
+- [ ] Idempotent initialization (safe to call Init() twice)
+- [ ] No runtime panics from uninitialized state
+- [ ] Backward compatible with manual Init()
+- [ ] Thread-safe
+- [ ] Clear error messages
+- [ ] Example updated and working
+
 ---
 
 ## Estimated Total Effort
@@ -3016,3 +3304,5 @@ Feature Complete! 🎉
 - Easier onboarding for web developers
 - More maintainable codebases
 - Foundation for future DX improvements
+- Auto-initialization prevents runtime panics (Phase 10)
+- Component composition with zero boilerplate (Phase 10)

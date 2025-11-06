@@ -98,6 +98,16 @@ Implement automatic command generation from reactive state changes, eliminating 
 11.7. Can handle custom message types  
 11.8. Type-safe handler signature  
 
+### 12. Auto-Initialization of Child Components
+12.1. `ctx.ExposeComponent()` automatically calls `.Init()` on child components  
+12.2. Eliminates manual initialization requirement for nested components  
+12.3. Reduces boilerplate in component composition  
+12.4. Prevents runtime panics from uninitialized child state  
+12.5. Maintains backward compatibility with manual `.Init()` calls  
+12.6. Idempotent initialization (calling `.Init()` twice is safe)  
+12.7. Clear error messages if component initialization fails  
+12.8. Type-safe component exposure API  
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -178,6 +188,13 @@ Implement automatic command generation from reactive state changes, eliminating 
 - [ ] Works with events
 - [ ] Works with composables
 - [ ] Works with directives
+
+### Auto-Initialization
+- [ ] `ctx.ExposeComponent()` auto-initializes children
+- [ ] Child components' Setup() runs automatically
+- [ ] No runtime panics from uninitialized state
+- [ ] Backward compatible with manual Init() calls
+- [ ] Clear error messages on init failures
 
 ## Dependencies
 

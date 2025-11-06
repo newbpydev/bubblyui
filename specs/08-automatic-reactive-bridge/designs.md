@@ -1276,6 +1276,182 @@ app := bubbly.NewComponent("App").
 
 ---
 
+## Auto-Initialization of Child Components
+
+### Problem
+
+When composing components, developers must manually call `.Init()` on child components:
+
+```go
+// Current (manual initialization required)
+Setup(func(ctx *Context) {
+    todoForm, _ := CreateTodoForm(props)
+    todoList, _ := CreateTodoList(props)
+    todoStats, _ := CreateTodoStats(props)
+    
+    // ⚠️ MUST call Init() manually
+    todoForm.Init()
+    todoList.Init()
+    todoStats.Init()
+    
+    ctx.Expose("todoForm", todoForm)
+    ctx.Expose("todoList", todoList)
+    ctx.Expose("todoStats", todoStats)
+})
+```
+
+**Issues**:
+- Easy to forget Init() calls → runtime panics
+- Boilerplate code
+- Not obvious to new users
+- Breaks Vue-like developer experience
+
+### Solution: `ctx.ExposeComponent()`
+
+New API that auto-initializes children when exposing:
+
+```go
+// Enhanced (auto-initialization)
+Setup(func(ctx *Context) {
+    todoForm, _ := CreateTodoForm(props)
+    todoList, _ := CreateTodoList(props)
+    todoStats, _ := CreateTodoStats(props)
+    
+    // ✅ Auto-initializes on expose
+    ctx.ExposeComponent("todoForm", todoForm)
+    ctx.ExposeComponent("todoList", todoList)
+    ctx.ExposeComponent("todoStats", todoStats)
+})
+```
+
+### Type Signature
+
+```go
+// Context methods
+func (ctx *Context) ExposeComponent(name string, comp Component) error
+
+// Implementation
+func (ctx *Context) ExposeComponent(name string, comp Component) error {
+    // Auto-initialize if not already initialized
+    if !comp.IsInitialized() {
+        if cmd := comp.Init(); cmd != nil {
+            // Queue init commands
+            ctx.queueCommand(cmd)
+        }
+    }
+    
+    // Expose to context
+    ctx.Expose(name, comp)
+    return nil
+}
+```
+
+### Backward Compatibility
+
+**Manual Init() still works**:
+```go
+// Explicit Init() (still supported)
+comp.Init()
+ctx.ExposeComponent("comp", comp) // No-op, already initialized
+```
+
+**Component interface enhancement**:
+```go
+type Component interface {
+    Init() tea.Cmd
+    IsInitialized() bool  // New method
+    // ... existing methods
+}
+```
+
+### Benefits
+
+1. **Prevents Runtime Panics**: No more "nil pointer" errors from uninitialized state
+2. **Reduces Boilerplate**: 3 lines become 1 line per component
+3. **Better DX**: Matches Vue-like expectations
+4. **Safe by Default**: Idempotent initialization
+5. **Clear Errors**: If init fails, get clear error message
+
+### Migration Path
+
+**Gradual adoption**:
+```go
+// Old code (still works)
+comp.Init()
+ctx.Expose("comp", comp)
+
+// New code (recommended)
+ctx.ExposeComponent("comp", comp)
+
+// Mixed (also works)
+compA.Init()
+ctx.Expose("compA", compA)
+ctx.ExposeComponent("compB", compB)  // Auto-inits
+```
+
+### Error Handling
+
+```go
+Setup(func(ctx *Context) {
+    comp, err := CreateMyComponent(props)
+    if err != nil {
+        // Component creation failed
+        return
+    }
+    
+    if err := ctx.ExposeComponent("comp", comp); err != nil {
+        // Initialization failed - rare but possible
+        ctx.Expose("error", err)
+        return
+    }
+})
+```
+
+### Layout Component Example Update
+
+**Before** (manual init):
+```go
+Template(func(ctx RenderContext) string {
+    layout := components.PageLayout(components.PageLayoutProps{
+        Header:  ctx.Get("header").(Component),
+        Sidebar: ctx.Get("sidebar").(Component),
+        Main:    ctx.Get("main").(Component),
+        Footer:  ctx.Get("footer").(Component),
+    })
+    layout.Init()  // Manual init required
+    return layout.View()
+})
+```
+
+**After** (auto-init):
+```go
+Setup(func(ctx *Context) {
+    header := createHeaderComponent()
+    sidebar := createSidebarComponent()
+    main := createMainComponent()
+    footer := createFooterComponent()
+    
+    // Auto-initializes on expose
+    ctx.ExposeComponent("header", header)
+    ctx.ExposeComponent("sidebar", sidebar)
+    ctx.ExposeComponent("main", main)
+    ctx.ExposeComponent("footer", footer)
+})
+
+Template(func(ctx RenderContext) string {
+    // Already initialized
+    layout := components.PageLayout(components.PageLayoutProps{
+        Header:  ctx.Get("header").(Component),
+        Sidebar: ctx.Get("sidebar").(Component),
+        Main:    ctx.Get("main").(Component),
+        Footer:  ctx.Get("footer").(Component),
+    })
+    return layout.View()
+})
+```
+
+---
+
 ## Summary
 
 The Automatic Reactive Bridge eliminates the manual bridge pattern between BubblyUI and Bubbletea by automatically generating commands from state changes. When `Ref.Set()` is called, a command is generated and queued, triggering the Bubbletea update cycle without manual `Emit()` calls. The system provides a `Wrap()` helper for single-line integration, maintains backward compatibility with manual patterns, and achieves Vue-like developer experience while respecting Bubbletea's message-passing architecture. Performance overhead is < 10ns per state change, and the implementation is production-ready with proper error handling and observability integration.
