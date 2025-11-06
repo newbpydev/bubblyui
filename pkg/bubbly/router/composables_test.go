@@ -3,8 +3,9 @@ package router
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestUseRouter_RouterAccessible tests that UseRouter returns the router instance.

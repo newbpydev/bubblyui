@@ -78,6 +78,36 @@ Implement automatic command generation from reactive state changes, eliminating 
 9.4. Debuggable command flow  
 9.5. IDE-friendly API  
 
+### 10. Declarative Key Binding System
+10.1. Register key bindings declaratively via builder  
+10.2. Map keys to component events automatically  
+10.3. Support key descriptions for auto-generated help text  
+10.4. Allow multiple keys to same event (aliases)  
+10.5. Support conditional key bindings (mode-based)  
+10.6. Handle special keys (ctrl+c for quit) automatically  
+10.7. Type-safe key binding registration  
+10.8. Compose and reuse key binding sets  
+
+### 11. Message Handler Hook (Escape Hatch)
+11.1. Optional message handler for complex cases  
+11.2. Handler receives component and message  
+11.3. Handler can emit events to component  
+11.4. Handler can return Bubbletea commands  
+11.5. Coexists with key binding system  
+11.6. Called before key binding lookup  
+11.7. Can handle custom message types  
+11.8. Type-safe handler signature  
+
+### 12. Auto-Initialization of Child Components
+12.1. `ctx.ExposeComponent()` automatically calls `.Init()` on child components  
+12.2. Eliminates manual initialization requirement for nested components  
+12.3. Reduces boilerplate in component composition  
+12.4. Prevents runtime panics from uninitialized child state  
+12.5. Maintains backward compatibility with manual `.Init()` calls  
+12.6. Idempotent initialization (calling `.Init()` twice is safe)  
+12.7. Clear error messages if component initialization fails  
+12.8. Type-safe component exposure API  
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -158,6 +188,13 @@ Implement automatic command generation from reactive state changes, eliminating 
 - [ ] Works with events
 - [ ] Works with composables
 - [ ] Works with directives
+
+### Auto-Initialization
+- [ ] `ctx.ExposeComponent()` auto-initializes children
+- [ ] Child components' Setup() runs automatically
+- [ ] No runtime panics from uninitialized state
+- [ ] Backward compatible with manual Init() calls
+- [ ] Clear error messages on init failures
 
 ## Dependencies
 
@@ -350,6 +387,9 @@ component := bubbly.NewComponent("Counter").
 - bubbly.Wrap() helper
 - Command batching semantics
 - Opt-out mechanisms
+- Key binding system API
+- Message handler hook API
+- Conditional key bindings
 
 ### Guides
 - Migration from manual to automatic
@@ -357,13 +397,20 @@ component := bubbly.NewComponent("Counter").
 - Debugging command flow
 - Performance optimization
 - Best practices
+- Declarative key bindings guide
+- When to use message handler
+- Mode-based input handling
 
 ### Examples
 - Zero-boilerplate counter
-- Automatic todo list
-- Form with validation
+- Automatic todo list with key bindings
+- Form with mode-based bindings
 - Real-time dashboard
-- Mixed manual/automatic
+- Mixed auto/manual patterns
+- Nested components with handlers
+- Tree-structured app (Vue-like)
+- Advanced conditional keys
+- Layout components integration
 
 ## Success Metrics
 

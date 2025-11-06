@@ -128,6 +128,20 @@ func (ctx RenderContext) RenderChild(child Component) string {
 	return child.View()
 }
 
+// Component returns the component instance for accessing component-level methods.
+// This allows templates to call methods like HelpText() for auto-generated help.
+//
+// Example:
+//
+//	Template(func(ctx RenderContext) string {
+//	    comp := ctx.Component()
+//	    helpText := comp.HelpText()
+//	    return fmt.Sprintf("%s\n\nHelp: %s", content, helpText)
+//	})
+func (ctx RenderContext) Component() Component {
+	return ctx.component
+}
+
 // RenderChildren efficiently renders multiple child components with a separator.
 // This method uses a pooled strings.Builder to minimize allocations and is
 // significantly more efficient than manual string concatenation when rendering

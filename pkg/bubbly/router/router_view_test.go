@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // mockComponent is a simple component for testing
@@ -43,6 +44,18 @@ func (m *mockComponent) Emit(event string, data interface{}) {
 }
 
 func (m *mockComponent) On(event string, handler bubbly.EventHandler) {
+}
+
+func (m *mockComponent) KeyBindings() map[string][]bubbly.KeyBinding {
+	return nil
+}
+
+func (m *mockComponent) HelpText() string {
+	return ""
+}
+
+func (m *mockComponent) IsInitialized() bool {
+	return true
 }
 
 // Ensure mockComponent implements bubbly.Component

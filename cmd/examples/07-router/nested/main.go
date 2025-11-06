@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/newbpydev/bubblyui/pkg/components"
@@ -21,7 +22,7 @@ type model struct {
 func main() {
 	// Create nested routes: Dashboard with child routes
 	var r *router.Router
-	
+
 	r, err := router.NewRouterBuilder().
 		RouteWithOptions("/",
 			router.WithName("home"),
@@ -254,7 +255,7 @@ func createDashboardLayoutFactory(routerPtr **router.Router) bubbly.Component {
 				childRouter := router.NewRouterView(*routerPtr, 1)
 				childContent = childRouter.View()
 			}
-			
+
 			if childContent == "" {
 				childContent = "No child route selected.\nNavigate to Stats, Settings, or Profile."
 			}

@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/newbpydev/bubblyui/pkg/components"
@@ -22,7 +23,7 @@ func main() {
 	// Create router with routes and components
 	// Note: We'll use a factory pattern for the user detail component
 	var r *router.Router
-	
+
 	r, err := router.NewRouterBuilder().
 		RouteWithOptions("/",
 			router.WithName("home"),
@@ -264,7 +265,7 @@ func createUserDetailComponentFactory(routerPtr **router.Router) bubbly.Componen
 					userID = route.Params["id"]
 				}
 			}
-			
+
 			if userID == "" {
 				userID = "[unknown]"
 			}

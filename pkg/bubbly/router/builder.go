@@ -259,7 +259,7 @@ func (rb *RouterBuilder) Build() (*Router, error) {
 			return nil, fmt.Errorf("failed to compile pattern for %s: %w", record.Path, err)
 		}
 		record.pattern = pattern
-		
+
 		// Add route record directly to registry (preserving Component field)
 		router.registry.mu.Lock()
 		router.registry.routes = append(router.registry.routes, record)

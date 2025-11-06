@@ -587,3 +587,200 @@ func TestComponentBuilder_BuildIntegration(t *testing.T) {
 		assert.True(t, setupCalled, "Setup should be called during Init")
 	})
 }
+
+// TestComponentBuilder_WithAutoCommands tests the WithAutoCommands builder method.
+func TestComponentBuilder_WithAutoCommands(t *testing.T) {
+	tests := []struct {
+		name          string
+		autoCommands  bool
+		wantEnabled   bool
+		wantQueueInit bool
+		wantGenInit   bool
+	}{
+		{
+			name:          "enables auto commands when true",
+			autoCommands:  true,
+			wantEnabled:   true,
+			wantQueueInit: true,
+			wantGenInit:   true,
+		},
+		{
+			name:          "disables auto commands when false",
+			autoCommands:  false,
+			wantEnabled:   false,
+			wantQueueInit: false,
+			wantGenInit:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange & Act
+			component, err := NewComponent("Test").
+				WithAutoCommands(tt.autoCommands).
+				Template(func(ctx RenderContext) string {
+					return "test"
+				}).
+				Build()
+
+			// Assert
+			require.NoError(t, err, "Build should succeed")
+			require.NotNil(t, component, "Component should not be nil")
+
+			// Type assert to access internal fields
+			impl, ok := component.(*componentImpl)
+			require.True(t, ok, "Component should be *componentImpl")
+
+			// Verify autoCommands flag
+			assert.Equal(t, tt.wantEnabled, impl.autoCommands, "autoCommands flag should match")
+
+			// Verify command queue initialization
+			if tt.wantQueueInit {
+				assert.NotNil(t, impl.commandQueue, "Command queue should be initialized when auto commands enabled")
+			} else {
+				assert.Nil(t, impl.commandQueue, "Command queue should be nil when auto commands disabled")
+			}
+
+			// Verify command generator initialization
+			if tt.wantGenInit {
+				assert.NotNil(t, impl.commandGen, "Command generator should be initialized when auto commands enabled")
+			} else {
+				assert.Nil(t, impl.commandGen, "Command generator should be nil when auto commands disabled")
+			}
+		})
+	}
+}
+
+// TestComponentBuilder_WithAutoCommands_FluentAPI tests fluent API chaining.
+func TestComponentBuilder_WithAutoCommands_FluentAPI(t *testing.T) {
+	t.Run("returns builder for method chaining", func(t *testing.T) {
+		// Arrange & Act
+		builder := NewComponent("Test").
+			WithAutoCommands(true).
+			Props("test props").
+			Setup(func(ctx *Context) {}).
+			Template(func(ctx RenderContext) string { return "test" })
+
+		// Assert
+		require.NotNil(t, builder, "Builder should not be nil")
+		component, err := builder.Build()
+		require.NoError(t, err)
+		require.NotNil(t, component)
+	})
+
+	t.Run("can be called in any order", func(t *testing.T) {
+		// Arrange & Act - call WithAutoCommands at different positions
+		component1, err1 := NewComponent("Test1").
+			WithAutoCommands(true).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		component2, err2 := NewComponent("Test2").
+			Template(func(ctx RenderContext) string { return "test" }).
+			WithAutoCommands(true).
+			Build()
+
+		component3, err3 := NewComponent("Test3").
+			Props("props").
+			WithAutoCommands(true).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert - all should succeed
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.NoError(t, err3)
+		require.NotNil(t, component1)
+		require.NotNil(t, component2)
+		require.NotNil(t, component3)
+
+		// All should have auto commands enabled
+		impl1 := component1.(*componentImpl)
+		impl2 := component2.(*componentImpl)
+		impl3 := component3.(*componentImpl)
+		assert.True(t, impl1.autoCommands)
+		assert.True(t, impl2.autoCommands)
+		assert.True(t, impl3.autoCommands)
+	})
+
+	t.Run("last call wins when called multiple times", func(t *testing.T) {
+		// Arrange & Act
+		component, err := NewComponent("Test").
+			WithAutoCommands(true).
+			WithAutoCommands(false).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+		assert.False(t, impl.autoCommands, "Last WithAutoCommands call should win")
+	})
+}
+
+// TestComponentBuilder_WithAutoCommands_DefaultBehavior tests default behavior without WithAutoCommands.
+func TestComponentBuilder_WithAutoCommands_DefaultBehavior(t *testing.T) {
+	t.Run("auto commands disabled by default", func(t *testing.T) {
+		// Arrange & Act - build without calling WithAutoCommands
+		component, err := NewComponent("Test").
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+		assert.False(t, impl.autoCommands, "Auto commands should be disabled by default")
+		assert.Nil(t, impl.commandQueue, "Command queue should be nil by default")
+		assert.Nil(t, impl.commandGen, "Command generator should be nil by default")
+	})
+}
+
+// TestComponentBuilder_WithAutoCommands_CommandInfrastructure tests command infrastructure initialization.
+func TestComponentBuilder_WithAutoCommands_CommandInfrastructure(t *testing.T) {
+	t.Run("initializes command queue when enabled", func(t *testing.T) {
+		// Arrange & Act
+		component, err := NewComponent("Test").
+			WithAutoCommands(true).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+		require.NotNil(t, impl.commandQueue, "Command queue should be initialized")
+
+		// Verify queue is functional
+		assert.Equal(t, 0, impl.commandQueue.Len(), "Queue should start empty")
+	})
+
+	t.Run("initializes default command generator when enabled", func(t *testing.T) {
+		// Arrange & Act
+		component, err := NewComponent("Test").
+			WithAutoCommands(true).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+		require.NotNil(t, impl.commandGen, "Command generator should be initialized")
+
+		// Verify generator is functional (generates non-nil command)
+		cmd := impl.commandGen.Generate("test-id", "ref-1", "old", "new")
+		assert.NotNil(t, cmd, "Generator should create non-nil command")
+	})
+
+	t.Run("does not initialize infrastructure when disabled", func(t *testing.T) {
+		// Arrange & Act
+		component, err := NewComponent("Test").
+			WithAutoCommands(false).
+			Template(func(ctx RenderContext) string { return "test" }).
+			Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+		assert.Nil(t, impl.commandQueue, "Command queue should not be initialized when disabled")
+		assert.Nil(t, impl.commandGen, "Command generator should not be initialized when disabled")
+	})
+}

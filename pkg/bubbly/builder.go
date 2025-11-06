@@ -64,6 +64,14 @@ type ComponentBuilder struct {
 	// errors tracks validation errors encountered during configuration.
 	// Errors are accumulated and checked in Build().
 	errors []error
+
+	// autoCommands indicates whether automatic command generation is enabled.
+	// When true, Build() will initialize the command queue and generator.
+	autoCommands bool
+
+	// debugCommands indicates whether command debug logging is enabled.
+	// When true, Build() will initialize a command logger.
+	debugCommands bool
 }
 
 // NewComponent creates a new ComponentBuilder for building a component.
@@ -228,6 +236,302 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 	return b
 }
 
+// WithAutoCommands enables or disables automatic command generation for the component.
+// When enabled, the component will automatically generate Bubbletea commands when
+// reactive state changes (via Ref.Set()), eliminating the need for manual Emit() calls.
+//
+// Automatic command generation provides a Vue-like developer experience where state
+// changes trigger UI updates automatically. The component's Build() method will
+// initialize the command queue and default command generator when this is enabled.
+//
+// Example with automatic commands:
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(true).
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	            // UI updates automatically - no manual Emit() needed!
+//	        })
+//	    }).
+//	    Template(func(ctx RenderContext) string {
+//	        return fmt.Sprintf("Count: %d", ctx.Get("count"))
+//	    }).
+//	    Build()
+//
+// Example with manual control (default):
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(false).  // or omit this line
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	            ctx.Emit("update", nil)  // Manual emit required
+//	        })
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - enabled: true to enable automatic commands, false to disable (default: false)
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithAutoCommands(enabled bool) *ComponentBuilder {
+	b.autoCommands = enabled
+	return b
+}
+
+// WithCommandDebug enables or disables debug logging for command generation.
+//
+// When enabled, all command generation events are logged with detailed information:
+//   - Component name and ID
+//   - Ref ID
+//   - Old and new values
+//   - Timestamp
+//
+// This is extremely useful for:
+//   - Understanding reactive update flow
+//   - Debugging infinite loop issues
+//   - Troubleshooting unexpected UI updates
+//   - Performance profiling
+//
+// When disabled (default), there is zero overhead (no logging calls, no allocations).
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithAutoCommands(true).
+//	    WithCommandDebug(true). // Enable debug logging
+//	    Setup(...).Build()
+//
+//	// Logs will show:
+//	// [DEBUG] Command Generated | Component: Counter (component-1) | Ref: ref-5 | 0 → 1
+func (b *ComponentBuilder) WithCommandDebug(enabled bool) *ComponentBuilder {
+	b.debugCommands = enabled
+	return b
+}
+
+// WithKeyBinding registers a simple key-to-event binding.
+// This is a convenience method for the most common case: mapping a key to an event
+// with a description for help text generation.
+//
+// The binding will always be active (no condition). For conditional bindings,
+// use WithConditionalKeyBinding instead.
+//
+// Multiple bindings can be registered for the same key. When a key is pressed,
+// the first matching binding (based on condition evaluation) will be used.
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBinding("space", "increment", "Increment counter").
+//	    WithKeyBinding("ctrl+c", "quit", "Quit application").
+//	    WithKeyBinding("up", "selectPrevious", "Previous item").
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	        })
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - key: The keyboard key (e.g., "space", "ctrl+c", "up")
+//   - event: The event name to emit when key is pressed
+//   - description: Human-readable description for help text
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithKeyBinding(key, event, description string) *ComponentBuilder {
+	binding := KeyBinding{
+		Key:         key,
+		Event:       event,
+		Description: description,
+	}
+	return b.WithConditionalKeyBinding(binding)
+}
+
+// WithConditionalKeyBinding registers a key binding with optional condition and data.
+// This is the full-featured method that supports all KeyBinding fields including
+// conditional activation and custom data.
+//
+// Use this method when you need:
+//   - Mode-based input (different behavior based on application state)
+//   - Same key doing different things in different modes
+//   - Passing custom data to event handlers
+//
+// Example with mode-based input:
+//
+//	inputMode := false
+//	component := NewComponent("Form").
+//	    WithConditionalKeyBinding(KeyBinding{
+//	        Key:         "space",
+//	        Event:       "toggle",
+//	        Description: "Toggle in navigation mode",
+//	        Condition:   func() bool { return !inputMode },
+//	    }).
+//	    WithConditionalKeyBinding(KeyBinding{
+//	        Key:         "space",
+//	        Event:       "addChar",
+//	        Description: "Add space in input mode",
+//	        Data:        " ",
+//	        Condition:   func() bool { return inputMode },
+//	    }).
+//	    Build()
+//
+// Parameters:
+//   - binding: The KeyBinding configuration
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithConditionalKeyBinding(binding KeyBinding) *ComponentBuilder {
+	// Initialize keyBindings map in component if needed
+	if b.component.keyBindings == nil {
+		b.component.keyBindings = make(map[string][]KeyBinding)
+	}
+
+	// Append binding to the list for this key
+	// Multiple bindings per key are allowed (e.g., mode-based)
+	b.component.keyBindings[binding.Key] = append(
+		b.component.keyBindings[binding.Key],
+		binding,
+	)
+
+	return b
+}
+
+// WithKeyBindings registers multiple key bindings at once.
+// This is a convenience method for batch registration when you have
+// a predefined set of key bindings.
+//
+// The map keys are the keyboard keys, and the values are KeyBinding structs.
+// Note that the KeyBinding.Key field should match the map key.
+//
+// Example:
+//
+//	bindings := map[string]KeyBinding{
+//	    "space": {
+//	        Key:         "space",
+//	        Event:       "increment",
+//	        Description: "Increment counter",
+//	    },
+//	    "ctrl+c": {
+//	        Key:         "ctrl+c",
+//	        Event:       "quit",
+//	        Description: "Quit application",
+//	    },
+//	    "up": {
+//	        Key:         "up",
+//	        Event:       "selectPrevious",
+//	        Description: "Previous item",
+//	    },
+//	}
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBindings(bindings).
+//	    Build()
+//
+// Parameters:
+//   - bindings: Map of key to KeyBinding
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithKeyBindings(bindings map[string]KeyBinding) *ComponentBuilder {
+	// Initialize keyBindings map even if bindings is nil
+	// This ensures the map is always initialized for consistency
+	if b.component.keyBindings == nil {
+		b.component.keyBindings = make(map[string][]KeyBinding)
+	}
+
+	if bindings == nil {
+		return b
+	}
+
+	for _, binding := range bindings {
+		b.WithConditionalKeyBinding(binding)
+	}
+
+	return b
+}
+
+// WithMessageHandler registers a custom message handler for complex message processing.
+// The message handler provides an escape hatch for scenarios that declarative key bindings
+// cannot handle, such as:
+//   - Custom Bubbletea message types (e.g., data updates, timers)
+//   - Window resize events (tea.WindowSizeMsg)
+//   - Mouse events (tea.MouseMsg)
+//   - Complex conditional logic
+//   - Dynamic message routing
+//
+// The handler is called BEFORE key binding processing in the component's Update() method,
+// allowing it to intercept and handle any message type. Commands returned by the handler
+// are automatically batched with other commands from key bindings and state changes.
+//
+// Handler characteristics:
+//   - Receives the component and raw Bubbletea message
+//   - Can emit events to the component via comp.Emit()
+//   - Can return a tea.Cmd (or nil for no command)
+//   - Coexists with key bindings (both can be used together)
+//   - Called on every Update() cycle before other processing
+//
+// Example with custom messages and window resize:
+//
+//	type DataUpdateMsg struct {
+//	    Data []Item
+//	}
+//
+//	component := NewComponent("Dashboard").
+//	    WithAutoCommands(true).
+//	    WithKeyBinding("r", "refresh", "Refresh data").
+//	    WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+//	        switch msg := msg.(type) {
+//	        case DataUpdateMsg:
+//	            // Handle custom data update message
+//	            comp.Emit("dataReceived", msg.Data)
+//	            return nil
+//
+//	        case tea.WindowSizeMsg:
+//	            // Handle window resize
+//	            comp.Emit("resize", map[string]int{
+//	                "width":  msg.Width,
+//	                "height": msg.Height,
+//	            })
+//	            return nil
+//
+//	        case tea.MouseMsg:
+//	            // Handle mouse click
+//	            if msg.Type == tea.MouseLeft {
+//	                comp.Emit("click", msg)
+//	            }
+//	            return nil
+//	        }
+//	        return nil // Let other processing continue
+//	    }).
+//	    Setup(func(ctx *Context) {
+//	        // Handle semantic events from both key bindings and message handler
+//	        ctx.On("dataReceived", func(data interface{}) {
+//	            // Update state...
+//	        })
+//	    }).
+//	    Build()
+//
+// When to use:
+//   - Use key bindings for simple key-to-event mapping (covers 90% of cases)
+//   - Use message handler for complex message types or dynamic routing
+//   - Both can coexist: key bindings for keyboard, handler for everything else
+//
+// Parameters:
+//   - handler: The MessageHandler function
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithMessageHandler(handler MessageHandler) *ComponentBuilder {
+	b.component.messageHandler = handler
+	return b
+}
+
 // Build validates the component configuration and returns the final Component.
 // This is the terminal method in the builder chain that performs validation
 // and creates the component instance.
@@ -238,6 +542,11 @@ func (b *ComponentBuilder) Children(children ...Component) *ComponentBuilder {
 //
 // If validation fails, Build returns nil and an error describing what's wrong.
 // If validation succeeds, Build returns the configured Component ready for use.
+//
+// When WithAutoCommands(true) was called, Build will also:
+//   - Initialize the command queue for pending commands
+//   - Set up the default command generator
+//   - Enable automatic command generation for reactive state changes
 //
 // Example:
 //
@@ -272,6 +581,23 @@ func (b *ComponentBuilder) Build() (Component, error) {
 			ComponentName: b.component.name,
 			Errors:        b.errors,
 		}
+	}
+
+	// Initialize command infrastructure if automatic commands enabled
+	if b.autoCommands {
+		b.component.autoCommands = true
+		b.component.commandQueue = NewCommandQueue()
+		b.component.commandGen = &defaultCommandGenerator{}
+	}
+
+	// Initialize command debug logger if debugging enabled
+	if b.debugCommands {
+		// Use stdout for debug logging
+		// Users can redirect stdout or set custom logger via component field
+		b.component.commandLogger = newCommandLogger(nil) // nil uses os.Stdout via log package default
+	} else {
+		// Use no-op logger for zero overhead
+		b.component.commandLogger = newNopCommandLogger()
 	}
 
 	// Return the component (implements Component interface)

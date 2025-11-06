@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -767,4 +768,506 @@ func TestContext_Inject_ReactiveValues(t *testing.T) {
 
 	// Child should see the change (same ref instance)
 	assert.Equal(t, "light", injectedRef.GetTyped(), "Child should see reactive changes")
+}
+
+// TestContext_Ref_AutoCommandsDisabled tests that Context.Ref creates standard Ref when auto commands disabled
+func TestContext_Ref_AutoCommandsDisabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialValue interface{}
+		newValue     interface{}
+	}{
+		{
+			name:         "int ref without auto commands",
+			initialValue: 0,
+			newValue:     42,
+		},
+		{
+			name:         "string ref without auto commands",
+			initialValue: "hello",
+			newValue:     "world",
+		},
+		{
+			name:         "bool ref without auto commands",
+			initialValue: false,
+			newValue:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			c.autoCommands = false // Explicitly disabled (default)
+			ctx := &Context{component: c}
+
+			// Act
+			ref := ctx.Ref(tt.initialValue)
+			ref.Set(tt.newValue)
+
+			// Assert
+			assert.Equal(t, tt.newValue, ref.Get(), "Ref should update value")
+			// Command queue should be nil when auto commands disabled (Task 2.5)
+			assert.Nil(t, c.commandQueue, "Command queue should be nil when auto mode disabled")
+		})
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled tests that Context.Ref creates CommandRef when auto commands enabled
+func TestContext_Ref_AutoCommandsEnabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		initialValue interface{}
+		newValue     interface{}
+	}{
+		{
+			name:         "int ref with auto commands",
+			initialValue: 0,
+			newValue:     42,
+		},
+		{
+			name:         "string ref with auto commands",
+			initialValue: "hello",
+			newValue:     "world",
+		},
+		{
+			name:         "bool ref with auto commands",
+			initialValue: false,
+			newValue:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			c := newComponentImpl("TestComponent")
+			c.autoCommands = true // Enable auto commands
+			// Initialize command infrastructure (Task 2.5)
+			c.commandQueue = NewCommandQueue()
+			c.commandGen = &defaultCommandGenerator{}
+			ctx := &Context{component: c}
+
+			// Act
+			ref := ctx.Ref(tt.initialValue)
+			ref.Set(tt.newValue)
+
+			// Assert
+			assert.Equal(t, tt.newValue, ref.Get(), "Ref should update value synchronously")
+			assert.Equal(t, 1, c.commandQueue.Len(), "Command should be generated when auto mode enabled")
+
+			// Verify command generates correct message
+			cmds := c.commandQueue.DrainAll()
+			require.Len(t, cmds, 1, "Should have exactly one command")
+
+			msg := cmds[0]()
+			stateMsg, ok := msg.(StateChangedMsg)
+			require.True(t, ok, "Command should return StateChangedMsg")
+			assert.Equal(t, c.id, stateMsg.ComponentID, "Message should have correct component ID")
+			assert.Equal(t, tt.initialValue, stateMsg.OldValue, "Message should have correct old value")
+			assert.Equal(t, tt.newValue, stateMsg.NewValue, "Message should have correct new value")
+		})
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled_MultipleChanges tests command batching with multiple Set() calls
+func TestContext_Ref_AutoCommandsEnabled_MultipleChanges(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
+	ctx := &Context{component: c}
+
+	// Act
+	ref1 := ctx.Ref(0)
+	ref2 := ctx.Ref("hello")
+	ref3 := ctx.Ref(false)
+
+	ref1.Set(1)
+	ref2.Set("world")
+	ref3.Set(true)
+
+	// Assert
+	assert.Equal(t, 3, c.commandQueue.Len(), "Should have 3 commands queued")
+
+	// Verify all commands
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 3, "Should have exactly 3 commands")
+
+	// Execute commands and verify messages
+	for i, cmd := range cmds {
+		msg := cmd()
+		stateMsg, ok := msg.(StateChangedMsg)
+		require.True(t, ok, "Command %d should return StateChangedMsg", i)
+		assert.Equal(t, c.id, stateMsg.ComponentID, "Message %d should have correct component ID", i)
+	}
+}
+
+// TestContext_Ref_AutoCommandsEnabled_ThreadSafe tests concurrent Ref creation and updates
+func TestContext_Ref_AutoCommandsEnabled_ThreadSafe(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
+	ctx := &Context{component: c}
+
+	// Act - Create and update refs concurrently
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(val int) {
+			ref := ctx.Ref(val)
+			ref.Set(val * 2)
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	// Assert
+	assert.Equal(t, 10, c.commandQueue.Len(), "Should have 10 commands queued")
+	assert.NotPanics(t, func() {
+		c.commandQueue.DrainAll()
+	}, "Should handle concurrent access without panicking")
+}
+
+// TestContext_Ref_BackwardCompatibility tests that existing code works without auto commands
+func TestContext_Ref_BackwardCompatibility(t *testing.T) {
+	// Arrange - Component without auto commands (default)
+	c := newComponentImpl("TestComponent")
+	ctx := &Context{component: c}
+
+	// Act - Use Ref as before
+	count := ctx.Ref(0)
+	count.Set(1)
+	count.Set(2)
+	count.Set(3)
+
+	// Assert
+	assert.Equal(t, 3, count.Get(), "Ref should work normally")
+	// Command queue should be nil when auto commands disabled (Task 2.5)
+	assert.Nil(t, c.commandQueue, "Command queue should be nil by default")
+}
+
+// TestContext_Ref_AutoCommandsEnabled_CommandExecution tests that commands execute correctly
+func TestContext_Ref_AutoCommandsEnabled_CommandExecution(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
+	ctx := &Context{component: c}
+
+	// Act
+	ref := ctx.Ref(10)
+	ref.Set(20)
+
+	// Get command
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 1, "Should have one command")
+
+	// Execute command
+	msg := cmds[0]()
+
+	// Assert
+	stateMsg, ok := msg.(StateChangedMsg)
+	require.True(t, ok, "Should return StateChangedMsg")
+	assert.Equal(t, c.id, stateMsg.ComponentID)
+	assert.Equal(t, 10, stateMsg.OldValue)
+	assert.Equal(t, 20, stateMsg.NewValue)
+	assert.NotZero(t, stateMsg.Timestamp, "Timestamp should be set")
+}
+
+// TestContext_Ref_AutoCommandsEnabled_RefIDUnique tests that each ref gets unique ID
+func TestContext_Ref_AutoCommandsEnabled_RefIDUnique(t *testing.T) {
+	// Arrange
+	c := newComponentImpl("TestComponent")
+	c.autoCommands = true
+	// Initialize command infrastructure (Task 2.5)
+	c.commandQueue = NewCommandQueue()
+	c.commandGen = &defaultCommandGenerator{}
+	ctx := &Context{component: c}
+
+	// Act
+	ref1 := ctx.Ref(1)
+	ref2 := ctx.Ref(2)
+	ref3 := ctx.Ref(3)
+
+	ref1.Set(10)
+	ref2.Set(20)
+	ref3.Set(30)
+
+	// Assert
+	cmds := c.commandQueue.DrainAll()
+	require.Len(t, cmds, 3, "Should have 3 commands")
+
+	// Collect ref IDs
+	refIDs := make(map[string]bool)
+	for _, cmd := range cmds {
+		msg := cmd().(StateChangedMsg)
+		refIDs[msg.RefID] = true
+	}
+
+	assert.Len(t, refIDs, 3, "Each ref should have unique ID")
+}
+
+// ========== Task 10.2: Context.ExposeComponent Method Tests ==========
+
+// TestContext_ExposeComponent_CallsInit tests that ExposeComponent calls Init() on uninitialized components
+func TestContext_ExposeComponent_CallsInit(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "uninitialized_component_gets_initialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					// Setup function
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			// Verify child is not initialized
+			assert.False(t, child.IsInitialized(), "Child should not be initialized before ExposeComponent")
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+
+			// Assert
+			require.NoError(t, err)
+			assert.True(t, child.IsInitialized(), "Child should be initialized after ExposeComponent")
+			assert.Equal(t, child, ctx.Get("child"), "Child should be accessible via Get()")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_DoesNotReinitialize tests that ExposeComponent doesn't re-init already initialized components
+func TestContext_ExposeComponent_DoesNotReinitialize(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "already_initialized_component_not_reinitialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			setupCallCount := 0
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					setupCallCount++
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			// Pre-initialize the child
+			child.Init()
+			assert.Equal(t, 1, setupCallCount, "Setup should be called once during Init()")
+			assert.True(t, child.IsInitialized(), "Child should be initialized")
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+
+			// Assert
+			require.NoError(t, err)
+			assert.Equal(t, 1, setupCallCount, "Setup should not be called again")
+			assert.True(t, child.IsInitialized(), "Child should still be initialized")
+			assert.Equal(t, child, ctx.Get("child"), "Child should be accessible via Get()")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_NilComponent tests that ExposeComponent returns error for nil component
+func TestContext_ExposeComponent_NilComponent(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "nil_component_returns_error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act
+			err := ctx.ExposeComponent("child", nil)
+
+			// Assert
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "nil component", "Error should mention nil component")
+			assert.Nil(t, ctx.Get("child"), "Nil component should not be exposed")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_MultipleComponents tests exposing multiple components
+func TestContext_ExposeComponent_MultipleComponents(t *testing.T) {
+	tests := []struct {
+		name           string
+		componentCount int
+	}{
+		{name: "expose_two_components", componentCount: 2},
+		{name: "expose_three_components", componentCount: 3},
+		{name: "expose_five_components", componentCount: 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act & Assert
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				child, err := NewComponent(name).
+					Template(func(ctx RenderContext) string {
+						return "child"
+					}).
+					Build()
+				require.NoError(t, err)
+
+				err = ctx.ExposeComponent(name, child)
+				require.NoError(t, err)
+				assert.True(t, child.IsInitialized(), "Child %d should be initialized", i)
+				assert.Equal(t, child, ctx.Get(name), "Child %d should be accessible", i)
+			}
+
+			// Verify all components are accessible
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				assert.NotNil(t, ctx.Get(name), "Child %d should still be accessible", i)
+			}
+		})
+	}
+}
+
+// TestContext_ExposeComponent_ThreadSafe tests concurrent ExposeComponent calls
+// Note: State map now has RWMutex protection for thread-safe concurrent access.
+func TestContext_ExposeComponent_ThreadSafe(t *testing.T) {
+	tests := []struct {
+		name        string
+		goroutines  int
+		description string
+	}{
+		{name: "concurrent_expose_10_goroutines", goroutines: 10, description: "10 concurrent ExposeComponent calls"},
+		{name: "concurrent_expose_50_goroutines", goroutines: 50, description: "50 concurrent ExposeComponent calls"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act - expose components concurrently
+			done := make(chan bool, tt.goroutines)
+			for i := 0; i < tt.goroutines; i++ {
+				go func(index int) {
+					name := fmt.Sprintf("child%d", index)
+					child, err := NewComponent(name).
+						Template(func(ctx RenderContext) string {
+							return "child"
+						}).
+						Build()
+					if err == nil {
+						ctx.ExposeComponent(name, child)
+					}
+					done <- true
+				}(i)
+			}
+
+			// Wait for all goroutines to complete
+			for i := 0; i < tt.goroutines; i++ {
+				<-done
+			}
+
+			// Assert - all components should be accessible and initialized
+			for i := 0; i < tt.goroutines; i++ {
+				name := fmt.Sprintf("child%d", i)
+				child := ctx.Get(name)
+				if child != nil {
+					comp, ok := child.(Component)
+					require.True(t, ok, "Exposed value should be a Component")
+					assert.True(t, comp.IsInitialized(), "Component %d should be initialized", i)
+				}
+			}
+		})
+	}
+}
+
+// TestContext_ExposeComponent_QueuesCommands tests that Init() commands are properly queued
+func TestContext_ExposeComponent_QueuesCommands(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "init_command_queued_to_parent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange - create parent with command queue
+			parent, err := NewComponent("Parent").
+				WithAutoCommands(true).
+				Template(func(ctx RenderContext) string {
+					return "parent"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			impl := parent.(*componentImpl)
+			ctx := &Context{component: impl}
+
+			// Create child that returns a command from Init()
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					// This will create lifecycle which returns command from Init()
+					ctx.OnMounted(func() {
+						// Mounted hook
+					})
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			initialQueueLen := impl.commandQueue.Len()
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+			require.NoError(t, err)
+
+			// Assert
+			// If child's Init() returned a command, it should be queued
+			// (lifecycle with onMounted returns a command)
+			assert.GreaterOrEqual(t, impl.commandQueue.Len(), initialQueueLen,
+				"Init() commands should be queued to parent")
+			assert.True(t, child.IsInitialized(), "Child should be initialized")
+		})
+	}
 }

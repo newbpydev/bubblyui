@@ -1,0 +1,172 @@
+package commands
+
+import (
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// CoalescingStrategy determines how multiple commands are batched together.
+//
+// Different strategies optimize for different use cases:
+//   - CoalesceAll: Batch all commands into a single command (default)
+//   - CoalesceByType: Group commands by message type before batching (future)
+//   - NoCoalesce: Execute all commands individually via tea.Batch
+//
+// Example:
+//
+//	batcher := NewCommandBatcher(CoalesceAll)
+//	batchedCmd := batcher.Batch([]tea.Cmd{cmd1, cmd2, cmd3})
+type CoalescingStrategy int
+
+const (
+	// CoalesceAll batches all commands into a single command that executes them all.
+	// This is the most aggressive batching strategy and produces the fewest commands.
+	CoalesceAll CoalescingStrategy = iota
+
+	// CoalesceByType groups commands by their message type before batching.
+	// Commands that produce the same message type are batched together.
+	// This strategy will be implemented in Task 3.2.
+	CoalesceByType
+
+	// NoCoalesce executes all commands individually using tea.Batch.
+	// This preserves the original command behavior with minimal overhead.
+	NoCoalesce
+)
+
+// String returns the string representation of the CoalescingStrategy.
+func (cs CoalescingStrategy) String() string {
+	switch cs {
+	case CoalesceAll:
+		return "CoalesceAll"
+	case CoalesceByType:
+		return "CoalesceByType"
+	case NoCoalesce:
+		return "NoCoalesce"
+	default:
+		return "Unknown"
+	}
+}
+
+// CommandBatcher batches multiple Bubbletea commands into a single command.
+//
+// The batcher uses a CoalescingStrategy to determine how to combine commands.
+// This optimization reduces the number of Update() cycles and improves
+// performance when many state changes occur in a single tick.
+//
+// Deduplication can be enabled to remove redundant commands (e.g., multiple
+// updates to the same ref, keeping only the last one).
+//
+// Thread Safety:
+//
+// CommandBatcher is not thread-safe. Create separate instances for concurrent use.
+//
+// Example:
+//
+//	batcher := NewCommandBatcher(CoalesceAll)
+//	batcher.EnableDeduplication() // Optional: remove duplicate commands
+//	commands := []tea.Cmd{cmd1, cmd2, cmd3}
+//	batchedCmd := batcher.Batch(commands)
+//
+//	// In component Update():
+//	return model, batchedCmd
+type CommandBatcher struct {
+	strategy           CoalescingStrategy
+	deduplicateEnabled bool // Enable command deduplication
+}
+
+// NewCommandBatcher creates a new CommandBatcher with the specified strategy.
+//
+// Example:
+//
+//	batcher := NewCommandBatcher(CoalesceAll)
+func NewCommandBatcher(strategy CoalescingStrategy) *CommandBatcher {
+	return &CommandBatcher{
+		strategy:           strategy,
+		deduplicateEnabled: false, // Disabled by default
+	}
+}
+
+// EnableDeduplication enables command deduplication for this batcher.
+//
+// When enabled, duplicate commands (e.g., multiple state changes to the same
+// ref) are removed before batching, keeping only the last occurrence.
+//
+// Example:
+//
+//	batcher := NewCommandBatcher(CoalesceAll)
+//	batcher.EnableDeduplication()
+func (cb *CommandBatcher) EnableDeduplication() {
+	cb.deduplicateEnabled = true
+}
+
+// DisableDeduplication disables command deduplication for this batcher.
+//
+// Example:
+//
+//	batcher.DisableDeduplication()
+func (cb *CommandBatcher) DisableDeduplication() {
+	cb.deduplicateEnabled = false
+}
+
+// Batch combines multiple commands into a single command using the configured strategy.
+//
+// Returns nil if the input is empty or contains only nil commands.
+// Returns a single command as-is without wrapping.
+// Returns a batched command for multiple commands.
+//
+// Nil commands in the input are filtered out before batching.
+// If deduplication is enabled, duplicate commands are removed before batching.
+//
+// Example:
+//
+//	batchedCmd := batcher.Batch([]tea.Cmd{cmd1, cmd2, cmd3})
+//	if batchedCmd != nil {
+//	    return model, batchedCmd
+//	}
+func (cb *CommandBatcher) Batch(commands []tea.Cmd) tea.Cmd {
+	// Filter out nil commands
+	filtered := make([]tea.Cmd, 0, len(commands))
+	for _, cmd := range commands {
+		if cmd != nil {
+			filtered = append(filtered, cmd)
+		}
+	}
+
+	// Handle edge cases
+	if len(filtered) == 0 {
+		return nil
+	}
+
+	if len(filtered) == 1 {
+		return filtered[0]
+	}
+
+	// Deduplicate if enabled (Task 3.3)
+	if cb.deduplicateEnabled {
+		filtered = cb.deduplicateCommands(filtered)
+
+		// After deduplication, check edge cases again
+		if len(filtered) == 0 {
+			return nil
+		}
+		if len(filtered) == 1 {
+			return filtered[0]
+		}
+	}
+
+	// Batch commands based on strategy
+	// Task 3.2: Strategy methods implemented in strategies.go
+	switch cb.strategy {
+	case CoalesceAll:
+		// Execute all commands immediately and return batch message
+		return cb.batchAll(filtered)
+	case CoalesceByType:
+		// Group by type before batching (placeholder for now)
+		return cb.batchByType(filtered)
+	case NoCoalesce:
+		// Execute all commands individually via tea.Batch
+		return cb.noCoalesce(filtered)
+	default:
+		// Unknown strategy, use safe default (no coalescing)
+		return cb.noCoalesce(filtered)
+	}
+}
