@@ -13,7 +13,7 @@
 
 ## Phase 1: Core Infrastructure (5 tasks, 15 hours)
 
-### Task 1.1: DevTools Manager
+### Task 1.1: DevTools Manager ✅ COMPLETED
 **Description**: Main dev tools singleton and lifecycle management
 
 **Prerequisites**: None
@@ -43,13 +43,26 @@ func IsEnabled() bool
 ```
 
 **Tests**:
-- [ ] Enable/disable works
-- [ ] Toggle visibility
-- [ ] Singleton pattern
-- [ ] Thread-safe access
-- [ ] Lifecycle management
+- [x] Enable/disable works
+- [x] Toggle visibility
+- [x] Singleton pattern
+- [x] Thread-safe access
+- [x] Lifecycle management
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented singleton pattern using `sync.Once` for thread-safe initialization
+- ✅ Package-level functions (Enable, Disable, Toggle, IsEnabled) operate on global singleton
+- ✅ Instance methods (SetVisible, IsVisible, ToggleVisibility) for UI control
+- ✅ All methods use `sync.RWMutex` for thread-safe concurrent access
+- ✅ 100% test coverage with 9 tests including concurrent access tests
+- ✅ All tests pass with race detector
+- ✅ Zero lint warnings
+- ✅ Comprehensive godoc comments on all exported types and functions
+- ✅ Follows existing BubblyUI patterns (similar to observability/reporter.go)
+- ✅ Placeholder comments for collector, store, ui, config (implemented in Tasks 1.2-1.5)
+- ✅ Actual time: ~2 hours (under estimate)
 
 ---
 
