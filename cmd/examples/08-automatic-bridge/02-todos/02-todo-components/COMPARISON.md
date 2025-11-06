@@ -79,10 +79,9 @@ TodoApp (parent)
 - ✅ Clear separation of concerns
 - ✅ Easier testing (isolated components)
 - ✅ Scales to large apps
+- ✅ **NEW**: Auto-initialization with `ExposeComponent()` (33% less boilerplate)
 
 **Cons:**
-- ❌ More boilerplate
-- ❌ Manual child initialization required
 - ❌ More files to manage
 - ❌ Learning curve for patterns
 
@@ -596,6 +595,70 @@ bubbly.RegisterComponent("TodoList", CreateTodoList)
 // Use anywhere
 form := ctx.Component("TodoForm", props)
 ```
+
+---
+
+## 🆕 Auto-Initialization Improvement (ExposeComponent)
+
+### Before (Manual Initialization)
+```go
+// Create child components
+todoForm, _ := components.CreateTodoForm(props)
+todoList, _ := components.CreateTodoList(props)
+todoStats, _ := components.CreateTodoStats(props)
+
+// Manual initialization required (CRITICAL: Setup() runs during Init())
+todoForm.Init()
+todoList.Init()
+todoStats.Init()
+
+// Expose components
+ctx.Expose("todoForm", todoForm)
+ctx.Expose("todoList", todoList)
+ctx.Expose("todoStats", todoStats)
+```
+
+**Issues:**
+- ❌ Easy to forget `.Init()` calls → runtime panics
+- ❌ Boilerplate (6 extra lines for 3 components)
+- ❌ Not idempotent - calling Init() twice could cause issues
+- ❌ Commands from Init() not queued to parent
+
+### After (Auto-Initialization)
+```go
+// Create child components
+todoForm, _ := components.CreateTodoForm(props)
+todoList, _ := components.CreateTodoList(props)
+todoStats, _ := components.CreateTodoStats(props)
+
+// Auto-initialize and expose child components
+// ExposeComponent automatically calls Init() if not already initialized
+ctx.ExposeComponent("todoForm", todoForm)
+ctx.ExposeComponent("todoList", todoList)
+ctx.ExposeComponent("todoStats", todoStats)
+```
+
+**Benefits:**
+- ✅ **33% fewer lines** (3 lines removed for 3 components)
+- ✅ **Prevents runtime panics** from uninitialized components
+- ✅ **Idempotent** - safe to call multiple times
+- ✅ **Thread-safe** - concurrent access protected with RWMutex
+- ✅ **Commands queued** - Init() commands automatically queued to parent
+- ✅ **Zero overhead** - only calls Init() if not already initialized
+
+### Migration Path
+
+**Step 1**: Replace manual Init() + Expose() with ExposeComponent()
+```diff
+- todoForm.Init()
+- ctx.Expose("todoForm", todoForm)
++ ctx.ExposeComponent("todoForm", todoForm)
+```
+
+**Step 2**: No other changes needed!
+- All functionality remains identical
+- Backward compatible (can mix and match)
+- No performance impact
 
 ---
 

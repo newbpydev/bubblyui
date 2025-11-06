@@ -147,15 +147,11 @@ func createTodoApp() (bubbly.Component, error) {
 			return
 		}
 
-		// Initialize child components (CRITICAL: Setup() runs during Init())
-		todoForm.Init()
-		todoList.Init()
-		todoStats.Init()
-
-		// Expose components and state
-		ctx.Expose("todoForm", todoForm)
-		ctx.Expose("todoList", todoList)
-		ctx.Expose("todoStats", todoStats)
+		// Auto-initialize and expose child components
+		// ExposeComponent automatically calls Init() if not already initialized
+		ctx.ExposeComponent("todoForm", todoForm)
+		ctx.ExposeComponent("todoList", todoList)
+		ctx.ExposeComponent("todoStats", todoStats)
 		ctx.Expose("inputMode", inputMode)
 		ctx.Expose("editMode", editMode)
 

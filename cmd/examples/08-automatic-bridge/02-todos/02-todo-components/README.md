@@ -90,6 +90,31 @@ todoList, err := components.CreateTodoList(components.TodoListProps{
         // Handle toggle
     },
 })
+
+// Auto-initialize and expose child components
+// ExposeComponent automatically calls Init() if not already initialized
+ctx.ExposeComponent("todoForm", todoForm)
+ctx.ExposeComponent("todoList", todoList)
+```
+
+#### 6. **Auto-Initialization** (BubblyUI improvement)
+```go
+// Before (manual initialization required):
+todoForm.Init()
+todoList.Init()
+ctx.Expose("todoForm", todoForm)
+ctx.Expose("todoList", todoList)
+
+// After (automatic initialization):
+ctx.ExposeComponent("todoForm", todoForm)  // Auto-inits + exposes
+ctx.ExposeComponent("todoList", todoList)  // Auto-inits + exposes
+
+// Benefits:
+// ✅ 33% less boilerplate code
+// ✅ Prevents runtime panics from uninitialized components
+// ✅ Idempotent - safe to call multiple times
+// ✅ Thread-safe concurrent access
+// ✅ Automatically queues Init() commands to parent
 ```
 
 ## Component Breakdown
