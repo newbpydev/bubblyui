@@ -255,11 +255,13 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 	return cleanup
 }
 
-// Expose stores a value in the component's state map, making it accessible
-// in the template function via RenderContext.GetTyped().
+// Expose adds a value to the component's state map, making it accessible
+// in the template function and other parts of the component.
 //
 // This is the primary way to share state between the setup function
 // and the template function.
+//
+// This method is thread-safe and can be called concurrently.
 //
 // Example:
 //
@@ -267,6 +269,9 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 //	ctx.Expose("count", count)
 //	// Later in template: count := ctx.Get("count").(*Ref[int])
 func (ctx *Context) Expose(key string, value interface{}) {
+	ctx.component.stateMu.Lock()
+	defer ctx.component.stateMu.Unlock()
+
 	if ctx.component.state == nil {
 		ctx.component.state = make(map[string]interface{})
 	}
@@ -279,6 +284,8 @@ func (ctx *Context) Expose(key string, value interface{}) {
 // This is typically used in the setup function to access previously
 // exposed values, though it's more commonly used in templates.
 //
+// This method is thread-safe and can be called concurrently.
+//
 // Example:
 //
 //	value := ctx.Get("count")
@@ -286,6 +293,9 @@ func (ctx *Context) Expose(key string, value interface{}) {
 //	    // Use the ref
 //	}
 func (ctx *Context) Get(key string) interface{} {
+	ctx.component.stateMu.RLock()
+	defer ctx.component.stateMu.RUnlock()
+
 	if ctx.component.state == nil {
 		return nil
 	}
@@ -802,10 +812,6 @@ func (ctx *Context) InTemplate() bool {
 //
 // Returns:
 //   - error: Returns error if comp is nil, otherwise nil
-//
-// Note: Any commands returned by Init() are currently discarded. This is acceptable
-// for most use cases since child component initialization typically doesn't require
-// command execution. Future enhancement (if needed) could queue commands to parent.
 func (ctx *Context) ExposeComponent(name string, comp Component) error {
 	if comp == nil {
 		return fmt.Errorf("cannot expose nil component")
@@ -813,10 +819,12 @@ func (ctx *Context) ExposeComponent(name string, comp Component) error {
 
 	// Auto-initialize if not already initialized
 	if !comp.IsInitialized() {
-		comp.Init()
-		// Note: Init() may return commands, but we don't queue them currently.
-		// This is acceptable for most use cases. If command queuing is needed
-		// in the future, we can add it here.
+		cmd := comp.Init()
+
+		// Queue Init() command if one was returned and parent has command queue
+		if cmd != nil && ctx.component.commandQueue != nil {
+			ctx.component.commandQueue.Enqueue(cmd)
+		}
 	}
 
 	// Expose to context using existing Expose method

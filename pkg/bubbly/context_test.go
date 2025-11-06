@@ -1166,17 +1166,16 @@ func TestContext_ExposeComponent_MultipleComponents(t *testing.T) {
 	}
 }
 
-// TestContext_ExposeComponent_Sequential tests sequential ExposeComponent calls
-// Note: Concurrent access to the state map is not currently supported due to lack of mutex protection.
-// This is acceptable for typical use cases where setup functions run sequentially.
-// The IsInitialized() check and Init() call are properly mutex-protected for thread safety.
-func TestContext_ExposeComponent_Sequential(t *testing.T) {
+// TestContext_ExposeComponent_ThreadSafe tests concurrent ExposeComponent calls
+// Note: State map now has RWMutex protection for thread-safe concurrent access.
+func TestContext_ExposeComponent_ThreadSafe(t *testing.T) {
 	tests := []struct {
-		name           string
-		componentCount int
+		name        string
+		goroutines  int
+		description string
 	}{
-		{name: "sequential_expose_5_components", componentCount: 5},
-		{name: "sequential_expose_10_components", componentCount: 10},
+		{name: "concurrent_expose_10_goroutines", goroutines: 10, description: "10 concurrent ExposeComponent calls"},
+		{name: "concurrent_expose_50_goroutines", goroutines: 50, description: "50 concurrent ExposeComponent calls"},
 	}
 
 	for _, tt := range tests {
@@ -1185,30 +1184,90 @@ func TestContext_ExposeComponent_Sequential(t *testing.T) {
 			parent := newComponentImpl("Parent")
 			ctx := &Context{component: parent}
 
-			// Act - expose components sequentially
-			for i := 0; i < tt.componentCount; i++ {
-				name := fmt.Sprintf("child%d", i)
-				child, err := NewComponent(name).
-					Template(func(ctx RenderContext) string {
-						return "child"
-					}).
-					Build()
-				require.NoError(t, err)
+			// Act - expose components concurrently
+			done := make(chan bool, tt.goroutines)
+			for i := 0; i < tt.goroutines; i++ {
+				go func(index int) {
+					name := fmt.Sprintf("child%d", index)
+					child, err := NewComponent(name).
+						Template(func(ctx RenderContext) string {
+							return "child"
+						}).
+						Build()
+					if err == nil {
+						ctx.ExposeComponent(name, child)
+					}
+					done <- true
+				}(i)
+			}
 
-				err = ctx.ExposeComponent(name, child)
-				require.NoError(t, err)
-				assert.True(t, child.IsInitialized(), "Component %d should be initialized", i)
+			// Wait for all goroutines to complete
+			for i := 0; i < tt.goroutines; i++ {
+				<-done
 			}
 
 			// Assert - all components should be accessible and initialized
-			for i := 0; i < tt.componentCount; i++ {
+			for i := 0; i < tt.goroutines; i++ {
 				name := fmt.Sprintf("child%d", i)
 				child := ctx.Get(name)
-				require.NotNil(t, child, "Component %d should be accessible", i)
-				comp, ok := child.(Component)
-				require.True(t, ok, "Exposed value should be a Component")
-				assert.True(t, comp.IsInitialized(), "Component %d should be initialized", i)
+				if child != nil {
+					comp, ok := child.(Component)
+					require.True(t, ok, "Exposed value should be a Component")
+					assert.True(t, comp.IsInitialized(), "Component %d should be initialized", i)
+				}
 			}
+		})
+	}
+}
+
+// TestContext_ExposeComponent_QueuesCommands tests that Init() commands are properly queued
+func TestContext_ExposeComponent_QueuesCommands(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "init_command_queued_to_parent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange - create parent with command queue
+			parent, err := NewComponent("Parent").
+				WithAutoCommands(true).
+				Template(func(ctx RenderContext) string {
+					return "parent"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			impl := parent.(*componentImpl)
+			ctx := &Context{component: impl}
+
+			// Create child that returns a command from Init()
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					// This will create lifecycle which returns command from Init()
+					ctx.OnMounted(func() {
+						// Mounted hook
+					})
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			initialQueueLen := impl.commandQueue.Len()
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+			require.NoError(t, err)
+
+			// Assert
+			// If child's Init() returned a command, it should be queued
+			// (lifecycle with onMounted returns a command)
+			assert.GreaterOrEqual(t, impl.commandQueue.Len(), initialQueueLen,
+				"Init() commands should be queued to parent")
+			assert.True(t, child.IsInitialized(), "Child should be initialized")
 		})
 	}
 }

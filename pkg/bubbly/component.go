@@ -236,7 +236,8 @@ type componentImpl struct {
 
 	// State
 	//nolint:unused // Will be used in Task 3.1
-	state map[string]interface{} // Exposed state (Refs, Computed, etc.)
+	state   map[string]interface{} // Exposed state (Refs, Computed, etc.)
+	stateMu sync.RWMutex           // Protects state map for concurrent access
 
 	// Relationships
 	//nolint:unused // Will be used in Task 5.1

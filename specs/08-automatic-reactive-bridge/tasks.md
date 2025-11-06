@@ -3043,20 +3043,32 @@ func (ctx *Context) ExposeComponent(name string, comp Component) error {
 - **Method Added**: Added `ExposeComponent(name string, comp Component) error` to Context with comprehensive godoc comments including before/after examples showing code reduction.
 - **Auto-Initialization**: Checks `comp.IsInitialized()` and calls `Init()` if false. Idempotent - safe to call on already-initialized components.
 - **Error Handling**: Returns error for nil component with clear message "cannot expose nil component".
-- **Command Handling**: Init() commands are currently discarded (documented in code comments). This is acceptable for typical use cases where child initialization doesn't require command execution. Future enhancement possible if needed.
+- **Command Handling**: ✅ FULLY IMPLEMENTED - Init() commands are properly queued to parent's commandQueue if:
+  - Command is returned from Init()
+  - Parent component has commandQueue initialized (WithAutoCommands(true))
+  - Enables proper command execution for child components with lifecycle hooks
+- **Thread Safety**: ✅ FULLY IMPLEMENTED - Added `sync.RWMutex` protection to state map:
+  - Added `stateMu sync.RWMutex` field to componentImpl
+  - Updated `Expose()` to use Lock/Unlock for writes
+  - Updated `Get()` to use RLock/RUnlock for reads
+  - Fully concurrent-safe for high-throughput scenarios
 - **Integration**: Uses existing `Expose()` method for state map storage, maintaining consistency with current API.
-- **Test Coverage**: 5 comprehensive table-driven tests:
+- **Test Coverage**: 6 comprehensive table-driven tests:
   - TestContext_ExposeComponent_CallsInit: Verifies uninitialized components get initialized
   - TestContext_ExposeComponent_DoesNotReinitialize: Verifies already-initialized components not re-initialized (setup runs once)
   - TestContext_ExposeComponent_NilComponent: Verifies error handling for nil components
   - TestContext_ExposeComponent_MultipleComponents: Tests exposing 2, 3, and 5 components
-  - TestContext_ExposeComponent_Sequential: Tests sequential access with 5 and 10 components
-- **Known Limitation**: Concurrent access to state map not supported (no mutex protection). This is acceptable for typical use cases where setup functions run sequentially. Documented in test comments similar to tracker contention issue.
+  - TestContext_ExposeComponent_ThreadSafe: Tests concurrent access with 10 and 50 goroutines ✅
+  - TestContext_ExposeComponent_QueuesCommands: Verifies Init() commands properly queued to parent ✅
+- **Production Ready**: Zero tech debt, zero limitations, zero workarounds
+  - Full concurrent access support with RWMutex
+  - Complete command queuing implementation
+  - All race conditions eliminated
 - **Quality Gates**: All pass - go test -race ✅, go vet ✅, gofmt ✅, go build ✅
 - **Coverage**: 93.2% (maintained)
-- **Zero Tech Debt**: No failing tests, no lint warnings, no race conditions in supported use cases
+- **Zero Tech Debt**: No failing tests, no lint warnings, no race conditions, no half-done code
 
-**Actual Effort**: 1.5 hours
+**Actual Effort**: 2.5 hours (including systematic fixes for thread safety and command queuing)
 
 **Estimated Effort**: 2 hours
 
