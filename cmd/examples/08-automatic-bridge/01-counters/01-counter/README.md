@@ -146,6 +146,28 @@ func main() {
 4. **Fewer Bugs** - Can't forget to emit events
 5. **Better DX** - Vue-like developer experience in Go TUI
 
+## Compare with Pure Bubbletea
+
+Want to see the difference? Check out the **pure Bubbletea version** in `01-counter-bubbletea/`:
+
+```bash
+# Run BubblyUI version
+cd cmd/examples/08-automatic-bridge/01-counter
+go run main.go
+
+# Run pure Bubbletea version
+cd ../01-counter-bubbletea
+go run main.go
+```
+
+**Key Differences**:
+- Pure Bubbletea: ~40 lines of manual boilerplate (model struct, Init, Update, View)
+- BubblyUI: 0 lines of boilerplate (declarative bindings + `bubbly.Wrap()`)
+- Help text: Manual vs auto-generated
+- State updates: Manual mutation vs automatic reactive updates
+
+See the [comparison README](../01-counter-bubbletea/README.md) for detailed side-by-side analysis.
+
 ## Next Steps
 
 - See `02-todo` for a more complex example with mode-based input
