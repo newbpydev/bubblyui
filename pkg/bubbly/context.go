@@ -755,3 +755,71 @@ func (ctx *Context) InTemplate() bool {
 
 	return ctx.component.inTemplate
 }
+
+// ExposeComponent exposes a component to the component's state map with automatic initialization.
+// This is a convenience method that combines initialization checking and state exposure.
+//
+// If the component is not already initialized (checked via IsInitialized()), this method
+// will call Init() on the component before exposing it. This eliminates the need for
+// manual initialization in component setup functions.
+//
+// The method is idempotent - if the component is already initialized, it will not be
+// re-initialized. This makes it safe to call multiple times or on pre-initialized components.
+//
+// Use cases:
+//   - Exposing child components in parent setup functions
+//   - Building component trees with automatic initialization
+//   - Simplifying component composition patterns
+//
+// Example (before - manual initialization):
+//
+//	Setup(func(ctx *Context) {
+//	    header, _ := CreateHeader(props)
+//	    sidebar, _ := CreateSidebar(props)
+//
+//	    // Manual initialization required
+//	    header.Init()
+//	    sidebar.Init()
+//
+//	    ctx.Expose("header", header)
+//	    ctx.Expose("sidebar", sidebar)
+//	})
+//
+// Example (after - automatic initialization):
+//
+//	Setup(func(ctx *Context) {
+//	    header, _ := CreateHeader(props)
+//	    sidebar, _ := CreateSidebar(props)
+//
+//	    // Auto-initializes if needed
+//	    ctx.ExposeComponent("header", header)
+//	    ctx.ExposeComponent("sidebar", sidebar)
+//	})
+//
+// Parameters:
+//   - name: The key to use in the state map
+//   - comp: The component to initialize and expose
+//
+// Returns:
+//   - error: Returns error if comp is nil, otherwise nil
+//
+// Note: Any commands returned by Init() are currently discarded. This is acceptable
+// for most use cases since child component initialization typically doesn't require
+// command execution. Future enhancement (if needed) could queue commands to parent.
+func (ctx *Context) ExposeComponent(name string, comp Component) error {
+	if comp == nil {
+		return fmt.Errorf("cannot expose nil component")
+	}
+
+	// Auto-initialize if not already initialized
+	if !comp.IsInitialized() {
+		comp.Init()
+		// Note: Init() may return commands, but we don't queue them currently.
+		// This is acceptable for most use cases. If command queuing is needed
+		// in the future, we can add it here.
+	}
+
+	// Expose to context using existing Expose method
+	ctx.Expose(name, comp)
+	return nil
+}

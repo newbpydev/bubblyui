@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1014,4 +1015,200 @@ func TestContext_Ref_AutoCommandsEnabled_RefIDUnique(t *testing.T) {
 	}
 
 	assert.Len(t, refIDs, 3, "Each ref should have unique ID")
+}
+
+// ========== Task 10.2: Context.ExposeComponent Method Tests ==========
+
+// TestContext_ExposeComponent_CallsInit tests that ExposeComponent calls Init() on uninitialized components
+func TestContext_ExposeComponent_CallsInit(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "uninitialized_component_gets_initialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					// Setup function
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			// Verify child is not initialized
+			assert.False(t, child.IsInitialized(), "Child should not be initialized before ExposeComponent")
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+
+			// Assert
+			require.NoError(t, err)
+			assert.True(t, child.IsInitialized(), "Child should be initialized after ExposeComponent")
+			assert.Equal(t, child, ctx.Get("child"), "Child should be accessible via Get()")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_DoesNotReinitialize tests that ExposeComponent doesn't re-init already initialized components
+func TestContext_ExposeComponent_DoesNotReinitialize(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "already_initialized_component_not_reinitialized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			setupCallCount := 0
+			child, err := NewComponent("Child").
+				Setup(func(ctx *Context) {
+					setupCallCount++
+				}).
+				Template(func(ctx RenderContext) string {
+					return "child"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			// Pre-initialize the child
+			child.Init()
+			assert.Equal(t, 1, setupCallCount, "Setup should be called once during Init()")
+			assert.True(t, child.IsInitialized(), "Child should be initialized")
+
+			// Act
+			err = ctx.ExposeComponent("child", child)
+
+			// Assert
+			require.NoError(t, err)
+			assert.Equal(t, 1, setupCallCount, "Setup should not be called again")
+			assert.True(t, child.IsInitialized(), "Child should still be initialized")
+			assert.Equal(t, child, ctx.Get("child"), "Child should be accessible via Get()")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_NilComponent tests that ExposeComponent returns error for nil component
+func TestContext_ExposeComponent_NilComponent(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "nil_component_returns_error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act
+			err := ctx.ExposeComponent("child", nil)
+
+			// Assert
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "nil component", "Error should mention nil component")
+			assert.Nil(t, ctx.Get("child"), "Nil component should not be exposed")
+		})
+	}
+}
+
+// TestContext_ExposeComponent_MultipleComponents tests exposing multiple components
+func TestContext_ExposeComponent_MultipleComponents(t *testing.T) {
+	tests := []struct {
+		name           string
+		componentCount int
+	}{
+		{name: "expose_two_components", componentCount: 2},
+		{name: "expose_three_components", componentCount: 3},
+		{name: "expose_five_components", componentCount: 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act & Assert
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				child, err := NewComponent(name).
+					Template(func(ctx RenderContext) string {
+						return "child"
+					}).
+					Build()
+				require.NoError(t, err)
+
+				err = ctx.ExposeComponent(name, child)
+				require.NoError(t, err)
+				assert.True(t, child.IsInitialized(), "Child %d should be initialized", i)
+				assert.Equal(t, child, ctx.Get(name), "Child %d should be accessible", i)
+			}
+
+			// Verify all components are accessible
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				assert.NotNil(t, ctx.Get(name), "Child %d should still be accessible", i)
+			}
+		})
+	}
+}
+
+// TestContext_ExposeComponent_Sequential tests sequential ExposeComponent calls
+// Note: Concurrent access to the state map is not currently supported due to lack of mutex protection.
+// This is acceptable for typical use cases where setup functions run sequentially.
+// The IsInitialized() check and Init() call are properly mutex-protected for thread safety.
+func TestContext_ExposeComponent_Sequential(t *testing.T) {
+	tests := []struct {
+		name           string
+		componentCount int
+	}{
+		{name: "sequential_expose_5_components", componentCount: 5},
+		{name: "sequential_expose_10_components", componentCount: 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			parent := newComponentImpl("Parent")
+			ctx := &Context{component: parent}
+
+			// Act - expose components sequentially
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				child, err := NewComponent(name).
+					Template(func(ctx RenderContext) string {
+						return "child"
+					}).
+					Build()
+				require.NoError(t, err)
+
+				err = ctx.ExposeComponent(name, child)
+				require.NoError(t, err)
+				assert.True(t, child.IsInitialized(), "Component %d should be initialized", i)
+			}
+
+			// Assert - all components should be accessible and initialized
+			for i := 0; i < tt.componentCount; i++ {
+				name := fmt.Sprintf("child%d", i)
+				child := ctx.Get(name)
+				require.NotNil(t, child, "Component %d should be accessible", i)
+				comp, ok := child.(Component)
+				require.True(t, ok, "Exposed value should be a Component")
+				assert.True(t, comp.IsInitialized(), "Component %d should be initialized", i)
+			}
+		})
+	}
 }
