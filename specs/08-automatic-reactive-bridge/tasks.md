@@ -2612,8 +2612,11 @@ tea.NewProgram(bubbly.Wrap(component), tea.WithAltScreen()).Run()
 - **Quality Gates**: All pass - go build ✅, go vet ✅, gofmt ✅, go test -race ✅. Zero lint warnings, zero race conditions.
 - **README**: Comprehensive documentation with before/after comparison, code walkthrough, metrics table, key bindings reference, message handler pattern explanation, and critical notes about space key registration.
 - **Bug Fix Applied**: Initial implementation missing message handler for character input - users could not type in forms. Fixed by adding WithMessageHandler() that captures tea.KeyRunes and emits to addChar event.
+- **Comparison Created**: Added pure Bubbletea version (02-todo-bubbletea/) with 100% identical functionality for comparison. Created comprehensive COMPARISON.md analyzing differences (451 vs 583 lines, architecture trade-offs, maintainability analysis).
+- **Pure Bubbletea Version**: 451 lines with 100-line Update() method containing all keyboard logic. Manual help text sync required. Direct state mutation. Simple debugging.
+- **Architecture Analysis**: BubblyUI has 132 more lines but eliminates 117 lines of boilerplate (model struct, Init, Update wrapper). Trade-off: more lines for better separation of concerns and maintainability.
 
-**Actual Effort**: 2 hours (20% under estimate)
+**Actual Effort**: 2.5 hours (on estimate including comparison)
 
 **Estimated Effort**: 2.5 hours
 
