@@ -24,6 +24,7 @@ BubblyUI brings the familiar patterns of Vue.js to Go terminal applications, pro
 - **tea.Model Integration**: Seamless Bubbletea architecture integration
 - **Lifecycle Hooks**: onMounted, onUpdated, onUnmounted
 - **Composition API**: Composables and provide/inject patterns
+- **Auto-Initialization**: Automatic component initialization with `ctx.ExposeComponent()` (33% less boilerplate)
 
 ### 🎨 Template System
 - **Go Functions**: Type-safe rendering with Go functions (not string templates)
@@ -93,6 +94,10 @@ func main() {
 - **[Composition API](./specs/04-composition-api/)** - Advanced composition patterns
 - **[Directives](./specs/05-directives/)** - Template directives and syntax
 - **[Built-in Components](./specs/06-built-in-components/)** - Ready-to-use UI components
+
+### Features & Guides
+- **[Auto-Initialization](./docs/features/auto-initialization.md)** - Automatic component initialization
+- **[Migration: Manual to Auto-Init](./docs/migration/manual-to-auto-init.md)** - Upgrade to auto-initialization
 
 ### API Reference
 - **[Package Documentation](https://pkg.go.dev/github.com/newbpydev/bubblyui)** - Complete API reference
