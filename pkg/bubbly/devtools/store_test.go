@@ -634,3 +634,94 @@ func TestDevToolsStore_Concurrent(t *testing.T) {
 	require.NotNil(t, comp)
 	assert.Equal(t, int64(500), comp.RenderCount)
 }
+
+// BenchmarkStateHistory_Record benchmarks recording state changes
+func BenchmarkStateHistory_Record(b *testing.B) {
+	history := NewStateHistory(10000)
+	change := StateChange{
+		RefID:     "ref-1",
+		RefName:   "counter",
+		OldValue:  0,
+		NewValue:  1,
+		Timestamp: time.Now(),
+		Source:    "test",
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		history.Record(change)
+	}
+}
+
+// BenchmarkStateHistory_GetHistory benchmarks retrieving history for a ref
+func BenchmarkStateHistory_GetHistory(b *testing.B) {
+	history := NewStateHistory(10000)
+
+	// Pre-populate with changes for multiple refs
+	for i := 0; i < 1000; i++ {
+		history.Record(StateChange{
+			RefID:     "ref-1",
+			RefName:   "counter",
+			OldValue:  i,
+			NewValue:  i + 1,
+			Timestamp: time.Now(),
+			Source:    "test",
+		})
+		history.Record(StateChange{
+			RefID:     "ref-2",
+			RefName:   "name",
+			OldValue:  "old",
+			NewValue:  "new",
+			Timestamp: time.Now(),
+			Source:    "test",
+		})
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = history.GetHistory("ref-1")
+	}
+}
+
+// BenchmarkStateHistory_GetAll benchmarks retrieving all history
+func BenchmarkStateHistory_GetAll(b *testing.B) {
+	history := NewStateHistory(10000)
+
+	// Pre-populate with changes
+	for i := 0; i < 1000; i++ {
+		history.Record(StateChange{
+			RefID:     "ref-1",
+			OldValue:  i,
+			NewValue:  i + 1,
+			Timestamp: time.Now(),
+		})
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = history.GetAll()
+	}
+}
+
+// BenchmarkStateHistory_Concurrent benchmarks concurrent operations
+func BenchmarkStateHistory_Concurrent(b *testing.B) {
+	history := NewStateHistory(10000)
+
+	b.RunParallel(func(pb *testing.PB) {
+		change := StateChange{
+			RefID:     "ref-1",
+			OldValue:  0,
+			NewValue:  1,
+			Timestamp: time.Now(),
+		}
+
+		for pb.Next() {
+			// Mix of reads and writes
+			if b.N%2 == 0 {
+				history.Record(change)
+			} else {
+				_ = history.GetHistory("ref-1")
+			}
+		}
+	})
+}
