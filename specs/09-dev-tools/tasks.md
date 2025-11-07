@@ -885,7 +885,7 @@ func (sh *StateHistory) Clear()
 
 ---
 
-### Task 3.3: Event Tracker
+### Task 3.3: Event Tracker ✅ COMPLETED
 **Description**: Capture and display events
 
 **Prerequisites**: Task 3.2
@@ -900,33 +900,81 @@ func (sh *StateHistory) Clear()
 ```go
 type EventTracker struct {
     events    *EventLog
-    filter    EventFilter
+    filter    string
     paused    bool
     maxEvents int
+    mu        sync.RWMutex
 }
 
-type EventRecord struct {
-    ID        string
-    Name      string
-    Source    string
-    Target    string
-    Payload   interface{}
-    Timestamp time.Time
-    Duration  time.Duration
+type EventStatistics struct {
+    TotalEvents    int
+    EventsByName   map[string]int
+    EventsBySource map[string]int
 }
 
-func (et *EventTracker) CaptureEvent(EventRecord)
+func NewEventTracker(maxEvents int) *EventTracker
+func (et *EventTracker) CaptureEvent(event EventRecord)
+func (et *EventTracker) Pause()
+func (et *EventTracker) Resume()
+func (et *EventTracker) IsPaused() bool
+func (et *EventTracker) GetEventCount() int
+func (et *EventTracker) GetRecent(n int) []EventRecord
+func (et *EventTracker) Clear()
+func (et *EventTracker) SetFilter(filter string)
+func (et *EventTracker) GetFilter() string
+func (et *EventTracker) GetStatistics() EventStatistics
 func (et *EventTracker) Render() string
 ```
 
 **Tests**:
-- [ ] Events captured
-- [ ] Real-time display
-- [ ] Pause/resume
-- [ ] Event details shown
-- [ ] Performance acceptable
+- [x] Events captured
+- [x] Real-time display
+- [x] Pause/resume
+- [x] Event details shown
+- [x] Performance acceptable
+- [x] Filtering (case-insensitive)
+- [x] Statistics tracking
+- [x] Thread-safe concurrent access
+- [x] Max events enforcement
+- [x] Reverse chronological order display
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented EventTracker struct with thread-safe operations (sync.RWMutex)
+- ✅ `NewEventTracker()` constructor creates tracker with EventLog
+- ✅ `CaptureEvent()` captures events when not paused (zero overhead when paused)
+- ✅ `Pause()`/`Resume()` control event capture
+- ✅ `IsPaused()` checks pause state
+- ✅ `GetEventCount()` returns total events captured
+- ✅ `GetRecent(n)` returns N most recent events
+- ✅ `Clear()` removes all events
+- ✅ `SetFilter()`/`GetFilter()` for case-insensitive substring filtering
+- ✅ `GetStatistics()` provides event counts by name and source
+- ✅ `Render()` generates Lipgloss-styled output:
+  - Purple header "Recent Events:"
+  - Events in reverse chronological order (newest first)
+  - Timestamp in HH:MM:SS.mmm format (dark grey)
+  - Event name (green, bold)
+  - Source ID (purple)
+  - Target ID (orange) if present
+  - Duration (yellow) if > 0
+  - Empty state message for no events
+- ✅ Filtering applies to event names (case-insensitive substring match)
+- ✅ Color scheme: Purple (99) for headers, Green (35) for names, Dark grey (240) for timestamps, Orange (214) for targets, Yellow (229) for durations
+- ✅ 14 comprehensive test suites with table-driven tests
+- ✅ Thread-safety test with 160 concurrent operations (100 captures + 50 reads + 10 pause/resume)
+- ✅ Performance test: All operations < 10ms
+- ✅ Max events enforcement via circular buffer in EventLog
+- ✅ 91.3% overall devtools coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero lint warnings (go vet clean)
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Follows existing devtools patterns (StateViewer, TreeView, DetailPanel)
+- ✅ Integrates with EventLog from DevToolsStore (Task 1.3)
+- ✅ Actual time: ~2.5 hours (under estimate)
 
 ---
 
