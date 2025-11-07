@@ -17,7 +17,7 @@ import (
 // - Zero boilerplate with bubbly.Wrap()
 func createCounter() (bubbly.Component, error) {
 	return bubbly.NewComponent("Counter").
-		WithAutoCommands(true). // Enable automatic reactive bridge
+		WithAutoCommands(true).                                // Enable automatic reactive bridge
 		WithKeyBinding(" ", "increment", "Increment counter"). // Space key is " " not "space"
 		WithKeyBinding("r", "reset", "Reset to zero").
 		WithKeyBinding("ctrl+c", "quit", "Quit application").

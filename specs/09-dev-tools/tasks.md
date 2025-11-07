@@ -257,7 +257,7 @@ Task 1.5 will add configuration system. Future tasks will integrate these Notify
 
 ---
 
-### Task 1.5: Configuration System
+### Task 1.5: Configuration System ✅ COMPLETED
 **Description**: Dev tools configuration and options
 
 **Prerequisites**: Task 1.4
@@ -285,13 +285,34 @@ func LoadConfig(path string) (*Config, error)
 ```
 
 **Tests**:
-- [ ] Default config works
-- [ ] Config loading
-- [ ] Validation
-- [ ] Override options
-- [ ] Environment variables
+- [x] Default config works
+- [x] Config loading
+- [x] Validation
+- [x] Override options
+- [x] Environment variables
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- ✅ Implemented LayoutMode enum with 4 modes (Horizontal, Vertical, Overlay, Hidden)
+- ✅ LayoutMode.String() method for string representation
+- ✅ Config struct with all required fields and JSON tags
+- ✅ DefaultConfig() returns sensible defaults (60/40 split, 10k components, 5k events, 1k history, 100% sampling)
+- ✅ Validate() method checks all constraints with clear error messages
+- ✅ LoadConfig(path) loads from JSON file with validation
+- ✅ ApplyEnvOverrides() supports 7 environment variables with graceful degradation
+- ✅ Environment variables: BUBBLY_DEVTOOLS_ENABLED, LAYOUT_MODE, SPLIT_RATIO, MAX_COMPONENTS, MAX_EVENTS, MAX_STATE_HISTORY, SAMPLING_RATE
+- ✅ 11 comprehensive tests covering all functionality
+- ✅ 93.7% test coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero lint warnings for new code (cyclomatic complexity acceptable for env override sequence)
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and functions
+- ✅ Table-driven tests for validation, loading, and env overrides
+- ✅ JSON round-trip test verifies serialization
+- ✅ Thread-safe (Config is value type, no shared state)
+- ✅ Actual time: ~2 hours (matches estimate)
 
 ---
 
