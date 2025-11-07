@@ -36,6 +36,9 @@ type ComponentSnapshot struct {
 	// Type is the Go type name of the component
 	Type string
 
+	// Status is the component's lifecycle status (e.g., "mounted", "unmounted", "updated")
+	Status string
+
 	// Parent is a reference to the parent component snapshot (nil for root)
 	Parent *ComponentSnapshot
 
