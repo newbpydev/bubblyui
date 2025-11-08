@@ -1066,38 +1066,73 @@ func (tr *TimeRange) Contains(t time.Time) bool
 
 ---
 
-### Task 3.5: Event Replay
+### Task 3.5: Event Replay ✅
 **Description**: Replay captured events
 
 **Prerequisites**: Task 3.4
 
 **Unlocks**: Task 4.1 (Performance Monitor)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/event_replay.go`
-- `pkg/bubbly/devtools/event_replay_test.go`
+- `pkg/bubbly/devtools/event_replay.go` ✅
+- `pkg/bubbly/devtools/event_replay_test.go` ✅
 
 **Type Safety**:
 ```go
 type EventReplayer struct {
-    events []EventRecord
-    speed  float64
+    events       []EventRecord
+    speed        float64
+    paused       bool
+    replaying    bool
+    currentIndex int
+    mu           sync.RWMutex
 }
 
+func NewEventReplayer(events []EventRecord) *EventReplayer
 func (er *EventReplayer) Replay() tea.Cmd
-func (er *EventReplayer) SetSpeed(float64)
+func (er *EventReplayer) SetSpeed(float64) error
+func (er *EventReplayer) GetSpeed() float64
 func (er *EventReplayer) Pause()
-func (er *EventReplayer) Resume()
+func (er *EventReplayer) Resume() tea.Cmd
+func (er *EventReplayer) IsPaused() bool
+func (er *EventReplayer) IsReplaying() bool
+func (er *EventReplayer) GetProgress() (current int, total int)
+func (er *EventReplayer) Reset()
+
+// Message types for Bubbletea integration
+type ReplayEventMsg struct {
+    Event   EventRecord
+    Index   int
+    Total   int
+    NextCmd tea.Cmd
+}
+type ReplayPausedMsg struct { Index, Total int }
+type ReplayCompletedMsg struct { TotalEvents int }
 ```
 
 **Tests**:
-- [ ] Events replay correctly
-- [ ] Speed control works
-- [ ] Pause/resume
-- [ ] Event order preserved
-- [ ] Integration with app
+- [x] Events replay correctly
+- [x] Speed control works (0.1x to 10x)
+- [x] Pause/resume functionality
+- [x] Event order preserved
+- [x] Integration with app (Bubbletea Update loop)
+- [x] Thread safety (concurrent access)
+- [x] Edge cases (empty, single event, same timestamps)
 
-**Estimated Effort**: 4 hours
+**Implementation Notes**:
+- Uses `tea.Tick()` for time-based event emission with adjusted delays based on speed multiplier
+- Thread-safe with `sync.RWMutex` for concurrent access to all fields
+- Speed validation: rejects values ≤ 0, supports range 0.1x to 10x
+- Proper lock management to avoid deadlocks in recursive command chains
+- Events are copied on construction to prevent external modification
+- Replay state tracked with `replaying` flag, set true on `Replay()`, false on completion
+- Pause/resume preserves current position via `currentIndex`
+- Minimum delay of 1ms for events with same timestamp
+- All 17 tests passing with race detector
+
+**Actual Effort**: 3 hours
 
 ---
 
