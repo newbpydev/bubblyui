@@ -339,6 +339,255 @@ BUBBLY_DEV_TOOLS=1 go run examples/counter/main.go
 
 ---
 
+### Workflow C: Using Pattern Templates for Compliance
+
+#### Entry: Need PCI-DSS Compliance for Export
+
+**Scenario**: Exporting debug data that may contain payment information
+
+1. **Create Sanitizer with PCI Template**
+```go
+sanitizer := devtools.NewSanitizer()
+sanitizer.LoadTemplate("pci")  // Loads credit card, CVV, expiry patterns
+```
+
+2. **Add Custom Patterns**
+```go
+// Add organization-specific patterns
+sanitizer.AddPatternWithPriority(
+    `(?i)(merchant[_-]?id)(["'\s:=]+)([A-Z0-9]+)`,
+    "${1}${2}[REDACTED_MERCHANT]",
+    80,  // High priority
+    "merchant_id",
+)
+```
+
+3. **Review Pattern Coverage**
+```go
+patterns := sanitizer.GetPatterns()
+fmt.Printf("Loaded %d patterns\n", len(patterns))
+// Output: Loaded 4 patterns (3 PCI + 1 custom)
+```
+
+4. **Export with Sanitization**
+```go
+devtools.Export("debug-data.json", devtools.ExportOptions{
+    Sanitize:  sanitizer,
+    Templates: []string{"pci"},
+})
+```
+
+5. **Validate Compliance**
+- Review exported file
+- Verify no card numbers visible
+- Check audit logs
+
+**Result**: PCI-compliant debug exports ready for sharing
+
+**Available Templates**:
+- `"pii"` - SSN, email, phone (GDPR, CCPA)
+- `"pci"` - Card numbers, CVV, expiry dates
+- `"hipaa"` - Medical records, diagnoses
+- `"gdpr"` - IP addresses, MAC addresses
+
+---
+
+### Workflow D: Preview Sanitization with Dry-Run
+
+#### Entry: Unsure What Will Be Redacted
+
+**Scenario**: Testing new sanitization patterns before applying
+
+1. **Enable Dry-Run Mode**
+```go
+sanitizer := devtools.NewSanitizer()
+sanitizer.AddPatternWithPriority(
+    `(?i)(internal[_-]?id)(["'\s:=]+)([A-Z0-9-]+)`,
+    "${1}${2}[REDACTED_ID]",
+    50,
+    "internal_id",
+)
+
+result := sanitizer.Preview(exportData)
+```
+
+2. **Review Matches**
+```go
+fmt.Printf("Would redact %d values\n", result.WouldRedactCount)
+
+for _, match := range result.Matches {
+    fmt.Printf("  %s: %s → %s\n", 
+        match.Path,
+        match.Original,
+        match.Redacted,
+    )
+}
+```
+
+**Output**:
+```
+Would redact 3 values
+  components[0].props.password: secret123 → [REDACTED]
+  components[1].state.apiKey: sk_live_abc... → [REDACTED]
+  state[0].new.internal_id: INT-12345 → [REDACTED_ID]
+```
+
+3. **Adjust Patterns if Needed**
+```go
+// Pattern too broad? Refine it
+sanitizer.AddPattern(
+    `(?i)(internal[_-]?id)(["'\s:=]+)(INT-[A-Z0-9]+)`,  // More specific
+    "${1}${2}[REDACTED_ID]",
+)
+```
+
+4. **Run Again to Verify**
+```go
+result = sanitizer.Preview(exportData)
+// Check matches are now correct
+```
+
+5. **Apply for Real**
+```go
+cleanData := sanitizer.Sanitize(exportData)
+```
+
+**Result**: Validated patterns before applying to production data
+
+---
+
+### Workflow E: Large Export with Streaming
+
+#### Entry: Need to Export 500MB Debug Data
+
+**Scenario**: Application has been running for days, huge export
+
+1. **Check Data Size**
+```go
+dataSize := devtools.EstimateExportSize()
+fmt.Printf("Export will be approximately %d MB\n", dataSize/1024/1024)
+// Output: Export will be approximately 512 MB
+```
+
+2. **Use Streaming API**
+```go
+err := devtools.ExportStream("large-export.json", devtools.ExportOptions{
+    IncludeState:      true,
+    IncludeEvents:     true,
+    UseStreaming:      true,
+    ProgressCallback: func(bytes int64) {
+        mb := bytes / 1024 / 1024
+        fmt.Printf("\rProcessed: %d MB", mb)
+    },
+})
+```
+
+**Console Output**:
+```
+Processed: 0 MB
+Processed: 64 MB
+Processed: 128 MB
+...
+Processed: 512 MB
+✓ Export complete (2m 15s)
+```
+
+3. **Verify Memory Usage**
+```bash
+# Memory stays under 100MB even for 512MB file
+ps aux | grep myapp
+# myapp  87.5 MB
+```
+
+4. **Import for Analysis**
+```go
+// Also uses streaming for import
+devtools.ImportStream("large-export.json")
+```
+
+**Result**: Handled large exports without OOM, constant memory usage
+
+**When to Use Streaming**:
+- File size >100MB
+- Long-running applications
+- Memory-constrained environments
+- CI/CD debug logs
+
+---
+
+### Workflow F: Audit Sanitization with Metrics
+
+#### Entry: Need to Verify Data Protection
+
+**Scenario**: Security audit requires proof of sanitization
+
+1. **Sanitize with Metrics Enabled**
+```go
+sanitizer := devtools.NewSanitizer()
+sanitizer.LoadTemplates("pii", "pci")
+
+cleanData := sanitizer.Sanitize(exportData)
+```
+
+2. **Review Statistics**
+```go
+stats := sanitizer.GetLastStats()
+fmt.Printf("Sanitization Report:\n")
+fmt.Printf("  Redacted: %d values\n", stats.RedactedCount)
+fmt.Printf("  Duration: %v\n", stats.Duration)
+fmt.Printf("  Data Size: %d bytes\n", stats.BytesProcessed)
+fmt.Println("\nPattern Breakdown:")
+for name, count := range stats.PatternMatches {
+    fmt.Printf("  %s: %d\n", name, count)
+}
+```
+
+**Output**:
+```
+Sanitization Report:
+  Redacted: 47 values
+  Duration: 142ms
+  Data Size: 2,458,624 bytes
+
+Pattern Breakdown:
+  password: 23
+  token: 15
+  apikey: 9
+  credit_card: 0
+  ssn: 0
+```
+
+3. **Export Metrics for Audit**
+```go
+metricsJSON, _ := stats.JSON()
+os.WriteFile("sanitization-audit.json", metricsJSON, 0644)
+```
+
+4. **Document for Compliance**
+```markdown
+# Sanitization Audit Report
+
+Date: 2024-01-15
+Export: debug-session-20240115.json
+Templates: PII, PCI
+
+## Results
+- ✅ 47 sensitive values redacted
+- ✅ 23 passwords removed
+- ✅ 15 tokens removed
+- ✅ 9 API keys removed
+- ✅ 0 credit cards found (none present)
+- ✅ Processing time: 142ms
+
+## Verification
+All sensitive patterns successfully redacted.
+No false negatives detected in spot check.
+```
+
+**Result**: Documented proof of data protection for security audits
+
+---
+
 ## Error Recovery Workflows
 
 ### Error Flow 1: Dev Tools Crash

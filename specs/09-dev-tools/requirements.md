@@ -15,6 +15,12 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - As a **developer**, I want command timeline so that I can understand asynchronous behavior
 - As a **developer**, I want to export debug data so that I can share issues with team
 - As a **framework maintainer**, I want telemetry so that I can improve the framework
+- As a **compliance officer**, I want PCI/HIPAA pattern templates so that I can meet regulatory requirements
+- As a **developer**, I want pattern priorities so that complex sanitization rules apply correctly
+- As an **auditor**, I want sanitization metrics so that I can verify data protection effectiveness
+- As a **developer**, I want dry-run preview mode so that I can validate patterns before applying
+- As a **developer**, I want streaming sanitization so that large exports don't cause OOM errors
+- As a **developer**, I want fast sanitization so that exports complete quickly even with reflection
 
 ## Functional Requirements
 
@@ -107,6 +113,24 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 9.7. Copy to clipboard functionality  
 9.8. Responsive to terminal size  
 
+### 10. Advanced Sanitization
+10.1. Pattern priority and ordering for complex sanitization rules  
+10.2. Pre-configured pattern templates for compliance (PII, PCI, HIPAA, GDPR)  
+10.3. Sanitization statistics and metrics tracking  
+10.4. Dry-run preview mode to review matches before redaction  
+10.5. Enhanced performance data sanitization (component names, operations)  
+10.6. Custom pattern composition and template merging  
+10.7. Pattern naming for audit trails  
+10.8. Conflict resolution for overlapping patterns  
+
+### 11. Performance & Scalability
+11.1. Streaming sanitization for large exports (>100MB)  
+11.2. Memory-efficient processing with configurable buffer sizes  
+11.3. Reflection optimization with type caching  
+11.4. Progressive export/import with progress callbacks  
+11.5. Chunked processing for bounded memory usage  
+11.6. Performance profiling and benchmarking support  
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -195,6 +219,24 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - [ ] Pause/resume functional
 - [ ] Export/import works
 - [ ] No crashes
+
+### Advanced Sanitization
+- [ ] Higher priority patterns apply first
+- [ ] Template patterns load correctly (PII, PCI, HIPAA, GDPR)
+- [ ] Statistics track redaction counts
+- [ ] Dry-run shows matches without mutation
+- [ ] Pattern names tracked for audit
+- [ ] Overlapping patterns resolved by priority
+- [ ] Custom templates composable
+- [ ] Performance data sanitized
+
+### Performance & Scalability
+- [ ] Streaming handles files >100MB without OOM
+- [ ] Memory usage stays under 100MB for any file size
+- [ ] Reflection caching reduces overhead <10%
+- [ ] Progress callbacks work for large operations
+- [ ] Chunked processing maintains constant memory
+- [ ] Benchmarks show performance improvements
 
 ## Dependencies
 

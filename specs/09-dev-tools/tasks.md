@@ -2803,6 +2803,337 @@ patterns := devtools.DefaultPatterns() // Get default patterns
 
 ---
 
+### Task 6.4: Pattern Priority System
+**Description**: Add priority ordering to sanitization patterns
+
+**Prerequisites**: Task 6.3
+
+**Unlocks**: Task 6.6 (Pattern Templates)
+
+**Files**:
+- `pkg/bubbly/devtools/sanitize.go` (update)
+- `pkg/bubbly/devtools/sanitize_test.go` (update)
+
+**Type Safety**:
+```go
+type SanitizePattern struct {
+    Pattern     *regexp.Regexp
+    Replacement string
+    Priority    int    // 0 = default, higher applies first
+    Name        string // For tracking/debugging
+}
+
+func (s *Sanitizer) AddPatternWithPriority(pattern, replacement string, priority int, name string) error
+func (s *Sanitizer) sortPatterns()
+func (s *Sanitizer) GetPatterns() []SanitizePattern
+```
+
+**Tests**:
+- [ ] Higher priority patterns apply first
+- [ ] Equal priority uses insertion order (stable sort)
+- [ ] Priority 0 is default behavior
+- [ ] Pattern names tracked correctly
+- [ ] Overlapping patterns resolved by priority
+- [ ] Negative priorities work (apply last)
+- [ ] Sort stability verified with many patterns
+- [ ] GetPatterns returns sorted order
+
+**Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- Use `sort.SliceStable` for priority ordering
+- Sort on each `Sanitize()` call (or cache sorted version)
+- Priority ranges: 100+ (critical), 50-99 (org-specific), 10-49 (custom), 0-9 (default), negative (cleanup)
+- Name field optional, auto-generate if empty: "pattern_N"
+- Document priority best practices in godoc
+- Already-redacted text won't match subsequent patterns
+- Integration with existing `NewSanitizer()` and `AddPattern()`
+
+---
+
+### Task 6.5: Streaming Sanitization
+**Description**: Stream processing for large export files
+
+**Prerequisites**: Task 6.3, Task 6.1 (Export System)
+
+**Unlocks**: Task 6.9 (Performance Optimization)
+
+**Files**:
+- `pkg/bubbly/devtools/sanitize_stream.go`
+- `pkg/bubbly/devtools/sanitize_stream_test.go`
+- `pkg/bubbly/devtools/export.go` (update)
+
+**Type Safety**:
+```go
+type StreamSanitizer struct {
+    *Sanitizer
+    bufferSize int
+}
+
+func NewStreamSanitizer(base *Sanitizer, bufferSize int) *StreamSanitizer
+func (s *StreamSanitizer) SanitizeStream(reader io.Reader, writer io.Writer, progress func(bytesProcessed int64)) error
+func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error
+
+type ExportOptions struct {
+    // ... existing fields
+    UseStreaming     bool
+    ProgressCallback func(bytesProcessed int64)
+}
+```
+
+**Tests**:
+- [ ] Handles files >100MB without OOM
+- [ ] Memory usage stays under 100MB
+- [ ] Progress callback invoked correctly
+- [ ] JSON structure valid after streaming
+- [ ] Error handling for corrupt streams
+- [ ] Buffer size configuration works
+- [ ] Round-trip: stream export → import
+- [ ] Concurrent stream operations safe
+- [ ] Benchmark vs in-memory processing
+
+**Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- Use `json.Decoder` for streaming read (decoder.More() loop)
+- Use `bufio.Writer` (64KB default) for buffered output
+- Process component-by-component to bound memory
+- Progress callback every N bytes (configurable)
+- Handle partial reads/writes gracefully
+- Document memory guarantees: O(buffer size)
+- Integration: `Export()` auto-switches to streaming for large data
+- Benchmark target: <10% slower than in-memory, constant memory
+
+---
+
+### Task 6.6: Pattern Templates
+**Description**: Pre-configured compliance pattern sets
+
+**Prerequisites**: Task 6.4 (Pattern Priority)
+
+**Unlocks**: Task 7.1 (Documentation)
+
+**Files**:
+- `pkg/bubbly/devtools/templates.go`
+- `pkg/bubbly/devtools/templates_test.go`
+- `pkg/bubbly/devtools/sanitize.go` (update)
+
+**Type Safety**:
+```go
+type TemplateRegistry map[string][]SanitizePattern
+
+var DefaultTemplates TemplateRegistry
+
+func (s *Sanitizer) LoadTemplate(name string) error
+func (s *Sanitizer) LoadTemplates(names ...string) error
+func (s *Sanitizer) MergeTemplates(names ...string) ([]SanitizePattern, error)
+func RegisterTemplate(name string, patterns []SanitizePattern) error
+func GetTemplateNames() []string
+```
+
+**Tests**:
+- [ ] PII template loads correctly (SSN, email, phone)
+- [ ] PCI template loads correctly (card, CVV, expiry)
+- [ ] HIPAA template loads correctly (MRN, diagnosis)
+- [ ] GDPR template loads correctly (IP, MAC address)
+- [ ] Custom template registration works
+- [ ] Template merging combines patterns
+- [ ] Invalid template name returns error
+- [ ] Priority ordering preserved in templates
+- [ ] Template patterns match expected values
+
+**Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- Pre-define 4 templates: "pii", "pci", "hipaa", "gdpr"
+- PII: SSN (priority 100), email (90), phone (90)
+- PCI: card numbers (100), CVV (100), expiry dates (90)
+- HIPAA: medical record numbers (100), diagnoses (90)
+- GDPR: IP addresses (90), MAC addresses (90)
+- Use capture groups to preserve keys: `(key)(sep)(value)`
+- Patterns case-insensitive with `(?i)` flag
+- LoadTemplates() appends to existing patterns (composable)
+- Document each template's coverage in godoc
+- Example usage in godoc with compliance scenarios
+
+---
+
+### Task 6.7: Sanitization Metrics
+**Description**: Track and report sanitization statistics
+
+**Prerequisites**: Task 6.3
+
+**Unlocks**: Task 6.8 (Dry-Run Mode)
+
+**Files**:
+- `pkg/bubbly/devtools/metrics.go`
+- `pkg/bubbly/devtools/metrics_test.go`
+- `pkg/bubbly/devtools/sanitize.go` (update)
+
+**Type Safety**:
+```go
+type SanitizationStats struct {
+    RedactedCount    int
+    PatternMatches   map[string]int
+    Duration         time.Duration
+    BytesProcessed   int64
+    StartTime        time.Time
+    EndTime          time.Time
+}
+
+func (s *Sanitizer) GetLastStats() *SanitizationStats
+func (s *Sanitizer) ResetStats()
+func (stats *SanitizationStats) String() string // Human-readable format
+func (stats *SanitizationStats) JSON() ([]byte, error)
+```
+
+**Tests**:
+- [ ] RedactedCount increments correctly
+- [ ] PatternMatches tracks each pattern
+- [ ] Duration calculated accurately
+- [ ] BytesProcessed counts correctly
+- [ ] GetLastStats returns latest run
+- [ ] ResetStats clears previous data
+- [ ] Thread-safe concurrent access
+- [ ] String() formats human-readable
+- [ ] JSON() produces valid output
+
+**Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- Track stats in `Sanitizer` struct with `sync.RWMutex`
+- Update counts during `sanitizeString WithStats()`
+- Calculate duration: `EndTime - StartTime`
+- BytesProcessed: sum of string lengths processed
+- Format example: "Redacted 47 values: password=23, token=15, apikey=9 (142ms)"
+- JSON format for programmatic consumption
+- Stats cleared on each `Sanitize()` call (new run)
+- GetLastStats() thread-safe read access
+- Document when stats are updated (after each Sanitize call)
+
+---
+
+### Task 6.8: Dry-Run Mode
+**Description**: Preview matches without redacting data
+
+**Prerequisites**: Task 6.7 (Sanitization Metrics)
+
+**Unlocks**: Task 7.1 (Documentation)
+
+**Files**:
+- `pkg/bubbly/devtools/preview.go`
+- `pkg/bubbly/devtools/preview_test.go`
+- `pkg/bubbly/devtools/sanitize.go` (update)
+
+**Type Safety**:
+```go
+type DryRunResult struct {
+    Matches          []MatchLocation
+    WouldRedactCount int
+    PreviewData      interface{}
+}
+
+type MatchLocation struct {
+    Path     string
+    Pattern  string
+    Original string
+    Redacted string
+    Line     int
+    Column   int
+}
+
+type SanitizeOptions struct {
+    DryRun        bool
+    MaxPreviewLen int // Truncate long values
+}
+
+func (s *Sanitizer) SanitizeWithOptions(data *ExportData, opts SanitizeOptions) (*ExportData, *DryRunResult)
+func (s *Sanitizer) Preview(data *ExportData) *DryRunResult
+```
+
+**Tests**:
+- [ ] Dry-run doesn't mutate original data
+- [ ] Matches collected correctly
+- [ ] WouldRedactCount accurate
+- [ ] Path tracking works (nested objects)
+- [ ] MaxPreviewLen truncates long values
+- [ ] Pattern names in match locations
+- [ ] Line/column tracking (if applicable)
+- [ ] PreviewData structure preserved
+- [ ] Integration with Sanitize()
+
+**Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- Traverse data structure without mutating (reflection)
+- Collect all matches with locations
+- Path format: `components[0].props.password`
+- Truncate original values >100 chars (configurable)
+- Line/column from JSON position (optional, for large files)
+- Preview() convenience method = SanitizeWithOptions(DryRun: true)
+- Document use case: validate patterns before production
+- Example: "Found 12 matches: password at components[0].props.password"
+
+---
+
+### Task 6.9: Performance Optimization
+**Description**: Reflection caching and profiling
+
+**Prerequisites**: Task 6.5 (Streaming Sanitization)
+
+**Unlocks**: Task 7.1 (Documentation)
+
+**Files**:
+- `pkg/bubbly/devtools/optimize.go`
+- `pkg/bubbly/devtools/optimize_test.go`
+- `pkg/bubbly/devtools/sanitize_bench_test.go`
+
+**Type Safety**:
+```go
+type typeCache struct {
+    types sync.Map // map[reflect.Type]*cachedTypeInfo
+}
+
+type cachedTypeInfo struct {
+    kind      reflect.Kind
+    fields    []reflect.StructField
+    elemType  reflect.Type
+    keyType   reflect.Type
+    valueType reflect.Type
+}
+
+func (s *Sanitizer) SanitizeValueOptimized(val interface{}) interface{}
+func clearTypeCache()
+func getTypeCacheStats() (size int, hitRate float64)
+```
+
+**Tests**:
+- [ ] Type caching reduces reflection calls
+- [ ] Cache hit rate >80% for repeated types
+- [ ] Thread-safe concurrent cache access
+- [ ] Cache size bounded (LRU eviction)
+- [ ] Benchmark: 30-50% faster with cache
+- [ ] Memory overhead acceptable (<10MB)
+- [ ] Cache invalidation works
+- [ ] Performance with 100+ unique types
+- [ ] Comparison benchmarks documented
+
+**Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- Global `sync.Map` for thread-safe caching
+- Cache `reflect.Type` info (kind, fields, elem types)
+- First access: cache miss, compute and store
+- Subsequent: cache hit, use cached info
+- Benchmark suite comparing cached vs uncached
+- Target: 30-50% speedup for typical workloads
+- Memory profiling to ensure no leaks
+- Document when to use optimized vs standard
+- LRU eviction if cache exceeds threshold (optional)
+- Profile hot paths with `pprof`
+
+---
+
 ## Phase 7: Documentation & Polish (3 tasks, 9 hours)
 
 ### Task 7.1: API Documentation
