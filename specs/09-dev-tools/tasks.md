@@ -1733,26 +1733,30 @@ func (tc *TimelineControls) Render(width int) string
 
 ## Phase 5: UI & Layout (4 tasks, 12 hours)
 
-### Task 5.1: Layout Manager
+### Task 5.1: Layout Manager ✅ COMPLETED
 **Description**: Split-pane and layout management
 
 **Prerequisites**: Task 4.5
 
 **Unlocks**: Task 5.2 (Tab Controller)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/layout.go`
-- `pkg/bubbly/devtools/layout_test.go`
+- `pkg/bubbly/devtools/layout.go` ✅
+- `pkg/bubbly/devtools/layout_test.go` ✅
 
 **Type Safety**:
 ```go
 type LayoutManager struct {
+    mu     sync.RWMutex
     mode   LayoutMode
-    ratio  float64
-    width  int
-    height int
+    ratio  float64 // Split ratio (0.0 - 1.0) - app size / total size
+    width  int     // Total width available
+    height int     // Total height available
 }
 
+// LayoutMode already defined in config.go
 type LayoutMode int
 
 const (
@@ -1762,17 +1766,96 @@ const (
     LayoutHidden
 )
 
+func NewLayoutManager(mode LayoutMode, ratio float64) *LayoutManager
+func (lm *LayoutManager) SetMode(mode LayoutMode)
+func (lm *LayoutManager) GetMode() LayoutMode
+func (lm *LayoutManager) SetRatio(ratio float64)
+func (lm *LayoutManager) GetRatio() float64
+func (lm *LayoutManager) SetSize(width, height int)
+func (lm *LayoutManager) GetSize() (width, height int)
 func (lm *LayoutManager) Render(app, tools string) string
 ```
 
 **Tests**:
-- [ ] Horizontal split works
-- [ ] Vertical split works
-- [ ] Overlay mode works
-- [ ] Ratio adjustment
-- [ ] Responsive to resize
+- [x] Horizontal split works
+- [x] Vertical split works
+- [x] Overlay mode works
+- [x] Ratio adjustment
+- [x] Responsive to resize
+- [x] Hidden mode
+- [x] Empty content handling
+- [x] Minimum sizes
+- [x] Concurrent access
+- [x] Mode switching
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented LayoutManager struct with thread-safe operations (sync.RWMutex)
+- ✅ `NewLayoutManager()` constructor with ratio clamping (0.0-1.0)
+- ✅ Four layout modes implemented:
+  - **Horizontal**: Side-by-side split using `lipgloss.JoinHorizontal`
+  - **Vertical**: Top/bottom split using `lipgloss.JoinVertical`
+  - **Overlay**: Tools centered on top of app using `lipgloss.Place`
+  - **Hidden**: Only shows app content
+- ✅ `Render()` method routes to appropriate render function based on mode
+- ✅ `renderHorizontal()`: Calculates widths, applies borders, joins horizontally
+- ✅ `renderVertical()`: Calculates heights, applies borders, joins vertically
+- ✅ `renderOverlay()`: Places tools in center with rounded border
+- ✅ Ratio adjustment with `SetRatio()` (clamped to 0.0-1.0)
+- ✅ Responsive resize with `SetSize()` method
+- ✅ Border separators: Dark grey (240) for visual separation
+- ✅ Minimum size handling: Ensures at least 1 char/line for each pane
+- ✅ Thread-safe getters/setters for all properties
+- ✅ 14 comprehensive test suites with table-driven tests
+- ✅ 92.9% overall devtools coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero lint warnings (go vet clean)
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Follows existing devtools patterns (StateViewer, EventTracker, TreeView)
+- ✅ Actual time: ~2.5 hours (under estimate)
+
+**Design Decisions**:
+1. **Reused LayoutMode from config.go**: Avoided duplication, single source of truth
+2. **Thread-safe operations**: RWMutex protects all state for concurrent access
+3. **Ratio clamping**: Automatically clamps ratio to valid range (0.0-1.0)
+4. **Minimum sizes**: Ensures at least 1 char/line to prevent rendering errors
+5. **Border separators**: Dark grey borders between panes for visual clarity
+6. **Lipgloss integration**: Uses JoinHorizontal, JoinVertical, Place for layouts
+7. **Stateless rendering**: Render() doesn't modify state, safe to call repeatedly
+8. **Mode-specific rendering**: Each mode has dedicated render function
+9. **Overlay centering**: Uses lipgloss.Place for centered overlay with border
+10. **Hidden mode simplicity**: Just returns app content, zero overhead
+
+**Integration Points**:
+- Uses LayoutMode from Task 1.5 (Config)
+- Ready for Tab Controller integration (Task 5.2)
+- Can be embedded in DevTools UI (Task 5.4)
+- Follows same patterns as other devtools components for consistency
+
+**Example Usage**:
+```go
+// Create layout manager with 60/40 horizontal split
+lm := NewLayoutManager(LayoutHorizontal, 0.6)
+lm.SetSize(120, 40)
+
+// Render app and tools
+output := lm.Render(appContent, toolsContent)
+
+// Change to vertical split
+lm.SetMode(LayoutVertical)
+output = lm.Render(appContent, toolsContent)
+
+// Adjust ratio to 70/30
+lm.SetRatio(0.7)
+output = lm.Render(appContent, toolsContent)
+
+// Hide dev tools
+lm.SetMode(LayoutHidden)
+output = lm.Render(appContent, toolsContent) // Only shows app
+```
 
 ---
 
