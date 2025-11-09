@@ -1608,37 +1608,126 @@ func (ct *CommandTimeline) Render(width int) string
 
 ---
 
-### Task 4.5: Timeline Scrubbing & Replay
+### Task 4.5: Timeline Scrubbing & Replay ✅ COMPLETED
 **Description**: Scrub timeline, replay commands
 
 **Prerequisites**: Task 4.4
 
 **Unlocks**: Task 5.1 (Layout Manager)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/timeline_controls.go`
-- `pkg/bubbly/devtools/timeline_controls_test.go`
+- `pkg/bubbly/devtools/timeline_controls.go` ✅
+- `pkg/bubbly/devtools/timeline_controls_test.go` ✅
 
 **Type Safety**:
 ```go
 type TimelineControls struct {
-    timeline *CommandTimeline
-    position time.Time
+    timeline  *CommandTimeline
+    position  int
+    speed     float64
+    replaying bool
+    paused    bool
+    mu        sync.RWMutex
 }
 
-func (tc *TimelineControls) Scrub(time.Time)
-func (tc *TimelineControls) Replay()
-func (tc *TimelineControls) Render() string
+type ReplayCommandMsg struct {
+    Command CommandRecord
+    Index   int
+    Total   int
+    NextCmd tea.Cmd
+}
+
+func NewTimelineControls(timeline *CommandTimeline) *TimelineControls
+func (tc *TimelineControls) Scrub(position int)
+func (tc *TimelineControls) ScrubForward()
+func (tc *TimelineControls) ScrubBackward()
+func (tc *TimelineControls) GetPosition() int
+func (tc *TimelineControls) SetSpeed(speed float64) error
+func (tc *TimelineControls) GetSpeed() float64
+func (tc *TimelineControls) Replay() tea.Cmd
+func (tc *TimelineControls) Pause()
+func (tc *TimelineControls) Resume()
+func (tc *TimelineControls) IsPaused() bool
+func (tc *TimelineControls) IsReplaying() bool
+func (tc *TimelineControls) Render(width int) string
 ```
 
 **Tests**:
-- [ ] Scrubbing works
-- [ ] Position indicator
-- [ ] Replay functional
-- [ ] Speed control
-- [ ] Integration
+- [x] Scrubbing works (Scrub, ScrubForward, ScrubBackward with clamping)
+- [x] Position indicator (Render shows ► at current position)
+- [x] Replay functional (Replay returns tea.Cmd, emits ReplayCommandMsg)
+- [x] Speed control (SetSpeed validates 0.1-10x range)
+- [x] Integration (Bubbletea messages, pause/resume, thread-safe)
+- [x] Thread safety (100 concurrent operations tested)
+- [x] Edge cases (empty timeline, single command, concurrent access)
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- ✅ Implemented TimelineControls struct with thread-safe operations (sync.RWMutex)
+- ✅ `NewTimelineControls()` constructor creates controls with position=0, speed=1.0
+- ✅ Scrubbing methods:
+  - `Scrub(position int)`: Sets position with clamping to valid range [0, commandCount-1]
+  - `ScrubForward()`: Moves forward one command (stays at end if already there)
+  - `ScrubBackward()`: Moves backward one command (stays at start if already there)
+  - `GetPosition()`: Returns current position (0-indexed)
+- ✅ Speed control:
+  - `SetSpeed(speed float64)`: Validates range 0.1-10.0, returns error if invalid
+  - `GetSpeed()`: Returns current speed multiplier
+- ✅ Replay functionality:
+  - `Replay()`: Returns tea.Cmd that starts replay from position 0
+  - Uses tea.Tick() for time-based command emission
+  - Calculates delay between commands based on Generated timestamps
+  - Applies speed multiplier to delays (minimum 1ms)
+  - Emits ReplayCommandMsg for each command with NextCmd for chaining
+  - Emits ReplayPausedMsg when paused
+  - Emits ReplayCompletedMsg when done
+- ✅ Pause/Resume:
+  - `Pause()`: Pauses replay (commands in flight complete, no new commands)
+  - `Resume()`: Resumes replay from current position
+  - `IsPaused()`: Returns pause state
+  - `IsReplaying()`: Returns replay state
+- ✅ Render visualization:
+  - Purple header "Timeline Controls"
+  - Status line (Stopped/Replaying/Paused) with color coding
+  - Position display (1-indexed for UX, e.g., "Position: 2/3")
+  - Speed display (e.g., "Speed: 2.0x")
+  - Timeline bars with ► marker at current position
+  - Current command highlighted (purple, bold)
+  - Empty state message for no commands
+- ✅ Message types:
+  - `ReplayCommandMsg`: Sent for each replayed command with Index, Total, NextCmd
+  - Reuses `ReplayPausedMsg` and `ReplayCompletedMsg` from event_replay.go for consistency
+- ✅ 13 comprehensive test suites with table-driven tests
+- ✅ 92.2% overall devtools coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero lint warnings (go vet clean)
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Follows EventReplayer pattern from Task 3.5 for consistency
+- ✅ Thread-safe with sync.RWMutex for all operations
+- ✅ Copy-on-read pattern for GetCommands() prevents external modification
+- ✅ Actual time: ~2 hours (matches estimate)
+
+**Design Decisions**:
+1. **Position as int index**: More intuitive than time.Time for scrubbing (0-indexed internally, 1-indexed for display)
+2. **Speed validation**: Enforces 0.1-10x range to prevent extreme values
+3. **Reuse message types**: Uses ReplayPausedMsg and ReplayCompletedMsg from event_replay.go for consistency
+4. **tea.Tick for timing**: Follows Bubbletea patterns for time-based command emission
+5. **Position indicator**: Visual ► marker at current command in timeline
+6. **Thread safety**: All methods protected by RWMutex for concurrent access
+7. **Minimum delay**: Ensures 1ms minimum delay for commands with same timestamp
+8. **Empty state handling**: Graceful display when no commands in timeline
+
+**Integration Points**:
+- Uses CommandTimeline from Task 4.4 as data source
+- Ready for DevTools UI integration (Task 5.1)
+- Follows same patterns as EventReplayer (Task 3.5) for consistency
+- Can be embedded in larger DevTools panels
+- Bubbletea message system for Update() integration
 
 ---
 
