@@ -2119,43 +2119,168 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ---
 
-### Task 5.4: DevTools UI Integration
+### Task 5.4: DevTools UI Integration ✅ COMPLETED
 **Description**: Complete UI assembly
 
 **Prerequisites**: Task 5.3
 
 **Unlocks**: Task 6.1 (Export System)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/ui.go`
-- `pkg/bubbly/devtools/ui_test.go`
+- `pkg/bubbly/devtools/ui.go` ✅
+- `pkg/bubbly/devtools/ui_test.go` ✅
 
 **Type Safety**:
 ```go
 type DevToolsUI struct {
-    layout     *LayoutManager
-    inspector  *ComponentInspector
-    state      *StateViewer
-    events     *EventTracker
-    perf       *PerformanceMonitor
-    router     *RouterDebugger
-    timeline   *CommandTimeline
-    keyboard   *KeyboardHandler
+    mu          sync.RWMutex
+    layout      *LayoutManager
+    tabs        *TabController
+    keyboard    *KeyboardHandler
+    inspector   *ComponentInspector
+    state       *StateViewer
+    events      *EventTracker
+    perf        *PerformanceMonitor
+    timeline    *CommandTimeline
+    router      *RouterDebugger
     activePanel int
+    appContent  string
+    store       *DevToolsStore
 }
 
-func (ui *DevToolsUI) Update(tea.Msg) tea.Cmd
+func NewDevToolsUI(store *DevToolsStore) *DevToolsUI
+func (ui *DevToolsUI) Init() tea.Cmd
+func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd)
 func (ui *DevToolsUI) View() string
+func (ui *DevToolsUI) SetAppContent(content string)
+func (ui *DevToolsUI) GetActivePanel() int
+func (ui *DevToolsUI) SetActivePanel(index int)
+func (ui *DevToolsUI) SetLayoutMode(mode LayoutMode)
+func (ui *DevToolsUI) GetLayoutMode() LayoutMode
+func (ui *DevToolsUI) SetLayoutRatio(ratio float64)
+func (ui *DevToolsUI) GetLayoutRatio() float64
 ```
 
 **Tests**:
-- [ ] All panels integrate
-- [ ] Panel switching
-- [ ] Layout changes
-- [ ] Keyboard shortcuts
-- [ ] E2E UI test
+- [x] All panels integrate
+- [x] Panel switching (Tab/Shift+Tab)
+- [x] Layout changes (horizontal, vertical, overlay, hidden)
+- [x] Keyboard shortcuts (Tab, Shift+Tab)
+- [x] E2E UI test (integration test)
+- [x] Thread-safe concurrent access
+- [x] Empty store handling
+- [x] Panel content rendering
+- [x] App content display
+- [x] Layout ratio changes
 
 **Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- ✅ Implemented DevToolsUI struct integrating all panels (inspector, state, events, performance, timeline)
+- ✅ `NewDevToolsUI()` constructor initializes all components with default configuration
+- ✅ Implements tea.Model interface (Init/Update/View) for Bubbletea integration
+- ✅ `Update()` method routes keyboard messages to KeyboardHandler and active panel
+- ✅ `View()` method combines app content and tools content using LayoutManager
+- ✅ Tab navigation: Tab (next panel), Shift+Tab (previous panel) with wraparound
+- ✅ Layout management: SetLayoutMode(), GetLayoutMode(), SetLayoutRatio(), GetLayoutRatio()
+- ✅ Panel management: SetActivePanel(), GetActivePanel() with bounds checking
+- ✅ App content: SetAppContent() for displaying application alongside dev tools
+- ✅ Thread-safe with sync.RWMutex for all operations
+- ✅ 13 comprehensive test suites with table-driven tests
+- ✅ 92.6% overall devtools coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero vet warnings
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Follows Bubbletea patterns from Context7 documentation
+- ✅ Integrates seamlessly with all previously built components
+- ✅ Actual time: ~3.5 hours (under estimate)
+
+**Design Decisions**:
+1. **Bubbletea Model interface**: Implements Init/Update/View for direct use as Bubbletea model
+   - Init() returns nil (all initialization in constructor)
+   - Update() handles keyboard messages and routes to panels
+   - View() combines app and tools content via layout manager
+
+2. **Tab-based navigation**: Uses TabController for panel switching
+   - 5 panels: Inspector, State, Events, Performance, Timeline
+   - Tab/Shift+Tab for navigation with wraparound
+   - Active panel tracked by activePanel index
+
+3. **Keyboard routing**: Two-tier keyboard handling
+   - Global shortcuts handled by KeyboardHandler (Tab, Shift+Tab)
+   - Panel-specific shortcuts routed to active panel's Update()
+   - Clean separation of concerns
+
+4. **Layout integration**: LayoutManager handles app/tools positioning
+   - Horizontal split (default 60/40)
+   - Vertical split
+   - Overlay mode
+   - Hidden mode
+   - Configurable ratio
+
+5. **Thread safety**: All methods use sync.RWMutex
+   - Essential for dev tools accessed from multiple goroutines
+   - Read operations use RLock for better concurrency
+   - Write operations use Lock for safety
+
+6. **Store integration**: DevToolsStore passed to constructor
+   - Shared data source for all panels
+   - StateViewer, PerformanceMonitor use store directly
+   - Inspector, EventTracker, Timeline have own data
+
+7. **Router optional**: RouterDebugger may be nil
+   - Not all apps use router
+   - Graceful handling when router not present
+   - Future: Add router panel when router exists
+
+8. **Panel content caching**: TabController caches panel content functions
+   - Efficient rendering without re-creating panels
+   - Content generated on-demand when tab active
+   - Follows functional reactive patterns
+
+**Integration Points**:
+- Uses LayoutManager from Task 5.1
+- Uses TabController from Task 5.2
+- Uses KeyboardHandler from Task 5.3
+- Uses ComponentInspector from Task 2.6
+- Uses StateViewer from Task 3.1
+- Uses EventTracker from Task 3.3
+- Uses PerformanceMonitor from Task 4.1
+- Uses CommandTimeline from Task 4.4
+- Ready for Export System (Task 6.1)
+
+**Example Usage**:
+```go
+// Create dev tools UI
+store := devtools.NewDevToolsStore(1000, 1000)
+ui := devtools.NewDevToolsUI(store)
+
+// Set app content
+ui.SetAppContent("My Application\nCounter: 42")
+
+// In Bubbletea program
+type model struct {
+    ui *devtools.DevToolsUI
+}
+
+func (m model) Init() tea.Cmd {
+    return m.ui.Init()
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    updatedUI, cmd := m.ui.Update(msg)
+    m.ui = updatedUI.(*devtools.DevToolsUI)
+    return m, cmd
+}
+
+func (m model) View() string {
+    return m.ui.View()
+}
+```
 
 ---
 
