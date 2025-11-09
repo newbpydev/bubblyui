@@ -69,20 +69,20 @@ type DevTools struct {
 	visible bool
 
 	// collector hooks into application for data collection
-	// Will be implemented in Task 1.2
-	// collector *DataCollector
+	// Implemented in Task 1.2
+	collector *DataCollector
 
 	// store holds collected debug data in memory
-	// Will be implemented in Task 1.3
-	// store *DevToolsStore
+	// Implemented in Task 1.3
+	store *DevToolsStore
 
 	// ui manages the dev tools user interface
-	// Will be implemented in Task 5.4
-	// ui *DevToolsUI
+	// Implemented in Task 5.4
+	ui *DevToolsUI
 
 	// config holds dev tools configuration
-	// Will be implemented in Task 1.5
-	// config *Config
+	// Implemented in Task 1.5
+	config *Config
 
 	// mu protects concurrent access to enabled and visible fields
 	mu sync.RWMutex

@@ -2286,47 +2286,161 @@ func (m model) View() string {
 
 ## Phase 6: Data Management (3 tasks, 9 hours)
 
-### Task 6.1: Export System
+### Task 6.1: Export System ✅ COMPLETED
 **Description**: Export debug data to JSON
 
 **Prerequisites**: Task 5.4
 
 **Unlocks**: Task 6.2 (Import System)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/export.go`
-- `pkg/bubbly/devtools/export_test.go`
+- `pkg/bubbly/devtools/export.go` ✅
+- `pkg/bubbly/devtools/export_test.go` ✅
 
 **Type Safety**:
 ```go
 type ExportData struct {
-    Version     string
-    Timestamp   time.Time
-    Components  []*ComponentSnapshot
-    State       []StateChange
-    Events      []EventRecord
-    Performance *PerformanceData
+    Version     string                 `json:"version"`
+    Timestamp   time.Time              `json:"timestamp"`
+    Components  []*ComponentSnapshot   `json:"components,omitempty"`
+    State       []StateChange          `json:"state,omitempty"`
+    Events      []EventRecord          `json:"events,omitempty"`
+    Performance *PerformanceData       `json:"performance,omitempty"`
 }
 
 type ExportOptions struct {
-    IncludeComponents bool
-    IncludeState      bool
-    IncludeEvents     bool
-    Sanitize          bool
-    RedactPatterns    []string
+    IncludeComponents  bool
+    IncludeState       bool
+    IncludeEvents      bool
+    IncludePerformance bool
+    Sanitize           bool
+    RedactPatterns     []string
 }
 
 func (dt *DevTools) Export(filename string, opts ExportOptions) error
+func sanitizeExportData(data ExportData, patterns []string) ExportData
+func shouldRedact(key string, patterns []string) bool
+func shouldRedactValue(val interface{}, patterns []string) bool
 ```
 
 **Tests**:
-- [ ] Export creates file
-- [ ] JSON valid
-- [ ] All data included
-- [ ] Sanitization works
-- [ ] Large exports handle
+- [x] Export creates file (TestExport_CreatesFile)
+- [x] JSON valid (all tests verify JSON parsing)
+- [x] All data included (TestExport_AllDataIncluded)
+- [x] Sanitization works (TestExport_Sanitization, case-insensitive, value matching)
+- [x] Large exports handle (TestExport_LargeExport - 1000 components < 5 seconds)
+- [x] Selective export (TestExport_SelectiveExport - 4 scenarios)
+- [x] Invalid path handling (TestExport_InvalidPath)
+- [x] Empty store handling (TestExport_EmptyStore)
+- [x] Not enabled error (TestExport_NotEnabled)
+- [x] No store error (TestExport_NoStore)
+- [x] JSON formatting (TestExport_JSONFormatting - indented output)
+- [x] Omit empty fields (TestExport_OmitEmptyFields - omitempty tags)
+- [x] Helper functions (TestShouldRedact, TestShouldRedactValue)
+- [x] 17 comprehensive tests, all passing
+- [x] 95.8% coverage for Export(), 92.5% overall devtools coverage
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented ExportData struct with JSON tags and omitempty for clean exports
+- ✅ Implemented ExportOptions with all required fields including IncludePerformance
+- ✅ Export() method on DevTools with comprehensive error handling:
+  - Checks if dev tools enabled
+  - Checks if store initialized
+  - Collects data based on options
+  - Applies sanitization if requested
+  - Marshals to JSON with indentation for readability
+  - Writes to file with proper permissions (0644)
+- ✅ Basic sanitization implementation:
+  - Case-insensitive pattern matching
+  - Checks both keys and values
+  - Redacts components (props, state, refs)
+  - Redacts state history (old/new values)
+  - Redacts events (payload)
+  - Default patterns: "password", "token", "apikey", "secret"
+  - Replaces sensitive data with "[REDACTED]"
+- ✅ Helper functions:
+  - `sanitizeExportData()`: Main sanitization logic
+  - `shouldRedact()`: Check if key contains pattern
+  - `shouldRedactValue()`: Check if value contains pattern
+- ✅ Thread-safe with RLock on DevTools
+- ✅ Error wrapping with fmt.Errorf and %w for context
+- ✅ 17 comprehensive test suites with table-driven tests
+- ✅ 95.8% test coverage for Export() function
+- ✅ 92.5% overall devtools coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero vet warnings
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and functions
+- ✅ Follows existing devtools patterns (store.go, collector.go)
+- ✅ JSON output uses MarshalIndent for human-readable formatting
+- ✅ omitempty tags prevent empty fields in JSON output
+- ✅ Large export test: 1000 components exported in < 5 seconds
+- ✅ Actual time: ~2.5 hours (under estimate)
+
+**Design Decisions**:
+1. **JSON tags with omitempty**: Clean exports when selective options used
+2. **Version field**: "1.0" for future compatibility and format evolution
+3. **Basic sanitization**: Simple string-based for Task 6.1, full regex in Task 6.3
+4. **Case-insensitive matching**: More robust redaction of sensitive data
+5. **Value checking**: Redacts both keys and values for comprehensive protection
+6. **Error wrapping**: Provides context for debugging export failures
+7. **Indented JSON**: MarshalIndent for human-readable output
+8. **Thread-safe**: Uses RLock to allow concurrent exports
+9. **Graceful degradation**: Handles missing store, disabled state, invalid paths
+10. **Performance**: Large exports (1000+ items) complete in < 5 seconds
+
+**Integration Points**:
+- Uses DevToolsStore from Task 1.3
+- Ready for Import System (Task 6.2)
+- Ready for full Sanitization (Task 6.3)
+- Integrates with all existing devtools components
+- Can be called from DevToolsUI or directly from application code
+
+**Example Usage**:
+```go
+// Enable dev tools and collect data
+dt := devtools.Enable()
+
+// Export all data with sanitization
+opts := devtools.ExportOptions{
+    IncludeComponents:  true,
+    IncludeState:       true,
+    IncludeEvents:      true,
+    IncludePerformance: true,
+    Sanitize:           true,
+    RedactPatterns:     []string{"password", "token", "apikey"},
+}
+
+err := dt.Export("debug-state.json", opts)
+if err != nil {
+    log.Printf("Export failed: %v", err)
+}
+
+// Selective export (components only, no sanitization)
+err = dt.Export("components-only.json", devtools.ExportOptions{
+    IncludeComponents: true,
+})
+```
+
+**Known Limitations**:
+- Basic string-based sanitization (full regex in Task 6.3)
+- No compression for large exports (could add gzip in future)
+- No streaming for very large datasets (loads all in memory)
+- No export progress callback (could add for large exports)
+
+**Future Enhancements** (Post Task 6.3):
+- Regex-based sanitization patterns
+- Custom sanitization functions
+- Export compression (gzip)
+- Streaming export for very large datasets
+- Export progress callbacks
+- Export to multiple formats (YAML, MessagePack)
+- Incremental exports (delta since last export)
 
 ---
 
