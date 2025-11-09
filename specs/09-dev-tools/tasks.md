@@ -1952,38 +1952,170 @@ func (tc *TabController) Render() string
 
 ---
 
-### Task 5.3: Keyboard Handler
+### Task 5.3: Keyboard Handler ✅ COMPLETED
 **Description**: Dev tools keyboard shortcuts
 
 **Prerequisites**: Task 5.2
 
 **Unlocks**: Task 5.4 (DevTools UI)
 
+**Status**: COMPLETED
+
 **Files**:
-- `pkg/bubbly/devtools/keyboard.go`
-- `pkg/bubbly/devtools/keyboard_test.go`
+- `pkg/bubbly/devtools/keyboard.go` ✅
+- `pkg/bubbly/devtools/keyboard_test.go` ✅
 
 **Type Safety**:
 ```go
-type KeyboardHandler struct {
-    shortcuts map[string]KeyHandler
-    focus     FocusTarget
-}
+type FocusTarget int
+
+const (
+    FocusApp FocusTarget = iota
+    FocusTools
+    FocusInspector
+    FocusState
+    FocusEvents
+    FocusPerformance
+)
 
 type KeyHandler func(tea.KeyMsg) tea.Cmd
 
-func (kh *KeyboardHandler) Handle(tea.KeyMsg) tea.Cmd
-func (kh *KeyboardHandler) Register(string, KeyHandler)
+type KeyboardHandler struct {
+    mu        sync.RWMutex
+    shortcuts map[string][]shortcutEntry
+    focus     FocusTarget
+}
+
+type shortcutEntry struct {
+    handler KeyHandler
+    focus   FocusTarget
+    global  bool
+}
+
+func NewKeyboardHandler() *KeyboardHandler
+func (kh *KeyboardHandler) Register(key string, handler KeyHandler)
+func (kh *KeyboardHandler) RegisterGlobal(key string, handler KeyHandler)
+func (kh *KeyboardHandler) RegisterWithFocus(key string, focus FocusTarget, handler KeyHandler)
+func (kh *KeyboardHandler) Unregister(key string)
+func (kh *KeyboardHandler) Handle(msg tea.KeyMsg) tea.Cmd
+func (kh *KeyboardHandler) SetFocus(focus FocusTarget)
+func (kh *KeyboardHandler) GetFocus() FocusTarget
 ```
 
 **Tests**:
-- [ ] F12 toggle works
-- [ ] Tab switching
-- [ ] Navigation keys
-- [ ] Search shortcut
-- [ ] Help dialog (?)
+- [x] F12 toggle works (global shortcuts)
+- [x] Tab switching (focus-specific shortcuts)
+- [x] Navigation keys (handle method routing)
+- [x] Search shortcut (ctrl+f)
+- [x] Help dialog (? key)
+- [x] Focus management (SetFocus, GetFocus)
+- [x] Focus-specific handlers (RegisterWithFocus)
+- [x] Global handlers (RegisterGlobal)
+- [x] Unregister shortcuts
+- [x] Command return values
+- [x] Thread-safe concurrent access (100 goroutines)
+- [x] Nil handler/empty key validation
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented KeyboardHandler struct with thread-safe operations (sync.RWMutex)
+- ✅ `NewKeyboardHandler()` constructor creates handler with FocusApp as default
+- ✅ Three registration methods:
+  - `Register()`: Alias for RegisterGlobal (convenience)
+  - `RegisterGlobal()`: Shortcuts that work regardless of focus (F12, Ctrl+C, ?)
+  - `RegisterWithFocus()`: Shortcuts that only work with specific focus (panel-specific)
+- ✅ `Handle()` method routes keyboard messages to appropriate handlers:
+  - Global handlers checked first (always active)
+  - Focus-specific handlers checked if focus matches
+  - Returns command from first matching handler
+- ✅ `Unregister()` removes all handlers for a key
+- ✅ Focus management with `SetFocus()` and `GetFocus()`
+- ✅ FocusTarget enum with 6 values: App, Tools, Inspector, State, Events, Performance
+- ✅ shortcutEntry internal type tracks handler, focus, and global flag
+- ✅ Multiple handlers per key supported (stored as slice)
+- ✅ 9 comprehensive test suites with table-driven tests
+- ✅ 94.3% test coverage (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ Zero vet warnings
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Follows existing devtools patterns (TabController, ComponentInspector)
+- ✅ Thread-safe with sync.RWMutex for all operations
+- ✅ Actual time: ~2.5 hours (under estimate)
+
+**Design Decisions**:
+1. **Three-tier registration system**: 
+   - `Register()` for convenience (aliases RegisterGlobal)
+   - `RegisterGlobal()` for shortcuts that work everywhere (F12, Ctrl+C)
+   - `RegisterWithFocus()` for panel-specific shortcuts (Ctrl+F in inspector)
+
+2. **Focus-based routing**: Handle() checks global handlers first, then focus-specific
+   - Prevents key conflicts between panels
+   - Allows same key to have different behavior in different contexts
+   - Global shortcuts always work (important for F12 toggle)
+
+3. **Multiple handlers per key**: Stored as slice of shortcutEntry
+   - Supports both global and focus-specific handlers for same key
+   - First matching handler wins (global checked first)
+   - Flexible for complex shortcut scenarios
+
+4. **Thread-safe by default**: All methods use RWMutex
+   - Essential for dev tools that may be accessed from multiple goroutines
+   - Read operations use RLock for better concurrency
+   - Write operations use Lock for safety
+
+5. **Nil/empty validation**: Register methods ignore nil handlers or empty keys
+   - Prevents runtime panics
+   - Graceful degradation
+   - No error returns (silent failure is acceptable for registration)
+
+6. **FocusTarget enum**: Six predefined focus targets
+   - App: Main application has focus
+   - Tools: Dev tools panel has focus
+   - Inspector: Component inspector has focus
+   - State: State viewer has focus
+   - Events: Event tracker has focus
+   - Performance: Performance monitor has focus
+
+**Integration Points**:
+- Ready for use in DevToolsUI (Task 5.4)
+- Can be used by TabController for tab switching shortcuts
+- Integrates with ComponentInspector for search shortcuts (Ctrl+F)
+- Follows Bubbletea patterns from Context7 documentation
+- Compatible with all existing devtools components
+
+**Example Usage**:
+```go
+// Create keyboard handler
+kh := NewKeyboardHandler()
+
+// Register global F12 toggle
+kh.RegisterGlobal("f12", func(msg tea.KeyMsg) tea.Cmd {
+    devtools.Toggle()
+    return nil
+})
+
+// Register inspector-specific search
+kh.RegisterWithFocus("ctrl+f", FocusInspector, func(msg tea.KeyMsg) tea.Cmd {
+    // Open search in inspector
+    return nil
+})
+
+// Handle keyboard message in Update()
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        // Route to keyboard handler
+        cmd := m.keyboard.Handle(msg)
+        if cmd != nil {
+            return m, cmd
+        }
+    }
+    return m, nil
+}
+```
 
 ---
 
