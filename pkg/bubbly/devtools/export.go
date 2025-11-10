@@ -241,6 +241,138 @@ func (dt *DevTools) Export(filename string, opts ExportOptions) error {
 	return nil
 }
 
+// ExportFormat writes dev tools debug data to a file using the specified format.
+//
+// This method supports multiple export formats (JSON, YAML, MessagePack) and
+// automatically handles compression if the filename ends with .gz.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently. Uses read lock on DevTools.
+//
+// Example:
+//
+//	// Export as YAML
+//	err := devtools.ExportFormat("debug.yaml", "yaml", ExportOptions{
+//	    IncludeComponents: true,
+//	    IncludeState:      true,
+//	})
+//
+//	// Export as MessagePack with compression
+//	err := devtools.ExportFormat("debug.msgpack.gz", "msgpack", ExportOptions{
+//	    IncludeEvents: true,
+//	    Compress:      true,
+//	})
+//
+// Parameters:
+//   - filename: Path to the output file
+//   - formatName: Format name ("json", "yaml", "msgpack")
+//   - opts: Export options controlling what data to include
+//
+// Returns:
+//   - error: nil on success, error describing the failure otherwise
+func (dt *DevTools) ExportFormat(filename, formatName string, opts ExportOptions) error {
+	dt.mu.RLock()
+	defer dt.mu.RUnlock()
+
+	// Check if dev tools is enabled
+	if !dt.enabled {
+		return fmt.Errorf("dev tools not enabled")
+	}
+
+	// Check if store exists
+	if dt.store == nil {
+		return fmt.Errorf("dev tools store not initialized")
+	}
+
+	// Get format from registry
+	registry := getGlobalRegistry()
+	format, err := registry.Get(formatName)
+	if err != nil {
+		return fmt.Errorf("failed to get format: %w", err)
+	}
+
+	// Create export data structure
+	data := ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+	}
+
+	// Collect components if requested
+	if opts.IncludeComponents {
+		data.Components = dt.store.GetAllComponents()
+	}
+
+	// Collect state history if requested
+	if opts.IncludeState {
+		data.State = dt.store.stateHistory.GetAll()
+	}
+
+	// Collect events if requested
+	if opts.IncludeEvents {
+		data.Events = dt.store.events.GetRecent(dt.store.events.Len())
+	}
+
+	// Collect performance data if requested
+	if opts.IncludePerformance {
+		data.Performance = dt.store.performance
+	}
+
+	// Apply sanitization if requested
+	if opts.Sanitize {
+		data = sanitizeExportData(data, opts.RedactPatterns)
+	}
+
+	// Marshal using the specified format
+	bytes, err := format.Marshal(&data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	// Create output file
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create export file: %w", err)
+	}
+	defer file.Close()
+
+	// Write data (compressed or uncompressed)
+	if opts.Compress {
+		// Set default compression level if not specified
+		level := opts.CompressionLevel
+		if level == 0 && opts.Compress {
+			level = gzip.DefaultCompression
+		}
+
+		// Create gzip writer
+		gzWriter, err := gzip.NewWriterLevel(file, level)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip writer: %w", err)
+		}
+		defer gzWriter.Close()
+
+		// Write compressed data
+		_, err = gzWriter.Write(bytes)
+		if err != nil {
+			return fmt.Errorf("failed to write compressed data: %w", err)
+		}
+
+		// Flush to ensure all data is written
+		err = gzWriter.Flush()
+		if err != nil {
+			return fmt.Errorf("failed to flush gzip writer: %w", err)
+		}
+	} else {
+		// Write uncompressed data
+		_, err = file.Write(bytes)
+		if err != nil {
+			return fmt.Errorf("failed to write export file: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ExportStream writes dev tools debug data to a file using streaming mode.
 //
 // This method is designed for large exports (>100MB) where loading the entire

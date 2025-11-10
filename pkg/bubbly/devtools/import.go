@@ -70,6 +70,151 @@ func (dt *DevTools) Import(filename string) error {
 	return dt.ImportFromReader(io.NopCloser(reader))
 }
 
+// ImportFormat loads debug data from a file using the specified format.
+//
+// This method supports multiple import formats (JSON, YAML, MessagePack) and
+// automatically detects and handles gzip compression.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently. Uses write lock on DevTools.
+//
+// Example:
+//
+//	// Import from YAML
+//	err := devtools.ImportFormat("debug.yaml", "yaml")
+//
+//	// Import from compressed MessagePack
+//	err := devtools.ImportFormat("debug.msgpack.gz", "msgpack")
+//
+//	// Auto-detect format from filename
+//	format, _ := DetectFormat("debug.yaml")
+//	err := devtools.ImportFormat("debug.yaml", format)
+//
+// Parameters:
+//   - filename: Path to the file to import
+//   - formatName: Format name ("json", "yaml", "msgpack")
+//
+// Returns:
+//   - error: nil on success, error describing the failure otherwise
+func (dt *DevTools) ImportFormat(filename, formatName string) error {
+	// Open file
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("failed to open import file: %w", err)
+	}
+	defer file.Close()
+
+	// Detect if file is gzip-compressed
+	isCompressed, err := detectCompression(file)
+	if err != nil {
+		return fmt.Errorf("failed to detect compression: %w", err)
+	}
+
+	// Seek back to start after detection
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	// Create appropriate reader
+	var reader io.Reader = file
+	if isCompressed {
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzReader.Close()
+		reader = gzReader
+	}
+
+	// Read all data from reader
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("failed to read import data: %w", err)
+	}
+
+	// Get format from registry
+	registry := getGlobalRegistry()
+	format, err := registry.Get(formatName)
+	if err != nil {
+		return fmt.Errorf("failed to get format: %w", err)
+	}
+
+	// Unmarshal using the specified format
+	var exportData ExportData
+	err = format.Unmarshal(data, &exportData)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal import data: %w", err)
+	}
+
+	// Validate imported data
+	err = dt.ValidateImport(&exportData)
+	if err != nil {
+		return fmt.Errorf("import validation failed: %w", err)
+	}
+
+	// Lock for writing
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+
+	// Check if dev tools is enabled
+	if !dt.enabled {
+		return fmt.Errorf("dev tools not enabled")
+	}
+
+	// Check if store exists
+	if dt.store == nil {
+		return fmt.Errorf("dev tools store not initialized")
+	}
+
+	// Clear existing data
+	dt.store.mu.Lock()
+	dt.store.components = make(map[string]*ComponentSnapshot)
+	dt.store.mu.Unlock()
+
+	dt.store.stateHistory.Clear()
+	dt.store.events.Clear()
+	dt.store.performance.Clear()
+
+	// Restore components
+	if exportData.Components != nil {
+		for _, comp := range exportData.Components {
+			dt.store.AddComponent(comp)
+		}
+	}
+
+	// Restore state history
+	if exportData.State != nil {
+		for _, state := range exportData.State {
+			dt.store.stateHistory.Record(state)
+		}
+	}
+
+	// Restore events
+	if exportData.Events != nil {
+		for _, event := range exportData.Events {
+			dt.store.events.Append(event)
+		}
+	}
+
+	// Restore performance data
+	if exportData.Performance != nil {
+		allPerf := exportData.Performance.GetAll()
+		for _, perf := range allPerf {
+			for i := int64(0); i < perf.RenderCount; i++ {
+				dt.store.performance.RecordRender(
+					perf.ComponentID,
+					perf.ComponentName,
+					perf.AvgRenderTime,
+				)
+			}
+		}
+	}
+
+	return nil
+}
+
 // ImportFromReader loads debug data from an io.Reader and restores it to the dev tools store.
 //
 // This function reads from any io.Reader (file, network, memory buffer, etc.),

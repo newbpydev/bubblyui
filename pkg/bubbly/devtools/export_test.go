@@ -628,3 +628,113 @@ func TestShouldRedactValue(t *testing.T) {
 		})
 	}
 }
+
+// TestExportFormat tests exporting in different formats
+func TestExportFormat(t *testing.T) {
+	formats := []string{"json", "yaml", "msgpack"}
+
+	for _, formatName := range formats {
+		t.Run(formatName, func(t *testing.T) {
+			// Create temp directory for test files
+			tmpDir := t.TempDir()
+
+			// Determine extension
+			ext := ".json"
+			if formatName == "yaml" {
+				ext = ".yaml"
+			} else if formatName == "msgpack" {
+				ext = ".msgpack"
+			}
+
+			filename := filepath.Join(tmpDir, "test-export"+ext)
+
+			// Create dev tools with store
+			dt := &DevTools{
+				enabled: true,
+				store:   NewDevToolsStore(100, 100),
+			}
+
+			// Add some test data
+			dt.store.AddComponent(&ComponentSnapshot{
+				ID:        "comp-1",
+				Name:      "TestComponent",
+				Type:      "test",
+				Timestamp: time.Now(),
+			})
+
+			// Export with format
+			opts := ExportOptions{
+				IncludeComponents: true,
+			}
+
+			err := dt.ExportFormat(filename, formatName, opts)
+			require.NoError(t, err, "ExportFormat should succeed")
+
+			// Verify file exists
+			_, err = os.Stat(filename)
+			require.NoError(t, err, "Export file should exist")
+
+			// Verify file is not empty
+			info, err := os.Stat(filename)
+			require.NoError(t, err)
+			assert.Greater(t, info.Size(), int64(0), "Export file should not be empty")
+		})
+	}
+}
+
+// TestExportFormat_WithCompression tests exporting with compression
+func TestExportFormat_WithCompression(t *testing.T) {
+	// Create temp directory for test files
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-export.yaml.gz")
+
+	// Create dev tools with store
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	// Add test data
+	dt.store.AddComponent(&ComponentSnapshot{
+		ID:        "comp-1",
+		Name:      "TestComponent",
+		Type:      "test",
+		Timestamp: time.Now(),
+	})
+
+	// Export with compression
+	opts := ExportOptions{
+		IncludeComponents: true,
+		Compress:          true,
+	}
+
+	err := dt.ExportFormat(filename, "yaml", opts)
+	require.NoError(t, err)
+
+	// Verify file exists and is compressed
+	data, err := os.ReadFile(filename)
+	require.NoError(t, err)
+
+	// Check for gzip magic bytes
+	assert.Equal(t, byte(0x1f), data[0], "Should have gzip magic byte 1")
+	assert.Equal(t, byte(0x8b), data[1], "Should have gzip magic byte 2")
+}
+
+// TestExportFormat_InvalidFormat tests error handling for invalid format
+func TestExportFormat_InvalidFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-export.txt")
+
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	opts := ExportOptions{
+		IncludeComponents: true,
+	}
+
+	err := dt.ExportFormat(filename, "invalid", opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "format not found")
+}

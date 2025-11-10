@@ -576,3 +576,203 @@ func TestBytesReader(t *testing.T) {
 	assert.Equal(t, 0, n)
 	assert.Error(t, err) // Should be io.EOF or similar
 }
+
+// TestImportFormat tests importing from different formats
+func TestImportFormat(t *testing.T) {
+	formats := []string{"json", "yaml", "msgpack"}
+
+	for _, formatName := range formats {
+		t.Run(formatName, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			// Determine extension
+			ext := ".json"
+			if formatName == "yaml" {
+				ext = ".yaml"
+			} else if formatName == "msgpack" {
+				ext = ".msgpack"
+			}
+
+			filename := filepath.Join(tmpDir, "test-import"+ext)
+
+			// Create dev tools and export some data
+			dt := &DevTools{
+				enabled: true,
+				store:   NewDevToolsStore(100, 100),
+			}
+
+			// Add test data
+			dt.store.AddComponent(&ComponentSnapshot{
+				ID:   "comp-1",
+				Name: "TestComponent",
+			})
+
+			// Export using the format
+			err := dt.ExportFormat(filename, formatName, ExportOptions{
+				IncludeComponents: true,
+			})
+			require.NoError(t, err)
+
+			// Clear store
+			dt.store.mu.Lock()
+			dt.store.components = make(map[string]*ComponentSnapshot)
+			dt.store.mu.Unlock()
+
+			// Import using the format
+			err = dt.ImportFormat(filename, formatName)
+			require.NoError(t, err)
+
+			// Verify data was restored
+			components := dt.store.GetAllComponents()
+			assert.Len(t, components, 1)
+			assert.Equal(t, "comp-1", components[0].ID)
+			assert.Equal(t, "TestComponent", components[0].Name)
+		})
+	}
+}
+
+// TestImportFormat_WithCompression tests importing compressed files
+func TestImportFormat_WithCompression(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-import.yaml.gz")
+
+	// Create dev tools and export compressed data
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	dt.store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+	})
+
+	// Export with compression
+	err := dt.ExportFormat(filename, "yaml", ExportOptions{
+		IncludeComponents: true,
+		Compress:          true,
+	})
+	require.NoError(t, err)
+
+	// Clear store
+	dt.store.mu.Lock()
+	dt.store.components = make(map[string]*ComponentSnapshot)
+	dt.store.mu.Unlock()
+
+	// Import compressed file
+	err = dt.ImportFormat(filename, "yaml")
+	require.NoError(t, err)
+
+	// Verify data was restored
+	components := dt.store.GetAllComponents()
+	assert.Len(t, components, 1)
+	assert.Equal(t, "comp-1", components[0].ID)
+}
+
+// TestImportFormat_RoundTrip tests round-trip for all formats
+func TestImportFormat_RoundTrip(t *testing.T) {
+	formats := []string{"json", "yaml", "msgpack"}
+
+	for _, formatName := range formats {
+		t.Run(formatName, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			ext := ".json"
+			if formatName == "yaml" {
+				ext = ".yaml"
+			} else if formatName == "msgpack" {
+				ext = ".msgpack"
+			}
+
+			filename := filepath.Join(tmpDir, "test-roundtrip"+ext)
+
+			// Create dev tools with comprehensive data
+			dt := &DevTools{
+				enabled: true,
+				store:   NewDevToolsStore(100, 100),
+			}
+
+			// Add comprehensive test data
+			originalComp := &ComponentSnapshot{
+				ID:   "comp-1",
+				Name: "Counter",
+				Type: "bubbly.Component",
+				Props: map[string]interface{}{
+					"initial": 0,
+				},
+			}
+			dt.store.AddComponent(originalComp)
+
+			originalState := StateChange{
+				RefID:     "ref-1",
+				RefName:   "count",
+				OldValue:  41,
+				NewValue:  42,
+				Timestamp: time.Now(),
+			}
+			dt.store.stateHistory.Record(originalState)
+
+			originalEvent := EventRecord{
+				ID:        "event-1",
+				Name:      "increment",
+				SourceID:  "button",
+				Timestamp: time.Now(),
+			}
+			dt.store.events.Append(originalEvent)
+
+			// Export
+			err := dt.ExportFormat(filename, formatName, ExportOptions{
+				IncludeComponents: true,
+				IncludeState:      true,
+				IncludeEvents:     true,
+			})
+			require.NoError(t, err)
+
+			// Clear store
+			dt.store.mu.Lock()
+			dt.store.components = make(map[string]*ComponentSnapshot)
+			dt.store.mu.Unlock()
+			dt.store.stateHistory.Clear()
+			dt.store.events.Clear()
+
+			// Import
+			err = dt.ImportFormat(filename, formatName)
+			require.NoError(t, err)
+
+			// Verify all data was restored correctly
+			components := dt.store.GetAllComponents()
+			require.Len(t, components, 1)
+			assert.Equal(t, originalComp.ID, components[0].ID)
+			assert.Equal(t, originalComp.Name, components[0].Name)
+
+			stateHistory := dt.store.stateHistory.GetAll()
+			require.Len(t, stateHistory, 1)
+			assert.Equal(t, originalState.RefID, stateHistory[0].RefID)
+
+			events := dt.store.events.GetRecent(10)
+			require.Len(t, events, 1)
+			assert.Equal(t, originalEvent.ID, events[0].ID)
+		})
+	}
+}
+
+// TestImportFormat_InvalidFormat tests error handling
+func TestImportFormat_InvalidFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test.json")
+
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	// Export valid JSON
+	dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
+	err := dt.ExportFormat(filename, "json", ExportOptions{IncludeComponents: true})
+	require.NoError(t, err)
+
+	// Try to import with invalid format
+	err = dt.ImportFormat(filename, "invalid")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "format not found")
+}
