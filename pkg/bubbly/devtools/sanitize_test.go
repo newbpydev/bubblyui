@@ -1,6 +1,7 @@
 package devtools
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -527,4 +528,267 @@ func TestSanitizer_Sanitize_PreservesOriginal(t *testing.T) {
 	// Verify result is different (password redacted)
 	assert.Contains(t, result.Components[0].Props["data"], "[REDACTED]")
 	assert.NotEqual(t, originalData, result.Components[0].Props["data"])
+}
+
+// TestSanitizer_AddPatternWithPriority tests adding patterns with priority
+func TestSanitizer_AddPatternWithPriority(t *testing.T) {
+	sanitizer := NewSanitizer()
+	initialCount := sanitizer.PatternCount()
+
+	err := sanitizer.AddPatternWithPriority(`test_pattern`, "[TEST]", 50, "test_pattern")
+	assert.NoError(t, err)
+	assert.Equal(t, initialCount+1, sanitizer.PatternCount())
+
+	// Test the added pattern works
+	result := sanitizer.SanitizeString("test_pattern value")
+	assert.Contains(t, result, "[TEST]")
+}
+
+// TestSanitizer_AddPatternWithPriority_InvalidRegex tests error handling
+func TestSanitizer_AddPatternWithPriority_InvalidRegex(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	err := sanitizer.AddPatternWithPriority(`[invalid`, "[TEST]", 50, "invalid")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid pattern")
+}
+
+// TestSanitizer_PriorityOrdering tests that higher priority patterns apply first
+func TestSanitizer_PriorityOrdering(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add patterns in reverse priority order
+	sanitizer.AddPatternWithPriority(`data`, "[LOW]", 10, "low_priority")
+	sanitizer.AddPatternWithPriority(`data`, "[HIGH]", 100, "high_priority")
+	sanitizer.AddPatternWithPriority(`data`, "[MEDIUM]", 50, "medium_priority")
+
+	// Higher priority should apply first
+	result := sanitizer.SanitizeString("data value")
+	assert.Equal(t, "[HIGH] value", result, "Higher priority pattern should apply first")
+}
+
+// TestSanitizer_EqualPriority_InsertionOrder tests stable sort with equal priorities
+func TestSanitizer_EqualPriority_InsertionOrder(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add patterns with same priority
+	sanitizer.AddPatternWithPriority(`data`, "[FIRST]", 50, "first")
+	sanitizer.AddPatternWithPriority(`data`, "[SECOND]", 50, "second")
+	sanitizer.AddPatternWithPriority(`data`, "[THIRD]", 50, "third")
+
+	// First added should apply first (stable sort)
+	result := sanitizer.SanitizeString("data value")
+	assert.Equal(t, "[FIRST] value", result, "Equal priority should use insertion order")
+}
+
+// TestSanitizer_DefaultPriority tests that priority 0 is default behavior
+func TestSanitizer_DefaultPriority(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Add pattern with priority 0 (default)
+	sanitizer.AddPatternWithPriority(`custom`, "[CUSTOM]", 0, "custom")
+
+	// Should work normally
+	result := sanitizer.SanitizeString("custom value")
+	assert.Contains(t, result, "[CUSTOM]")
+}
+
+// TestSanitizer_NegativePriority tests that negative priorities apply last
+func TestSanitizer_NegativePriority(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add patterns with different priorities including negative
+	sanitizer.AddPatternWithPriority(`data`, "[POSITIVE]", 10, "positive")
+	sanitizer.AddPatternWithPriority(`data`, "[NEGATIVE]", -10, "negative")
+
+	// Positive priority should apply first
+	result := sanitizer.SanitizeString("data value")
+	assert.Equal(t, "[POSITIVE] value", result, "Positive priority should apply before negative")
+}
+
+// TestSanitizer_OverlappingPatterns tests priority resolution for overlapping patterns
+func TestSanitizer_OverlappingPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		patterns []struct {
+			pattern     string
+			replacement string
+			priority    int
+			name        string
+		}
+		input string
+		want  string
+	}{
+		{
+			name: "specific pattern applies first, then generic (both apply)",
+			patterns: []struct {
+				pattern     string
+				replacement string
+				priority    int
+				name        string
+			}{
+				{`(?i)(password)(["'\s:=]+)([^\s"']+)`, "${1}${2}[GENERIC]", 10, "generic"},
+				{`(?i)(password)(["'\s:=]+)(admin[^\s"']*)`, "${1}${2}[ADMIN]", 100, "admin_specific"},
+			},
+			input: "password: admin123",
+			// Higher priority applies first: "password: [ADMIN]"
+			// Then lower priority also applies: "password: [GENERIC]"
+			want: "password: [GENERIC]",
+		},
+		{
+			name: "credit card before generic number",
+			patterns: []struct {
+				pattern     string
+				replacement string
+				priority    int
+				name        string
+			}{
+				{`\d+`, "[NUMBER]", 10, "generic_number"},
+				{`\d{4}-\d{4}-\d{4}-\d{4}`, "[CARD]", 100, "credit_card"},
+			},
+			input: "card: 1234-5678-9012-3456",
+			// Higher priority applies first: "card: [CARD]"
+			// Lower priority doesn't match "[CARD]" so result stays
+			want: "card: [CARD]",
+		},
+		{
+			name: "all patterns apply in priority order",
+			patterns: []struct {
+				pattern     string
+				replacement string
+				priority    int
+				name        string
+			}{
+				{`secret`, "[REDACTED]", 100, "high_priority"},
+				{`\[REDACTED\]`, "[DOUBLE_REDACTED]", 10, "low_priority"},
+			},
+			input: "secret value",
+			// High priority applies first: "[REDACTED] value"
+			// Low priority also applies: "[DOUBLE_REDACTED] value"
+			want: "[DOUBLE_REDACTED] value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sanitizer := &Sanitizer{
+				patterns: []SanitizePattern{},
+			}
+
+			for _, p := range tt.patterns {
+				sanitizer.AddPatternWithPriority(p.pattern, p.replacement, p.priority, p.name)
+			}
+
+			got := sanitizer.SanitizeString(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestSanitizer_GetPatterns tests retrieving patterns in sorted order
+func TestSanitizer_GetPatterns(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add patterns in random order
+	sanitizer.AddPatternWithPriority(`low`, "[LOW]", 10, "low")
+	sanitizer.AddPatternWithPriority(`high`, "[HIGH]", 100, "high")
+	sanitizer.AddPatternWithPriority(`medium`, "[MEDIUM]", 50, "medium")
+
+	patterns := sanitizer.GetPatterns()
+
+	// Should be sorted by priority (descending)
+	assert.Len(t, patterns, 3)
+	assert.Equal(t, "high", patterns[0].Name)
+	assert.Equal(t, 100, patterns[0].Priority)
+	assert.Equal(t, "medium", patterns[1].Name)
+	assert.Equal(t, 50, patterns[1].Priority)
+	assert.Equal(t, "low", patterns[2].Name)
+	assert.Equal(t, 10, patterns[2].Priority)
+}
+
+// TestSanitizer_PatternNames tests that pattern names are tracked correctly
+func TestSanitizer_PatternNames(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	sanitizer.AddPatternWithPriority(`test`, "[TEST]", 50, "my_test_pattern")
+
+	patterns := sanitizer.GetPatterns()
+	assert.Len(t, patterns, 1)
+	assert.Equal(t, "my_test_pattern", patterns[0].Name)
+}
+
+// TestSanitizer_AutoGeneratedNames tests auto-generated pattern names
+func TestSanitizer_AutoGeneratedNames(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add pattern with empty name
+	sanitizer.AddPatternWithPriority(`test`, "[TEST]", 50, "")
+
+	patterns := sanitizer.GetPatterns()
+	assert.Len(t, patterns, 1)
+	assert.Contains(t, patterns[0].Name, "pattern_")
+}
+
+// TestSanitizer_SortStability tests that sort is stable with many patterns
+func TestSanitizer_SortStability(t *testing.T) {
+	sanitizer := &Sanitizer{
+		patterns: []SanitizePattern{},
+	}
+
+	// Add many patterns with same priority
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("pattern_%d", i)
+		sanitizer.AddPatternWithPriority(`test`, "[TEST]", 50, name)
+	}
+
+	patterns := sanitizer.GetPatterns()
+	assert.Len(t, patterns, 10)
+
+	// Verify insertion order preserved
+	for i := 0; i < 10; i++ {
+		expected := fmt.Sprintf("pattern_%d", i)
+		assert.Equal(t, expected, patterns[i].Name)
+	}
+}
+
+// TestSanitizer_PriorityRanges tests documented priority ranges
+func TestSanitizer_PriorityRanges(t *testing.T) {
+	tests := []struct {
+		name     string
+		priority int
+		category string
+	}{
+		{"critical", 150, "critical (100+)"},
+		{"org_specific", 75, "org-specific (50-99)"},
+		{"custom", 30, "custom (10-49)"},
+		{"default", 5, "default (0-9)"},
+		{"cleanup", -5, "cleanup (negative)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sanitizer := &Sanitizer{
+				patterns: []SanitizePattern{},
+			}
+
+			err := sanitizer.AddPatternWithPriority(`test`, "[TEST]", tt.priority, tt.name)
+			assert.NoError(t, err)
+
+			patterns := sanitizer.GetPatterns()
+			assert.Len(t, patterns, 1)
+			assert.Equal(t, tt.priority, patterns[0].Priority)
+		})
+	}
 }

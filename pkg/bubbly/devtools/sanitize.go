@@ -1,8 +1,10 @@
 package devtools
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 )
 
 // Sanitizer provides regex-based sanitization of sensitive data in exports.
@@ -26,16 +28,29 @@ type Sanitizer struct {
 	patterns []SanitizePattern
 }
 
-// SanitizePattern represents a single sanitization rule.
+// SanitizePattern represents a single sanitization rule with priority ordering.
 //
-// It contains a compiled regular expression pattern and the replacement
-// string to use when the pattern matches.
+// It contains a compiled regular expression pattern, the replacement
+// string to use when the pattern matches, a priority for ordering, and
+// an optional name for tracking/debugging.
+//
+// Priority Ranges:
+//   - 100+: Critical patterns (e.g., PCI, HIPAA compliance)
+//   - 50-99: Organization-specific patterns
+//   - 10-49: Custom patterns
+//   - 0-9: Default patterns
+//   - Negative: Cleanup patterns (apply last)
+//
+// Higher priority patterns are applied first. When priorities are equal,
+// patterns are applied in insertion order (stable sort).
 //
 // Example:
 //
 //	pattern := SanitizePattern{
 //	    Pattern:     regexp.MustCompile(`(?i)api[_-]?key["\s:=]+\S+`),
 //	    Replacement: "[REDACTED]",
+//	    Priority:    50,
+//	    Name:        "api_key",
 //	}
 type SanitizePattern struct {
 	// Pattern is the compiled regular expression to match
@@ -43,6 +58,15 @@ type SanitizePattern struct {
 
 	// Replacement is the string to replace matches with
 	Replacement string
+
+	// Priority determines the order in which patterns are applied.
+	// Higher priority patterns are applied first. Default is 0.
+	Priority int
+
+	// Name is an optional identifier for the pattern, useful for
+	// tracking, debugging, and audit trails. If empty, a name will
+	// be auto-generated in the format "pattern_N".
+	Name string
 }
 
 // NewSanitizer creates a new sanitizer with default patterns.
@@ -79,7 +103,7 @@ func NewSanitizer() *Sanitizer {
 	return s
 }
 
-// AddPattern adds a new sanitization pattern to the sanitizer.
+// AddPattern adds a new sanitization pattern to the sanitizer with default priority (0).
 //
 // The pattern string is compiled as a regular expression. If compilation
 // fails, this method panics. Use this during initialization when you want
@@ -98,7 +122,109 @@ func (s *Sanitizer) AddPattern(pattern, replacement string) {
 	s.patterns = append(s.patterns, SanitizePattern{
 		Pattern:     re,
 		Replacement: replacement,
+		Priority:    0,
+		Name:        fmt.Sprintf("pattern_%d", len(s.patterns)),
 	})
+}
+
+// AddPatternWithPriority adds a new sanitization pattern with explicit priority and name.
+//
+// The pattern string is compiled as a regular expression. If compilation
+// fails, this method returns an error instead of panicking, making it
+// suitable for runtime pattern addition.
+//
+// Priority determines the order in which patterns are applied:
+//   - 100+: Critical patterns (PCI, HIPAA compliance)
+//   - 50-99: Organization-specific patterns
+//   - 10-49: Custom patterns
+//   - 0-9: Default patterns
+//   - Negative: Cleanup patterns (apply last)
+//
+// Higher priority patterns are applied first. When priorities are equal,
+// patterns are applied in insertion order (stable sort).
+//
+// If name is empty, a name will be auto-generated in the format "pattern_N".
+//
+// Example:
+//
+//	sanitizer := devtools.NewSanitizer()
+//	err := sanitizer.AddPatternWithPriority(
+//	    `(?i)(merchant[_-]?id)(["'\s:=]+)([A-Z0-9]+)`,
+//	    "${1}${2}[REDACTED_MERCHANT]",
+//	    80,
+//	    "merchant_id",
+//	)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Parameters:
+//   - pattern: Regular expression pattern string
+//   - replacement: String to replace matches with
+//   - priority: Priority for pattern ordering (higher applies first)
+//   - name: Optional name for tracking/debugging (auto-generated if empty)
+//
+// Returns:
+//   - error: Error if pattern compilation fails
+func (s *Sanitizer) AddPatternWithPriority(pattern, replacement string, priority int, name string) error {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid pattern: %w", err)
+	}
+
+	// Auto-generate name if empty
+	if name == "" {
+		name = fmt.Sprintf("pattern_%d", len(s.patterns))
+	}
+
+	s.patterns = append(s.patterns, SanitizePattern{
+		Pattern:     re,
+		Replacement: replacement,
+		Priority:    priority,
+		Name:        name,
+	})
+
+	return nil
+}
+
+// sortPatterns sorts patterns by priority (descending) using stable sort.
+//
+// This ensures that:
+//   - Higher priority patterns are applied first
+//   - Equal priority patterns maintain insertion order
+//
+// Uses sort.SliceStable to guarantee stable sorting behavior.
+func (s *Sanitizer) sortPatterns() {
+	sort.SliceStable(s.patterns, func(i, j int) bool {
+		// Sort by priority descending (higher priority first)
+		return s.patterns[i].Priority > s.patterns[j].Priority
+	})
+}
+
+// GetPatterns returns a copy of all patterns in sorted order (by priority, descending).
+//
+// The returned slice is a copy, so modifications will not affect the sanitizer.
+// Patterns are sorted by priority (highest first), with equal priorities
+// maintaining insertion order.
+//
+// Example:
+//
+//	sanitizer := devtools.NewSanitizer()
+//	patterns := sanitizer.GetPatterns()
+//	for _, p := range patterns {
+//	    fmt.Printf("Pattern: %s, Priority: %d\n", p.Name, p.Priority)
+//	}
+//
+// Returns:
+//   - []SanitizePattern: Copy of patterns in priority order
+func (s *Sanitizer) GetPatterns() []SanitizePattern {
+	// Sort patterns first
+	s.sortPatterns()
+
+	// Return a copy to prevent external modification
+	result := make([]SanitizePattern, len(s.patterns))
+	copy(result, s.patterns)
+	return result
 }
 
 // Sanitize creates a sanitized copy of the export data.
@@ -254,11 +380,14 @@ func (s *Sanitizer) sanitizePerformanceData(perf *PerformanceData) *PerformanceD
 // SanitizeValue recursively sanitizes a value of any type.
 //
 // This method handles:
-//   - Strings: applies all regex patterns
+//   - Strings: applies all regex patterns in priority order
 //   - Maps: recursively sanitizes all values
 //   - Slices: recursively sanitizes all elements
 //   - Structs: recursively sanitizes all exported fields
 //   - Primitives: returns as-is (numbers, bools, etc.)
+//
+// Patterns are applied in priority order (highest first), with equal
+// priorities maintaining insertion order (stable sort).
 //
 // The original value is not modified - a deep copy is created.
 //
@@ -285,12 +414,15 @@ func (s *Sanitizer) SanitizeValue(val interface{}) interface{} {
 		return nil
 	}
 
+	// Sort patterns by priority before applying
+	s.sortPatterns()
+
 	// Use reflection to handle different types
 	v := reflect.ValueOf(val)
 
 	switch v.Kind() {
 	case reflect.String:
-		// Apply all patterns to the string
+		// Apply all patterns to the string in priority order
 		str := v.String()
 		for _, pattern := range s.patterns {
 			str = pattern.Pattern.ReplaceAllString(str, pattern.Replacement)
@@ -368,10 +500,13 @@ func DefaultPatterns() []string {
 	}
 }
 
-// SanitizeString applies all patterns to a single string.
+// SanitizeString applies all patterns to a single string in priority order.
 //
 // This is a convenience method for sanitizing individual strings
 // without needing to sanitize an entire ExportData structure.
+//
+// Patterns are applied in priority order (highest first), with equal
+// priorities maintaining insertion order (stable sort).
 //
 // Example:
 //
@@ -385,6 +520,9 @@ func DefaultPatterns() []string {
 // Returns:
 //   - string: The sanitized string
 func (s *Sanitizer) SanitizeString(str string) string {
+	// Sort patterns by priority before applying
+	s.sortPatterns()
+
 	result := str
 	for _, pattern := range s.patterns {
 		result = pattern.Pattern.ReplaceAllString(result, pattern.Replacement)
