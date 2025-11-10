@@ -421,7 +421,7 @@ func TestPerformanceData_Concurrent(t *testing.T) {
 
 // TestDevToolsStore_AddComponent tests adding components
 func TestDevToolsStore_AddComponent(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	snapshot := &ComponentSnapshot{
 		ID:        "comp-1",
@@ -441,7 +441,7 @@ func TestDevToolsStore_AddComponent(t *testing.T) {
 
 // TestDevToolsStore_GetAllComponents tests retrieving all components
 func TestDevToolsStore_GetAllComponents(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	// Add multiple components
 	store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Counter"})
@@ -454,7 +454,7 @@ func TestDevToolsStore_GetAllComponents(t *testing.T) {
 
 // TestDevToolsStore_RemoveComponent tests removing components
 func TestDevToolsStore_RemoveComponent(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	// Add component
 	store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Counter"})
@@ -468,7 +468,7 @@ func TestDevToolsStore_RemoveComponent(t *testing.T) {
 
 // TestDevToolsStore_UpdateComponent tests updating existing components
 func TestDevToolsStore_UpdateComponent(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	// Add initial component
 	store.AddComponent(&ComponentSnapshot{
@@ -496,7 +496,7 @@ func TestDevToolsStore_UpdateComponent(t *testing.T) {
 
 // TestDevToolsStore_StateHistory tests state history integration
 func TestDevToolsStore_StateHistory(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	history := store.GetStateHistory()
 	require.NotNil(t, history)
@@ -514,7 +514,7 @@ func TestDevToolsStore_StateHistory(t *testing.T) {
 
 // TestDevToolsStore_EventLog tests event log integration
 func TestDevToolsStore_EventLog(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	log := store.GetEventLog()
 	require.NotNil(t, log)
@@ -530,7 +530,7 @@ func TestDevToolsStore_EventLog(t *testing.T) {
 
 // TestDevToolsStore_PerformanceData tests performance data integration
 func TestDevToolsStore_PerformanceData(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	perf := store.GetPerformanceData()
 	require.NotNil(t, perf)
@@ -545,7 +545,7 @@ func TestDevToolsStore_PerformanceData(t *testing.T) {
 
 // TestDevToolsStore_Clear tests clearing all data
 func TestDevToolsStore_Clear(t *testing.T) {
-	store := NewDevToolsStore(100, 100)
+	store := NewDevToolsStore(100, 100, 1000)
 
 	// Add data
 	store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Counter"})
@@ -571,7 +571,7 @@ func TestDevToolsStore_Clear(t *testing.T) {
 
 // TestDevToolsStore_Concurrent tests concurrent access to store
 func TestDevToolsStore_Concurrent(t *testing.T) {
-	store := NewDevToolsStore(1000, 1000)
+	store := NewDevToolsStore(1000, 1000, 1000)
 	var wg sync.WaitGroup
 
 	// Concurrent component operations

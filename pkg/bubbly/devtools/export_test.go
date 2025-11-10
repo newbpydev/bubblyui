@@ -20,7 +20,7 @@ func TestExport_CreatesFile(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add some test data
@@ -68,7 +68,7 @@ func TestExport_AllDataIncluded(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add component
@@ -185,7 +185,7 @@ func TestExport_SelectiveExport(t *testing.T) {
 			// Create dev tools with test data
 			dt := &DevTools{
 				enabled: true,
-				store:   NewDevToolsStore(100, 100),
+				store:   NewDevToolsStore(100, 100, 1000),
 			}
 
 			dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
@@ -216,7 +216,7 @@ func TestExport_Sanitization(t *testing.T) {
 	// Create dev tools with sensitive data
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add component with sensitive props
@@ -284,7 +284,7 @@ func TestExport_LargeExport(t *testing.T) {
 	// Create dev tools with large dataset
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(10000, 10000),
+		store:   NewDevToolsStore(10000, 10000, 1000),
 	}
 
 	// Add 1000 components
@@ -325,7 +325,7 @@ func TestExport_LargeExport(t *testing.T) {
 func TestExport_InvalidPath(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Try to export to invalid path
@@ -341,7 +341,7 @@ func TestExport_EmptyStore(t *testing.T) {
 	// Create dev tools with empty store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Export with all options (but no data)
@@ -377,7 +377,7 @@ func TestExport_NotEnabled(t *testing.T) {
 	// Create disabled dev tools
 	dt := &DevTools{
 		enabled: false,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	err := dt.Export(filename, ExportOptions{})
@@ -466,7 +466,7 @@ func TestExport_JSONFormatting(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	dt.store.AddComponent(&ComponentSnapshot{
@@ -499,7 +499,7 @@ func TestExport_OmitEmptyFields(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Export with no data included
@@ -651,7 +651,7 @@ func TestExportFormat(t *testing.T) {
 			// Create dev tools with store
 			dt := &DevTools{
 				enabled: true,
-				store:   NewDevToolsStore(100, 100),
+				store:   NewDevToolsStore(100, 100, 1000),
 			}
 
 			// Add some test data
@@ -691,7 +691,7 @@ func TestExportFormat_WithCompression(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add test data
@@ -727,7 +727,7 @@ func TestExportFormat_InvalidFormat(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	opts := ExportOptions{
@@ -747,7 +747,7 @@ func TestExportStream(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add test data
@@ -793,7 +793,7 @@ func TestExportStream_WithSanitization(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add test data with sensitive information
@@ -836,7 +836,7 @@ func TestExportStream_WithProgressCallback(t *testing.T) {
 	// Create dev tools with store
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add test data
@@ -874,7 +874,7 @@ func TestExportStream_NotEnabled(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: false,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	opts := ExportOptions{
@@ -937,8 +937,8 @@ func TestSanitizeExportData_NilMaps(t *testing.T) {
 			{
 				ID:    "comp-1",
 				Name:  "Test",
-				Props: nil,  // nil props
-				State: nil,  // nil state
+				Props: nil, // nil props
+				State: nil, // nil state
 			},
 		},
 	}

@@ -20,7 +20,7 @@ import (
 //
 // Example:
 //
-//	store := devtools.NewDevToolsStore(1000, 1000)
+//	store := devtools.NewDevToolsStore(1000, 1000, 1000)
 //	ui := devtools.NewDevToolsUI(store)
 //	ui.SetAppContent("My Application")
 //
@@ -76,7 +76,7 @@ type DevToolsUI struct {
 //
 // Example:
 //
-//	store := devtools.NewDevToolsStore(1000, 1000)
+//	store := devtools.NewDevToolsStore(1000, 1000, 1000)
 //	ui := devtools.NewDevToolsUI(store)
 //
 // Parameters:

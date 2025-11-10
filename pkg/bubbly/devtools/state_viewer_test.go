@@ -18,7 +18,7 @@ func TestNewStateViewer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			sv := NewStateViewer(store)
 
 			require.NotNil(t, sv)
@@ -91,7 +91,7 @@ func TestStateViewer_Render(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			tt.setup(store)
 
 			sv := NewStateViewer(store)
@@ -121,7 +121,7 @@ func TestStateViewer_SelectRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			store.AddComponent(&ComponentSnapshot{
 				ID:   "comp-1",
 				Name: "Counter",
@@ -174,7 +174,7 @@ func TestStateViewer_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			store.AddComponent(&ComponentSnapshot{
 				ID:   "comp-1",
 				Name: "Counter",
@@ -215,7 +215,7 @@ func TestStateViewer_EditValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			store.AddComponent(&ComponentSnapshot{
 				ID:   "comp-1",
 				Name: "Counter",
@@ -246,7 +246,7 @@ func TestStateViewer_EditValue(t *testing.T) {
 
 // TestStateViewer_GetFilter tests filter getter
 func TestStateViewer_GetFilter(t *testing.T) {
-	store := NewDevToolsStore(1000, 5000)
+	store := NewDevToolsStore(1000, 5000, 1000)
 	sv := NewStateViewer(store)
 
 	sv.SetFilter("test")
@@ -255,7 +255,7 @@ func TestStateViewer_GetFilter(t *testing.T) {
 
 // TestStateViewer_GetSelected tests selected ref getter
 func TestStateViewer_GetSelected(t *testing.T) {
-	store := NewDevToolsStore(1000, 5000)
+	store := NewDevToolsStore(1000, 5000, 1000)
 	store.AddComponent(&ComponentSnapshot{
 		ID:   "comp-1",
 		Name: "Counter",
@@ -278,7 +278,7 @@ func TestStateViewer_GetSelected(t *testing.T) {
 
 // TestStateViewer_ClearSelection tests clearing selection
 func TestStateViewer_ClearSelection(t *testing.T) {
-	store := NewDevToolsStore(1000, 5000)
+	store := NewDevToolsStore(1000, 5000, 1000)
 	store.AddComponent(&ComponentSnapshot{
 		ID:   "comp-1",
 		Name: "Counter",
@@ -297,7 +297,7 @@ func TestStateViewer_ClearSelection(t *testing.T) {
 
 // TestStateViewer_ThreadSafety tests concurrent access
 func TestStateViewer_ThreadSafety(t *testing.T) {
-	store := NewDevToolsStore(1000, 5000)
+	store := NewDevToolsStore(1000, 5000, 1000)
 	store.AddComponent(&ComponentSnapshot{
 		ID:   "comp-1",
 		Name: "Counter",
@@ -355,7 +355,7 @@ func TestStateViewer_ComplexValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewDevToolsStore(1000, 5000)
+			store := NewDevToolsStore(1000, 5000, 1000)
 			store.AddComponent(&ComponentSnapshot{
 				ID:   "comp-1",
 				Name: "Test",
@@ -374,7 +374,7 @@ func TestStateViewer_ComplexValues(t *testing.T) {
 
 // TestStateViewer_EmptyComponents tests rendering with no refs
 func TestStateViewer_EmptyComponents(t *testing.T) {
-	store := NewDevToolsStore(1000, 5000)
+	store := NewDevToolsStore(1000, 5000, 1000)
 	store.AddComponent(&ComponentSnapshot{
 		ID:   "comp-1",
 		Name: "Empty",

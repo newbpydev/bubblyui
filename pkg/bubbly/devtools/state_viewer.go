@@ -20,7 +20,7 @@ import (
 //
 // Example:
 //
-//	store := NewDevToolsStore(1000, 5000)
+//	store := NewDevToolsStore(1000, 5000, 1000)
 //	viewer := NewStateViewer(store)
 //	viewer.SetFilter("count")
 //	viewer.SelectRef("ref-1")
@@ -45,7 +45,7 @@ type StateViewer struct {
 //
 // Example:
 //
-//	store := NewDevToolsStore(1000, 5000)
+//	store := NewDevToolsStore(1000, 5000, 1000)
 //	viewer := NewStateViewer(store)
 //
 // Parameters:

@@ -18,7 +18,7 @@ func TestImport_LoadsFile(t *testing.T) {
 	// Create dev tools and export some data
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add test data
@@ -68,7 +68,7 @@ func TestImport_LoadsFile(t *testing.T) {
 func TestImportFromReader_Success(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Create JSON data
@@ -113,7 +113,7 @@ func TestImportFromReader_Success(t *testing.T) {
 func TestValidateImport_ValidData(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	data := &ExportData{
@@ -137,7 +137,7 @@ func TestValidateImport_ValidData(t *testing.T) {
 func TestValidateImport_InvalidVersion(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	tests := []struct {
@@ -166,7 +166,7 @@ func TestValidateImport_InvalidVersion(t *testing.T) {
 func TestValidateImport_ZeroTimestamp(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	data := &ExportData{
@@ -182,7 +182,7 @@ func TestValidateImport_ZeroTimestamp(t *testing.T) {
 func TestValidateImport_NilData(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	err := dt.ValidateImport(nil)
@@ -193,7 +193,7 @@ func TestValidateImport_NilData(t *testing.T) {
 func TestValidateImport_ComponentValidation(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	tests := []struct {
@@ -239,7 +239,7 @@ func TestValidateImport_ComponentValidation(t *testing.T) {
 func TestValidateImport_StateValidation(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	tests := []struct {
@@ -281,7 +281,7 @@ func TestValidateImport_StateValidation(t *testing.T) {
 func TestValidateImport_EventValidation(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	tests := []struct {
@@ -330,7 +330,7 @@ func TestImport_InvalidJSON(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	err = dt.Import(filename)
@@ -341,7 +341,7 @@ func TestImport_InvalidJSON(t *testing.T) {
 func TestImport_FileNotFound(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	err := dt.Import("/nonexistent/path/file.json")
@@ -356,7 +356,7 @@ func TestImport_RoundTrip(t *testing.T) {
 	// Create dev tools with test data
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add comprehensive test data
@@ -435,7 +435,7 @@ func TestImport_NotEnabled(t *testing.T) {
 	// Create valid export file
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 	err := dt.Export(filename, ExportOptions{})
 	require.NoError(t, err)
@@ -456,7 +456,7 @@ func TestImport_NoStore(t *testing.T) {
 	// Create valid export file first
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 	err := dt.Export(filename, ExportOptions{})
 	require.NoError(t, err)
@@ -476,7 +476,7 @@ func TestImport_ClearsExistingData(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add existing data
@@ -487,7 +487,7 @@ func TestImport_ClearsExistingData(t *testing.T) {
 	// Create export with different data
 	dt2 := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 	dt2.store.AddComponent(&ComponentSnapshot{ID: "new-comp", Name: "New"})
 	err := dt2.Export(filename, ExportOptions{IncludeComponents: true})
@@ -510,7 +510,7 @@ func TestImport_ClearsExistingData(t *testing.T) {
 func TestImportFromReader_EmptyData(t *testing.T) {
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Import minimal valid data
@@ -543,7 +543,7 @@ func TestImport_ValidationFailureDoesNotModifyStore(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Add existing data
@@ -598,7 +598,7 @@ func TestImportFormat(t *testing.T) {
 			// Create dev tools and export some data
 			dt := &DevTools{
 				enabled: true,
-				store:   NewDevToolsStore(100, 100),
+				store:   NewDevToolsStore(100, 100, 1000),
 			}
 
 			// Add test data
@@ -639,7 +639,7 @@ func TestImportFormat_WithCompression(t *testing.T) {
 	// Create dev tools and export compressed data
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	dt.store.AddComponent(&ComponentSnapshot{
@@ -689,7 +689,7 @@ func TestImportFormat_RoundTrip(t *testing.T) {
 			// Create dev tools with comprehensive data
 			dt := &DevTools{
 				enabled: true,
-				store:   NewDevToolsStore(100, 100),
+				store:   NewDevToolsStore(100, 100, 1000),
 			}
 
 			// Add comprehensive test data
@@ -763,7 +763,7 @@ func TestImportFormat_InvalidFormat(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	// Export valid JSON
@@ -785,7 +785,7 @@ func TestImportFormat_NotEnabled(t *testing.T) {
 	// Create a valid export file first
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 	dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
 	err := dt.ExportFormat(filename, "yaml", ExportOptions{IncludeComponents: true})
@@ -806,7 +806,7 @@ func TestImportFormat_NoStore(t *testing.T) {
 	// Create a valid export file first
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 	dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
 	err := dt.ExportFormat(filename, "yaml", ExportOptions{IncludeComponents: true})
@@ -830,7 +830,7 @@ func TestImport_CorruptedGzip(t *testing.T) {
 
 	dt := &DevTools{
 		enabled: true,
-		store:   NewDevToolsStore(100, 100),
+		store:   NewDevToolsStore(100, 100, 1000),
 	}
 
 	err = dt.Import(filename)

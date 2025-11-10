@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -41,12 +42,18 @@ type CommandTimeline struct {
 	// maxSize is the maximum number of commands to keep
 	maxSize int
 
+	// nextID is the auto-incrementing ID counter for commands
+	nextID int64
+
 	// mu protects concurrent access to all fields
 	mu sync.RWMutex
 }
 
 // CommandRecord represents a single command execution.
 type CommandRecord struct {
+	// SeqID is the auto-incrementing sequence ID for incremental exports
+	SeqID int64 `json:"seq_id"`
+
 	// ID is the unique identifier for this command
 	ID string
 
@@ -92,7 +99,8 @@ func NewCommandTimeline(maxSize int) *CommandTimeline {
 //
 // If the timeline is paused, the command is not recorded.
 // If the timeline is at maximum capacity, the oldest record is removed
-// to make room for the new one.
+// to make room for the new one. An auto-incrementing sequence ID is
+// assigned to the command for incremental export tracking.
 //
 // Thread Safety:
 //
@@ -120,6 +128,9 @@ func (ct *CommandTimeline) RecordCommand(record CommandRecord) {
 		return
 	}
 
+	// Assign auto-incrementing sequence ID
+	record.SeqID = atomic.AddInt64(&ct.nextID, 1)
+
 	// Append the record
 	ct.commands = append(ct.commands, record)
 
@@ -127,6 +138,34 @@ func (ct *CommandTimeline) RecordCommand(record CommandRecord) {
 	if len(ct.commands) > ct.maxSize {
 		ct.commands = ct.commands[len(ct.commands)-ct.maxSize:]
 	}
+}
+
+// Append adds a command record to the timeline (alias for RecordCommand).
+//
+// This method exists for consistency with EventLog and StateHistory APIs.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - record: The command record to add
+func (ct *CommandTimeline) Append(record CommandRecord) {
+	ct.RecordCommand(record)
+}
+
+// GetMaxID returns the highest sequence ID assigned to any command.
+//
+// This is used for creating checkpoints in incremental exports.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - int64: The highest sequence ID, or 0 if no commands exist
+func (ct *CommandTimeline) GetMaxID() int64 {
+	return atomic.LoadInt64(&ct.nextID)
 }
 
 // Pause stops recording new commands.
@@ -213,6 +252,20 @@ func (ct *CommandTimeline) GetCommands() []CommandRecord {
 	commands := make([]CommandRecord, len(ct.commands))
 	copy(commands, ct.commands)
 	return commands
+}
+
+// GetAll returns a copy of all commands in the timeline (alias for GetCommands).
+//
+// This method exists for consistency with EventLog and StateHistory APIs.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - []CommandRecord: A copy of all command records
+func (ct *CommandTimeline) GetAll() []CommandRecord {
+	return ct.GetCommands()
 }
 
 // Clear removes all commands from the timeline.

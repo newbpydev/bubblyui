@@ -450,7 +450,7 @@ func TestCorruptGzipHandling(t *testing.T) {
 
 	// Initialize store
 	if dt.store == nil {
-		dt.store = NewDevToolsStore(1000, 1000)
+		dt.store = NewDevToolsStore(1000, 1000, 1000)
 	}
 
 	// Create file with gzip magic bytes but corrupt data
@@ -475,7 +475,7 @@ func setupTestDevTools(t *testing.T) *DevTools {
 
 	// Initialize store if not already initialized
 	if dt.store == nil {
-		dt.store = NewDevToolsStore(1000, 1000)
+		dt.store = NewDevToolsStore(1000, 1000, 1000)
 	}
 
 	// Add test components

@@ -1,7 +1,9 @@
 package devtools
 
 import (
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -32,12 +34,18 @@ type StateHistory struct {
 	// maxSize is the maximum number of changes to keep
 	maxSize int
 
+	// nextID is the auto-incrementing ID counter for state changes
+	nextID int64
+
 	// mu protects concurrent access to changes
 	mu sync.RWMutex
 }
 
 // StateChange represents a single state mutation.
 type StateChange struct {
+	// ID is the auto-incrementing unique identifier for this state change
+	ID int64 `json:"id"`
+
 	// RefID is the unique identifier of the ref that changed
 	RefID string
 
@@ -81,7 +89,8 @@ func NewStateHistory(maxSize int) *StateHistory {
 // Record adds a state change to the history.
 //
 // If the history is at maximum capacity, the oldest change is removed
-// to make room for the new one.
+// to make room for the new one. An auto-incrementing ID is assigned to
+// the state change for incremental export tracking.
 //
 // Thread Safety:
 //
@@ -103,6 +112,9 @@ func NewStateHistory(maxSize int) *StateHistory {
 func (sh *StateHistory) Record(change StateChange) {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
+
+	// Assign auto-incrementing ID
+	change.ID = atomic.AddInt64(&sh.nextID, 1)
 
 	sh.changes = append(sh.changes, change)
 
@@ -178,6 +190,20 @@ func (sh *StateHistory) Clear() {
 	sh.changes = make([]StateChange, 0, sh.maxSize)
 }
 
+// GetMaxID returns the highest ID assigned to any state change.
+//
+// This is used for creating checkpoints in incremental exports.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - int64: The highest ID, or 0 if no state changes exist
+func (sh *StateHistory) GetMaxID() int64 {
+	return atomic.LoadInt64(&sh.nextID)
+}
+
 // EventLog maintains a log of events that occurred in the application.
 //
 // It maintains a circular buffer of events with a configurable maximum size.
@@ -192,6 +218,9 @@ type EventLog struct {
 
 	// maxSize is the maximum number of events to keep
 	maxSize int
+
+	// nextID is the auto-incrementing ID counter for events
+	nextID int64
 
 	// mu protects concurrent access to records
 	mu sync.RWMutex
@@ -214,6 +243,8 @@ func NewEventLog(maxSize int) *EventLog {
 // Append adds an event to the log.
 //
 // If the log is at maximum capacity, the oldest event is removed.
+// An auto-incrementing sequence ID is assigned to the event for
+// incremental export tracking.
 //
 // Thread Safety:
 //
@@ -224,6 +255,9 @@ func NewEventLog(maxSize int) *EventLog {
 func (el *EventLog) Append(event EventRecord) {
 	el.mu.Lock()
 	defer el.mu.Unlock()
+
+	// Assign auto-incrementing sequence ID
+	event.SeqID = atomic.AddInt64(&el.nextID, 1)
 
 	el.records = append(el.records, event)
 
@@ -283,6 +317,20 @@ func (el *EventLog) Clear() {
 	el.mu.Lock()
 	defer el.mu.Unlock()
 	el.records = make([]EventRecord, 0, el.maxSize)
+}
+
+// GetMaxID returns the highest sequence ID assigned to any event.
+//
+// This is used for creating checkpoints in incremental exports.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - int64: The highest sequence ID, or 0 if no events exist
+func (el *EventLog) GetMaxID() int64 {
+	return atomic.LoadInt64(&el.nextID)
 }
 
 // PerformanceData tracks performance metrics for components.
@@ -433,8 +481,8 @@ func (pd *PerformanceData) Clear() {
 // DevToolsStore holds all collected debug data in memory.
 //
 // It provides thread-safe storage for component snapshots, state history,
-// events, and performance metrics. The store acts as the central data
-// repository for the dev tools system.
+// events, performance metrics, and command timeline. The store acts as the
+// central data repository for the dev tools system.
 //
 // Thread Safety:
 //
@@ -442,7 +490,7 @@ func (pd *PerformanceData) Clear() {
 //
 // Example:
 //
-//	store := NewDevToolsStore(1000, 5000)
+//	store := NewDevToolsStore(1000, 5000, 1000)
 //
 //	// Add component
 //	snapshot := &ComponentSnapshot{ID: "comp-1", Name: "Counter"}
@@ -463,6 +511,9 @@ type DevToolsStore struct {
 	// performance tracks component performance metrics
 	performance *PerformanceData
 
+	// commands tracks command execution timeline
+	commands *CommandTimeline
+
 	// mu protects concurrent access to components map
 	mu sync.RWMutex
 }
@@ -472,15 +523,17 @@ type DevToolsStore struct {
 // Parameters:
 //   - maxStateHistory: Maximum number of state changes to keep
 //   - maxEvents: Maximum number of events to keep
+//   - maxCommands: Maximum number of commands to keep
 //
 // Returns:
 //   - *DevToolsStore: A new store instance
-func NewDevToolsStore(maxStateHistory, maxEvents int) *DevToolsStore {
+func NewDevToolsStore(maxStateHistory, maxEvents, maxCommands int) *DevToolsStore {
 	return &DevToolsStore{
 		components:   make(map[string]*ComponentSnapshot),
 		stateHistory: NewStateHistory(maxStateHistory),
 		events:       NewEventLog(maxEvents),
 		performance:  NewPerformanceData(),
+		commands:     NewCommandTimeline(maxCommands),
 	}
 }
 
@@ -595,4 +648,68 @@ func (s *DevToolsStore) Clear() {
 	s.stateHistory.Clear()
 	s.events.Clear()
 	s.performance.Clear()
+}
+
+// GetSince returns incremental data since the given checkpoint.
+//
+// This method filters events, state changes, and commands to include only
+// those with IDs greater than the checkpoint's last IDs. This enables
+// incremental exports that contain only new data.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently. Uses read locks on store.
+//
+// Example:
+//
+//	checkpoint := &ExportCheckpoint{
+//	    LastEventID:   100,
+//	    LastStateID:   50,
+//	    LastCommandID: 25,
+//	}
+//	delta, err := store.GetSince(checkpoint)
+//	if err != nil {
+//	    log.Printf("Failed to get delta: %v", err)
+//	}
+//
+// Parameters:
+//   - checkpoint: The checkpoint to filter from
+//
+// Returns:
+//   - *IncrementalExportData: The filtered incremental data
+//   - error: nil on success, error describing the failure otherwise
+func (s *DevToolsStore) GetSince(checkpoint *ExportCheckpoint) (*IncrementalExportData, error) {
+	if checkpoint == nil {
+		return nil, fmt.Errorf("checkpoint is nil")
+	}
+
+	delta := &IncrementalExportData{
+		Checkpoint: *checkpoint,
+	}
+
+	// Filter events by sequence ID
+	allEvents := s.events.GetRecent(s.events.Len())
+	for _, event := range allEvents {
+		if event.SeqID > checkpoint.LastEventID {
+			delta.NewEvents = append(delta.NewEvents, event)
+		}
+	}
+
+	// Filter state changes by ID
+	allState := s.stateHistory.GetAll()
+	for _, state := range allState {
+		if state.ID > checkpoint.LastStateID {
+			delta.NewState = append(delta.NewState, state)
+		}
+	}
+
+	// Filter commands by sequence ID
+	allCommands := s.commands.GetAll()
+	for _, cmd := range allCommands {
+		if cmd.SeqID > checkpoint.LastCommandID {
+			delta.NewCommands = append(delta.NewCommands, cmd)
+		}
+	}
+
+	return delta, nil
 }

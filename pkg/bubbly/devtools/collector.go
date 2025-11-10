@@ -86,6 +86,9 @@ type RefSnapshot struct {
 //
 //	Records are immutable after creation and safe to share across goroutines.
 type EventRecord struct {
+	// SeqID is the auto-incrementing sequence ID for incremental exports
+	SeqID int64 `json:"seq_id"`
+
 	// ID is the unique identifier of the event
 	ID string
 

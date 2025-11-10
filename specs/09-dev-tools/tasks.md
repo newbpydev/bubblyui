@@ -3648,25 +3648,34 @@ func (store *DevToolsStore) GetSince(checkpoint *ExportCheckpoint) (*Incremental
 ```
 
 **Tests**:
-- [ ] Full export returns checkpoint
-- [ ] Incremental export includes only new data
-- [ ] Checkpoint IDs track correctly
-- [ ] Multiple incrementals chain correctly
-- [ ] Import delta appends to existing data
-- [ ] File size 90%+ smaller for incrementals
-- [ ] Round-trip: full + delta → reconstruct
-- [ ] Empty incremental handled gracefully
+- [x] Full export returns checkpoint
+- [x] Incremental export includes only new data
+- [x] Checkpoint IDs track correctly
+- [x] Multiple incrementals chain correctly
+- [x] Import delta appends to existing data
+- [x] File size 90%+ smaller for incrementals
+- [x] Round-trip: full + delta → reconstruct
+- [x] Empty incremental handled gracefully
 
 **Estimated Effort**: 4 hours
 
+**Status**: ✅ **COMPLETED**
+
 **Implementation Notes**:
-- Add auto-incrementing IDs to EventRecord, StateChange, CommandRecord
-- Store last checkpoint in memory
-- GetSince() filters by ID ranges
-- First export always full snapshot
-- Subsequent exports are deltas
-- ImportDelta() merges with existing data
-- Document use case: long-running sessions, daily exports
+- Added auto-incrementing IDs: EventRecord.SeqID, StateChange.ID, CommandRecord.SeqID
+- Used atomic.AddInt64 for thread-safe ID generation in Append/Record methods
+- Implemented ExportCheckpoint with Timestamp, LastEventID, LastStateID, LastCommandID, Version
+- Implemented IncrementalExportData with Checkpoint and New* slices
+- ExportFull() exports all data and returns checkpoint with current max IDs
+- ExportIncremental() takes checkpoint, calls GetSince(), exports only delta, returns new checkpoint
+- ImportDelta() appends incremental data without replacing existing data
+- DevToolsStore.GetSince() filters by ID ranges (> checkpoint IDs)
+- Updated NewDevToolsStore signature to include maxCommands parameter
+- Added GetMaxID() methods to EventLog, StateHistory, CommandTimeline
+- Added GetAll() and Append() methods to CommandTimeline for API consistency
+- All 13 tests pass with race detector
+- File size reduction: 90%+ smaller for incrementals (tested with 100 initial + 5 new events)
+- Use case: Long-running sessions, daily exports, efficient change tracking
 
 ---
 
