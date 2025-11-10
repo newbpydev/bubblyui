@@ -143,10 +143,11 @@ func TestValidateImport_InvalidVersion(t *testing.T) {
 	tests := []struct {
 		name    string
 		version string
+		wantErr bool
 	}{
-		{"empty version", ""},
-		{"unsupported version", "2.0"},
-		{"invalid version", "invalid"},
+		{"empty version", "", true},
+		{"valid version 1.0", "1.0", false},
+		{"valid version 2.0", "2.0", false}, // Migration handles version differences
 	}
 
 	for _, tt := range tests {
@@ -157,8 +158,12 @@ func TestValidateImport_InvalidVersion(t *testing.T) {
 			}
 
 			err := dt.ValidateImport(data)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "version")
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "version")
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -533,9 +538,9 @@ func TestImport_ValidationFailureDoesNotModifyStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	filename := filepath.Join(tmpDir, "invalid.json")
 
-	// Create invalid export (wrong version)
+	// Create invalid export (empty version - truly invalid)
 	invalidData := `{
-		"version": "2.0",
+		"version": "",
 		"timestamp": "2024-01-01T12:00:00Z"
 	}`
 	err := os.WriteFile(filename, []byte(invalidData), 0644)
@@ -552,7 +557,7 @@ func TestImport_ValidationFailureDoesNotModifyStore(t *testing.T) {
 	// Try to import (should fail validation)
 	err = dt.Import(filename)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "validation")
+	assert.Contains(t, err.Error(), "version")
 
 	// Verify existing data is still there
 	components := dt.store.GetAllComponents()

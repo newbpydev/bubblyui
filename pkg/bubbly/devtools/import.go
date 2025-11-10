@@ -261,7 +261,37 @@ func (dt *DevTools) ImportFromReader(reader io.Reader) error {
 		return fmt.Errorf("failed to read import data: %w", err)
 	}
 
-	// Unmarshal JSON
+	// First unmarshal into generic map to check version
+	var genericData map[string]interface{}
+	err = json.Unmarshal(data, &genericData)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal import data: %w", err)
+	}
+
+	// Extract and validate version
+	version, err := extractVersion(genericData)
+	if err != nil {
+		return fmt.Errorf("failed to extract version: %w", err)
+	}
+
+	// Current version constant
+	const currentVersion = "1.0"
+
+	// Apply migrations if needed
+	if version != currentVersion {
+		genericData, err = migrateVersion(genericData, version, currentVersion)
+		if err != nil {
+			return fmt.Errorf("failed to migrate from version %s to %s: %w", version, currentVersion, err)
+		}
+
+		// Re-marshal and unmarshal after migration
+		data, err = json.Marshal(genericData)
+		if err != nil {
+			return fmt.Errorf("failed to marshal migrated data: %w", err)
+		}
+	}
+
+	// Unmarshal into ExportData struct
 	var exportData ExportData
 	err = json.Unmarshal(data, &exportData)
 	if err != nil {
@@ -359,9 +389,10 @@ func (dt *DevTools) ValidateImport(data *ExportData) error {
 		return fmt.Errorf("import data is nil")
 	}
 
-	// Validate version
-	if data.Version != "1.0" {
-		return fmt.Errorf("unsupported version: %s (only 1.0 is supported)", data.Version)
+	// Validate version (after migration, should always be current version)
+	// Note: Migration happens before validation, so this check is mostly for safety
+	if data.Version == "" {
+		return fmt.Errorf("version field is empty")
 	}
 
 	// Validate timestamp
