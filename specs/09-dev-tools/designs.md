@@ -1271,6 +1271,550 @@ BenchmarkSanitize/streaming+cache-10        2000   567890 ns/op   128000 B/op   
 
 ---
 
+## Export & Import Enhancements Architecture
+
+### Compression Support
+
+**Gzip Integration:**
+```go
+import (
+    "compress/gzip"
+    "io"
+)
+
+type ExportOptions struct {
+    // ... existing fields
+    Compress       bool
+    CompressionLevel int  // gzip.DefaultCompression, gzip.BestSpeed, gzip.BestCompression
+}
+
+func (dt *DevTools) ExportCompressed(filename string, opts ExportOptions) error {
+    file, err := os.Create(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+    
+    // Create gzip writer
+    var writer io.Writer = file
+    if opts.Compress {
+        level := gzip.DefaultCompression
+        if opts.CompressionLevel != 0 {
+            level = opts.CompressionLevel
+        }
+        
+        gzipWriter, err := gzip.NewWriterLevel(file, level)
+        if err != nil {
+            return err
+        }
+        defer gzipWriter.Close()
+        writer = gzipWriter
+    }
+    
+    // Export to writer (supports both compressed and uncompressed)
+    return dt.exportToWriter(writer, opts)
+}
+
+func (dt *DevTools) ImportCompressed(filename string) error {
+    file, err := os.Open(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+    
+    // Auto-detect gzip by reading magic bytes
+    reader := io.Reader(file)
+    magic := make([]byte, 2)
+    if _, err := io.ReadFull(file, magic); err == nil {
+        file.Seek(0, 0)  // Reset to start
+        
+        // Gzip magic bytes: 0x1f 0x8b
+        if magic[0] == 0x1f && magic[1] == 0x8b {
+            gzipReader, err := gzip.NewReader(file)
+            if err != nil {
+                return err
+            }
+            defer gzipReader.Close()
+            reader = gzipReader
+        }
+    }
+    
+    return dt.importFromReader(reader)
+}
+```
+
+**Compression Benefits:**
+- File size reduction: 50-70% for typical JSON exports
+- Bandwidth savings for network transfers
+- Storage efficiency for long-term archival
+- Negligible performance overhead (< 100ms for 10MB files)
+
+### Multiple Format Support
+
+**Format Interface:**
+```go
+type ExportFormat interface {
+    Name() string
+    Extension() string
+    ContentType() string
+    Marshal(data *ExportData) ([]byte, error)
+    Unmarshal([]byte, *ExportData) error
+}
+
+type JSONFormat struct{}
+
+func (f *JSONFormat) Name() string { return "json" }
+func (f *JSONFormat) Extension() string { return ".json" }
+func (f *JSONFormat) ContentType() string { return "application/json" }
+func (f *JSONFormat) Marshal(data *ExportData) ([]byte, error) {
+    return json.MarshalIndent(data, "", "  ")
+}
+func (f *JSONFormat) Unmarshal(b []byte, data *ExportData) error {
+    return json.Unmarshal(b, data)
+}
+
+type YAMLFormat struct{}
+
+func (f *YAMLFormat) Name() string { return "yaml" }
+func (f *YAMLFormat) Extension() string { return ".yaml" }
+func (f *YAMLFormat) ContentType() string { return "application/x-yaml" }
+func (f *YAMLFormat) Marshal(data *ExportData) ([]byte, error) {
+    return yaml.Marshal(data)
+}
+func (f *YAMLFormat) Unmarshal(b []byte, data *ExportData) error {
+    return yaml.Unmarshal(b, data)
+}
+
+type MessagePackFormat struct{}
+
+func (f *MessagePackFormat) Name() string { return "msgpack" }
+func (f *MessagePackFormat) Extension() string { return ".msgpack" }
+func (f *MessagePackFormat) ContentType() string { return "application/msgpack" }
+func (f *MessagePackFormat) Marshal(data *ExportData) ([]byte, error) {
+    return msgpack.Marshal(data)
+}
+func (f *MessagePackFormat) Unmarshal(b []byte, data *ExportData) error {
+    return msgpack.Unmarshal(b, data)
+}
+
+// Registry
+var formats = map[string]ExportFormat{
+    "json":    &JSONFormat{},
+    "yaml":    &YAMLFormat{},
+    "msgpack": &MessagePackFormat{},
+}
+
+func (dt *DevTools) ExportFormat(filename, format string, opts ExportOptions) error {
+    fmt, ok := formats[format]
+    if !ok {
+        return fmt.Errorf("unknown format: %s", format)
+    }
+    
+    data := dt.gatherExportData(opts)
+    bytes, err := fmt.Marshal(data)
+    if err != nil {
+        return err
+    }
+    
+    return os.WriteFile(filename, bytes, 0644)
+}
+```
+
+**Format Comparison:**
+| Format | Size | Speed | Readability | Use Case |
+|--------|------|-------|-------------|----------|
+| JSON | 100% | Fast | High | Default, human-readable |
+| YAML | 95% | Medium | Very High | Config integration |
+| MessagePack | 60% | Very Fast | None | Production, minimal size |
+
+### Incremental Export (Delta)
+
+**Delta Tracking:**
+```go
+type ExportCheckpoint struct {
+    Timestamp     time.Time
+    LastEventID   int
+    LastStateID   int
+    LastCommandID int
+}
+
+type IncrementalExportData struct {
+    Checkpoint    ExportCheckpoint
+    NewEvents     []EventRecord
+    NewState      []StateChange
+    NewCommands   []CommandRecord
+}
+
+func (dt *DevTools) ExportIncremental(filename string, since *ExportCheckpoint) error {
+    data := &IncrementalExportData{
+        Checkpoint: ExportCheckpoint{
+            Timestamp: time.Now(),
+        },
+    }
+    
+    // Export only new data since checkpoint
+    if since != nil {
+        data.NewEvents = dt.store.events.GetSince(since.LastEventID)
+        data.NewState = dt.store.stateHistory.GetSince(since.LastStateID)
+        data.NewCommands = dt.store.timeline.GetSince(since.LastCommandID)
+        
+        // Update checkpoint IDs
+        if len(data.NewEvents) > 0 {
+            data.Checkpoint.LastEventID = data.NewEvents[len(data.NewEvents)-1].ID
+        }
+        if len(data.NewState) > 0 {
+            data.Checkpoint.LastStateID = data.NewState[len(data.NewState)-1].ID
+        }
+        if len(data.NewCommands) > 0 {
+            data.Checkpoint.LastCommandID = data.NewCommands[len(data.NewCommands)-1].ID
+        }
+    } else {
+        // First export - full snapshot
+        return dt.Export(filename, ExportOptions{
+            IncludeState:  true,
+            IncludeEvents: true,
+            IncludeTimeline: true,
+        })
+    }
+    
+    jsonData, err := json.MarshalIndent(data, "", "  ")
+    if err != nil {
+        return err
+    }
+    
+    return os.WriteFile(filename, jsonData, 0644)
+}
+```
+
+**Benefits:**
+- Reduced file sizes for long-running sessions
+- Faster exports (only delta processed)
+- Time-series analysis capability
+- Replay specific time ranges
+
+### Version Migration
+
+**Migration System:**
+```go
+type VersionMigration interface {
+    From() string
+    To() string
+    Migrate(data map[string]interface{}) (map[string]interface{}, error)
+}
+
+type Migration_1_0_to_2_0 struct{}
+
+func (m *Migration_1_0_to_2_0) From() string { return "1.0" }
+func (m *Migration_1_0_to_2_0) To() string { return "2.0" }
+func (m *Migration_1_0_to_2_0) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
+    // Example: Add new fields, rename old ones, transform data
+    
+    // Add new metadata field
+    if _, ok := data["metadata"]; !ok {
+        data["metadata"] = map[string]interface{}{
+            "upgraded_from": "1.0",
+            "upgrade_time":  time.Now().Format(time.RFC3339),
+        }
+    }
+    
+    // Rename field if exists
+    if components, ok := data["components"]; ok {
+        // Transform component structure
+        // ...
+    }
+    
+    // Update version
+    data["version"] = "2.0"
+    
+    return data, nil
+}
+
+var migrations = []VersionMigration{
+    &Migration_1_0_to_2_0{},
+}
+
+func (dt *DevTools) Import(filename string) error {
+    data, err := os.ReadFile(filename)
+    if err != nil {
+        return err
+    }
+    
+    // Parse as generic map first
+    var raw map[string]interface{}
+    if err := json.Unmarshal(data, &raw); err != nil {
+        return err
+    }
+    
+    // Check version and migrate if needed
+    version, ok := raw["version"].(string)
+    if !ok {
+        return fmt.Errorf("missing version field")
+    }
+    
+    if version != CurrentVersion {
+        raw, err = dt.migrateVersion(raw, version, CurrentVersion)
+        if err != nil {
+            return fmt.Errorf("migration failed: %w", err)
+        }
+    }
+    
+    // Now unmarshal into typed structure
+    migratedData, err := json.Marshal(raw)
+    if err != nil {
+        return err
+    }
+    
+    var exportData ExportData
+    if err := json.Unmarshal(migratedData, &exportData); err != nil {
+        return err
+    }
+    
+    return dt.restoreFromExportData(&exportData)
+}
+
+func (dt *DevTools) migrateVersion(data map[string]interface{}, from, to string) (map[string]interface{}, error) {
+    current := from
+    
+    for current != to {
+        migrated := false
+        for _, mig := range migrations {
+            if mig.From() == current {
+                var err error
+                data, err = mig.Migrate(data)
+                if err != nil {
+                    return nil, fmt.Errorf("migration %s->%s failed: %w", 
+                        mig.From(), mig.To(), err)
+                }
+                current = mig.To()
+                migrated = true
+                break
+            }
+        }
+        
+        if !migrated {
+            return nil, fmt.Errorf("no migration path from %s to %s", current, to)
+        }
+    }
+    
+    return data, nil
+}
+```
+
+---
+
+## UI & Integration Polish Architecture
+
+### Responsive Terminal Sizing
+
+**Terminal Size Detection:**
+```go
+import "github.com/charmbracelet/bubbletea"
+
+type windowSizeMsg struct {
+    width  int
+    height int
+}
+
+func (dt *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        // Adjust layout based on new size
+        dt.width = msg.Width
+        dt.height = msg.Height
+        
+        // Recalculate split-pane widths
+        dt.calculatePaneSizes()
+        
+        // Reflow content
+        dt.reflow()
+        
+        return dt, nil
+    }
+    
+    return dt, nil
+}
+
+func (dt *DevToolsUI) calculatePaneSizes() {
+    // Adaptive widths based on terminal size
+    if dt.width < 80 {
+        // Narrow terminal: stack vertically
+        dt.layout = "vertical"
+        dt.treeWidth = dt.width
+        dt.detailWidth = dt.width
+    } else if dt.width < 120 {
+        // Medium terminal: 50/50 split
+        dt.layout = "horizontal"
+        dt.treeWidth = dt.width / 2
+        dt.detailWidth = dt.width / 2
+    } else {
+        // Wide terminal: 40/60 split (tree/detail)
+        dt.layout = "horizontal"
+        dt.treeWidth = dt.width * 40 / 100
+        dt.detailWidth = dt.width * 60 / 100
+    }
+}
+```
+
+### Component Hierarchy Visualization
+
+**Hierarchy Data Structure:**
+```go
+type ComponentNode struct {
+    Component *ComponentSnapshot
+    Children  []*ComponentNode
+    Parent    *ComponentNode
+    Depth     int
+}
+
+func (dt *DevTools) BuildComponentTree() *ComponentNode {
+    // Build tree from flat component list using parent IDs
+    nodes := make(map[string]*ComponentNode)
+    var root *ComponentNode
+    
+    for _, comp := range dt.store.GetAllComponents() {
+        node := &ComponentNode{
+            Component: comp,
+            Children:  make([]*ComponentNode, 0),
+        }
+        nodes[comp.ID] = node
+        
+        if comp.ParentID == "" {
+            root = node
+        }
+    }
+    
+    // Link parent-child relationships
+    for _, node := range nodes {
+        if node.Component.ParentID != "" {
+            if parent, ok := nodes[node.Component.ParentID]; ok {
+                parent.Children = append(parent.Children, node)
+                node.Parent = parent
+                node.Depth = parent.Depth + 1
+            }
+        }
+    }
+    
+    return root
+}
+
+func (n *ComponentNode) RenderTree(depth int) string {
+    var sb strings.Builder
+    
+    // Indentation based on depth
+    indent := strings.Repeat("  ", depth)
+    
+    // Tree branch characters
+    branch := "├─"
+    if depth == 0 {
+        branch = ""
+    }
+    
+    // Render this node
+    sb.WriteString(fmt.Sprintf("%s%s %s (%dms)\n",
+        indent,
+        branch,
+        n.Component.Name,
+        n.Component.RenderTime,
+    ))
+    
+    // Render children
+    for i, child := range n.Children {
+        if i == len(n.Children)-1 {
+            // Last child uses └─
+            sb.WriteString(child.RenderTree(depth + 1))
+        } else {
+            sb.WriteString(child.RenderTree(depth + 1))
+        }
+    }
+    
+    return sb.String()
+}
+```
+
+### Framework Integration Hooks
+
+**Automatic Instrumentation:**
+```go
+// In pkg/bubbly/component.go
+func (c *componentImpl) Init() tea.Cmd {
+    // Notify dev tools of component mount
+    if devtools.IsEnabled() {
+        devtools.NotifyComponentMounted(c.id, c.name)
+    }
+    
+    // ... existing init logic
+}
+
+func (c *componentImpl) Update(msg tea.Msg) (Component, tea.Cmd) {
+    // Notify dev tools of update
+    if devtools.IsEnabled() {
+        devtools.NotifyComponentUpdate(c.id, msg)
+    }
+    
+    // ... existing update logic
+}
+
+func (c *componentImpl) Unmount() {
+    // Notify dev tools of unmount
+    if devtools.IsEnabled() {
+        devtools.NotifyComponentUnmounted(c.id)
+    }
+    
+    // ... existing unmount logic
+}
+
+// In pkg/bubbly/ref.go
+func (r *Ref[T]) Set(value T) {
+    // Notify dev tools of state change
+    if devtools.IsEnabled() {
+        devtools.NotifyRefChanged(r.id, r.value, value)
+    }
+    
+    // ... existing set logic
+}
+
+// In component event emission
+func (c *componentImpl) Emit(eventName string, data interface{}) {
+    // Notify dev tools of event
+    if devtools.IsEnabled() {
+        devtools.NotifyEvent(c.id, eventName, data)
+    }
+    
+    // ... existing emit logic
+}
+```
+
+**Hook Registration:**
+```go
+type FrameworkHook interface {
+    OnComponentMount(id, name string)
+    OnComponentUpdate(id string, msg interface{})
+    OnComponentUnmount(id string)
+    OnRefChange(id string, oldValue, newValue interface{})
+    OnEvent(componentID, eventName string, data interface{})
+}
+
+var globalHook FrameworkHook
+
+func RegisterHook(hook FrameworkHook) {
+    globalHook = hook
+}
+
+func IsEnabled() bool {
+    return globalHook != nil
+}
+
+func NotifyComponentMounted(id, name string) {
+    if globalHook != nil {
+        globalHook.OnComponentMount(id, name)
+    }
+}
+
+// ... other notify functions
+```
+
+---
+
 ## Known Limitations & Solutions
 
 ### Limitation 1: Performance Overhead

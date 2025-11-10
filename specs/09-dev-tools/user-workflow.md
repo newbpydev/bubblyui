@@ -588,6 +588,172 @@ No false negatives detected in spot check.
 
 ---
 
+### Workflow G: Compressed Export for Network Transfer
+
+#### Entry: Need to Share Debug Data Over Slow Connection
+
+**Scenario**: Remote debugging with limited bandwidth
+
+1. **Export with Compression**
+```go
+devtools.Export("debug-compressed.json.gz", devtools.ExportOptions{
+    IncludeState:     true,
+    IncludeEvents:    true,
+    Compress:         true,
+    CompressionLevel: gzip.BestCompression,  // Maximum compression
+})
+```
+
+2. **Check File Size**
+```bash
+ls -lh debug-*.json*
+# debug-raw.json       25.4 MB
+# debug-compressed.json.gz   7.8 MB  (69% reduction)
+```
+
+3. **Transfer Over Network**
+```bash
+scp debug-compressed.json.gz teammate@remote:/tmp/
+# Transfer: 7.8 MB instead of 25.4 MB
+# Time saved: 3 minutes on slow connection
+```
+
+4. **Auto-Detect on Import**
+```go
+// Import automatically detects gzip by magic bytes
+devtools.Import("debug-compressed.json.gz")
+```
+
+**Result**: Faster transfers, reduced bandwidth costs
+
+**Compression Levels:**
+- `gzip.BestSpeed`: Fast compression, ~50% reduction
+- `gzip.DefaultCompression`: Balanced, ~60% reduction
+- `gzip.BestCompression`: Maximum, ~70% reduction
+
+---
+
+### Workflow H: Multi-Format Export for Tool Integration
+
+#### Entry: Need to Integrate with External Monitoring Tools
+
+**Scenario**: Exporting data for analysis in different tools
+
+1. **Export to YAML for Config Tools**
+```go
+devtools.ExportFormat("debug.yaml", "yaml", devtools.ExportOptions{
+    IncludeState: true,
+})
+```
+
+**Output** (debug.yaml):
+```yaml
+version: "1.0"
+timestamp: "2024-01-15T10:30:00Z"
+components:
+  - id: comp-1
+    name: Counter
+    props:
+      initial: 0
+state:
+  - ref_id: count
+    old: 0
+    new: 5
+```
+
+2. **Export to MessagePack for Performance**
+```go
+// Smallest format, fastest parsing
+devtools.ExportFormat("debug.msgpack", "msgpack", devtools.ExportOptions{
+    IncludeEvents: true,
+})
+```
+
+3. **Compare Format Sizes**
+```bash
+ls -lh debug.*
+# debug.json       10.2 MB  (100% - baseline)
+# debug.yaml        9.8 MB  (96% - most readable)
+# debug.msgpack     6.1 MB  (60% - fastest, smallest)
+```
+
+4. **Use Format-Specific Tools**
+```bash
+# YAML: Use yq for querying
+yq '.components[] | select(.name == "Counter")' debug.yaml
+
+# MessagePack: Use msgpack-tools
+msgpack2json debug.msgpack | jq '.components'
+```
+
+**Result**: Flexible integration with existing toolchains
+
+**Format Selection Guide:**
+| Use Case | Format | Reason |
+|----------|--------|--------|
+| Human review | YAML | Most readable |
+| Tool integration | JSON | Universal support |
+| Production logs | MessagePack | Smallest, fastest |
+| CI/CD artifacts | JSON + gzip | Standard + compressed |
+
+---
+
+### Workflow I: Incremental Export for Long Sessions
+
+#### Entry: Application Running for Days, Need Daily Exports
+
+**Scenario**: Long-running production debug session
+
+1. **First Export (Full Snapshot)**
+```go
+checkpoint := devtools.ExportFull("day-1-full.json", devtools.ExportOptions{
+    IncludeState:    true,
+    IncludeEvents:   true,
+    IncludeTimeline: true,
+})
+// Returns: *ExportCheckpoint with current IDs
+```
+
+2. **Daily Incremental Exports**
+```go
+// Day 2 - only new data since day 1
+checkpoint = devtools.ExportIncremental("day-2-delta.json", checkpoint)
+
+// Day 3 - only new data since day 2
+checkpoint = devtools.ExportIncremental("day-3-delta.json", checkpoint)
+
+// Day 4 - only new data since day 3
+checkpoint = devtools.ExportIncremental("day-4-delta.json", checkpoint)
+```
+
+3. **Compare File Sizes**
+```bash
+ls -lh day-*.json
+# day-1-full.json    125.4 MB  (full snapshot)
+# day-2-delta.json     8.2 MB  (only changes)
+# day-3-delta.json     7.9 MB  (only changes)
+# day-4-delta.json     8.5 MB  (only changes)
+```
+
+4. **Reconstruct Timeline**
+```go
+// Import base + all deltas to reconstruct state
+devtools.Import("day-1-full.json")
+devtools.ImportDelta("day-2-delta.json")
+devtools.ImportDelta("day-3-delta.json")
+devtools.ImportDelta("day-4-delta.json")
+```
+
+**Result**: Efficient tracking of long-running sessions
+
+**Benefits:**
+- 93% storage reduction (8MB vs 125MB daily)
+- Faster exports (only process deltas)
+- Time-series analysis (day-by-day changes)
+- Selective replay (import specific day ranges)
+
+---
+
 ## Error Recovery Workflows
 
 ### Error Flow 1: Dev Tools Crash

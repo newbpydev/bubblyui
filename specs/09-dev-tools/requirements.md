@@ -21,6 +21,12 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - As a **developer**, I want dry-run preview mode so that I can validate patterns before applying
 - As a **developer**, I want streaming sanitization so that large exports don't cause OOM errors
 - As a **developer**, I want fast sanitization so that exports complete quickly even with reflection
+- As a **DevOps engineer**, I want compressed exports so that debug files transfer quickly over networks
+- As a **developer**, I want YAML/MessagePack formats so that I can integrate with existing tooling
+- As a **team lead**, I want incremental exports so that I can track changes over time efficiently
+- As a **framework integrator**, I want automatic hooks so that dev tools work without manual instrumentation
+- As a **developer**, I want responsive UI so that dev tools work on any terminal size
+- As a **architect**, I want component hierarchy view so that I can understand app structure better
 
 ## Functional Requirements
 
@@ -131,6 +137,26 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 11.5. Chunked processing for bounded memory usage  
 11.6. Performance profiling and benchmarking support  
 
+### 12. Export & Import Enhancements
+12.1. Export compression (gzip) for reduced file sizes  
+12.2. Multiple export formats (JSON, YAML, MessagePack)  
+12.3. Incremental exports (delta since last export)  
+12.4. Version migration support (1.0 → 2.0)  
+12.5. Merge import option (append vs replace)  
+12.6. Partial import (selective data types)  
+12.7. Import validation reports with warnings  
+12.8. Format auto-detection on import  
+
+### 13. UI & Integration Polish
+13.1. Responsive terminal sizing (adapt to window changes)  
+13.2. Component hierarchy visualization in performance view  
+13.3. Router debugging panel (when router feature exists)  
+13.4. Automatic framework integration hooks  
+13.5. Split-pane width customization  
+13.6. Theme customization support  
+13.7. Keyboard shortcut customization  
+13.8. Export format selection in UI  
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -237,6 +263,27 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - [ ] Progress callbacks work for large operations
 - [ ] Chunked processing maintains constant memory
 - [ ] Benchmarks show performance improvements
+
+### Export & Import Enhancements
+- [ ] Gzip compression reduces file size 50-70%
+- [ ] YAML export produces valid, readable YAML
+- [ ] MessagePack export is smaller than JSON
+- [ ] Incremental exports track only changes
+- [ ] Version migration handles 1.0 → 2.0 correctly
+- [ ] Merge import appends without data loss
+- [ ] Partial import selects specific data types
+- [ ] Import validation reports warn on issues
+- [ ] Format auto-detection works for all formats
+
+### UI & Integration Polish
+- [ ] UI adapts to terminal resize events
+- [ ] Component hierarchy shows parent-child relationships
+- [ ] Router panel appears when router exists
+- [ ] Framework hooks work without manual calls
+- [ ] Split-pane width customizable
+- [ ] Theme colors customizable
+- [ ] Keyboard shortcuts customizable
+- [ ] Format selection works in export UI
 
 ## Dependencies
 

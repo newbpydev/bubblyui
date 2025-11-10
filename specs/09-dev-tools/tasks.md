@@ -3271,17 +3271,338 @@ Phase 7: Documentation
 
 ---
 
+## Phase 8: Export/Import & UI Polish (6 tasks, 20 hours)
+
+### Task 8.1: Export Compression
+**Description**: Add gzip compression for exports
+
+**Prerequisites**: Task 6.1 (Export System)
+
+**Unlocks**: Task 8.3 (Multiple Formats)
+
+**Files**:
+- `pkg/bubbly/devtools/export.go` (update)
+- `pkg/bubbly/devtools/import.go` (update)
+- `pkg/bubbly/devtools/compression_test.go`
+
+**Type Safety**:
+```go
+type ExportOptions struct {
+    // ... existing fields
+    Compress         bool
+    CompressionLevel int  // gzip.DefaultCompression, gzip.BestSpeed, gzip.BestCompression
+}
+
+func (dt *DevTools) ExportCompressed(filename string, opts ExportOptions) error
+func (dt *DevTools) ImportCompressed(filename string) error
+func detectCompression(file *os.File) (bool, error)  // Magic byte detection
+```
+
+**Tests**:
+- [ ] Compression reduces file size 50-70%
+- [ ] Gzip magic bytes detected correctly
+- [ ] Import auto-detects compressed files
+- [ ] Compression levels work (BestSpeed, Default, BestCompression)
+- [ ] Round-trip: compress export → import
+- [ ] Performance overhead <100ms for 10MB files
+- [ ] Error handling for corrupt gzip
+- [ ] Uncompressed files still work
+
+**Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- Use `compress/gzip` from stdlib
+- Magic bytes: `0x1f 0x8b` for gzip detection
+- Auto-detect in Import() by reading first 2 bytes
+- Compression levels: BestSpeed (1), Default (-1), BestCompression (9)
+- Wrap io.Writer/io.Reader for transparent compression
+- Document: 50-70% size reduction typical
+- Benchmark compression overhead
+
+---
+
+### Task 8.2: Multiple Export Formats
+**Description**: Support JSON, YAML, MessagePack formats
+
+**Prerequisites**: Task 8.1 (Compression)
+
+**Unlocks**: Task 8.4 (Incremental Exports)
+
+**Files**:
+- `pkg/bubbly/devtools/formats.go`
+- `pkg/bubbly/devtools/formats_test.go`
+- `pkg/bubbly/devtools/export.go` (update)
+
+**Type Safety**:
+```go
+type ExportFormat interface {
+    Name() string
+    Extension() string
+    ContentType() string
+    Marshal(data *ExportData) ([]byte, error)
+    Unmarshal([]byte, *ExportData) error
+}
+
+type FormatRegistry map[string]ExportFormat
+
+func (dt *DevTools) ExportFormat(filename, format string, opts ExportOptions) error
+func (dt *DevTools) ImportFormat(filename, format string) error
+func DetectFormat(filename string) (string, error)  // By extension or content
+func RegisterFormat(name string, format ExportFormat) error
+func GetSupportedFormats() []string
+```
+
+**Tests**:
+- [ ] JSON format works (baseline)
+- [ ] YAML format produces valid YAML
+- [ ] MessagePack format produces valid msgpack
+- [ ] Format detection by extension (.json, .yaml, .msgpack)
+- [ ] Format detection by content (fallback)
+- [ ] Custom format registration works
+- [ ] Invalid format returns error
+- [ ] Round-trip for each format
+- [ ] Size comparison (JSON 100%, YAML 95%, msgpack 60%)
+
+**Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- JSON: Use stdlib `encoding/json`
+- YAML: Use `github.com/goccy/go-yaml`
+- MessagePack: Use `github.com/vmihailenco/msgpack/v5`
+- Registry pattern for extensibility
+- Auto-detect format from extension first, then content
+- Document format trade-offs (size, readability, speed)
+- Integration with compression (e.g., .yaml.gz)
+
+---
+
+### Task 8.3: Incremental Exports
+**Description**: Export only changes since last checkpoint
+
+**Prerequisites**: Task 6.1 (Export System)
+
+**Unlocks**: Task 8.5 (Version Migration)
+
+**Files**:
+- `pkg/bubbly/devtools/incremental.go`
+- `pkg/bubbly/devtools/incremental_test.go`
+- `pkg/bubbly/devtools/store.go` (update for ID tracking)
+
+**Type Safety**:
+```go
+type ExportCheckpoint struct {
+    Timestamp     time.Time
+    LastEventID   int
+    LastStateID   int
+    LastCommandID int
+    Version       string
+}
+
+type IncrementalExportData struct {
+    Checkpoint  ExportCheckpoint
+    NewEvents   []EventRecord
+    NewState    []StateChange
+    NewCommands []CommandRecord
+}
+
+func (dt *DevTools) ExportFull(filename string, opts ExportOptions) (*ExportCheckpoint, error)
+func (dt *DevTools) ExportIncremental(filename string, since *ExportCheckpoint) (*ExportCheckpoint, error)
+func (dt *DevTools) ImportDelta(filename string) error
+func (store *DevToolsStore) GetSince(checkpoint *ExportCheckpoint) (*IncrementalExportData, error)
+```
+
+**Tests**:
+- [ ] Full export returns checkpoint
+- [ ] Incremental export includes only new data
+- [ ] Checkpoint IDs track correctly
+- [ ] Multiple incrementals chain correctly
+- [ ] Import delta appends to existing data
+- [ ] File size 90%+ smaller for incrementals
+- [ ] Round-trip: full + delta → reconstruct
+- [ ] Empty incremental handled gracefully
+
+**Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- Add auto-incrementing IDs to EventRecord, StateChange, CommandRecord
+- Store last checkpoint in memory
+- GetSince() filters by ID ranges
+- First export always full snapshot
+- Subsequent exports are deltas
+- ImportDelta() merges with existing data
+- Document use case: long-running sessions, daily exports
+
+---
+
+### Task 8.4: Version Migration System
+**Description**: Migrate old export formats to new versions
+
+**Prerequisites**: Task 6.2 (Import System)
+
+**Unlocks**: Task 8.6 (Framework Integration Hooks)
+
+**Files**:
+- `pkg/bubbly/devtools/migration.go`
+- `pkg/bubbly/devtools/migration_test.go`
+- `pkg/bubbly/devtools/migrations/` (directory for migration implementations)
+
+**Type Safety**:
+```go
+type VersionMigration interface {
+    From() string
+    To() string
+    Migrate(data map[string]interface{}) (map[string]interface{}, error)
+}
+
+type Migration_1_0_to_2_0 struct{}  // Example migration
+
+func (dt *DevTools) Import(filename string) error  // Updated with migration logic
+func (dt *DevTools) migrateVersion(data map[string]interface{}, from, to string) (map[string]interface{}, error)
+func RegisterMigration(mig VersionMigration) error
+func GetMigrationPath(from, to string) ([]VersionMigration, error)
+func ValidateMigrationChain() error
+```
+
+**Tests**:
+- [ ] Version 1.0 import works directly
+- [ ] Version 1.0 migrates to 2.0 correctly
+- [ ] Migration chain works (1.0 → 1.5 → 2.0)
+- [ ] Missing migration returns error
+- [ ] Invalid version format returns error
+- [ ] Migration preserves data integrity
+- [ ] Custom migrations can be registered
+- [ ] Migration validation at startup
+
+**Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- Parse version field from generic map first
+- Chain migrations if multiple hops needed
+- Validate migration chain at init (no gaps)
+- Example migration: add metadata, rename fields, transform structures
+- Document migration path in godoc
+- Keep migrations backward-compatible when possible
+- Test migration with real exported data
+
+---
+
+### Task 8.5: Responsive Terminal UI
+**Description**: Adapt UI to terminal size changes
+
+**Prerequisites**: Task 5.4 (Dev Tools UI)
+
+**Unlocks**: None (polish)
+
+**Files**:
+- `pkg/bubbly/devtools/ui.go` (update)
+- `pkg/bubbly/devtools/layout.go`
+- `pkg/bubbly/devtools/responsive_test.go`
+
+**Type Safety**:
+```go
+type LayoutMode string
+
+const (
+    LayoutHorizontal LayoutMode = "horizontal"  // Side-by-side
+    LayoutVertical   LayoutMode = "vertical"    // Stacked
+    LayoutMinimal    LayoutMode = "minimal"     // Compressed
+)
+
+func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd)  // Handle tea.WindowSizeMsg
+func (ui *DevToolsUI) calculatePaneSizes() error
+func (ui *DevToolsUI) reflow() error
+func (ui *DevToolsUI) setLayout(mode LayoutMode) error
+```
+
+**Tests**:
+- [ ] WindowSizeMsg updates dimensions
+- [ ] Narrow terminal (<80 cols) uses vertical layout
+- [ ] Medium terminal (80-120) uses 50/50 split
+- [ ] Wide terminal (>120) uses 40/60 split
+- [ ] Content reflows correctly
+- [ ] No visual artifacts on resize
+- [ ] Maintains scroll position on resize
+- [ ] Manual layout override works
+
+**Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- Handle `tea.WindowSizeMsg` in Update()
+- Breakpoints: <80 (vertical), 80-120 (50/50), >120 (40/60)
+- Reflow content on size change
+- Cache last size to avoid unnecessary reflows
+- Document responsive behavior in user-workflow.md
+- Test with various terminal sizes (80x24, 120x40, 160x60)
+
+---
+
+### Task 8.6: Framework Integration Hooks
+**Description**: Automatic dev tools instrumentation
+
+**Prerequisites**: Task 1.2 (Data Collector)
+
+**Unlocks**: None (polish)
+
+**Files**:
+- `pkg/bubbly/component.go` (update)
+- `pkg/bubbly/ref.go` (update)
+- `pkg/bubbly/devtools/hooks.go`
+- `pkg/bubbly/devtools/hooks_test.go`
+
+**Type Safety**:
+```go
+type FrameworkHook interface {
+    OnComponentMount(id, name string)
+    OnComponentUpdate(id string, msg interface{})
+    OnComponentUnmount(id string)
+    OnRefChange(id string, oldValue, newValue interface{})
+    OnEvent(componentID, eventName string, data interface{})
+    OnRenderComplete(componentID string, duration time.Duration)
+}
+
+func RegisterHook(hook FrameworkHook) error
+func UnregisterHook() error
+func IsEnabled() bool
+func NotifyComponentMounted(id, name string)
+// ... other notify functions
+```
+
+**Tests**:
+- [ ] Hook registration works
+- [ ] Component mount notifications fire
+- [ ] Component update notifications fire
+- [ ] Component unmount notifications fire
+- [ ] Ref change notifications fire
+- [ ] Event emission notifications fire
+- [ ] Render complete notifications fire
+- [ ] No overhead when hook not registered
+- [ ] Thread-safe hook access
+
+**Estimated Effort**: 2 hours
+
+**Implementation Notes**:
+- Add devtools.NotifyX() calls to framework code
+- Guard with `if devtools.IsEnabled()` check
+- Zero overhead when disabled (single nil check)
+- Document integration points in designs.md
+- Update component.go, ref.go, events
+- Example: `devtools.NotifyComponentMounted(c.id, c.name)` in Init()
+- Integration test with real component lifecycle
+
+---
+
 ## Estimated Total Effort
 
-- Phase 1: 15 hours
-- Phase 2: 18 hours
-- Phase 3: 15 hours
-- Phase 4: 15 hours
-- Phase 5: 12 hours
-- Phase 6: 9 hours
-- Phase 7: 9 hours
+- Phase 1: 15 hours (Foundation)
+- Phase 2: 18 hours (Inspection)
+- Phase 3: 15 hours (State & Events)
+- Phase 4: 15 hours (Performance & Timeline)
+- Phase 5: 12 hours (UI Integration)
+- Phase 6: 18 hours (Data Management - includes 6.4-6.9)
+- Phase 7: 9 hours (Documentation)
+- Phase 8: 20 hours (Export/Import Polish & Integration)
 
-**Total**: ~93 hours (approximately 2.5 weeks)
+**Total**: ~122 hours (approximately 3 weeks)
 
 ---
 
