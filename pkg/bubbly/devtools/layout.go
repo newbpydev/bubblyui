@@ -201,3 +201,40 @@ func (lm *LayoutManager) renderOverlay(appContent, toolsContent string, width, h
 		lipgloss.WithWhitespaceForeground(lipgloss.NoColor{}),
 	) + "\n" + appBox
 }
+
+// CalculateResponsiveLayout determines the optimal layout mode and ratio based on terminal width.
+//
+// Breakpoints:
+//   - < 80 cols: Vertical layout, 50/50 split (too narrow for side-by-side)
+//   - 80-120 cols: Horizontal layout, 50/50 split (medium width)
+//   - > 120 cols: Horizontal layout, 40/60 split (wide, more space for tools)
+//
+// Thread Safety:
+//
+//	Safe to call concurrently (pure function, no shared state).
+//
+// Example:
+//
+//	mode, ratio := devtools.CalculateResponsiveLayout(100)
+//	// mode = LayoutHorizontal, ratio = 0.5
+//
+// Parameters:
+//   - width: Terminal width in columns
+//
+// Returns:
+//   - LayoutMode: The recommended layout mode
+//   - float64: The recommended split ratio (app size / total size)
+func CalculateResponsiveLayout(width int) (LayoutMode, float64) {
+	switch {
+	case width < 80:
+		// Narrow terminal: use vertical layout with 50/50 split
+		return LayoutVertical, 0.5
+	case width <= 120:
+		// Medium terminal: use horizontal layout with 50/50 split
+		return LayoutHorizontal, 0.5
+	default:
+		// Wide terminal: use horizontal layout with 40/60 split
+		// (40% app, 60% tools for more inspection space)
+		return LayoutHorizontal, 0.4
+	}
+}

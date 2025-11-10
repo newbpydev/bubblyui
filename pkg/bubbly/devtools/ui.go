@@ -67,6 +67,16 @@ type DevToolsUI struct {
 
 	// store is the dev tools data store
 	store *DevToolsStore
+
+	// lastWidth is the cached terminal width to detect size changes
+	lastWidth int
+
+	// lastHeight is the cached terminal height to detect size changes
+	lastHeight int
+
+	// manualLayoutOverride indicates if user manually set layout mode
+	// When true, automatic responsive layout adjustments are disabled
+	manualLayoutOverride bool
 }
 
 // NewDevToolsUI creates a new DevTools UI with all panels initialized.
@@ -223,6 +233,36 @@ func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case 4: // Timeline doesn't have Update()
 			return ui, nil
 		}
+
+	case tea.WindowSizeMsg:
+		ui.mu.Lock()
+		defer ui.mu.Unlock()
+
+		// Validate dimensions (ignore invalid sizes)
+		if msg.Width <= 0 || msg.Height <= 0 {
+			return ui, nil
+		}
+
+		// Check if size actually changed (use cache to avoid redundant updates)
+		if msg.Width == ui.lastWidth && msg.Height == ui.lastHeight {
+			return ui, nil
+		}
+
+		// Update cached size
+		ui.lastWidth = msg.Width
+		ui.lastHeight = msg.Height
+
+		// Update layout manager size
+		ui.layout.SetSize(msg.Width, msg.Height)
+
+		// Apply responsive layout if auto mode is enabled
+		if !ui.manualLayoutOverride {
+			mode, ratio := CalculateResponsiveLayout(msg.Width)
+			ui.layout.SetMode(mode)
+			ui.layout.SetRatio(ratio)
+		}
+
+		return ui, nil
 	}
 
 	return ui, nil
@@ -423,4 +463,53 @@ func (ui *DevToolsUI) GetLayoutRatio() float64 {
 	defer ui.mu.RUnlock()
 
 	return ui.layout.GetRatio()
+}
+
+// SetManualLayoutMode sets the layout mode manually and disables automatic responsive layout.
+//
+// When you manually set a layout mode, the UI will no longer automatically adjust
+// the layout based on terminal size. Call EnableAutoLayout() to re-enable automatic
+// responsive behavior.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	ui.SetManualLayoutMode(LayoutOverlay) // Force overlay mode
+//	// Terminal resizes will NOT change layout mode
+//
+// Parameters:
+//   - mode: The layout mode to set manually
+func (ui *DevToolsUI) SetManualLayoutMode(mode LayoutMode) {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+
+	ui.layout.SetMode(mode)
+	ui.manualLayoutOverride = true
+}
+
+// EnableAutoLayout re-enables automatic responsive layout adjustments.
+//
+// After calling this, the UI will automatically adjust layout mode and ratio
+// based on terminal size according to the responsive breakpoints:
+//   - < 80 cols: Vertical layout
+//   - 80-120 cols: Horizontal 50/50
+//   - > 120 cols: Horizontal 40/60
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	ui.SetManualLayoutMode(LayoutOverlay) // Disable auto layout
+//	// ... later ...
+//	ui.EnableAutoLayout() // Re-enable auto layout
+func (ui *DevToolsUI) EnableAutoLayout() {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+
+	ui.manualLayoutOverride = false
 }
