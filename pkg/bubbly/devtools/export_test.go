@@ -331,7 +331,7 @@ func TestExport_InvalidPath(t *testing.T) {
 	// Try to export to invalid path
 	err := dt.Export("/invalid/path/that/does/not/exist/file.json", ExportOptions{})
 	assert.Error(t, err, "Should fail with invalid path")
-	assert.Contains(t, err.Error(), "failed to write export file", "Error should mention write failure")
+	assert.Contains(t, err.Error(), "failed to create export file", "Error should mention file creation failure")
 }
 
 func TestExport_EmptyStore(t *testing.T) {

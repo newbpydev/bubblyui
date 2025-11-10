@@ -346,7 +346,7 @@ func TestImport_FileNotFound(t *testing.T) {
 
 	err := dt.Import("/nonexistent/path/file.json")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read import file")
+	assert.Contains(t, err.Error(), "failed to open import file")
 }
 
 func TestImport_RoundTrip(t *testing.T) {

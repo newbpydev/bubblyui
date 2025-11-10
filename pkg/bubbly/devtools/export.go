@@ -2,6 +2,7 @@ package devtools
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -97,6 +98,20 @@ type ExportOptions struct {
 	// ProgressCallback is invoked periodically during streaming exports
 	// to report the number of bytes processed. Can be nil.
 	ProgressCallback func(bytesProcessed int64)
+
+	// Compress enables gzip compression for the export.
+	// When true, the output file will be compressed using gzip.
+	// The file will have gzip magic bytes (0x1f 0x8b) for auto-detection on import.
+	Compress bool
+
+	// CompressionLevel specifies the gzip compression level.
+	// Valid values:
+	//   - gzip.NoCompression (0): No compression
+	//   - gzip.BestSpeed (1): Fastest compression, larger files
+	//   - gzip.DefaultCompression (-1): Balanced speed and size (default)
+	//   - gzip.BestCompression (9): Maximum compression, slower
+	// Only used when Compress is true.
+	CompressionLevel int
 }
 
 // Export writes dev tools debug data to a JSON file.
@@ -182,10 +197,45 @@ func (dt *DevTools) Export(filename string, opts ExportOptions) error {
 		return fmt.Errorf("failed to marshal export data: %w", err)
 	}
 
-	// Write to file
-	err = os.WriteFile(filename, jsonData, 0644)
+	// Create output file
+	file, err := os.Create(filename)
 	if err != nil {
-		return fmt.Errorf("failed to write export file: %w", err)
+		return fmt.Errorf("failed to create export file: %w", err)
+	}
+	defer file.Close()
+
+	// Write data (compressed or uncompressed)
+	if opts.Compress {
+		// Set default compression level if not specified
+		level := opts.CompressionLevel
+		if level == 0 && opts.Compress {
+			level = gzip.DefaultCompression
+		}
+
+		// Create gzip writer
+		gzWriter, err := gzip.NewWriterLevel(file, level)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip writer: %w", err)
+		}
+		defer gzWriter.Close()
+
+		// Write compressed data
+		_, err = gzWriter.Write(jsonData)
+		if err != nil {
+			return fmt.Errorf("failed to write compressed data: %w", err)
+		}
+
+		// Flush to ensure all data is written
+		err = gzWriter.Flush()
+		if err != nil {
+			return fmt.Errorf("failed to flush gzip writer: %w", err)
+		}
+	} else {
+		// Write uncompressed data
+		_, err = file.Write(jsonData)
+		if err != nil {
+			return fmt.Errorf("failed to write export file: %w", err)
+		}
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package devtools
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,10 @@ import (
 // existing data in the store with the imported data. Any existing components,
 // state history, events, and performance metrics will be cleared.
 //
+// The function automatically detects gzip compression by checking for gzip magic
+// bytes (0x1f 0x8b) at the start of the file. If detected, the file is
+// automatically decompressed before parsing.
+//
 // Thread Safety:
 //
 //	Safe to call concurrently. Uses write lock on DevTools.
@@ -20,25 +25,49 @@ import (
 // Example:
 //
 //	dt := devtools.Enable()
-//	err := dt.Import("debug-state.json")
+//	err := dt.Import("debug-state.json")  // Works with .json or .json.gz
 //	if err != nil {
 //	    log.Printf("Import failed: %v", err)
 //	}
 //
 // Parameters:
-//   - filename: Path to the JSON file to import
+//   - filename: Path to the JSON file to import (compressed or uncompressed)
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
 func (dt *DevTools) Import(filename string) error {
-	// Read file
-	data, err := os.ReadFile(filename)
+	// Open file
+	file, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("failed to read import file: %w", err)
+		return fmt.Errorf("failed to open import file: %w", err)
+	}
+	defer file.Close()
+
+	// Detect if file is gzip-compressed
+	isCompressed, err := detectCompression(file)
+	if err != nil {
+		return fmt.Errorf("failed to detect compression: %w", err)
 	}
 
-	// Import from bytes using a reader
-	return dt.ImportFromReader(io.NopCloser(io.Reader(newBytesReader(data))))
+	// Seek back to start after detection
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	// Create appropriate reader
+	var reader io.Reader = file
+	if isCompressed {
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzReader.Close()
+		reader = gzReader
+	}
+
+	// Import from reader
+	return dt.ImportFromReader(io.NopCloser(reader))
 }
 
 // ImportFromReader loads debug data from an io.Reader and restores it to the dev tools store.
@@ -258,4 +287,40 @@ func (br *bytesReader) Read(p []byte) (n int, err error) {
 	n = copy(p, br.data[br.pos:])
 	br.pos += n
 	return n, nil
+}
+
+// detectCompression checks if a file is gzip-compressed by reading the magic bytes.
+//
+// Gzip files start with magic bytes 0x1f 0x8b. This function reads the first
+// two bytes of the file to detect compression. The file position is NOT reset
+// after detection - caller must seek back to the start if needed.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently on different files. Not safe on the same file.
+//
+// Parameters:
+//   - file: The file to check for gzip compression
+//
+// Returns:
+//   - bool: true if file is gzip-compressed, false otherwise
+//   - error: nil on success, error if read fails
+func detectCompression(file *os.File) (bool, error) {
+	// Read first 2 bytes for gzip magic bytes check
+	magicBytes := make([]byte, 2)
+	n, err := file.Read(magicBytes)
+
+	// If we can't read 2 bytes, file is too small to be gzip
+	if err == io.EOF || n < 2 {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("failed to read magic bytes: %w", err)
+	}
+
+	// Check for gzip magic bytes: 0x1f 0x8b
+	isGzip := magicBytes[0] == 0x1f && magicBytes[1] == 0x8b
+
+	return isGzip, nil
 }
