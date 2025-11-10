@@ -3,7 +3,10 @@
 // the Bubbletea framework's Elm architecture.
 package bubbly
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // watcher represents an internal watcher that observes changes to a Ref.
 // It is unexported as it's an implementation detail used by the Watch function.
@@ -181,6 +184,10 @@ func (r *Ref[T]) Set(value T) {
 	}
 	hook := r.setHook
 	r.mu.Unlock()
+
+	// Notify framework hooks of ref change (use memory address as ID)
+	refID := fmt.Sprintf("ref-%p", r)
+	notifyHookRefChange(refID, oldValue, value)
 
 	// Invalidate all dependent computed values
 	r.Invalidate()

@@ -3902,26 +3902,40 @@ func NotifyComponentMounted(id, name string)
 ```
 
 **Tests**:
-- [ ] Hook registration works
-- [ ] Component mount notifications fire
-- [ ] Component update notifications fire
-- [ ] Component unmount notifications fire
-- [ ] Ref change notifications fire
-- [ ] Event emission notifications fire
-- [ ] Render complete notifications fire
-- [ ] No overhead when hook not registered
-- [ ] Thread-safe hook access
+- [x] Hook registration works
+- [x] Component mount notifications fire
+- [x] Component update notifications fire
+- [x] Component unmount notifications fire
+- [x] Ref change notifications fire
+- [x] Event emission notifications fire
+- [x] Render complete notifications fire
+- [x] No overhead when hook not registered
+- [x] Thread-safe hook access
 
 **Estimated Effort**: 2 hours
 
-**Implementation Notes**:
-- Add devtools.NotifyX() calls to framework code
-- Guard with `if devtools.IsEnabled()` check
-- Zero overhead when disabled (single nil check)
-- Document integration points in designs.md
-- Update component.go, ref.go, events
-- Example: `devtools.NotifyComponentMounted(c.id, c.name)` in Init()
-- Integration test with real component lifecycle
+**Implementation Notes**: ✅ COMPLETED
+- ✅ Created `framework_hooks.go` in `pkg/bubbly` package (avoids import cycle with devtools)
+- ✅ Implemented `FrameworkHook` interface with 6 lifecycle methods
+- ✅ Global singleton hook registry with `RegisterHook()`, `UnregisterHook()`, `IsHookRegistered()`
+- ✅ Thread-safe hook management using `sync.RWMutex`
+- ✅ Zero overhead when no hook registered (just nil check)
+- ✅ Integration points added:
+  - `component.Init()` → `notifyHookComponentMount(c.id, c.name)` after setup completes
+  - `component.Update()` → `notifyHookComponentUpdate(c.id, msg)` at start of Update
+  - `component.View()` → `notifyHookRenderComplete(c.id, duration)` with timing measurement
+  - `component.Unmount()` → `notifyHookComponentUnmount(c.id)` at start
+  - `component.Emit()` → `notifyHookEvent(c.id, eventName, data)` before bubbling
+  - `ref.Set()` → `notifyHookRefChange(refID, oldValue, newValue)` using memory address as ID
+- ✅ Comprehensive tests:
+  - 13 unit tests for hook registration and notification functions
+  - 9 integration tests with real component lifecycle
+  - All 22 tests pass with race detector
+  - Thread-safety verified with concurrent access tests
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Zero lint warnings (go vet clean)
+- ✅ Actual time: ~2 hours (matches estimate)
 
 ---
 

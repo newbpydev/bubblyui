@@ -462,6 +462,9 @@ func (c *componentImpl) HelpText() string {
 //
 //	component.Emit("submit", FormData{Username: "user"})
 func (c *componentImpl) Emit(eventName string, data interface{}) {
+	// Notify framework hooks that event is being emitted
+	notifyHookEvent(c.id, eventName, data)
+
 	// Get event from pool to reduce allocations
 	event := eventPool.Get().(*Event)
 
@@ -533,6 +536,9 @@ func (c *componentImpl) Init() tea.Cmd {
 		ctx := &Context{component: c}
 		c.setup(ctx)
 		c.mounted = true
+
+		// Notify framework hooks that component has mounted
+		notifyHookComponentMount(c.id, c.name)
 	}
 
 	// Initialize child components
@@ -567,6 +573,9 @@ func (c *componentImpl) Init() tea.Cmd {
 //   - All commands are returned via tea.Batch for execution by Bubbletea runtime
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	// Notify framework hooks that component is updating
+	notifyHookComponentUpdate(c.id, msg)
 
 	// [NEW] Call message handler first (Automatic Reactive Bridge - Task 8.4)
 	// Handler is called BEFORE key bindings to allow complex message processing
@@ -707,6 +716,13 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // This allows Ref.Set() to detect and prevent illegal state mutations inside templates.
 // Templates must be pure functions with no side effects.
 func (c *componentImpl) View() string {
+	// Track render timing for framework hooks
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		notifyHookRenderComplete(c.id, duration)
+	}()
+
 	// Execute onMounted hooks on first render
 	if c.lifecycle != nil && !c.lifecycle.IsMounted() {
 		c.lifecycle.executeMounted()
@@ -751,6 +767,9 @@ func (c *componentImpl) View() string {
 //
 //	component.Unmount()  // Clean up component and children
 func (c *componentImpl) Unmount() {
+	// Notify framework hooks that component is unmounting
+	notifyHookComponentUnmount(c.id)
+
 	// Execute lifecycle cleanup (onUnmounted hooks + cleanup functions)
 	if c.lifecycle != nil {
 		c.lifecycle.executeUnmounted()
