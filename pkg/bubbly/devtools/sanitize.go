@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"sync"
+	"time"
 )
 
 // Sanitizer provides regex-based sanitization of sensitive data in exports.
@@ -26,6 +28,15 @@ import (
 type Sanitizer struct {
 	// patterns is the list of regex patterns to apply
 	patterns []SanitizePattern
+
+	// lastStats holds the statistics from the most recent sanitization
+	lastStats *SanitizationStats
+
+	// currentStats is used during sanitization to accumulate stats
+	currentStats *SanitizationStats
+
+	// statsMu protects concurrent access to lastStats and currentStats
+	statsMu sync.RWMutex
 }
 
 // SanitizePattern represents a single sanitization rule with priority ordering.
@@ -233,6 +244,8 @@ func (s *Sanitizer) GetPatterns() []SanitizePattern {
 // recursively sanitizing nested structures. The original data is
 // not modified - a deep copy is created and sanitized.
 //
+// Statistics are tracked and can be retrieved with GetLastStats().
+//
 // Thread Safety:
 //
 //	Safe to call concurrently. Does not modify the input data.
@@ -241,6 +254,8 @@ func (s *Sanitizer) GetPatterns() []SanitizePattern {
 //
 //	sanitizer := devtools.NewSanitizer()
 //	cleanData := sanitizer.Sanitize(exportData)
+//	stats := sanitizer.GetLastStats()
+//	fmt.Printf("Redacted %d values in %v\n", stats.RedactedCount, stats.Duration)
 //
 // Parameters:
 //   - data: The export data to sanitize
@@ -251,6 +266,20 @@ func (s *Sanitizer) Sanitize(data *ExportData) *ExportData {
 	if data == nil {
 		return nil
 	}
+
+	// Initialize stats
+	startTime := time.Now()
+	stats := &SanitizationStats{
+		RedactedCount:  0,
+		PatternMatches: make(map[string]int),
+		BytesProcessed: 0,
+		StartTime:      startTime,
+	}
+
+	// Set currentStats for tracking during recursive sanitization
+	s.statsMu.Lock()
+	s.currentStats = stats
+	s.statsMu.Unlock()
 
 	// Create a copy of the export data
 	result := &ExportData{
@@ -286,6 +315,16 @@ func (s *Sanitizer) Sanitize(data *ExportData) *ExportData {
 	if data.Performance != nil {
 		result.Performance = s.sanitizePerformanceData(data.Performance)
 	}
+
+	// Finalize stats
+	stats.EndTime = time.Now()
+	stats.Duration = stats.EndTime.Sub(stats.StartTime)
+
+	// Store stats and clear currentStats
+	s.statsMu.Lock()
+	s.lastStats = stats
+	s.currentStats = nil
+	s.statsMu.Unlock()
 
 	return result
 }
@@ -424,7 +463,36 @@ func (s *Sanitizer) SanitizeValue(val interface{}) interface{} {
 	case reflect.String:
 		// Apply all patterns to the string in priority order
 		str := v.String()
+
+		// Check if we're tracking stats (during Sanitize() call)
+		s.statsMu.RLock()
+		trackingStats := s.currentStats != nil
+		s.statsMu.RUnlock()
+
+		// Track bytes processed if we're in a Sanitize() call
+		if trackingStats {
+			s.statsMu.Lock()
+			if s.currentStats != nil {
+				s.currentStats.BytesProcessed += int64(len(str))
+			}
+			s.statsMu.Unlock()
+		}
+
 		for _, pattern := range s.patterns {
+			// Count matches if we're tracking stats
+			if trackingStats {
+				matches := pattern.Pattern.FindAllString(str, -1)
+				matchCount := len(matches)
+				if matchCount > 0 {
+					s.statsMu.Lock()
+					if s.currentStats != nil {
+						s.currentStats.RedactedCount += matchCount
+						s.currentStats.PatternMatches[pattern.Name] += matchCount
+					}
+					s.statsMu.Unlock()
+				}
+			}
+
 			str = pattern.Pattern.ReplaceAllString(str, pattern.Replacement)
 		}
 		return str
@@ -508,11 +576,15 @@ func DefaultPatterns() []string {
 // Patterns are applied in priority order (highest first), with equal
 // priorities maintaining insertion order (stable sort).
 //
+// Statistics are tracked and can be retrieved with GetLastStats().
+//
 // Example:
 //
 //	sanitizer := devtools.NewSanitizer()
 //	clean := sanitizer.SanitizeString(`{"password": "secret123"}`)
 //	// clean will be `{"password": "[REDACTED]"}`
+//	stats := sanitizer.GetLastStats()
+//	fmt.Printf("Redacted %d values\n", stats.RedactedCount)
 //
 // Parameters:
 //   - str: The string to sanitize
@@ -520,13 +592,42 @@ func DefaultPatterns() []string {
 // Returns:
 //   - string: The sanitized string
 func (s *Sanitizer) SanitizeString(str string) string {
+	// Initialize stats
+	startTime := time.Now()
+	stats := &SanitizationStats{
+		RedactedCount:  0,
+		PatternMatches: make(map[string]int),
+		BytesProcessed: int64(len(str)),
+		StartTime:      startTime,
+	}
+
 	// Sort patterns by priority before applying
 	s.sortPatterns()
 
 	result := str
 	for _, pattern := range s.patterns {
+		// Count matches before replacement
+		matches := pattern.Pattern.FindAllString(result, -1)
+		matchCount := len(matches)
+
+		if matchCount > 0 {
+			stats.RedactedCount += matchCount
+			stats.PatternMatches[pattern.Name] += matchCount
+		}
+
+		// Apply replacement
 		result = pattern.Pattern.ReplaceAllString(result, pattern.Replacement)
 	}
+
+	// Finalize stats
+	stats.EndTime = time.Now()
+	stats.Duration = stats.EndTime.Sub(stats.StartTime)
+
+	// Store stats
+	s.statsMu.Lock()
+	s.lastStats = stats
+	s.statsMu.Unlock()
+
 	return result
 }
 
@@ -536,4 +637,52 @@ func (s *Sanitizer) SanitizeString(str string) string {
 //   - int: Number of sanitization patterns
 func (s *Sanitizer) PatternCount() int {
 	return len(s.patterns)
+}
+
+// GetLastStats returns the statistics from the most recent sanitization.
+//
+// Returns nil if no sanitization has been performed yet. The returned
+// stats are a snapshot and will not be updated by subsequent sanitizations.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently. Uses read lock for thread-safe access.
+//
+// Example:
+//
+//	sanitizer := NewSanitizer()
+//	_ = sanitizer.SanitizeString(`{"password": "secret"}`)
+//	stats := sanitizer.GetLastStats()
+//	if stats != nil {
+//	    fmt.Printf("Redacted %d values in %v\n", stats.RedactedCount, stats.Duration)
+//	}
+//
+// Returns:
+//   - *SanitizationStats: Stats from last sanitization, or nil if none performed
+func (s *Sanitizer) GetLastStats() *SanitizationStats {
+	s.statsMu.RLock()
+	defer s.statsMu.RUnlock()
+	return s.lastStats
+}
+
+// ResetStats clears the stored statistics.
+//
+// This is useful when you want to start fresh or free memory from
+// old stats. After calling this, GetLastStats() will return nil
+// until the next sanitization.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently. Uses write lock for thread-safe access.
+//
+// Example:
+//
+//	sanitizer := NewSanitizer()
+//	_ = sanitizer.SanitizeString(`{"password": "secret"}`)
+//	sanitizer.ResetStats()
+//	stats := sanitizer.GetLastStats() // Returns nil
+func (s *Sanitizer) ResetStats() {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+	s.lastStats = nil
 }

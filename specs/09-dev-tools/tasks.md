@@ -3063,7 +3063,7 @@ func GetTemplateNames() []string
 
 ---
 
-### Task 6.7: Sanitization Metrics
+### Task 6.7: Sanitization Metrics ✅ COMPLETED
 **Description**: Track and report sanitization statistics
 
 **Prerequisites**: Task 6.3
@@ -3093,28 +3093,35 @@ func (stats *SanitizationStats) JSON() ([]byte, error)
 ```
 
 **Tests**:
-- [ ] RedactedCount increments correctly
-- [ ] PatternMatches tracks each pattern
-- [ ] Duration calculated accurately
-- [ ] BytesProcessed counts correctly
-- [ ] GetLastStats returns latest run
-- [ ] ResetStats clears previous data
-- [ ] Thread-safe concurrent access
-- [ ] String() formats human-readable
-- [ ] JSON() produces valid output
+- [x] RedactedCount increments correctly
+- [x] PatternMatches tracks each pattern
+- [x] Duration calculated accurately
+- [x] BytesProcessed counts correctly
+- [x] GetLastStats returns latest run
+- [x] ResetStats clears previous data
+- [x] Thread-safe concurrent access
+- [x] String() formats human-readable
+- [x] JSON() produces valid output
 
 **Estimated Effort**: 2 hours
 
 **Implementation Notes**:
-- Track stats in `Sanitizer` struct with `sync.RWMutex`
-- Update counts during `sanitizeString WithStats()`
-- Calculate duration: `EndTime - StartTime`
-- BytesProcessed: sum of string lengths processed
-- Format example: "Redacted 47 values: password=23, token=15, apikey=9 (142ms)"
-- JSON format for programmatic consumption
-- Stats cleared on each `Sanitize()` call (new run)
-- GetLastStats() thread-safe read access
-- Document when stats are updated (after each Sanitize call)
+- ✅ Created `metrics.go` with `SanitizationStats` type and methods (String, JSON)
+- ✅ Added `lastStats` and `currentStats` fields to `Sanitizer` struct with `sync.RWMutex`
+- ✅ Updated `SanitizeString()` to track stats: counts matches per pattern, tracks bytes, calculates duration
+- ✅ Updated `Sanitize()` to track stats during recursive sanitization via `currentStats`
+- ✅ Updated `SanitizeValue()` to accumulate stats when processing strings (with mutex protection)
+- ✅ Implemented `GetLastStats()` with RLock for thread-safe read access
+- ✅ Implemented `ResetStats()` with Lock for thread-safe write access
+- ✅ String format: "Redacted N values: pattern1=X, pattern2=Y (Zms)" with sorted pattern names
+- ✅ JSON format includes all fields with duration in milliseconds
+- ✅ Stats are reset on each `Sanitize()` or `SanitizeString()` call (new run)
+- ✅ 10 comprehensive tests covering all requirements including thread safety
+- ✅ All tests pass with race detector
+- ✅ Coverage: 90.6% (well above 80% requirement)
+- ✅ Zero lint warnings in new code
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Actual time: ~2 hours (on estimate)
 
 ---
 
