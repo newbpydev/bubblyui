@@ -738,3 +738,244 @@ func TestExportFormat_InvalidFormat(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "format not found")
 }
+
+// TestExportStream tests streaming export functionality
+func TestExportStream(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-stream.json")
+
+	// Create dev tools with store
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	// Add test data
+	dt.store.AddComponent(&ComponentSnapshot{
+		ID:        "comp-1",
+		Name:      "TestComponent",
+		Type:      "test",
+		Timestamp: time.Now(),
+	})
+
+	// Export using streaming
+	opts := ExportOptions{
+		IncludeComponents: true,
+		UseStreaming:      true,
+	}
+
+	err := dt.ExportStream(filename, opts)
+	require.NoError(t, err)
+
+	// Verify file exists
+	_, err = os.Stat(filename)
+	require.NoError(t, err)
+
+	// Verify file contains valid JSON
+	data, err := os.ReadFile(filename)
+	require.NoError(t, err)
+
+	var exportData ExportData
+	err = json.Unmarshal(data, &exportData)
+	require.NoError(t, err)
+
+	// Verify data
+	assert.Equal(t, "1.0", exportData.Version)
+	assert.Len(t, exportData.Components, 1)
+	assert.Equal(t, "comp-1", exportData.Components[0].ID)
+}
+
+// TestExportStream_WithSanitization tests streaming export with sanitization
+func TestExportStream_WithSanitization(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-stream-sanitized.json")
+
+	// Create dev tools with store
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	// Add test data with sensitive information
+	dt.store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+		Props: map[string]interface{}{
+			"password": "secret123",
+			"username": "john",
+		},
+	})
+
+	// Export with sanitization
+	opts := ExportOptions{
+		IncludeComponents: true,
+		Sanitize:          true,
+		RedactPatterns:    []string{"password"},
+		UseStreaming:      true,
+	}
+
+	err := dt.ExportStream(filename, opts)
+	require.NoError(t, err)
+
+	// Read and verify sanitization
+	data, err := os.ReadFile(filename)
+	require.NoError(t, err)
+
+	// Password should be redacted
+	assert.Contains(t, string(data), "[REDACTED]")
+	assert.NotContains(t, string(data), "secret123")
+	// Username should not be redacted
+	assert.Contains(t, string(data), "john")
+}
+
+// TestExportStream_WithProgressCallback tests progress reporting
+func TestExportStream_WithProgressCallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-stream-progress.json")
+
+	// Create dev tools with store
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	// Add test data
+	dt.store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+	})
+
+	// Track progress callbacks
+	var progressCalls int
+	var lastBytes int64
+
+	// Export with progress callback
+	opts := ExportOptions{
+		IncludeComponents: true,
+		UseStreaming:      true,
+		ProgressCallback: func(bytes int64) {
+			progressCalls++
+			lastBytes = bytes
+		},
+	}
+
+	err := dt.ExportStream(filename, opts)
+	require.NoError(t, err)
+
+	// Verify progress was reported
+	assert.Greater(t, progressCalls, 0, "Progress callback should be called")
+	assert.Greater(t, lastBytes, int64(0), "Should report bytes processed")
+}
+
+// TestExportStream_NotEnabled tests error when dev tools not enabled
+func TestExportStream_NotEnabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-stream.json")
+
+	dt := &DevTools{
+		enabled: false,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	opts := ExportOptions{
+		IncludeComponents: true,
+	}
+
+	err := dt.ExportStream(filename, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not enabled")
+}
+
+// TestExportStream_NoStore tests error when store not initialized
+func TestExportStream_NoStore(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test-stream.json")
+
+	dt := &DevTools{
+		enabled: true,
+		store:   nil,
+	}
+
+	opts := ExportOptions{
+		IncludeComponents: true,
+	}
+
+	err := dt.ExportStream(filename, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not initialized")
+}
+
+// TestSanitizeExportData_EmptyPatterns tests sanitization with no patterns
+func TestSanitizeExportData_EmptyPatterns(t *testing.T) {
+	data := ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "Test",
+				Props: map[string]interface{}{
+					"password": "secret",
+				},
+			},
+		},
+	}
+
+	// Sanitize with empty patterns
+	result := sanitizeExportData(data, []string{})
+
+	// Data should be unchanged
+	assert.Equal(t, "secret", result.Components[0].Props["password"])
+}
+
+// TestSanitizeExportData_NilMaps tests sanitization with nil maps
+func TestSanitizeExportData_NilMaps(t *testing.T) {
+	data := ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:    "comp-1",
+				Name:  "Test",
+				Props: nil,  // nil props
+				State: nil,  // nil state
+			},
+		},
+	}
+
+	// Should not panic
+	result := sanitizeExportData(data, []string{"password"})
+	assert.NotNil(t, result)
+}
+
+// TestSanitizeExportData_StateAndEvents tests sanitizing state and events
+func TestSanitizeExportData_StateAndEvents(t *testing.T) {
+	data := ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		State: []StateChange{
+			{
+				RefID:    "ref-1",
+				RefName:  "password",
+				OldValue: "old-secret",
+				NewValue: "new-secret",
+			},
+		},
+		Events: []EventRecord{
+			{
+				ID:      "event-1",
+				Name:    "submit",
+				Payload: "password=secret123",
+			},
+		},
+	}
+
+	result := sanitizeExportData(data, []string{"password", "secret"})
+
+	// State should be redacted
+	assert.Equal(t, "[REDACTED]", result.State[0].OldValue)
+	assert.Equal(t, "[REDACTED]", result.State[0].NewValue)
+
+	// Event payload should be redacted
+	assert.Equal(t, "[REDACTED]", result.Events[0].Payload)
+}

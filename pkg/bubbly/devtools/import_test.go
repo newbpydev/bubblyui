@@ -776,3 +776,101 @@ func TestImportFormat_InvalidFormat(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "format not found")
 }
+
+// TestImportFormat_NotEnabled tests error when dev tools not enabled
+func TestImportFormat_NotEnabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test.yaml")
+
+	// Create a valid export file first
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+	dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
+	err := dt.ExportFormat(filename, "yaml", ExportOptions{IncludeComponents: true})
+	require.NoError(t, err)
+
+	// Now try to import with dev tools disabled
+	dt.enabled = false
+	err = dt.ImportFormat(filename, "yaml")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not enabled")
+}
+
+// TestImportFormat_NoStore tests error when store not initialized
+func TestImportFormat_NoStore(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "test.yaml")
+
+	// Create a valid export file first
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+	dt.store.AddComponent(&ComponentSnapshot{ID: "comp-1", Name: "Test"})
+	err := dt.ExportFormat(filename, "yaml", ExportOptions{IncludeComponents: true})
+	require.NoError(t, err)
+
+	// Now try to import with no store
+	dt.store = nil
+	err = dt.ImportFormat(filename, "yaml")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not initialized")
+}
+
+// TestImport_CorruptedGzip tests handling of corrupted gzip files
+func TestImport_CorruptedGzip(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "corrupted.json.gz")
+
+	// Write corrupted gzip file (gzip magic bytes but invalid content)
+	err := os.WriteFile(filename, []byte{0x1f, 0x8b, 0x00, 0x00, 0x00}, 0644)
+	require.NoError(t, err)
+
+	dt := &DevTools{
+		enabled: true,
+		store:   NewDevToolsStore(100, 100),
+	}
+
+	err = dt.Import(filename)
+	assert.Error(t, err)
+	// Should fail during gzip decompression
+	assert.Contains(t, err.Error(), "gzip")
+}
+
+// TestDetectCompression_EmptyFile tests detection with empty file
+func TestDetectCompression_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "empty.json")
+
+	// Create empty file
+	err := os.WriteFile(filename, []byte{}, 0644)
+	require.NoError(t, err)
+
+	file, err := os.Open(filename)
+	require.NoError(t, err)
+	defer file.Close()
+
+	isCompressed, err := detectCompression(file)
+	assert.NoError(t, err)
+	assert.False(t, isCompressed, "Empty file should not be detected as compressed")
+}
+
+// TestDetectCompression_OneByteFile tests detection with single byte file
+func TestDetectCompression_OneByteFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "onebyte.json")
+
+	// Create file with one byte
+	err := os.WriteFile(filename, []byte{0x1f}, 0644)
+	require.NoError(t, err)
+
+	file, err := os.Open(filename)
+	require.NoError(t, err)
+	defer file.Close()
+
+	isCompressed, err := detectCompression(file)
+	assert.NoError(t, err)
+	assert.False(t, isCompressed, "Single byte file should not be detected as compressed")
+}
