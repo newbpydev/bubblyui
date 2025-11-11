@@ -18,6 +18,11 @@ import (
 //   - OnRefChange: When a Ref value changes via Set()
 //   - OnEvent: When a component emits an event via Emit()
 //   - OnRenderComplete: When a component completes rendering via View()
+//   - OnComputedChange: When a computed value re-evaluates to a new value
+//   - OnWatchCallback: When a watcher callback is about to execute
+//   - OnEffectRun: When a WatchEffect function is about to run
+//   - OnChildAdded: When a child component is added to a parent
+//   - OnChildRemoved: When a child component is removed from a parent
 //
 // Thread Safety:
 //
