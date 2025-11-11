@@ -767,3 +767,330 @@ func TestFrameworkHooks_FullCascade(t *testing.T) {
 	assert.Equal(t, 20, hook.lastWatchOld)
 	hook.mu.RUnlock()
 }
+
+// Task 8.9: Integration tests for WatchEffect instrumentation
+
+// TestFrameworkHooks_EffectRun_InitialRun verifies hook fires on initial effect run
+func TestFrameworkHooks_EffectRun_InitialRun(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a WatchEffect
+	effectRan := false
+	cleanup := WatchEffect(func() {
+		effectRan = true
+	})
+	defer cleanup()
+
+	// Verify hook was called for initial run
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+	hook.mu.RLock()
+	assert.Contains(t, hook.lastEffectID, "effect-0x")
+	hook.mu.RUnlock()
+
+	// Verify effect actually ran
+	assert.True(t, effectRan)
+}
+
+// TestFrameworkHooks_EffectRun_DependencyChange verifies hook fires on dependency changes
+func TestFrameworkHooks_EffectRun_DependencyChange(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref
+	ref := NewRef(10)
+
+	// Create a WatchEffect that depends on the ref
+	runCount := 0
+	cleanup := WatchEffect(func() {
+		_ = ref.Get()
+		runCount++
+	})
+	defer cleanup()
+
+	// Initial run
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+	assert.Equal(t, 1, runCount)
+
+	// Change ref value - should trigger effect re-run
+	ref.Set(20)
+
+	// Verify hook was called again
+	assert.Equal(t, int32(2), hook.effectCalls.Load())
+	assert.Equal(t, 2, runCount)
+
+	// Change again
+	ref.Set(30)
+
+	// Verify hook called third time
+	assert.Equal(t, int32(3), hook.effectCalls.Load())
+	assert.Equal(t, 3, runCount)
+}
+
+// TestFrameworkHooks_EffectRun_MultipleDependencies verifies hook fires for multiple dependency changes
+func TestFrameworkHooks_EffectRun_MultipleDependencies(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create multiple refs
+	ref1 := NewRef(10)
+	ref2 := NewRef(20)
+
+	// Create a WatchEffect that depends on both refs
+	runCount := 0
+	cleanup := WatchEffect(func() {
+		_ = ref1.Get()
+		_ = ref2.Get()
+		runCount++
+	})
+	defer cleanup()
+
+	// Initial run
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+
+	// Change first ref
+	ref1.Set(15)
+	assert.Equal(t, int32(2), hook.effectCalls.Load())
+
+	// Change second ref
+	ref2.Set(25)
+	assert.Equal(t, int32(3), hook.effectCalls.Load())
+
+	// Change both (should trigger twice)
+	ref1.Set(100)
+	ref2.Set(200)
+	assert.Equal(t, int32(5), hook.effectCalls.Load())
+}
+
+// TestFrameworkHooks_EffectRun_EffectIDFormat verifies effect ID format is correct
+func TestFrameworkHooks_EffectRun_EffectIDFormat(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a WatchEffect
+	cleanup := WatchEffect(func() {
+		// Effect body
+	})
+	defer cleanup()
+
+	// Verify effect ID format: "effect-0xHEX"
+	hook.mu.RLock()
+	effectID := hook.lastEffectID
+	hook.mu.RUnlock()
+
+	assert.Contains(t, effectID, "effect-0x")
+	assert.Greater(t, len(effectID), len("effect-0x"))
+}
+
+// TestFrameworkHooks_EffectRun_StoppedEffect verifies hook doesn't fire when effect stopped
+func TestFrameworkHooks_EffectRun_StoppedEffect(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref
+	ref := NewRef(10)
+
+	// Create a WatchEffect
+	cleanup := WatchEffect(func() {
+		_ = ref.Get()
+	})
+
+	// Initial run
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+
+	// Stop the effect
+	cleanup()
+
+	// Change ref - should NOT trigger effect
+	ref.Set(20)
+
+	// Verify hook was NOT called again
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+}
+
+// TestFrameworkHooks_EffectRun_NoHook verifies no panic when no hook registered
+func TestFrameworkHooks_EffectRun_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Create a ref
+	ref := NewRef(10)
+
+	// Create a WatchEffect without hook registered
+	runCount := 0
+	cleanup := WatchEffect(func() {
+		_ = ref.Get()
+		runCount++
+	})
+	defer cleanup()
+
+	// Should not panic
+	assert.Equal(t, 1, runCount)
+
+	// Change ref - should not panic
+	ref.Set(20)
+	assert.Equal(t, 2, runCount)
+}
+
+// TestFrameworkHooks_EffectRun_ThreadSafe verifies concurrent effect runs are safe
+func TestFrameworkHooks_EffectRun_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create multiple refs
+	ref1 := NewRef(0)
+	ref2 := NewRef(0)
+
+	// Create multiple effects
+	cleanup1 := WatchEffect(func() {
+		_ = ref1.Get()
+	})
+	defer cleanup1()
+
+	cleanup2 := WatchEffect(func() {
+		_ = ref2.Get()
+	})
+	defer cleanup2()
+
+	// Initial runs (2 effects)
+	initialCalls := hook.effectCalls.Load()
+	assert.Equal(t, int32(2), initialCalls)
+
+	// Concurrent updates
+	done := make(chan bool, 2)
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref1.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref2.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	// Wait for completion
+	<-done
+	<-done
+
+	// Verify hooks were called (should be 2 initial + 100 updates = 102)
+	assert.Equal(t, int32(102), hook.effectCalls.Load())
+}
+
+// TestFrameworkHooks_EffectRun_RefComputedEffectCascade verifies Ref → Computed → Effect cascade
+func TestFrameworkHooks_EffectRun_RefComputedEffectCascade(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create Ref → Computed → Effect cascade
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	effectRuns := 0
+	cleanup := WatchEffect(func() {
+		_ = computed.Get()
+		effectRuns++
+	})
+	defer cleanup()
+
+	// Initial run
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+	assert.Equal(t, 1, effectRuns)
+
+	// Reset counters to track only the cascade
+	hook.refChangeCalls.Store(0)
+	hook.computedCalls.Store(0)
+	hook.effectCalls.Store(0)
+
+	// Trigger cascade: Ref change → Computed invalidation → Effect re-run
+	ref.Set(15)
+
+	// Verify hooks in cascade were called
+	assert.Equal(t, int32(1), hook.refChangeCalls.Load(), "Ref change hook should fire")
+	// Note: Computed change hook does NOT fire because WatchEffect accesses computed
+	// directly without using Watch(), so computed doesn't recompute until accessed
+	// in the effect. The computed is invalidated but not recomputed yet.
+	assert.Equal(t, int32(1), hook.effectCalls.Load(), "Effect run hook should fire")
+
+	// Verify effect actually re-ran
+	assert.Equal(t, 2, effectRuns)
+}
+
+// TestFrameworkHooks_EffectRun_ConditionalDependencies verifies hook fires for conditional dependencies
+func TestFrameworkHooks_EffectRun_ConditionalDependencies(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create refs for conditional dependencies
+	toggle := NewRef(true)
+	valueA := NewRef(1)
+	valueB := NewRef(100)
+
+	// Create effect with conditional dependencies
+	cleanup := WatchEffect(func() {
+		if toggle.Get().(bool) {
+			_ = valueA.Get() // Only tracks valueA when toggle is true
+		} else {
+			_ = valueB.Get() // Only tracks valueB when toggle is false
+		}
+	})
+	defer cleanup()
+
+	// Initial run (effect runs once)
+	initialCalls := hook.effectCalls.Load()
+	assert.Equal(t, int32(1), initialCalls)
+
+	// Change valueA - should trigger (toggle is true, tracking valueA and toggle)
+	valueA.Set(2)
+	assert.Greater(t, hook.effectCalls.Load(), initialCalls, "valueA change should trigger effect")
+
+	// Reset counter
+	beforeToggle := hook.effectCalls.Load()
+
+	// Change valueB - should NOT trigger (toggle is true, not tracking valueB)
+	valueB.Set(200)
+	assert.Equal(t, beforeToggle, hook.effectCalls.Load(), "valueB change should NOT trigger when toggle is true")
+
+	// Toggle to false - should trigger (tracking toggle)
+	toggle.Set(false)
+	assert.Greater(t, hook.effectCalls.Load(), beforeToggle, "toggle change should trigger effect")
+
+	// Reset counter
+	afterToggle := hook.effectCalls.Load()
+
+	// Now change valueB - should trigger (toggle is false, now tracking valueB)
+	valueB.Set(300)
+	assert.Greater(t, hook.effectCalls.Load(), afterToggle, "valueB change should trigger when toggle is false")
+}

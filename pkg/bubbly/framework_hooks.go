@@ -104,6 +104,15 @@ type FrameworkHook interface {
 	//   - newValue: The new value being passed to the callback
 	//   - oldValue: The old value being passed to the callback
 	OnWatchCallback(watcherID string, newValue, oldValue interface{})
+
+	// OnEffectRun is called when a WatchEffect function is about to execute.
+	//
+	// This is called BEFORE the effect function executes, on every run including
+	// the initial run and all re-runs triggered by dependency changes.
+	//
+	// Parameters:
+	//   - effectID: The effect's identifier (format: "effect-0xHEX")
+	OnEffectRun(effectID string)
 }
 
 // hookRegistry manages the registered framework hook.
@@ -275,5 +284,17 @@ func notifyHookWatchCallback(watcherID string, newValue, oldValue interface{}) {
 
 	if hook != nil {
 		hook.OnWatchCallback(watcherID, newValue, oldValue)
+	}
+}
+
+// notifyHookEffectRun calls the registered hook's OnEffectRun method.
+// This is an internal helper used by framework integration points.
+func notifyHookEffectRun(effectID string) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnEffectRun(effectID)
 	}
 }

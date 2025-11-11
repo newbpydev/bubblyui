@@ -19,6 +19,7 @@ type mockHook struct {
 	renderCalls     atomic.Int32
 	computedCalls   atomic.Int32
 	watchCalls      atomic.Int32
+	effectCalls     atomic.Int32
 	lastMountID     string
 	lastMountName   string
 	lastUpdateID    string
@@ -38,6 +39,7 @@ type mockHook struct {
 	lastWatchID     string
 	lastWatchNew    interface{}
 	lastWatchOld    interface{}
+	lastEffectID    string
 	mu              sync.RWMutex
 }
 
@@ -105,6 +107,13 @@ func (m *mockHook) OnWatchCallback(watcherID string, newValue, oldValue interfac
 	m.lastWatchID = watcherID
 	m.lastWatchNew = newValue
 	m.lastWatchOld = oldValue
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnEffectRun(effectID string) {
+	m.effectCalls.Add(1)
+	m.mu.Lock()
+	m.lastEffectID = effectID
 	m.mu.Unlock()
 }
 
@@ -595,4 +604,96 @@ func TestNotifyHookWatchCallback_ThreadSafe(t *testing.T) {
 
 	// Verify all calls were made
 	assert.Equal(t, int32(iterations), hook.watchCalls.Load())
+}
+
+// Task 8.9: Tests for OnEffectRun hook
+
+func TestNotifyHookEffectRun(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Notify effect run
+	notifyHookEffectRun("effect-0x123")
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.effectCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "effect-0x123", hook.lastEffectID)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookEffectRun_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookEffectRun("effect-0x123")
+}
+
+func TestNotifyHookEffectRun_MultipleEffects(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	tests := []struct {
+		name     string
+		effectID string
+	}{
+		{
+			name:     "effect 1",
+			effectID: "effect-0x1",
+		},
+		{
+			name:     "effect 2",
+			effectID: "effect-0x2",
+		},
+		{
+			name:     "effect 3",
+			effectID: "effect-0x3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset call count
+			hook.effectCalls.Store(0)
+
+			notifyHookEffectRun(tt.effectID)
+
+			assert.Equal(t, int32(1), hook.effectCalls.Load())
+			hook.mu.RLock()
+			assert.Equal(t, tt.effectID, hook.lastEffectID)
+			hook.mu.RUnlock()
+		})
+	}
+}
+
+func TestNotifyHookEffectRun_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Concurrent effect run notifications
+	var wg sync.WaitGroup
+	iterations := 100
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookEffectRun("effect-0x123")
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify all calls were made
+	assert.Equal(t, int32(iterations), hook.effectCalls.Load())
 }

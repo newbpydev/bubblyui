@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -113,6 +114,9 @@ func (e *watchEffect) run() {
 		e.running = false
 		e.mu.Unlock()
 
+		// Notify hook BEFORE effect execution
+		notifyHookEffectRun(fmt.Sprintf("effect-%p", e))
+
 		// Recover from panics in effect
 		defer func() {
 			if r := recover(); r != nil {
@@ -143,6 +147,9 @@ func (e *watchEffect) run() {
 		e.effect()
 		return
 	}
+
+	// Notify hook BEFORE effect execution
+	notifyHookEffectRun(fmt.Sprintf("effect-%p", e))
 
 	// Run effect (this will track accessed Refs/Computed)
 	// Recover from panics
