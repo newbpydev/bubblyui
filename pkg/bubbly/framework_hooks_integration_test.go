@@ -1094,3 +1094,286 @@ func TestFrameworkHooks_EffectRun_ConditionalDependencies(t *testing.T) {
 	valueB.Set(300)
 	assert.Greater(t, hook.effectCalls.Load(), afterToggle, "valueB change should trigger when toggle is false")
 }
+
+// Task 8.10: Integration tests for component tree mutation hooks
+
+// TestFrameworkHooks_ChildAdded verifies hook fires when child is added
+func TestFrameworkHooks_ChildAdded(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent and child components
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child, err := NewComponent("Child").
+		Template(func(ctx RenderContext) string {
+			return "child"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Add child to parent
+	err = parent.(*componentImpl).AddChild(child)
+	assert.NoError(t, err)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, parent.ID(), hook.lastParentID)
+	assert.Equal(t, child.ID(), hook.lastChildID)
+	hook.mu.RUnlock()
+}
+
+// TestFrameworkHooks_ChildRemoved verifies hook fires when child is removed
+func TestFrameworkHooks_ChildRemoved(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent and child components
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child, err := NewComponent("Child").
+		Template(func(ctx RenderContext) string {
+			return "child"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Add child first
+	err = parent.(*componentImpl).AddChild(child)
+	assert.NoError(t, err)
+
+	// Reset counter to track only removal
+	hook.childRemovedCalls.Store(0)
+
+	// Remove child from parent
+	err = parent.(*componentImpl).RemoveChild(child)
+	assert.NoError(t, err)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.childRemovedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, parent.ID(), hook.lastParentID)
+	assert.Equal(t, child.ID(), hook.lastChildID)
+	hook.mu.RUnlock()
+}
+
+// TestFrameworkHooks_ChildAdded_ErrorCases verifies hook doesn't fire on error cases
+func TestFrameworkHooks_ChildAdded_ErrorCases(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent component
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Try to add nil child - should error and NOT fire hook
+	err = parent.(*componentImpl).AddChild(nil)
+	assert.Error(t, err)
+	assert.Equal(t, int32(0), hook.childAddedCalls.Load())
+
+	// Try to add self as child - should error and NOT fire hook
+	err = parent.(*componentImpl).AddChild(parent)
+	assert.Error(t, err)
+	assert.Equal(t, int32(0), hook.childAddedCalls.Load())
+}
+
+// TestFrameworkHooks_ChildRemoved_ErrorCases verifies hook doesn't fire on error cases
+func TestFrameworkHooks_ChildRemoved_ErrorCases(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent and child components
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child, err := NewComponent("Child").
+		Template(func(ctx RenderContext) string {
+			return "child"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Try to remove child that was never added - should error and NOT fire hook
+	err = parent.(*componentImpl).RemoveChild(child)
+	assert.Error(t, err)
+	assert.Equal(t, int32(0), hook.childRemovedCalls.Load())
+
+	// Try to remove nil child - should error and NOT fire hook
+	err = parent.(*componentImpl).RemoveChild(nil)
+	assert.Error(t, err)
+	assert.Equal(t, int32(0), hook.childRemovedCalls.Load())
+}
+
+// TestFrameworkHooks_DynamicComponentTree verifies hooks work with dynamic tree changes
+func TestFrameworkHooks_DynamicComponentTree(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent component
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Create multiple children
+	child1, err := NewComponent("Child1").
+		Template(func(ctx RenderContext) string {
+			return "child1"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child2, err := NewComponent("Child2").
+		Template(func(ctx RenderContext) string {
+			return "child2"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child3, err := NewComponent("Child3").
+		Template(func(ctx RenderContext) string {
+			return "child3"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Add children one by one
+	parent.(*componentImpl).AddChild(child1)
+	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
+
+	parent.(*componentImpl).AddChild(child2)
+	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
+
+	parent.(*componentImpl).AddChild(child3)
+	assert.Equal(t, int32(3), hook.childAddedCalls.Load())
+
+	// Remove children one by one
+	parent.(*componentImpl).RemoveChild(child1)
+	assert.Equal(t, int32(1), hook.childRemovedCalls.Load())
+
+	parent.(*componentImpl).RemoveChild(child2)
+	assert.Equal(t, int32(2), hook.childRemovedCalls.Load())
+
+	parent.(*componentImpl).RemoveChild(child3)
+	assert.Equal(t, int32(3), hook.childRemovedCalls.Load())
+
+	// Verify final state
+	assert.Equal(t, 0, len(parent.(*componentImpl).Children()))
+}
+
+// TestFrameworkHooks_NestedComponentTree verifies hooks work with nested trees
+func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create nested tree: root -> parent -> child
+	root, err := NewComponent("Root").
+		Template(func(ctx RenderContext) string {
+			return "root"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child, err := NewComponent("Child").
+		Template(func(ctx RenderContext) string {
+			return "child"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Build tree from bottom up
+	parent.(*componentImpl).AddChild(child)
+	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, parent.ID(), hook.lastParentID)
+	assert.Equal(t, child.ID(), hook.lastChildID)
+	hook.mu.RUnlock()
+
+	root.(*componentImpl).AddChild(parent)
+	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, root.ID(), hook.lastParentID)
+	assert.Equal(t, parent.ID(), hook.lastChildID)
+	hook.mu.RUnlock()
+
+	// Verify tree structure
+	assert.Equal(t, 1, len(root.(*componentImpl).Children()))
+	assert.Equal(t, 1, len(parent.(*componentImpl).Children()))
+	assert.Equal(t, 0, len(child.(*componentImpl).Children()))
+}
+
+// TestFrameworkHooks_ChildMutations_NoHook verifies no panic when no hook registered
+func TestFrameworkHooks_ChildMutations_NoHook(t *testing.T) {
+	// Ensure no hook is registered
+	UnregisterHook()
+
+	// Create parent and child components
+	parent, err := NewComponent("Parent").
+		Template(func(ctx RenderContext) string {
+			return "parent"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	child, err := NewComponent("Child").
+		Template(func(ctx RenderContext) string {
+			return "child"
+		}).
+		Build()
+	assert.NoError(t, err)
+
+	// Add and remove child - should not panic
+	err = parent.(*componentImpl).AddChild(child)
+	assert.NoError(t, err)
+
+	err = parent.(*componentImpl).RemoveChild(child)
+	assert.NoError(t, err)
+
+	// No assertions needed - just verify no panic
+}

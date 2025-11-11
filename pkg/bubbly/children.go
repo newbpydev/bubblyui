@@ -121,6 +121,9 @@ func (c *componentImpl) AddChild(child Component) error {
 		childImpl.parent = c
 	}
 
+	// Notify hook after successful add
+	notifyHookChildAdded(c.id, child.ID())
+
 	return nil
 }
 
@@ -179,6 +182,9 @@ func (c *componentImpl) RemoveChild(child Component) error {
 	if childImpl, ok := child.(*componentImpl); ok {
 		childImpl.parent = nil
 	}
+
+	// Notify hook after successful remove
+	notifyHookChildRemoved(c.id, childID)
 
 	return nil
 }

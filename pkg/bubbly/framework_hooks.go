@@ -113,6 +113,26 @@ type FrameworkHook interface {
 	// Parameters:
 	//   - effectID: The effect's identifier (format: "effect-0xHEX")
 	OnEffectRun(effectID string)
+
+	// OnChildAdded is called when a child component is added to a parent.
+	//
+	// This is called AFTER the child is successfully added to the parent's
+	// children slice and the parent reference is set, ensuring tree consistency.
+	//
+	// Parameters:
+	//   - parentID: The parent component's unique ID
+	//   - childID: The child component's unique ID
+	OnChildAdded(parentID, childID string)
+
+	// OnChildRemoved is called when a child component is removed from a parent.
+	//
+	// This is called AFTER the child is successfully removed from the parent's
+	// children slice and the parent reference is cleared, ensuring tree consistency.
+	//
+	// Parameters:
+	//   - parentID: The parent component's unique ID
+	//   - childID: The child component's unique ID
+	OnChildRemoved(parentID, childID string)
 }
 
 // hookRegistry manages the registered framework hook.
@@ -296,5 +316,29 @@ func notifyHookEffectRun(effectID string) {
 
 	if hook != nil {
 		hook.OnEffectRun(effectID)
+	}
+}
+
+// notifyHookChildAdded calls the registered hook's OnChildAdded method.
+// This is an internal helper used by framework integration points.
+func notifyHookChildAdded(parentID, childID string) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnChildAdded(parentID, childID)
+	}
+}
+
+// notifyHookChildRemoved calls the registered hook's OnChildRemoved method.
+// This is an internal helper used by framework integration points.
+func notifyHookChildRemoved(parentID, childID string) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnChildRemoved(parentID, childID)
 	}
 }

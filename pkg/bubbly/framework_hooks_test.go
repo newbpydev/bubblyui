@@ -11,36 +11,40 @@ import (
 
 // mockHook is a test implementation of FrameworkHook
 type mockHook struct {
-	mountCalls      atomic.Int32
-	updateCalls     atomic.Int32
-	unmountCalls    atomic.Int32
-	refChangeCalls  atomic.Int32
-	eventCalls      atomic.Int32
-	renderCalls     atomic.Int32
-	computedCalls   atomic.Int32
-	watchCalls      atomic.Int32
-	effectCalls     atomic.Int32
-	lastMountID     string
-	lastMountName   string
-	lastUpdateID    string
-	lastUpdateMsg   interface{}
-	lastUnmountID   string
-	lastRefID       string
-	lastRefOld      interface{}
-	lastRefNew      interface{}
-	lastEventCompID string
-	lastEventName   string
-	lastEventData   interface{}
-	lastRenderID    string
-	lastRenderDur   time.Duration
-	lastComputedID  string
-	lastComputedOld interface{}
-	lastComputedNew interface{}
-	lastWatchID     string
-	lastWatchNew    interface{}
-	lastWatchOld    interface{}
-	lastEffectID    string
-	mu              sync.RWMutex
+	mountCalls        atomic.Int32
+	updateCalls       atomic.Int32
+	unmountCalls      atomic.Int32
+	refChangeCalls    atomic.Int32
+	eventCalls        atomic.Int32
+	renderCalls       atomic.Int32
+	computedCalls     atomic.Int32
+	watchCalls        atomic.Int32
+	effectCalls       atomic.Int32
+	childAddedCalls   atomic.Int32
+	childRemovedCalls atomic.Int32
+	lastMountID       string
+	lastMountName     string
+	lastUpdateID      string
+	lastUpdateMsg     interface{}
+	lastUnmountID     string
+	lastRefID         string
+	lastRefOld        interface{}
+	lastRefNew        interface{}
+	lastEventCompID   string
+	lastEventName     string
+	lastEventData     interface{}
+	lastRenderID      string
+	lastRenderDur     time.Duration
+	lastComputedID    string
+	lastComputedOld   interface{}
+	lastComputedNew   interface{}
+	lastWatchID       string
+	lastWatchNew      interface{}
+	lastWatchOld      interface{}
+	lastEffectID      string
+	lastParentID      string
+	lastChildID       string
+	mu                sync.RWMutex
 }
 
 func (m *mockHook) OnComponentMount(id, name string) {
@@ -114,6 +118,22 @@ func (m *mockHook) OnEffectRun(effectID string) {
 	m.effectCalls.Add(1)
 	m.mu.Lock()
 	m.lastEffectID = effectID
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnChildAdded(parentID, childID string) {
+	m.childAddedCalls.Add(1)
+	m.mu.Lock()
+	m.lastParentID = parentID
+	m.lastChildID = childID
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnChildRemoved(parentID, childID string) {
+	m.childRemovedCalls.Add(1)
+	m.mu.Lock()
+	m.lastParentID = parentID
+	m.lastChildID = childID
 	m.mu.Unlock()
 }
 
@@ -696,4 +716,92 @@ func TestNotifyHookEffectRun_ThreadSafe(t *testing.T) {
 
 	// Verify all calls were made
 	assert.Equal(t, int32(iterations), hook.effectCalls.Load())
+}
+
+// Task 8.10: Tests for OnChildAdded and OnChildRemoved hooks
+
+func TestNotifyHookChildAdded(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Notify child added
+	notifyHookChildAdded("parent-123", "child-456")
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "parent-123", hook.lastParentID)
+	assert.Equal(t, "child-456", hook.lastChildID)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookChildRemoved(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Notify child removed
+	notifyHookChildRemoved("parent-789", "child-012")
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.childRemovedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "parent-789", hook.lastParentID)
+	assert.Equal(t, "child-012", hook.lastChildID)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookChildAdded_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookChildAdded("parent-1", "child-1")
+}
+
+func TestNotifyHookChildRemoved_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookChildRemoved("parent-1", "child-1")
+}
+
+func TestNotifyHookChildMutations_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Concurrent child mutation notifications
+	var wg sync.WaitGroup
+	iterations := 100
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookChildAdded("parent", "child")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookChildRemoved("parent", "child")
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify all calls were made
+	assert.Equal(t, int32(iterations), hook.childAddedCalls.Load())
+	assert.Equal(t, int32(iterations), hook.childRemovedCalls.Load())
 }
