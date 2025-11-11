@@ -517,3 +517,253 @@ func TestFrameworkHooks_ComputedChange_ThreadSafe(t *testing.T) {
 	// Verify hooks were called (should be 100 total: 50 + 50)
 	assert.Equal(t, int32(100), hook.computedCalls.Load())
 }
+
+// Task 8.8: Integration tests for Ref → Watch and Computed → Watch cascades
+
+// TestFrameworkHooks_RefWatch verifies hooks are called when Ref watchers execute
+func TestFrameworkHooks_RefWatch(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref and watch it
+	ref := NewRef(10)
+
+	watcherCalled := false
+	Watch(ref, func(newVal, oldVal int) {
+		watcherCalled = true
+	})
+
+	// Change ref value - should trigger watch callback hook
+	ref.Set(20)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+	hook.mu.RLock()
+	assert.Contains(t, hook.lastWatchID, "watch-0x")
+	assert.Equal(t, 20, hook.lastWatchNew)
+	assert.Equal(t, 10, hook.lastWatchOld)
+	hook.mu.RUnlock()
+
+	// Verify watcher callback was also called
+	assert.True(t, watcherCalled)
+}
+
+// TestFrameworkHooks_ComputedWatch verifies hooks are called when Computed watchers execute
+func TestFrameworkHooks_ComputedWatch(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref and computed value
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	watcherCalled := false
+	Watch(computed, func(newVal, oldVal int) {
+		watcherCalled = true
+	})
+
+	// Initial computation
+	computed.Get()
+
+	// Change ref value - should trigger computed change AND watch callback hooks
+	ref.Set(15)
+
+	// Verify watch callback hook was called
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+	hook.mu.RLock()
+	assert.Contains(t, hook.lastWatchID, "watch-0x")
+	assert.Equal(t, 30, hook.lastWatchNew)
+	assert.Equal(t, 20, hook.lastWatchOld)
+	hook.mu.RUnlock()
+
+	// Verify watcher callback was also called
+	assert.True(t, watcherCalled)
+}
+
+// TestFrameworkHooks_WatchWithImmediate verifies hooks fire when immediate watcher is triggered
+func TestFrameworkHooks_WatchWithImmediate(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref
+	ref := NewRef(10)
+
+	// Watch with immediate option
+	// Note: The immediate callback in Watch() bypasses notifyWatcher,
+	// so hook won't fire until a value change triggers notifyWatcher
+	Watch(ref, func(newVal, oldVal int) {
+		// Watcher callback
+	}, WithImmediate())
+
+	// Hook not called yet (immediate callback bypasses notifyWatcher)
+	assert.Equal(t, int32(0), hook.watchCalls.Load())
+
+	// Now change the value - this will trigger notifyWatcher and the hook
+	ref.Set(20)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+	hook.mu.RLock()
+	assert.Contains(t, hook.lastWatchID, "watch-0x")
+	assert.Equal(t, 20, hook.lastWatchNew)
+	assert.Equal(t, 10, hook.lastWatchOld)
+	hook.mu.RUnlock()
+}
+
+// TestFrameworkHooks_WatchWithDeep verifies hooks respect deep watching mode
+func TestFrameworkHooks_WatchWithDeep(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	type User struct {
+		Name string
+		Age  int
+	}
+
+	// Create a ref with deep watching
+	ref := NewRef(User{Name: "John", Age: 30})
+
+	Watch(ref, func(newVal, oldVal User) {
+		// Watcher callback
+	}, WithDeep())
+
+	// Set to same value - with deep watching, should NOT trigger callback
+	ref.Set(User{Name: "John", Age: 30})
+
+	// Hook is called BEFORE deep comparison, so it fires
+	// But the callback itself won't execute due to deep equal check
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+
+	// Set to different value - should trigger callback
+	ref.Set(User{Name: "Jane", Age: 31})
+
+	// Hook called again
+	assert.Equal(t, int32(2), hook.watchCalls.Load())
+}
+
+// TestFrameworkHooks_WatchFlushModes verifies hooks work with different flush modes
+func TestFrameworkHooks_WatchFlushModes(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Test sync mode (default)
+	ref1 := NewRef(10)
+	Watch(ref1, func(newVal, oldVal int) {}, WithFlush("sync"))
+	ref1.Set(20)
+
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+
+	// Test post mode (queued)
+	ref2 := NewRef(10)
+	Watch(ref2, func(newVal, oldVal int) {}, WithFlush("post"))
+	ref2.Set(20)
+
+	// Hook is called immediately (before queueing)
+	assert.Equal(t, int32(2), hook.watchCalls.Load())
+
+	// Flush queued callbacks
+	FlushWatchers()
+
+	// Hook count stays same (already called before queueing)
+	assert.Equal(t, int32(2), hook.watchCalls.Load())
+}
+
+// TestFrameworkHooks_WatchThreadSafe verifies concurrent watch callbacks are safe
+func TestFrameworkHooks_WatchThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create multiple refs with watchers
+	ref1 := NewRef(0)
+	ref2 := NewRef(0)
+
+	Watch(ref1, func(newVal, oldVal int) {})
+	Watch(ref2, func(newVal, oldVal int) {})
+
+	// Concurrent updates
+	done := make(chan bool, 2)
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref1.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref2.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	// Wait for completion
+	<-done
+	<-done
+
+	// Verify hooks were called (should be 100 total: 50 + 50)
+	assert.Equal(t, int32(100), hook.watchCalls.Load())
+}
+
+// TestFrameworkHooks_FullCascade verifies complete Ref → Computed → Watch cascade
+func TestFrameworkHooks_FullCascade(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create Ref → Computed → Watch cascade
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	Watch(computed, func(newVal, oldVal int) {
+		// Watcher callback
+	})
+
+	// Initial computation
+	computed.Get()
+
+	// Reset counters to track only the cascade
+	hook.refChangeCalls.Store(0)
+	hook.computedCalls.Store(0)
+	hook.watchCalls.Store(0)
+
+	// Trigger cascade: Ref change → Computed recompute → Watch callback
+	ref.Set(15)
+
+	// Verify all hooks in cascade were called
+	assert.Equal(t, int32(1), hook.refChangeCalls.Load(), "Ref change hook should fire")
+	assert.Equal(t, int32(1), hook.computedCalls.Load(), "Computed change hook should fire")
+	assert.Equal(t, int32(1), hook.watchCalls.Load(), "Watch callback hook should fire")
+
+	// Verify correct values in watch callback
+	hook.mu.RLock()
+	assert.Equal(t, 30, hook.lastWatchNew)
+	assert.Equal(t, 20, hook.lastWatchOld)
+	hook.mu.RUnlock()
+}

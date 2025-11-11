@@ -18,6 +18,7 @@ type mockHook struct {
 	eventCalls      atomic.Int32
 	renderCalls     atomic.Int32
 	computedCalls   atomic.Int32
+	watchCalls      atomic.Int32
 	lastMountID     string
 	lastMountName   string
 	lastUpdateID    string
@@ -34,6 +35,9 @@ type mockHook struct {
 	lastComputedID  string
 	lastComputedOld interface{}
 	lastComputedNew interface{}
+	lastWatchID     string
+	lastWatchNew    interface{}
+	lastWatchOld    interface{}
 	mu              sync.RWMutex
 }
 
@@ -92,6 +96,15 @@ func (m *mockHook) OnComputedChange(id string, oldValue, newValue interface{}) {
 	m.lastComputedID = id
 	m.lastComputedOld = oldValue
 	m.lastComputedNew = newValue
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnWatchCallback(watcherID string, newValue, oldValue interface{}) {
+	m.watchCalls.Add(1)
+	m.mu.Lock()
+	m.lastWatchID = watcherID
+	m.lastWatchNew = newValue
+	m.lastWatchOld = oldValue
 	m.mu.Unlock()
 }
 
@@ -472,4 +485,114 @@ func TestNotifyHookComputedChange_ThreadSafe(t *testing.T) {
 
 	// Verify all calls were made
 	assert.Equal(t, int32(iterations), hook.computedCalls.Load())
+}
+
+// Task 8.8: Tests for OnWatchCallback hook
+
+func TestNotifyHookWatchCallback(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Notify watch callback
+	notifyHookWatchCallback("watch-0x123", 20, 10)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.watchCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "watch-0x123", hook.lastWatchID)
+	assert.Equal(t, 20, hook.lastWatchNew)
+	assert.Equal(t, 10, hook.lastWatchOld)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookWatchCallback_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookWatchCallback("watch-0x123", 20, 10)
+}
+
+func TestNotifyHookWatchCallback_MultipleValues(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	tests := []struct {
+		name     string
+		id       string
+		newValue interface{}
+		oldValue interface{}
+	}{
+		{
+			name:     "int values",
+			id:       "watch-0x1",
+			newValue: 20,
+			oldValue: 10,
+		},
+		{
+			name:     "string values",
+			id:       "watch-0x2",
+			newValue: "new",
+			oldValue: "old",
+		},
+		{
+			name:     "struct values",
+			id:       "watch-0x3",
+			newValue: struct{ X int }{X: 2},
+			oldValue: struct{ X int }{X: 1},
+		},
+		{
+			name:     "nil to value",
+			id:       "watch-0x4",
+			newValue: 42,
+			oldValue: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset call count
+			hook.watchCalls.Store(0)
+
+			notifyHookWatchCallback(tt.id, tt.newValue, tt.oldValue)
+
+			assert.Equal(t, int32(1), hook.watchCalls.Load())
+			hook.mu.RLock()
+			assert.Equal(t, tt.id, hook.lastWatchID)
+			assert.Equal(t, tt.newValue, hook.lastWatchNew)
+			assert.Equal(t, tt.oldValue, hook.lastWatchOld)
+			hook.mu.RUnlock()
+		})
+	}
+}
+
+func TestNotifyHookWatchCallback_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Concurrent watch callback notifications
+	var wg sync.WaitGroup
+	iterations := 100
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookWatchCallback("watch-0x123", i+1, i)
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify all calls were made
+	assert.Equal(t, int32(iterations), hook.watchCalls.Load())
 }

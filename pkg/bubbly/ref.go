@@ -21,6 +21,11 @@ type watcher[T any] struct {
 // It performs deep comparison if enabled and handles flush modes.
 // This is a shared helper to avoid code duplication between Ref and Computed.
 func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
+	// Task 8.8: Notify framework hook BEFORE callback execution
+	// This allows dev tools to track the reactive cascade
+	watcherID := fmt.Sprintf("watch-%p", w)
+	notifyHookWatchCallback(watcherID, newVal, oldVal)
+
 	shouldNotify := true
 
 	// If deep watching is enabled, check if value actually changed

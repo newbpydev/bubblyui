@@ -93,6 +93,17 @@ type FrameworkHook interface {
 	//   - oldValue: The previous cached value
 	//   - newValue: The new computed value
 	OnComputedChange(id string, oldValue, newValue interface{})
+
+	// OnWatchCallback is called when a watcher callback is about to be executed.
+	//
+	// This is called BEFORE the watcher callback executes, allowing dev tools
+	// to track the reactive cascade from source changes to watcher notifications.
+	//
+	// Parameters:
+	//   - watcherID: The watcher's identifier (format: "watch-0xHEX")
+	//   - newValue: The new value being passed to the callback
+	//   - oldValue: The old value being passed to the callback
+	OnWatchCallback(watcherID string, newValue, oldValue interface{})
 }
 
 // hookRegistry manages the registered framework hook.
@@ -252,5 +263,17 @@ func notifyHookComputedChange(id string, oldValue, newValue interface{}) {
 
 	if hook != nil {
 		hook.OnComputedChange(id, oldValue, newValue)
+	}
+}
+
+// notifyHookWatchCallback calls the registered hook's OnWatchCallback method.
+// This is an internal helper used by framework integration points.
+func notifyHookWatchCallback(watcherID string, newValue, oldValue interface{}) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnWatchCallback(watcherID, newValue, oldValue)
 	}
 }
