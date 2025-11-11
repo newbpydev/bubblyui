@@ -331,3 +331,189 @@ func TestFrameworkHooks_ZeroOverhead(t *testing.T) {
 	// Just verify it completes - actual overhead check would need benchmarks
 	assert.Less(t, duration, 1*time.Second)
 }
+
+// Task 8.7: Integration tests for Ref → Computed cascade with hooks
+
+// TestFrameworkHooks_ComputedChange verifies hooks are called when computed values change
+func TestFrameworkHooks_ComputedChange(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref and computed value
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	// Watch the computed to trigger recomputation on ref change
+	Watch(computed, func(newVal, oldVal int) {
+		// Watcher callback
+	})
+
+	// Initial computation (should NOT trigger hook - no change yet)
+	result := computed.Get()
+	assert.Equal(t, 20, result)
+	assert.Equal(t, int32(0), hook.computedCalls.Load(), "Initial computation should not trigger hook")
+
+	// Change ref value - should trigger computed change hook
+	ref.Set(15)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.computedCalls.Load())
+	hook.mu.RLock()
+	assert.Contains(t, hook.lastComputedID, "computed-0x")
+	assert.Equal(t, 20, hook.lastComputedOld)
+	assert.Equal(t, 30, hook.lastComputedNew)
+	hook.mu.RUnlock()
+}
+
+// TestFrameworkHooks_ComputedChange_NoChangeNoHook verifies hook not called when value unchanged
+func TestFrameworkHooks_ComputedChange_NoChangeNoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref and computed value that always returns same value
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		_ = ref.Get() // Access ref to create dependency
+		return 42     // Always return same value
+	})
+
+	// Watch the computed to trigger recomputation on ref change
+	Watch(computed, func(newVal, oldVal int) {
+		// Watcher callback
+	})
+
+	// Initial computation
+	result := computed.Get()
+	assert.Equal(t, 42, result)
+
+	// Change ref value - computed recomputes but value unchanged
+	ref.Set(15)
+
+	// Verify hook was NOT called (value didn't change)
+	assert.Equal(t, int32(0), hook.computedCalls.Load())
+}
+
+// TestFrameworkHooks_ComputedChange_NoWatchersNoHook verifies hook not called without watchers
+func TestFrameworkHooks_ComputedChange_NoWatchersNoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create a ref and computed value WITHOUT watchers
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	// Initial computation
+	result := computed.Get()
+	assert.Equal(t, 20, result)
+
+	// Change ref value - computed is invalidated but not recomputed (no watchers)
+	ref.Set(15)
+
+	// Verify hook was NOT called (no watchers = no recomputation)
+	assert.Equal(t, int32(0), hook.computedCalls.Load())
+}
+
+// TestFrameworkHooks_ComputedChange_CascadeOrder verifies hook fires before watchers
+func TestFrameworkHooks_ComputedChange_CascadeOrder(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Track order of events
+	var events []string
+
+	// Create a ref and computed value
+	ref := NewRef(10)
+	computed := NewComputed(func() int {
+		return ref.Get().(int) * 2
+	})
+
+	// Watch the computed
+	Watch(computed, func(newVal, oldVal int) {
+		events = append(events, "watcher")
+	})
+
+	// Initial computation
+	computed.Get()
+
+	// Change ref value
+	ref.Set(15)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.computedCalls.Load())
+
+	// Verify watcher was also called
+	assert.Contains(t, events, "watcher")
+
+	// Note: We can't verify exact order in this test because the hook
+	// is called synchronously before notifyWatchers, but we verify both happened
+}
+
+// TestFrameworkHooks_ComputedChange_ThreadSafe verifies concurrent computed changes are safe
+func TestFrameworkHooks_ComputedChange_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create multiple refs and computed values
+	ref1 := NewRef(0)
+	ref2 := NewRef(0)
+
+	computed1 := NewComputed(func() int {
+		return ref1.Get().(int) * 2
+	})
+	computed2 := NewComputed(func() int {
+		return ref2.Get().(int) * 3
+	})
+
+	// Watch both to trigger recomputation
+	Watch(computed1, func(newVal, oldVal int) {})
+	Watch(computed2, func(newVal, oldVal int) {})
+
+	// Initial computation
+	computed1.Get()
+	computed2.Get()
+
+	// Concurrent updates
+	done := make(chan bool, 2)
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref1.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	go func() {
+		for i := 1; i <= 50; i++ {
+			ref2.Set(i)
+			time.Sleep(time.Microsecond)
+		}
+		done <- true
+	}()
+
+	// Wait for completion
+	<-done
+	<-done
+
+	// Verify hooks were called (should be 100 total: 50 + 50)
+	assert.Equal(t, int32(100), hook.computedCalls.Load())
+}

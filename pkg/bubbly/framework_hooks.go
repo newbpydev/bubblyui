@@ -82,6 +82,17 @@ type FrameworkHook interface {
 	//   - componentID: The component that rendered
 	//   - duration: How long the render took
 	OnRenderComplete(componentID string, duration time.Duration)
+
+	// OnComputedChange is called when a computed value re-evaluates and the result changes.
+	//
+	// This is called after the computed value detects a change (via deep equal check)
+	// but BEFORE notifying watchers, maintaining proper cascade order.
+	//
+	// Parameters:
+	//   - id: The computed value's identifier (format: "computed-0xHEX")
+	//   - oldValue: The previous cached value
+	//   - newValue: The new computed value
+	OnComputedChange(id string, oldValue, newValue interface{})
 }
 
 // hookRegistry manages the registered framework hook.
@@ -229,5 +240,17 @@ func notifyHookRenderComplete(componentID string, duration time.Duration) {
 
 	if hook != nil {
 		hook.OnRenderComplete(componentID, duration)
+	}
+}
+
+// notifyHookComputedChange calls the registered hook's OnComputedChange method.
+// This is an internal helper used by framework integration points.
+func notifyHookComputedChange(id string, oldValue, newValue interface{}) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnComputedChange(id, oldValue, newValue)
 	}
 }

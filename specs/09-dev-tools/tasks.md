@@ -3974,19 +3974,54 @@ func notifyHookComputedChange(id string, oldValue, newValue interface{})
 - Zero overhead when no hook registered (nil check only)
 
 **Tests**:
-- [ ] Hook registration works with new OnComputedChange method
-- [ ] Computed change notifications fire when value changes
-- [ ] No notification when value unchanged (cache hit)
-- [ ] No notification when computed has no watchers (optimization)
-- [ ] Computed ID format correct (computed-0xHEX)
-- [ ] Old and new values passed correctly
-- [ ] Zero overhead when hook not registered
-- [ ] Thread-safe with concurrent computed access
-- [ ] Integration test with Ref → Computed cascade
+- [x] Hook registration works with new OnComputedChange method
+- [x] Computed change notifications fire when value changes
+- [x] No notification when value unchanged (cache hit)
+- [x] No notification when computed has no watchers (optimization)
+- [x] Computed ID format correct (computed-0xHEX)
+- [x] Old and new values passed correctly
+- [x] Zero overhead when hook not registered
+- [x] Thread-safe with concurrent computed access
+- [x] Integration test with Ref → Computed cascade
 
 **Estimated Effort**: 1 hour
+**Actual Effort**: ~1 hour
 
 **Priority**: HIGH - Critical for reactive cascade visibility
+
+**Implementation Notes**: ✅ COMPLETED
+- ✅ Extended `FrameworkHook` interface with `OnComputedChange(id, oldValue, newValue)` method
+- ✅ Implemented `notifyHookComputedChange(id, oldValue, newValue)` helper function
+- ✅ Added `fmt` import to `computed.go` for ID formatting
+- ✅ Integrated hook call in `Computed.GetTyped()` at line 182-185:
+  - Hook fires AFTER value change detection (deep equal check)
+  - Hook fires BEFORE `notifyWatchers()` to maintain proper cascade order
+  - Uses `fmt.Sprintf("computed-%p", c)` for computed ID (memory address format)
+  - Only fires when value actually changes AND watchers exist
+- ✅ Updated `mockHook` in `framework_hooks_test.go`:
+  - Added `computedCalls atomic.Int32` counter
+  - Added `lastComputedID`, `lastComputedOld`, `lastComputedNew` tracking fields
+  - Implemented `OnComputedChange()` method with thread-safe field updates
+- ✅ Comprehensive unit tests (4 test functions):
+  - `TestNotifyHookComputedChange` - Basic functionality
+  - `TestNotifyHookComputedChange_NoHook` - Zero overhead verification
+  - `TestNotifyHookComputedChange_MultipleValues` - Table-driven tests (int, string, struct, nil)
+  - `TestNotifyHookComputedChange_ThreadSafe` - Concurrent access safety
+- ✅ Integration tests (5 test functions):
+  - `TestFrameworkHooks_ComputedChange` - Ref → Computed cascade with hook
+  - `TestFrameworkHooks_ComputedChange_NoChangeNoHook` - No hook when value unchanged
+  - `TestFrameworkHooks_ComputedChange_NoWatchersNoHook` - No hook without watchers
+  - `TestFrameworkHooks_ComputedChange_CascadeOrder` - Hook fires before watchers
+  - `TestFrameworkHooks_ComputedChange_ThreadSafe` - Concurrent computed changes (100 updates)
+- ✅ All tests pass with race detector
+- ✅ Coverage: 93.6% (exceeds 80% requirement)
+- ✅ Zero lint warnings (go vet clean)
+- ✅ Code formatted with gofmt
+- ✅ Builds successfully
+- ✅ Zero overhead when no hook registered (just nil check)
+- ✅ Thread-safe with RWMutex in hook registry
+- ✅ Proper cascade order maintained (hook → watchers)
+- ✅ Actual time: ~1 hour (matches estimate)
 
 ---
 

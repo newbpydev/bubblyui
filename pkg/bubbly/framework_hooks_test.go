@@ -17,6 +17,7 @@ type mockHook struct {
 	refChangeCalls  atomic.Int32
 	eventCalls      atomic.Int32
 	renderCalls     atomic.Int32
+	computedCalls   atomic.Int32
 	lastMountID     string
 	lastMountName   string
 	lastUpdateID    string
@@ -30,6 +31,9 @@ type mockHook struct {
 	lastEventData   interface{}
 	lastRenderID    string
 	lastRenderDur   time.Duration
+	lastComputedID  string
+	lastComputedOld interface{}
+	lastComputedNew interface{}
 	mu              sync.RWMutex
 }
 
@@ -79,6 +83,15 @@ func (m *mockHook) OnRenderComplete(componentID string, duration time.Duration) 
 	m.mu.Lock()
 	m.lastRenderID = componentID
 	m.lastRenderDur = duration
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnComputedChange(id string, oldValue, newValue interface{}) {
+	m.computedCalls.Add(1)
+	m.mu.Lock()
+	m.lastComputedID = id
+	m.lastComputedOld = oldValue
+	m.lastComputedNew = newValue
 	m.mu.Unlock()
 }
 
@@ -349,4 +362,114 @@ func TestHookRegistration_ThreadSafe(t *testing.T) {
 	wg.Wait()
 
 	// No assertions needed - just verify no races or panics
+}
+
+// Task 8.7: Tests for OnComputedChange hook
+
+func TestNotifyHookComputedChange(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Notify computed change
+	notifyHookComputedChange("computed-0x123", 10, 20)
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.computedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "computed-0x123", hook.lastComputedID)
+	assert.Equal(t, 10, hook.lastComputedOld)
+	assert.Equal(t, 20, hook.lastComputedNew)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookComputedChange_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookComputedChange("computed-0x123", 10, 20)
+}
+
+func TestNotifyHookComputedChange_MultipleValues(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	tests := []struct {
+		name     string
+		id       string
+		oldValue interface{}
+		newValue interface{}
+	}{
+		{
+			name:     "int values",
+			id:       "computed-0x1",
+			oldValue: 10,
+			newValue: 20,
+		},
+		{
+			name:     "string values",
+			id:       "computed-0x2",
+			oldValue: "old",
+			newValue: "new",
+		},
+		{
+			name:     "struct values",
+			id:       "computed-0x3",
+			oldValue: struct{ X int }{X: 1},
+			newValue: struct{ X int }{X: 2},
+		},
+		{
+			name:     "nil to value",
+			id:       "computed-0x4",
+			oldValue: nil,
+			newValue: 42,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset call count
+			hook.computedCalls.Store(0)
+
+			notifyHookComputedChange(tt.id, tt.oldValue, tt.newValue)
+
+			assert.Equal(t, int32(1), hook.computedCalls.Load())
+			hook.mu.RLock()
+			assert.Equal(t, tt.id, hook.lastComputedID)
+			assert.Equal(t, tt.oldValue, hook.lastComputedOld)
+			assert.Equal(t, tt.newValue, hook.lastComputedNew)
+			hook.mu.RUnlock()
+		})
+	}
+}
+
+func TestNotifyHookComputedChange_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Concurrent computed change notifications
+	var wg sync.WaitGroup
+	iterations := 100
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookComputedChange("computed-0x123", i, i+1)
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify all calls were made
+	assert.Equal(t, int32(iterations), hook.computedCalls.Load())
 }

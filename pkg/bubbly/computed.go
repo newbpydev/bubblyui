@@ -1,6 +1,7 @@
 package bubbly
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 )
@@ -179,6 +180,11 @@ func (c *Computed[T]) GetTyped() T {
 	// Only notify if there are watchers and value actually changed
 	// Use reflect.DeepEqual for comparison to handle all types correctly
 	if hasWatchers && !reflect.DeepEqual(oldValue, result) {
+		// Task 8.7: Notify framework hook BEFORE notifying watchers
+		// This maintains proper cascade order for dev tools tracking
+		computedID := fmt.Sprintf("computed-%p", c)
+		notifyHookComputedChange(computedID, oldValue, result)
+
 		c.notifyWatchers(result, oldValue)
 	}
 
