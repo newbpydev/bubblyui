@@ -156,6 +156,11 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 13.6. Theme customization support  
 13.7. Keyboard shortcut customization  
 13.8. Export format selection in UI  
+13.9. **Computed value change tracking** (observe derived state updates)  
+13.10. **Watch callback execution tracing** (track reactive observer firings)  
+13.11. **WatchEffect re-run instrumentation** (monitor automatic effect executions)  
+13.12. **Component tree mutation hooks** (track AddChild/RemoveChild operations)  
+13.13. **Reactive cascade visualization** (trace data flow from Ref → Computed → Watchers)  
 
 ## Non-Functional Requirements
 
@@ -246,6 +251,14 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - [ ] Export/import works
 - [ ] No crashes
 
+### Reactive Cascade Tracking
+- [ ] Computed value changes captured
+- [ ] Watch callback executions traced
+- [ ] WatchEffect re-runs monitored
+- [ ] Component tree mutations tracked
+- [ ] Reactive data flow visualized
+- [ ] Zero overhead when hooks not registered
+
 ### Advanced Sanitization
 - [ ] Higher priority patterns apply first
 - [ ] Template patterns load correctly (PII, PCI, HIPAA, GDPR)
@@ -326,7 +339,15 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 
 ### 7. Export Sensitive Data
 **Challenge**: State contains passwords/tokens  
-**Handling**: Sanitize option, redact patterns, user consent  
+**Handling**: Sanitize option, redact patterns, user consent
+
+### 8. Deep Reactive Cascades
+**Challenge**: Ref change triggers 50+ computed values and watchers  
+**Handling**: Trace cascade depth, visualize propagation graph, detect infinite loops
+
+### 9. High-Frequency Watcher Callbacks
+**Challenge**: Watch callback fires 1000+ times per second  
+**Handling**: Throttle notifications, aggregate calls, show rate metrics  
 
 ## Testing Requirements
 
@@ -344,6 +365,10 @@ Implement a comprehensive developer tools system for debugging and inspecting Bu
 - Event tracking completeness
 - Router integration
 - Performance overhead measurement
+- Reactive cascade tracing with real components
+- Computed value change detection
+- Watch callback execution tracking
+- WatchEffect re-run monitoring
 
 ### E2E Tests
 - Full dev tools workflow

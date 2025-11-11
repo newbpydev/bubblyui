@@ -1815,6 +1815,197 @@ func NotifyComponentMounted(id, name string) {
 
 ---
 
+## Reactive Cascade Architecture
+
+### Overview
+The reactive cascade system tracks the complete data flow from source Ref changes through Computed values to Watcher callbacks and WatchEffect executions. This provides complete visibility into Vue-inspired reactivity propagation.
+
+### Data Flow Diagram
+
+```
+Ref.Set(newValue)
+    ↓
+notifyHookRefChange(refID, oldValue, newValue)  [✅ Already hooked]
+    ↓
+Ref.notifyWatchers() [Internal]
+    ├→ Computed.Invalidate() [Dependent computed values]
+    │   ↓
+    │   Computed.GetTyped() [When accessed or has watchers]
+    │   ↓
+    │   notifyHookComputedChange(computedID, oldValue, newValue)  [⚠️ NEW HOOK]
+    │   ↓
+    │   Computed.notifyWatchers() [Internal]
+    │       ├→ Watch callbacks
+    │       │   ↓
+    │       │   notifyHookWatchCallback(watcherID, newValue, oldValue)  [⚠️ NEW HOOK]
+    │       │
+    │       └→ WatchEffect.run()
+    │           ↓
+    │           notifyHookEffectRun(effectID)  [⚠️ NEW HOOK]
+    │           ↓
+    │           effect() execution
+    │
+    └→ Direct Watch callbacks
+        ↓
+        notifyHookWatchCallback(watcherID, newValue, oldValue)  [⚠️ NEW HOOK]
+```
+
+### Integration Points
+
+#### 1. Computed Value Changes
+**Location**: `pkg/bubbly/computed.go:178-183`  
+**Trigger**: When `GetTyped()` re-evaluates and value changes  
+**Hook**: `notifyHookComputedChange(id, oldValue, newValue)`
+
+```go
+// In Computed.GetTyped() after line 181
+if hasWatchers && !reflect.DeepEqual(oldValue, result) {
+    // NEW: Notify framework hooks of computed change
+    computedID := fmt.Sprintf("computed-%p", c)
+    notifyHookComputedChange(computedID, oldValue, result)
+    
+    // Existing: Notify watchers
+    c.notifyWatchers(result, oldValue)
+}
+```
+
+#### 2. Watch Callback Execution
+**Location**: `pkg/bubbly/ref.go:234-237`, `pkg/bubbly/computed.go`  
+**Trigger**: When watcher callback is about to execute  
+**Hook**: `notifyHookWatchCallback(watcherID, newValue, oldValue)`
+
+```go
+// Create new helper function
+func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
+    // NEW: Notify framework hooks before callback
+    watcherID := fmt.Sprintf("watch-%p", w)
+    notifyHookWatchCallback(watcherID, newVal, oldVal)
+    
+    // Existing: Execute callback
+    w.callback(newVal, oldVal)
+}
+```
+
+#### 3. WatchEffect Re-runs
+**Location**: `pkg/bubbly/watch_effect.go:122`  
+**Trigger**: When effect function re-executes due to dependency changes  
+**Hook**: `notifyHookEffectRun(effectID)`
+
+```go
+// In watchEffect.run() before line 122
+// NEW: Notify framework hooks before effect execution
+effectID := fmt.Sprintf("effect-%p", e)
+notifyHookEffectRun(effectID)
+
+// Existing: Execute effect
+e.effect()
+```
+
+#### 4. Component Tree Changes
+**Location**: `pkg/bubbly/children.go:61, 153`  
+**Trigger**: When child components are added or removed  
+**Hooks**: `notifyHookChildAdded(parentID, childID)`, `notifyHookChildRemoved(parentID, childID)`
+
+```go
+// In AddChild after line 75
+notifyHookChildAdded(c.id, child.ID())
+
+// In RemoveChild after line 170
+notifyHookChildRemoved(c.id, child.ID())
+```
+
+### Extended FrameworkHook Interface
+
+```go
+type FrameworkHook interface {
+    // Existing methods (Task 8.6)
+    OnComponentMount(id, name string)
+    OnComponentUpdate(id string, msg interface{})
+    OnComponentUnmount(id string)
+    OnRefChange(id string, oldValue, newValue interface{})
+    OnEvent(componentID, eventName string, data interface{})
+    OnRenderComplete(componentID string, duration time.Duration)
+    
+    // NEW: Reactive cascade methods (Tasks 8.7-8.10)
+    OnComputedChange(id string, oldValue, newValue interface{})
+    OnWatchCallback(watcherID string, newValue, oldValue interface{})
+    OnEffectRun(effectID string)
+    OnChildAdded(parentID, childID string)
+    OnChildRemoved(parentID, childID string)
+}
+```
+
+### Type Definitions for Reactive Cascade
+
+```go
+// ComputedChangeRecord tracks computed value updates
+type ComputedChangeRecord struct {
+    ID         string
+    OldValue   interface{}
+    NewValue   interface{}
+    Timestamp  time.Time
+    TriggerRef string  // Which ref change caused this
+}
+
+// WatchCallbackRecord tracks watcher executions
+type WatchCallbackRecord struct {
+    ID         string
+    WatcherID  string
+    SourceType string  // "ref" or "computed"
+    SourceID   string
+    NewValue   interface{}
+    OldValue   interface{}
+    Timestamp  time.Time
+    Duration   time.Duration
+}
+
+// EffectRunRecord tracks WatchEffect executions
+type EffectRunRecord struct {
+    ID           string
+    EffectID     string
+    TriggerCount int  // How many times triggered
+    Dependencies []string  // Current dependencies
+    Timestamp    time.Time
+    Duration     time.Duration
+}
+
+// ChildMutationRecord tracks component tree changes
+type ChildMutationRecord struct {
+    ID        string
+    ParentID  string
+    ChildID   string
+    Operation string  // "add" or "remove"
+    Timestamp time.Time
+}
+```
+
+### Performance Considerations
+
+**Zero Overhead When Disabled:**
+- All hooks use single nil check before execution
+- No memory allocation when hook not registered
+- Same pattern as existing Task 8.6 hooks
+
+**Hook Registration:**
+```go
+// Fast path: nil check only
+globalHookRegistry.mu.RLock()
+hook := globalHookRegistry.hook
+globalHookRegistry.mu.RUnlock()
+
+if hook != nil {
+    hook.OnComputedChange(id, oldValue, newValue)
+}
+```
+
+**Memory Usage:**
+- Computed IDs: `fmt.Sprintf("computed-%p", c)` - pointer address
+- Watcher IDs: `fmt.Sprintf("watch-%p", w)` - pointer address  
+- Effect IDs: `fmt.Sprintf("effect-%p", e)` - pointer address
+- No ID tracking overhead when hooks disabled
+
+---
+
 ## Known Limitations & Solutions
 
 ### Limitation 1: Performance Overhead

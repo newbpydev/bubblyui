@@ -3939,6 +3939,228 @@ func NotifyComponentMounted(id, name string)
 
 ---
 
+### Task 8.7: Computed Value Change Hooks
+**Description**: Track computed value re-evaluations and notify dev tools
+
+**Prerequisites**: Task 8.6 (Framework Integration Hooks)
+
+**Unlocks**: Task 8.9 (Watch Callback Hooks)
+
+**Files**:
+- `pkg/bubbly/computed.go` (update)
+- `pkg/bubbly/framework_hooks.go` (update)
+- `pkg/bubbly/framework_hooks_test.go` (update)
+- `pkg/bubbly/framework_hooks_integration_test.go` (update)
+
+**Type Safety**:
+```go
+// Extended FrameworkHook interface
+type FrameworkHook interface {
+    // ... existing methods from 8.6
+    
+    // NEW: Computed value change tracking
+    OnComputedChange(id string, oldValue, newValue interface{})
+}
+
+// Internal notification function
+func notifyHookComputedChange(id string, oldValue, newValue interface{})
+```
+
+**Implementation Notes**:
+- Add hook call in `Computed.GetTyped()` after line 181 when value changes
+- Use `fmt.Sprintf("computed-%p", c)` for computed ID (memory address)
+- Hook fires ONLY when value actually changes (deep equal check already exists)
+- Hook fires BEFORE `notifyWatchers()` to maintain proper cascade order
+- Zero overhead when no hook registered (nil check only)
+
+**Tests**:
+- [ ] Hook registration works with new OnComputedChange method
+- [ ] Computed change notifications fire when value changes
+- [ ] No notification when value unchanged (cache hit)
+- [ ] No notification when computed has no watchers (optimization)
+- [ ] Computed ID format correct (computed-0xHEX)
+- [ ] Old and new values passed correctly
+- [ ] Zero overhead when hook not registered
+- [ ] Thread-safe with concurrent computed access
+- [ ] Integration test with Ref → Computed cascade
+
+**Estimated Effort**: 1 hour
+
+**Priority**: HIGH - Critical for reactive cascade visibility
+
+---
+
+### Task 8.8: Watch Callback Instrumentation
+**Description**: Track watcher callback executions for Ref and Computed sources
+
+**Prerequisites**: Task 8.7 (Computed Hooks)
+
+**Unlocks**: Task 8.9 (WatchEffect Hooks)
+
+**Files**:
+- `pkg/bubbly/ref.go` (update)
+- `pkg/bubbly/computed.go` (update)
+- `pkg/bubbly/framework_hooks.go` (update)
+- `pkg/bubbly/framework_hooks_test.go` (update)
+- `pkg/bubbly/framework_hooks_integration_test.go` (update)
+
+**Type Safety**:
+```go
+// Extended FrameworkHook interface
+type FrameworkHook interface {
+    // ... existing methods from 8.6, 8.7
+    
+    // NEW: Watch callback execution tracking
+    OnWatchCallback(watcherID string, newValue, oldValue interface{})
+}
+
+// Internal notification function
+func notifyHookWatchCallback(watcherID string, newValue, oldValue interface{})
+
+// Refactor existing notifyWatcher helper
+func notifyWatcher[T any](w *watcher[T], newVal, oldVal T) {
+    // Hook call before callback execution
+    watcherID := fmt.Sprintf("watch-%p", w)
+    notifyHookWatchCallback(watcherID, newVal, oldVal)
+    
+    // Execute callback based on options
+    // ... existing logic
+}
+```
+
+**Implementation Notes**:
+- Create helper function `notifyWatcher[T]` to wrap callback execution
+- Call from both `Ref.notifyWatchers()` and `Computed.notifyWatchers()`
+- Use `fmt.Sprintf("watch-%p", w)` for watcher ID
+- Hook fires BEFORE callback execution to capture intent
+- Handles deep watching and flush modes (existing logic)
+- Thread-safe (watchers list already copied before iteration)
+
+**Tests**:
+- [ ] Hook fires for Ref watchers
+- [ ] Hook fires for Computed watchers
+- [ ] Watcher ID format correct (watch-0xHEX)
+- [ ] New and old values passed correctly
+- [ ] Hook fires for immediate watchers (WithImmediate option)
+- [ ] Hook respects deep watching mode
+- [ ] Hook respects flush modes (sync/post)
+- [ ] No overhead when hook not registered
+- [ ] Thread-safe with concurrent watcher notifications
+- [ ] Integration test with full Ref → Watch cascade
+
+**Estimated Effort**: 1 hour
+
+**Priority**: HIGH - Critical for complete reactive tracing
+
+---
+
+### Task 8.9: WatchEffect Instrumentation
+**Description**: Track WatchEffect re-runs triggered by dependency changes
+
+**Prerequisites**: Task 8.8 (Watch Callback Hooks)
+
+**Unlocks**: Task 8.10 (Component Tree Hooks)
+
+**Files**:
+- `pkg/bubbly/watch_effect.go` (update)
+- `pkg/bubbly/framework_hooks.go` (update)
+- `pkg/bubbly/framework_hooks_test.go` (update)
+- `pkg/bubbly/framework_hooks_integration_test.go` (update)
+
+**Type Safety**:
+```go
+// Extended FrameworkHook interface
+type FrameworkHook interface {
+    // ... existing methods from 8.6-8.8
+    
+    // NEW: WatchEffect execution tracking
+    OnEffectRun(effectID string)
+}
+
+// Internal notification function
+func notifyHookEffectRun(effectID string)
+```
+
+**Implementation Notes**:
+- Add hook call in `watchEffect.run()` before line 122 (before effect execution)
+- Use `fmt.Sprintf("effect-%p", e)` for effect ID
+- Hook fires every time effect re-runs (including initial run)
+- Hook fires BEFORE effect function execution
+- Track effect dependency changes for dev tools context
+- Zero overhead when no hook registered
+
+**Tests**:
+- [ ] Hook fires on initial effect run
+- [ ] Hook fires on dependency changes
+- [ ] Hook fires for multiple dependency changes
+- [ ] Effect ID format correct (effect-0xHEX)
+- [ ] Hook doesn't fire when effect stopped
+- [ ] Hook doesn't fire during setup phase
+- [ ] No overhead when hook not registered
+- [ ] Thread-safe with concurrent effect runs
+- [ ] Integration test with Ref → Computed → Effect cascade
+- [ ] Integration test with conditional dependencies
+
+**Estimated Effort**: 0.5 hours
+
+**Priority**: MEDIUM - Important for automatic effect debugging
+
+---
+
+### Task 8.10: Component Tree Mutation Hooks
+**Description**: Track AddChild/RemoveChild operations for dynamic tree visualization
+
+**Prerequisites**: Task 8.9 (WatchEffect Hooks)
+
+**Unlocks**: None (completes reactive cascade tracking)
+
+**Files**:
+- `pkg/bubbly/children.go` (update)
+- `pkg/bubbly/framework_hooks.go` (update)
+- `pkg/bubbly/framework_hooks_test.go` (update)
+- `pkg/bubbly/framework_hooks_integration_test.go` (update)
+
+**Type Safety**:
+```go
+// Extended FrameworkHook interface
+type FrameworkHook interface {
+    // ... existing methods from 8.6-8.9
+    
+    // NEW: Component tree mutation tracking
+    OnChildAdded(parentID, childID string)
+    OnChildRemoved(parentID, childID string)
+}
+
+// Internal notification functions
+func notifyHookChildAdded(parentID, childID string)
+func notifyHookChildRemoved(parentID, childID string)
+```
+
+**Implementation Notes**:
+- Add `notifyHookChildAdded()` in `AddChild()` after line 75 (after successful add)
+- Add `notifyHookChildRemoved()` in `RemoveChild()` after line 170 (after successful remove)
+- Hooks fire AFTER operation succeeds (so tree is consistent)
+- Use `c.id` for parent and `child.ID()` for child
+- Hooks do NOT fire for initial children (only dynamic changes)
+- Thread-safe (already protected by component mutex)
+
+**Tests**:
+- [ ] Hook fires when child added
+- [ ] Hook fires when child removed
+- [ ] Parent and child IDs passed correctly
+- [ ] Hook doesn't fire on duplicate add (error case)
+- [ ] Hook doesn't fire on non-existent remove (error case)
+- [ ] No overhead when hook not registered
+- [ ] Thread-safe with concurrent child operations
+- [ ] Integration test with dynamic component tree
+- [ ] Integration test with multiple add/remove sequences
+
+**Estimated Effort**: 1 hour
+
+**Priority**: LOW - Useful but not critical for most debugging
+
+---
+
 ## Estimated Total Effort
 
 - Phase 1: 15 hours (Foundation)
@@ -3948,9 +4170,23 @@ func NotifyComponentMounted(id, name string)
 - Phase 5: 12 hours (UI Integration)
 - Phase 6: 18 hours (Data Management - includes 6.4-6.9)
 - Phase 7: 9 hours (Documentation)
-- Phase 8: 20 hours (Export/Import Polish & Integration)
+- Phase 8: 23.5 hours (Export/Import Polish & Reactive Cascade - includes 8.1-8.10)
+  - 8.1: Export Compression ✅ (2h actual)
+  - 8.2: Multiple Formats ✅ (completed)
+  - 8.3-8.5: Incremental, Responsive, Hierarchy (existing)
+  - 8.6: Framework Integration Hooks ✅ (2h actual)
+  - 8.7: Computed Change Hooks (1h estimated)
+  - 8.8: Watch Callback Hooks (1h estimated)
+  - 8.9: WatchEffect Hooks (0.5h estimated)
+  - 8.10: Component Tree Hooks (1h estimated)
 
-**Total**: ~122 hours (approximately 3 weeks)
+**Total**: ~125.5 hours (approximately 3 weeks + 1 day)
+
+**Phase 8 Breakdown**: 
+- Completed: 4 hours (8.1, 8.6)
+- Remaining: 19.5 hours (8.2-8.5, 8.7-8.10)
+
+**Reactive Cascade Tasks (NEW)**: 3.5 hours for complete visibility into reactive data flow
 
 ---
 

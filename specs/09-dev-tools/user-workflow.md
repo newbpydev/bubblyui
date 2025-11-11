@@ -877,6 +877,149 @@ Dev tools shows new state
 
 ---
 
+## Scenario 7: Debugging Reactive Cascades
+
+### Entry Point: Computed Value Not Updating
+
+**Background**: Developer has a `Ref` feeding multiple `Computed` values, which feed into `Watch` callbacks and `WatchEffect` hooks. Something in the cascade isn't working.
+
+#### Step 1: Enable Reactive Cascade Tracking
+**User Action**: Enable dev tools with cascade tracking
+
+```go
+dt := devtools.New(devtools.Config{
+    Enabled: true,
+    TrackReactiveCascade: true,  // Enable cascade hooks
+})
+```
+
+**System Response**:
+- Framework hooks registered for:
+  - Computed value changes
+  - Watch callback executions
+  - WatchEffect re-runs
+- Cascade data collection begins
+
+#### Step 2: Trigger State Change
+**User Action**: Change a Ref value
+
+```go
+// In application
+userNameRef.Set("Alice")
+```
+
+**System Captures**:
+1. `OnRefChange("ref-0x123", "Bob", "Alice")`
+2. `OnComputedChange("computed-0x456", "Hello, Bob!", "Hello, Alice!")`
+3. `OnWatchCallback("watch-0x789", "Hello, Alice!", "Hello, Bob!")`
+4. `OnEffectRun("effect-0xabc")`
+
+#### Step 3: View Reactive Cascade Timeline
+**User Action**: Open "Reactive Cascade" tab in dev tools
+
+**Visual Display**:
+```
+┌─ Reactive Cascade Timeline ─────────────────────────────────┐
+│ 10:23:45.001 Ref Change                                     │
+│   ├─ userName (ref-0x123): "Bob" → "Alice"                  │
+│   │                                                           │
+│   ├─ Triggered 2 computed values:                           │
+│   │   ├─ greeting (computed-0x456)                          │
+│   │   │   └─ "Hello, Bob!" → "Hello, Alice!" (12ms)        │
+│   │   └─ displayName (computed-0x789)                       │
+│   │       └─ "BOB" → "ALICE" (8ms)                          │
+│   │                                                           │
+│   ├─ Triggered 3 watch callbacks:                           │
+│   │   ├─ watch-0xabc (on userName)                          │
+│   │   ├─ watch-0xdef (on greeting)                          │
+│   │   └─ watch-0xghi (on displayName)                       │
+│   │                                                           │
+│   └─ Triggered 1 effect:                                     │
+│       └─ effect-0xjkl (deps: userName, greeting)           │
+│                                                               │
+│ Total cascade: 6 operations in 45ms                          │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Step 4: Identify Missing Update
+**User Action**: Notice `displayName` computed didn't trigger expected watch
+
+**System Response**:
+- Highlight `displayName` → `watch-0xghi` in cascade graph
+- Show: "Watcher callback executed but returned immediately (guard condition)"
+- Display guard code:
+  ```go
+  Watch(displayName, func(newVal, oldVal string) {
+      if len(newVal) < 3 {  // ← Guard prevented execution!
+          return
+      }
+      // ... update logic never reached
+  })
+  ```
+
+#### Step 5: Fix and Verify
+**User Action**: Remove guard or adjust logic
+
+**System Response**:
+- Next cascade shows watch callback executing fully
+- Timeline shows expected propagation
+- Bug resolved!
+
+**Success Criteria**:
+- ✅ Cascade fully visible
+- ✅ Bottleneck identified in 2 minutes
+- ✅ Fix verified immediately
+
+---
+
+## Scenario 8: Detecting Infinite Reactive Loops
+
+### Entry Point: Application Freezing
+
+#### Step 1: Observe Loop Warning
+**User Action**: Trigger state change
+
+**System Response**:
+- Dev tools detects rapid cascade (>100 operations in 100ms)
+- Warning badge appears: "⚠️ Possible Reactive Loop"
+- Timeline shows repeating pattern
+
+**Visual Display**:
+```
+┌─ ⚠️ REACTIVE LOOP DETECTED ─────────────────────────────────┐
+│                                                               │
+│ Pattern detected: Ref A → Computed B → Watch C → Set A      │
+│ Loop count: 47 iterations in 150ms                           │
+│                                                               │
+│ Call stack:                                                   │
+│   ref-0x123 (count)        [changed 47 times]               │
+│   ↓                                                           │
+│   computed-0x456 (doubled) [recomputed 47 times]            │
+│   ↓                                                           │
+│   watch-0x789              [fired 47 times]                  │
+│   ↓                                                           │
+│   count.Set(n + 1)        [← Loop back to ref-0x123]        │
+│                                                               │
+│ [View Code] [Break Loop] [Disable Watch]                     │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Step 2: Break Loop
+**User Action**: Click "Break Loop" or "Disable Watch"
+
+**System Response**:
+- Temporarily disable problematic watcher
+- Application unfreezes
+- Developer can inspect and fix code
+
+**Recovery Path**:
+1. Identify guard condition needed
+2. Add `if (newVal !== oldVal)` check
+3. Re-enable watcher
+4. Verify loop resolved
+
+---
+
 ## Integration Points Map
 
 ### Feature Cross-Reference
