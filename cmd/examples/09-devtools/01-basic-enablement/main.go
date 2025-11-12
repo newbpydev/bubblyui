@@ -14,12 +14,22 @@ func main() {
 	// This is all you need to enable dev tools!
 	devtools.Enable()
 
+	// Verify dev tools is enabled
+	if devtools.IsEnabled() {
+		fmt.Println("✅ Dev tools successfully enabled!")
+	} else {
+		fmt.Println("❌ Dev tools failed to enable!")
+	}
+
 	fmt.Println("🎯 Dev Tools Example 01: Basic Enablement")
 	fmt.Println("══════════════════════════════════════════")
 	fmt.Println("")
-	fmt.Println("Press F12 to toggle dev tools visibility")
+	fmt.Println("Press F12 or ctrl+t to toggle dev tools")
 	fmt.Println("Press i/d/r to increment/decrement/reset")
 	fmt.Println("Press ctrl+c to quit")
+	fmt.Println("")
+	fmt.Println("💡 Note: On Linux, F12 may be intercepted by your system.")
+	fmt.Println("         Try Fn+F12 or use ctrl+t as an alternative.")
 	fmt.Println("")
 
 	// Create app component

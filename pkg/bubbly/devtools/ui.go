@@ -160,6 +160,16 @@ func (ui *DevToolsUI) Init() tea.Cmd {
 
 // setupKeyboardShortcuts registers keyboard shortcuts for the UI.
 func (ui *DevToolsUI) setupKeyboardShortcuts() {
+	// F12: Toggle dev tools visibility (CRITICAL FIX - was missing!)
+	ui.keyboard.RegisterGlobal("f12", func(msg tea.KeyMsg) tea.Cmd {
+		if IsEnabled() {
+			// Get the singleton instance and toggle visibility
+			dt := Enable() // Returns existing instance
+			dt.ToggleVisibility()
+		}
+		return nil
+	})
+
 	// Tab: Switch to next panel
 	ui.keyboard.RegisterGlobal("tab", func(msg tea.KeyMsg) tea.Cmd {
 		ui.mu.Lock()

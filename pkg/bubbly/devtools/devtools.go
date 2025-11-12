@@ -34,6 +34,9 @@ package devtools
 
 import (
 	"sync"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // DevTools is the main dev tools instance that manages the entire debugging system.
@@ -134,10 +137,51 @@ func Enable() *DevTools {
 
 	// Use sync.Once to ensure initialization happens only once
 	globalDevToolsOnce.Do(func() {
+		// Initialize store
+		store := NewDevToolsStore(1000, 1000, 1000)
+		
+		// Initialize UI
+		ui := NewDevToolsUI(store)
+		
+		// Initialize data collector
+		collector := NewDataCollector()
+		
+		// Initialize config
+		config := DefaultConfig()
+		
 		globalDevTools = &DevTools{
-			enabled: true,
-			visible: false,
+			enabled:   true,
+			visible:   false,
+			ui:        ui,
+			store:     store,
+			collector: collector,
+			config:    config,
 		}
+
+		// Register F12/ctrl+t global key interceptor for zero-config toggle
+		// This allows F12 or ctrl+t to work without any user code changes
+		// ctrl+t is provided as an alternative for Linux/terminals where F12 is intercepted
+		bubbly.SetGlobalKeyInterceptor(func(key tea.KeyMsg) bool {
+			// Intercept F12 or ctrl+t
+			isToggleKey := key.Type == tea.KeyF12 || key.String() == "ctrl+t"
+			
+			if isToggleKey {
+				// Toggle dev tools visibility
+				if globalDevTools != nil && globalDevTools.IsEnabled() {
+					globalDevTools.ToggleVisibility()
+					return true // Key handled, don't forward to component
+				}
+			}
+			return false // Not handled, forward to component
+		})
+
+		// Register global view renderer for zero-config UI integration
+		// This allows dev tools UI to overlay on app view automatically
+		bubbly.SetGlobalViewRenderer(RenderView)
+
+		// Register global update hook for zero-config UI interaction
+		// This allows dev tools UI to receive messages (e.g., Tab key for navigation)
+		bubbly.SetGlobalUpdateHook(HandleUpdate)
 	})
 
 	// If already created but disabled, re-enable it
@@ -332,4 +376,110 @@ func (dt *DevTools) ToggleVisibility() {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 	dt.visible = !dt.visible
+}
+
+// RenderWithApp renders the application view with dev tools UI if visible.
+//
+// This is the main rendering method that should be called by the wrapper to
+// combine the application view with the dev tools UI. If dev tools are not
+// visible, it just returns the app view unchanged.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	dt := devtools.Enable()
+//	appView := component.View()
+//	finalView := dt.RenderWithApp(appView)
+//	// finalView contains app + dev tools if visible, or just app if hidden
+//
+// Parameters:
+//   - appView: The application's rendered view
+//
+// Returns:
+//   - string: Combined view of app + dev tools, or just app if dev tools hidden
+func (dt *DevTools) RenderWithApp(appView string) string {
+	dt.mu.RLock()
+	defer dt.mu.RUnlock()
+
+	// If dev tools not visible, just return app view
+	if !dt.visible {
+		return appView
+	}
+
+	// Set the app content in the UI
+	dt.ui.SetAppContent(appView)
+
+	// Render combined view (app + dev tools)
+	return dt.ui.View()
+}
+
+// RenderView is a package-level function to render the app view with dev tools.
+//
+// This is called automatically by bubbly.Wrap() to integrate dev tools rendering.
+// If dev tools are not enabled or not visible, it just returns the app view.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	// In wrapper.View()
+//	appView := m.component.View()
+//	return devtools.RenderView(appView)
+//
+// Parameters:
+//   - appView: The application's rendered view
+//
+// Returns:
+//   - string: Combined view of app + dev tools, or just app if dev tools disabled/hidden
+func RenderView(appView string) string {
+	globalDevToolsMu.RLock()
+	dt := globalDevTools
+	globalDevToolsMu.RUnlock()
+
+	// If dev tools not enabled, just return app view
+	if dt == nil || !dt.IsEnabled() {
+		return appView
+	}
+
+	// Render with dev tools
+	return dt.RenderWithApp(appView)
+}
+
+// HandleUpdate is a package-level function to handle Bubbletea messages for dev tools.
+//
+// This is called automatically by bubbly.Wrap() to enable dev tools UI interaction.
+// If dev tools are not enabled or not visible, it returns nil.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	// In wrapper.Update()
+//	cmd := devtools.HandleUpdate(msg)
+//
+// Parameters:
+//   - msg: The Bubbletea message
+//
+// Returns:
+//   - tea.Cmd: Command from dev tools UI, or nil
+func HandleUpdate(msg tea.Msg) tea.Cmd {
+	globalDevToolsMu.RLock()
+	dt := globalDevTools
+	globalDevToolsMu.RUnlock()
+
+	// If dev tools not enabled or not visible, no-op
+	if dt == nil || !dt.IsEnabled() || !dt.IsVisible() {
+		return nil
+	}
+
+	// Forward message to DevToolsUI
+	_, cmd := dt.ui.Update(msg)
+	return cmd
 }
