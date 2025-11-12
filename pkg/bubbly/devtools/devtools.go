@@ -34,6 +34,7 @@ package devtools
 
 import (
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -182,6 +183,11 @@ func Enable() *DevTools {
 		// Register global update hook for zero-config UI interaction
 		// This allows dev tools UI to receive messages (e.g., Tab key for navigation)
 		bubbly.SetGlobalUpdateHook(HandleUpdate)
+
+		// Register framework hook for automatic data collection
+		// This enables zero-config component/state/event tracking
+		hook := &frameworkHookAdapter{store: store}
+		bubbly.RegisterHook(hook)
 	})
 
 	// If already created but disabled, re-enable it
@@ -482,4 +488,117 @@ func HandleUpdate(msg tea.Msg) tea.Cmd {
 	// Forward message to DevToolsUI
 	_, cmd := dt.ui.Update(msg)
 	return cmd
+}
+
+// frameworkHookAdapter implements bubbly.FrameworkHook to bridge framework events to DevTools.
+//
+// This adapter automatically collects component lifecycle, state changes, and events
+// from the BubblyUI framework and stores them in the DevToolsStore for inspection.
+type frameworkHookAdapter struct {
+	store *DevToolsStore
+}
+
+// OnComponentMount implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnComponentMount(id, name string) {
+	if h.store == nil {
+		return
+	}
+	snapshot := &ComponentSnapshot{
+		ID:        id,
+		Name:      name,
+		Status:    "mounted",
+		Timestamp: time.Now(),
+		State:     make(map[string]interface{}),
+		Props:     make(map[string]interface{}),
+		Refs:      make([]*RefSnapshot, 0),
+		Children:  make([]*ComponentSnapshot, 0),
+	}
+	h.store.AddComponent(snapshot)
+}
+
+// OnComponentUpdate implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnComponentUpdate(id string, msg interface{}) {
+	// Update message tracking handled by UI
+}
+
+// OnComponentUnmount implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnComponentUnmount(id string) {
+	if h.store == nil {
+		return
+	}
+	snapshot := &ComponentSnapshot{
+		ID:        id,
+		Status:    "unmounted",
+		Timestamp: time.Now(),
+	}
+	h.store.AddComponent(snapshot)
+}
+
+// OnRefChange implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interface{}) {
+	if h.store == nil {
+		return
+	}
+	change := StateChange{
+		RefID:     id,
+		OldValue:  oldValue,
+		NewValue:  newValue,
+		Timestamp: time.Now(),
+	}
+	h.store.stateHistory.Record(change)
+}
+
+// OnEvent implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnEvent(componentID, eventName string, data interface{}) {
+	if h.store == nil {
+		return
+	}
+	event := EventRecord{
+		ID:        componentID + "-" + eventName,
+		Name:      eventName,
+		SourceID:  componentID,
+		Timestamp: time.Now(),
+		Payload:   data,
+	}
+	h.store.events.Append(event)
+}
+
+// OnRenderComplete implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnRenderComplete(componentID string, duration time.Duration) {
+	if h.store == nil || h.store.performance == nil {
+		return
+	}
+	// Get component name from store
+	comp := h.store.GetComponent(componentID)
+	componentName := "unknown"
+	if comp != nil {
+		componentName = comp.Name
+	}
+	h.store.performance.RecordRender(componentID, componentName, duration)
+}
+
+// OnComputedChange implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnComputedChange(id string, oldValue, newValue interface{}) {
+	// Track computed value changes
+	h.OnRefChange(id, oldValue, newValue)
+}
+
+// OnWatchCallback implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnWatchCallback(id string, newValue, oldValue interface{}) {
+	// Track watcher callbacks
+}
+
+// OnEffectRun implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnEffectRun(effectID string) {
+	// Track effect runs
+}
+
+// OnChildAdded implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnChildAdded(parentID, childID string) {
+	// Track component hierarchy changes
+}
+
+// OnChildRemoved implements bubbly.FrameworkHook.
+func (h *frameworkHookAdapter) OnChildRemoved(parentID, childID string) {
+	// Track component hierarchy changes
 }

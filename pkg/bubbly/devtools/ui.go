@@ -160,15 +160,8 @@ func (ui *DevToolsUI) Init() tea.Cmd {
 
 // setupKeyboardShortcuts registers keyboard shortcuts for the UI.
 func (ui *DevToolsUI) setupKeyboardShortcuts() {
-	// F12: Toggle dev tools visibility (CRITICAL FIX - was missing!)
-	ui.keyboard.RegisterGlobal("f12", func(msg tea.KeyMsg) tea.Cmd {
-		if IsEnabled() {
-			// Get the singleton instance and toggle visibility
-			dt := Enable() // Returns existing instance
-			dt.ToggleVisibility()
-		}
-		return nil
-	})
+	// F12/ctrl+t are handled by globalKeyInterceptor in wrapper.go
+	// No need to register here to avoid duplicate handling
 
 	// Tab: Switch to next panel
 	ui.keyboard.RegisterGlobal("tab", func(msg tea.KeyMsg) tea.Cmd {
@@ -299,11 +292,29 @@ func (ui *DevToolsUI) View() string {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 
+	// Update inspector with latest component data from store
+	ui.updateInspectorFromStore()
+
 	// Render tabs + panel content
 	toolsContent := ui.tabs.Render()
 
 	// Combine app content and tools content using layout manager
 	return ui.layout.Render(ui.appContent, toolsContent)
+}
+
+// updateInspectorFromStore updates the inspector with component data from the store.
+// Must be called with read lock held.
+func (ui *DevToolsUI) updateInspectorFromStore() {
+	// Get all components from store
+	components := ui.store.GetAllComponents()
+	
+	// Build root component tree (find root components - those without parents)
+	// For now, just use the first component as root or create a virtual root
+	if len(components) > 0 {
+		// Simple approach: use first component as root
+		// TODO: Build proper hierarchy based on parent-child relationships
+		ui.inspector.SetRoot(components[0])
+	}
 }
 
 // getActivePanelContent returns the content of the currently active panel.
