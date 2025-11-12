@@ -33,6 +33,8 @@
 package devtools
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -503,6 +505,13 @@ func (h *frameworkHookAdapter) OnComponentMount(id, name string) {
 	if h.store == nil {
 		return
 	}
+	
+	// Filter out framework internal components to reduce noise
+	// Only track user-level components for better developer experience
+	if isFrameworkInternalComponent(name) {
+		return
+	}
+	
 	snapshot := &ComponentSnapshot{
 		ID:        id,
 		Name:      name,
@@ -514,6 +523,40 @@ func (h *frameworkHookAdapter) OnComponentMount(id, name string) {
 		Children:  make([]*ComponentSnapshot, 0),
 	}
 	h.store.AddComponent(snapshot)
+}
+
+// isFrameworkInternalComponent checks if a component is a framework internal
+// (Button, Card, Text, etc.) vs a user-defined component (Counter, TodoList, etc.)
+func isFrameworkInternalComponent(name string) bool {
+	// List of known framework components from pkg/components
+	frameworkComponents := map[string]bool{
+		"Text":        true,
+		"Button":      true,
+		"Card":        true,
+		"Input":       true,
+		"Checkbox":    true,
+		"Radio":       true,
+		"Toggle":      true,
+		"Select":      true,
+		"Textarea":    true,
+		"Form":        true,
+		"Table":       true,
+		"List":        true,
+		"Modal":       true,
+		"Tabs":        true,
+		"Badge":       true,
+		"Spinner":     true,
+		"Icon":        true,
+		"Spacer":      true,
+		"Menu":        true,
+		"Accordion":   true,
+		"AppLayout":   true,
+		"PageLayout":  true,
+		"PanelLayout": true,
+		"GridLayout":  true,
+		// Add more as needed
+	}
+	return frameworkComponents[name]
 }
 
 // OnComponentUpdate implements bubbly.FrameworkHook.
@@ -539,13 +582,77 @@ func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interfa
 	if h.store == nil {
 		return
 	}
+	
+	// Record state change in history
 	change := StateChange{
 		RefID:     id,
+		RefName:   id, // TODO: Get actual ref name from context
 		OldValue:  oldValue,
 		NewValue:  newValue,
 		Timestamp: time.Now(),
+		Source:    "ref_change",
 	}
 	h.store.stateHistory.Record(change)
+	
+	// Update component snapshots that reference this ref
+	// This ensures Inspector shows live data
+	h.updateComponentStatesWithRef(id, newValue)
+}
+
+// updateComponentStatesWithRef updates all component snapshots to reflect ref changes
+func (h *frameworkHookAdapter) updateComponentStatesWithRef(refID string, newValue interface{}) {
+	// Get all components and update their state if they reference this ref
+	// For now, we'll update all components' timestamps to trigger UI refresh
+	// In a real implementation, we'd track which refs belong to which components
+	components := h.store.GetAllComponents()
+	for _, comp := range components {
+		// Update component state map with new ref value
+		if comp.State == nil {
+			comp.State = make(map[string]interface{})
+		}
+		comp.State[refID] = newValue
+		
+		// Update Refs array for detail panel display
+		// Check if this ref already exists
+		refExists := false
+		for i, ref := range comp.Refs {
+			if ref.ID == refID {
+				// Update existing ref
+				comp.Refs[i].Value = newValue
+				refExists = true
+				break
+			}
+		}
+		
+		// Add new ref if it doesn't exist
+		if !refExists {
+			// Extract simple name from refID (e.g., "ref-0x123" -> "ref")
+			// For better UX, we could improve this later
+			refName := extractRefName(refID)
+			comp.Refs = append(comp.Refs, &RefSnapshot{
+				ID:    refID,
+				Name:  refName,
+				Value: newValue,
+				Type:  fmt.Sprintf("%T", newValue),
+			})
+		}
+		
+		comp.Timestamp = time.Now() // Mark as updated
+	}
+}
+
+// extractRefName extracts a simple name from a ref ID
+// Example: "ref-0x123abc" -> "ref", "count-ref-0x456" -> "count"
+func extractRefName(refID string) string {
+	// Split on "-ref-" or "-0x" to get the prefix
+	if idx := strings.Index(refID, "-ref-"); idx >= 0 {
+		return refID[:idx]
+	}
+	if idx := strings.Index(refID, "-0x"); idx >= 0 {
+		return refID[:idx]
+	}
+	// If no pattern matches, return the full ID
+	return refID
 }
 
 // OnEvent implements bubbly.FrameworkHook.
