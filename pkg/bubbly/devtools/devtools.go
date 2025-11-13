@@ -400,6 +400,30 @@ func (dt *DevTools) ToggleVisibility() {
 	dt.visible = !dt.visible
 }
 
+// GetStore returns the DevToolsStore instance.
+//
+// This provides direct access to collected debug data. Used by the MCP server
+// to expose component tree, state, events, and performance data to AI agents.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	dt := devtools.Enable()
+//	store := dt.GetStore()
+//	components := store.GetAllComponents()
+//	fmt.Printf("Tracking %d components\n", len(components))
+//
+// Returns:
+//   - *DevToolsStore: The DevToolsStore instance
+func (dt *DevTools) GetStore() *DevToolsStore {
+	dt.mu.RLock()
+	defer dt.mu.RUnlock()
+	return dt.store
+}
+
 // RenderWithApp renders the application view with dev tools UI if visible.
 //
 // This is the main rendering method that should be called by the wrapper to
