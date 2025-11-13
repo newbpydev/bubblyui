@@ -294,15 +294,15 @@ func TestStartStdioServer_DirectCall_WithMockTransport(t *testing.T) {
 	// We test the method exists and can be called
 	// The actual stdio functionality is tested via server.Connect in other tests
 	// This test verifies the wrapper method compiles and has correct signature
-	
+
 	// Create a very short timeout to test error path
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	cancel() // Cancel immediately
-	
+
 	// StartStdioServer should handle the cancelled context gracefully
 	// It may succeed (if Connect happens before cancel) or fail (if cancelled first)
 	_ = mcpServer.StartStdioServer(ctx)
-	
+
 	// The key is that it doesn't panic and returns properly
 	// Actual functionality is tested via the in-memory transport tests above
 }
@@ -349,7 +349,7 @@ func TestStartStdioServer_CodeCoverage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer devtools.Disable()
-			
+
 			server, err := tt.setupServer()
 			require.NoError(t, err)
 
@@ -451,7 +451,7 @@ func TestStartStdioServer_SessionError(t *testing.T) {
 
 	_, err = client.Connect(ctx, t2, nil)
 	// May or may not connect depending on timing
-	
+
 	// Wait for server to complete with error
 	select {
 	case err := <-serverDone:
@@ -476,7 +476,7 @@ func TestStartStdioServer_AllPaths(t *testing.T) {
 
 		// Create context that will be cancelled
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		// Start server in background
 		done := make(chan error, 1)
 		go func() {

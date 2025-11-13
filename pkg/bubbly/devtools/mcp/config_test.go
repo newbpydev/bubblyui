@@ -89,10 +89,26 @@ func TestMCPConfig_Validate(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "invalid HTTP port - too low",
+			name: "valid HTTP port - zero (random port)",
 			config: &MCPConfig{
 				Transport:            MCPTransportHTTP,
-				HTTPPort:             0,
+				HTTPPort:             0, // Port 0 is valid (OS assigns random port)
+				HTTPHost:             "localhost",
+				WriteEnabled:         false,
+				MaxClients:           5,
+				SubscriptionThrottle: 100 * time.Millisecond,
+				RateLimit:            60,
+				EnableAuth:           false,
+				AuthToken:            "",
+				SanitizeExports:      true,
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid HTTP port - negative",
+			config: &MCPConfig{
+				Transport:            MCPTransportHTTP,
+				HTTPPort:             -1,
 				HTTPHost:             "localhost",
 				WriteEnabled:         false,
 				MaxClients:           5,
@@ -103,7 +119,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				SanitizeExports:      true,
 			},
 			wantError: true,
-			errorMsg:  "HTTP port must be between 1 and 65535",
+			errorMsg:  "HTTP port must be between 0 and 65535",
 		},
 		{
 			name: "invalid HTTP port - too high",
@@ -120,7 +136,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				SanitizeExports:      true,
 			},
 			wantError: true,
-			errorMsg:  "HTTP port must be between 1 and 65535",
+			errorMsg:  "HTTP port must be between 0 and 65535",
 		},
 		{
 			name: "invalid max clients - zero",

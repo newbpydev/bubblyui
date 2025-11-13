@@ -3,6 +3,7 @@ package mcp
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
@@ -63,19 +64,19 @@ func TestNewMCPServer_NilDevTools(t *testing.T) {
 	assert.Contains(t, err.Error(), "devtools cannot be nil", "Error should mention nil devtools")
 }
 
-// TestNewMCPServer_InvalidConfig tests that invalid config returns error
+// TestNewMCPServer_InvalidConfig tests error handling for invalid config
 func TestNewMCPServer_InvalidConfig(t *testing.T) {
 	dt := devtools.Enable()
 	require.NotNil(t, dt, "DevTools should be created")
 
-	// Create invalid config (invalid port)
+	// Create config with invalid port (negative is invalid)
 	cfg := &MCPConfig{
 		Transport:            MCPTransportHTTP,
-		HTTPPort:             0, // Invalid
+		HTTPPort:             -1, // Invalid port (negative)
 		HTTPHost:             "localhost",
 		WriteEnabled:         false,
 		MaxClients:           5,
-		SubscriptionThrottle: 100,
+		SubscriptionThrottle: 100 * time.Millisecond,
 		RateLimit:            60,
 		EnableAuth:           false,
 		AuthToken:            "",
@@ -96,14 +97,14 @@ func TestNewMCPServer_NilStore(t *testing.T) {
 	// Note: This test verifies the defensive nil check exists
 	// In practice, dt.GetStore() should never return nil if dt is valid
 	// But we have the check for safety
-	
+
 	dt := devtools.Enable()
 	require.NotNil(t, dt, "DevTools should be created")
-	
+
 	// Verify store is not nil (normal case)
 	store := dt.GetStore()
 	assert.NotNil(t, store, "Store should not be nil in normal operation")
-	
+
 	// The nil store check in NewMCPServer is defensive code
 	// It's tested implicitly by all successful NewMCPServer calls
 }

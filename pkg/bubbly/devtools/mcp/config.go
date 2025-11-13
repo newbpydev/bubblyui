@@ -186,8 +186,10 @@ func DefaultMCPConfig() *MCPConfig {
 func (c *MCPConfig) Validate() error {
 	// Validate HTTP port if HTTP transport is enabled
 	if c.Transport&MCPTransportHTTP != 0 {
-		if c.HTTPPort < 1 || c.HTTPPort > 65535 {
-			return fmt.Errorf("HTTP port must be between 1 and 65535, got %d", c.HTTPPort)
+		// Port 0 is valid (OS assigns random available port)
+		// Ports 1-65535 are valid user-specified ports
+		if c.HTTPPort < 0 || c.HTTPPort > 65535 {
+			return fmt.Errorf("HTTP port must be between 0 and 65535, got %d", c.HTTPPort)
 		}
 
 		// Validate HTTP host
