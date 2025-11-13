@@ -406,3 +406,155 @@ func TestDevToolsUI_PanelContent(t *testing.T) {
 		})
 	}
 }
+
+// CRITICAL UX: Focus Mode Tests (TDD - these will FAIL initially)
+
+func TestDevToolsUI_FocusMode_DefaultNormalMode(t *testing.T) {
+	// UI should start in normal mode (focusMode = false)
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	assert.False(t, ui.IsFocusMode(), "UI should start in normal mode (not focus mode)")
+}
+
+func TestDevToolsUI_FocusMode_EnterWithSlash(t *testing.T) {
+	// Pressing '/' should enter focus mode
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Initially in normal mode
+	assert.False(t, ui.IsFocusMode())
+
+	// Press '/' to enter focus mode
+	ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+
+	// Should now be in focus mode
+	assert.True(t, ui.IsFocusMode(), "Pressing '/' should enter focus mode")
+}
+
+func TestDevToolsUI_FocusMode_ExitWithEsc(t *testing.T) {
+	// Pressing ESC should exit focus mode
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Enter focus mode
+	ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	assert.True(t, ui.IsFocusMode())
+
+	// Press ESC to exit
+	ui.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	// Should be back in normal mode
+	assert.False(t, ui.IsFocusMode(), "Pressing ESC should exit focus mode")
+}
+
+func TestDevToolsUI_FocusMode_ArrowKeysRoutedToInspectorWhenFocused(t *testing.T) {
+	// When in focus mode, arrow keys should be routed to inspector
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Add a test component tree
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "Header"},
+			{ID: "child2", Name: "Footer"},
+		},
+	}
+	ui.inspector.SetRoot(root)
+
+	// Enter focus mode
+	ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	assert.True(t, ui.IsFocusMode())
+
+	// Initially root is selected (auto-selected by SetRoot)
+	selected := ui.inspector.tree.GetSelected()
+	assert.Equal(t, "root", selected.ID)
+
+	// Press down arrow - should navigate to child1
+	ui.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	selected = ui.inspector.tree.GetSelected()
+	assert.Equal(t, "child1", selected.ID, "Arrow keys should navigate tree in focus mode")
+}
+
+func TestDevToolsUI_FocusMode_ArrowKeysIgnoredInNormalMode(t *testing.T) {
+	// When in normal mode, arrow keys should NOT navigate inspector
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Add a test component tree
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "Header"},
+		},
+	}
+	ui.inspector.SetRoot(root)
+
+	// Should be in normal mode
+	assert.False(t, ui.IsFocusMode())
+
+	// Initially root is selected
+	selected := ui.inspector.tree.GetSelected()
+	assert.Equal(t, "root", selected.ID)
+
+	// Press down arrow in normal mode - should NOT navigate
+	ui.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	// Selection should remain on root (not moved to child)
+	selected = ui.inspector.tree.GetSelected()
+	assert.Equal(t, "root", selected.ID, "Arrow keys should be ignored in normal mode")
+}
+
+func TestDevToolsUI_FocusMode_VisualIndicator(t *testing.T) {
+	// View() should show visual indicator when in focus mode
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+	ui.SetAppContent("Test App")
+
+	// In normal mode - should NOT show focus indicator
+	output := ui.View()
+	assert.NotContains(t, output, "DEVTOOLS FOCUS", "Normal mode should not show focus badge")
+
+	// Enter focus mode
+	ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+
+	// Should now show focus indicator
+	output = ui.View()
+	assert.Contains(t, output, "DEVTOOLS FOCUS", "Focus mode should show visual badge")
+}
+
+func TestDevToolsUI_FocusMode_ThreadSafe(t *testing.T) {
+	// Focus mode operations should be thread-safe
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	var wg sync.WaitGroup
+	iterations := 50
+
+	// Concurrently toggle focus mode
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			ui.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			ui.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		}
+	}()
+
+	wg.Wait()
+
+	// Should complete without panics
+	// Final state doesn't matter, just that it's valid
+	_ = ui.IsFocusMode()
+}

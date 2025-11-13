@@ -138,6 +138,21 @@ type FrameworkHook interface {
 	//   - parentID: The parent component's unique ID
 	//   - childID: The child component's unique ID
 	OnChildRemoved(parentID, childID string)
+
+	// OnRefExposed is called when a component exposes a Ref via ctx.Expose().
+	//
+	// This hook is CRITICAL for DevTools to track ref ownership - which refs
+	// belong to which components. Without this, DevTools cannot accurately
+	// display component state or detect reactive dependencies.
+	//
+	// This is called AFTER the ref is stored in the component's state map,
+	// ensuring the ref is accessible via ctx.Get().
+	//
+	// Parameters:
+	//   - componentID: The component that owns the ref
+	//   - refID: The unique ref identifier (format: "ref-0xHEX")
+	//   - refName: The name given to the ref (e.g., "count", "message")
+	OnRefExposed(componentID, refID, refName string)
 }
 
 // hookRegistry manages the registered framework hook.
@@ -345,5 +360,17 @@ func notifyHookChildRemoved(parentID, childID string) {
 
 	if hook != nil {
 		hook.OnChildRemoved(parentID, childID)
+	}
+}
+
+// notifyHookRefExposed calls the registered hook's OnRefExposed method.
+// This is an internal helper used by framework integration points.
+func notifyHookRefExposed(componentID, refID, refName string) {
+	globalHookRegistry.mu.RLock()
+	hook := globalHookRegistry.hook
+	globalHookRegistry.mu.RUnlock()
+
+	if hook != nil {
+		hook.OnRefExposed(componentID, refID, refName)
 	}
 }

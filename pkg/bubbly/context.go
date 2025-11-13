@@ -255,11 +255,15 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 	return cleanup
 }
 
-// Expose adds a value to the component's state map, making it accessible
-// in the template function and other parts of the component.
+// Expose stores a value in the component's state map.
+// This makes it accessible in the template via Get().
 //
 // This is the primary way to share state between the setup function
 // and the template function.
+//
+// CRITICAL FOR DEVTOOLS: When exposing a Ref, this notifies framework hooks
+// to register ref ownership, enabling DevTools to accurately track which refs
+// belong to which components.
 //
 // This method is thread-safe and can be called concurrently.
 //
@@ -270,12 +274,35 @@ func (ctx *Context) Watch(ref *Ref[interface{}], callback WatchCallback[interfac
 //	// Later in template: count := ctx.Get("count").(*Ref[int])
 func (ctx *Context) Expose(key string, value interface{}) {
 	ctx.component.stateMu.Lock()
-	defer ctx.component.stateMu.Unlock()
-
 	if ctx.component.state == nil {
 		ctx.component.state = make(map[string]interface{})
 	}
 	ctx.component.state[key] = value
+	ctx.component.stateMu.Unlock()
+
+	// Check if value is a Ref and notify hooks for DevTools tracking
+	// We use type assertion to detect any Ref[T] type
+	// The refID is generated using memory address (same as Set() does)
+	switch v := value.(type) {
+	case *Ref[int]:
+		refID := fmt.Sprintf("ref-%p", v)
+		notifyHookRefExposed(ctx.component.id, refID, key)
+	case *Ref[string]:
+		refID := fmt.Sprintf("ref-%p", v)
+		notifyHookRefExposed(ctx.component.id, refID, key)
+	case *Ref[bool]:
+		refID := fmt.Sprintf("ref-%p", v)
+		notifyHookRefExposed(ctx.component.id, refID, key)
+	case *Ref[float64]:
+		refID := fmt.Sprintf("ref-%p", v)
+		notifyHookRefExposed(ctx.component.id, refID, key)
+	case *Ref[interface{}]:
+		refID := fmt.Sprintf("ref-%p", v)
+		notifyHookRefExposed(ctx.component.id, refID, key)
+	// Note: This covers the most common types. For other Ref[T] types,
+	// they won't be tracked by DevTools ref ownership (but will still work).
+	// A future improvement could use reflection to detect all Ref types.
+	}
 }
 
 // Get retrieves a value from the component's state map.
@@ -769,17 +796,14 @@ func (ctx *Context) InTemplate() bool {
 // ExposeComponent exposes a component to the component's state map with automatic initialization.
 // This is a convenience method that combines initialization checking and state exposure.
 //
-// If the component is not already initialized (checked via IsInitialized()), this method
-// will call Init() on the component before exposing it. This eliminates the need for
-// manual initialization in component setup functions.
+// This simplifies child component setup by combining Init(), AddChild(), and Expose() into one call.
+// If the component is already initialized, Init() is not called again.
 //
-// The method is idempotent - if the component is already initialized, it will not be
-// re-initialized. This makes it safe to call multiple times or on pre-initialized components.
+// CRITICAL FOR DEVTOOLS: This establishes parent-child relationships by calling AddChild(),
+// which notifies framework hooks to build the component tree for Inspector visualization.
 //
-// Use cases:
-//   - Exposing child components in parent setup functions
-//   - Building component trees with automatic initialization
-//   - Simplifying component composition patterns
+// If Init() returns a command and the parent component has a command queue,
+// the command is automatically enqueued for execution.
 //
 // Example (before - manual initialization):
 //
@@ -801,7 +825,7 @@ func (ctx *Context) InTemplate() bool {
 //	    header, _ := CreateHeader(props)
 //	    sidebar, _ := CreateSidebar(props)
 //
-//	    // Auto-initializes if needed
+//	    // Auto-initializes if needed AND establishes parent-child relationship
 //	    ctx.ExposeComponent("header", header)
 //	    ctx.ExposeComponent("sidebar", sidebar)
 //	})
@@ -811,7 +835,7 @@ func (ctx *Context) InTemplate() bool {
 //   - comp: The component to initialize and expose
 //
 // Returns:
-//   - error: Returns error if comp is nil, otherwise nil
+//   - error: Returns error if comp is nil or if AddChild fails, otherwise nil
 func (ctx *Context) ExposeComponent(name string, comp Component) error {
 	if comp == nil {
 		return fmt.Errorf("cannot expose nil component")
@@ -825,6 +849,12 @@ func (ctx *Context) ExposeComponent(name string, comp Component) error {
 		if cmd != nil && ctx.component.commandQueue != nil {
 			ctx.component.commandQueue.Enqueue(cmd)
 		}
+	}
+
+	// CRITICAL FIX 2: Establish parent-child relationship
+	// This enables DevTools to build accurate component tree
+	if err := ctx.component.AddChild(comp); err != nil {
+		return fmt.Errorf("failed to add child component: %w", err)
 	}
 
 	// Expose to context using existing Expose method

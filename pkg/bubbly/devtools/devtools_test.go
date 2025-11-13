@@ -4,6 +4,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -190,5 +191,9 @@ func resetSingleton() {
 	globalDevToolsMu.Lock()
 	defer globalDevToolsMu.Unlock()
 	globalDevTools = nil
+	// CRITICAL FIX: Must reset sync.Once so hook gets registered in next Enable()
 	globalDevToolsOnce = sync.Once{}
+	
+	// Also unregister the hook from bubbly package
+	bubbly.UnregisterHook()
 }

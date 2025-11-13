@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/newbpydev/bubblyui/cmd/examples/09-devtools/01-basic-enablement/components"
 	"github.com/newbpydev/bubblyui/cmd/examples/09-devtools/01-basic-enablement/composables"
@@ -58,12 +60,24 @@ func CreateApp() (bubbly.Component, error) {
 			counter.Reset()
 		})
 
-		// Expose composable for dev tools inspection
-		ctx.Expose("counter", counter)
+		// Expose composable refs individually for DevTools ref tracking
+		// Note: Exposing the struct doesn't trigger ref ownership hooks,
+		// so we expose each ref separately to enable accurate tracking
+		ctx.Expose("count", counter.Count)
+		ctx.Expose("isEven", counter.IsEven)
+		ctx.Expose("increment", counter.Increment)
+		ctx.Expose("decrement", counter.Decrement)
+		ctx.Expose("reset", counter.Reset)
 
-		// Expose child components (auto-initializes them)
-		ctx.ExposeComponent("display", display)
-		ctx.ExposeComponent("controls", controls)
+		// Expose child components (auto-initializes them AND establishes parent-child relationship)
+		if err := ctx.ExposeComponent("display", display); err != nil {
+			ctx.Expose("error", fmt.Sprintf("Failed to expose display: %v", err))
+			return
+		}
+		if err := ctx.ExposeComponent("controls", controls); err != nil {
+			ctx.Expose("error", fmt.Sprintf("Failed to expose controls: %v", err))
+			return
+		}
 
 		// Lifecycle hooks
 		ctx.OnMounted(func() {

@@ -33,8 +33,6 @@
 package devtools
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -164,8 +162,16 @@ func Enable() *DevTools {
 		// Register F12/ctrl+t global key interceptor for zero-config toggle
 		// This allows F12 or ctrl+t to work without any user code changes
 		// ctrl+t is provided as an alternative for Linux/terminals where F12 is intercepted
+		//
+		// CRITICAL: When DevTools is in focus mode, ALL keys are intercepted (except ctrl+c)
+		// to prevent them from reaching the app. This is how focus mode works.
 		bubbly.SetGlobalKeyInterceptor(func(key tea.KeyMsg) bool {
-			// Intercept F12 or ctrl+t
+			// Always let ctrl+c pass through for quit functionality
+			if key.String() == "ctrl+c" {
+				return false
+			}
+
+			// Intercept F12 or ctrl+t to toggle visibility
 			isToggleKey := key.Type == tea.KeyF12 || key.String() == "ctrl+t"
 			
 			if isToggleKey {
@@ -175,7 +181,15 @@ func Enable() *DevTools {
 					return true // Key handled, don't forward to component
 				}
 			}
-			return false // Not handled, forward to component
+
+			// CRITICAL FIX: If DevTools is in focus mode, intercept ALL keys
+			// This prevents keys from reaching the app while DevTools has focus
+			// The DevTools UI receives keys via globalUpdateHook and handles them
+			if globalDevTools != nil && globalDevTools.ui != nil && globalDevTools.ui.IsFocusMode() {
+				return true // Consume key, don't forward to app
+			}
+
+			return false // Not in focus mode, forward to component
 		})
 
 		// Register global view renderer for zero-config UI integration
@@ -583,10 +597,10 @@ func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interfa
 		return
 	}
 	
-	// Record state change in history
+	// Record state change in history (extractRefName is in store.go)
 	change := StateChange{
 		RefID:     id,
-		RefName:   id, // TODO: Get actual ref name from context
+		RefName:   id, // Name extraction happens in store layer
 		OldValue:  oldValue,
 		NewValue:  newValue,
 		Timestamp: time.Now(),
@@ -594,65 +608,14 @@ func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interfa
 	}
 	h.store.stateHistory.Record(change)
 	
-	// Update component snapshots that reference this ref
-	// This ensures Inspector shows live data
-	h.updateComponentStatesWithRef(id, newValue)
-}
-
-// updateComponentStatesWithRef updates all component snapshots to reflect ref changes
-func (h *frameworkHookAdapter) updateComponentStatesWithRef(refID string, newValue interface{}) {
-	// Get all components and update their state if they reference this ref
-	// For now, we'll update all components' timestamps to trigger UI refresh
-	// In a real implementation, we'd track which refs belong to which components
-	components := h.store.GetAllComponents()
-	for _, comp := range components {
-		// Update component state map with new ref value
-		if comp.State == nil {
-			comp.State = make(map[string]interface{})
-		}
-		comp.State[refID] = newValue
-		
-		// Update Refs array for detail panel display
-		// Check if this ref already exists
-		refExists := false
-		for i, ref := range comp.Refs {
-			if ref.ID == refID {
-				// Update existing ref
-				comp.Refs[i].Value = newValue
-				refExists = true
-				break
-			}
-		}
-		
-		// Add new ref if it doesn't exist
-		if !refExists {
-			// Extract simple name from refID (e.g., "ref-0x123" -> "ref")
-			// For better UX, we could improve this later
-			refName := extractRefName(refID)
-			comp.Refs = append(comp.Refs, &RefSnapshot{
-				ID:    refID,
-				Name:  refName,
-				Value: newValue,
-				Type:  fmt.Sprintf("%T", newValue),
-			})
-		}
-		
-		comp.Timestamp = time.Now() // Mark as updated
+	// Update ref value for its owning component ONLY
+	// This is the PRODUCTION approach - track exact ownership
+	ownerID, updated := h.store.UpdateRefValue(id, newValue)
+	if !updated {
+		// Ref has no registered owner yet - this can happen if ref was created
+		// before DevTools enabled. We'll catch it on next mount.
+		_ = ownerID
 	}
-}
-
-// extractRefName extracts a simple name from a ref ID
-// Example: "ref-0x123abc" -> "ref", "count-ref-0x456" -> "count"
-func extractRefName(refID string) string {
-	// Split on "-ref-" or "-0x" to get the prefix
-	if idx := strings.Index(refID, "-ref-"); idx >= 0 {
-		return refID[:idx]
-	}
-	if idx := strings.Index(refID, "-0x"); idx >= 0 {
-		return refID[:idx]
-	}
-	// If no pattern matches, return the full ID
-	return refID
 }
 
 // OnEvent implements bubbly.FrameworkHook.
@@ -702,10 +665,29 @@ func (h *frameworkHookAdapter) OnEffectRun(effectID string) {
 
 // OnChildAdded implements bubbly.FrameworkHook.
 func (h *frameworkHookAdapter) OnChildAdded(parentID, childID string) {
-	// Track component hierarchy changes
+	if h.store == nil {
+		return
+	}
+	// Build component hierarchy for Inspector tree view
+	h.store.AddComponentChild(parentID, childID)
 }
 
 // OnChildRemoved implements bubbly.FrameworkHook.
 func (h *frameworkHookAdapter) OnChildRemoved(parentID, childID string) {
-	// Track component hierarchy changes
+	if h.store == nil {
+		return
+	}
+	// Build component hierarchy for Inspector tree view
+	h.store.RemoveComponentChild(parentID, childID)
+}
+
+// OnRefExposed implements bubbly.FrameworkHook.
+// CRITICAL: This is how DevTools learns which refs belong to which components!
+func (h *frameworkHookAdapter) OnRefExposed(componentID, refID, refName string) {
+	if h.store == nil {
+		return
+	}
+	// Register that this component owns this ref
+	// This enables accurate state display in Inspector and State tabs
+	h.store.RegisterRefOwner(componentID, refID)
 }

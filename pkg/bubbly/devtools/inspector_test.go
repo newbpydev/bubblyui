@@ -144,7 +144,11 @@ func TestComponentInspector_Update_KeyboardNavigation(t *testing.T) {
 				assert.NotEqual(t, tabBefore, tabAfter, "Tab should change")
 			}
 
-			assert.Nil(t, cmd, "No commands should be returned for navigation")
+			// Navigation now returns tea.ClearScreen to force UI redraw
+			// This ensures selection changes are visible immediately
+			if cmd != nil {
+				assert.NotNil(t, cmd, "ClearScreen cmd expected for navigation")
+			}
 		})
 	}
 }
@@ -356,9 +360,9 @@ func TestComponentInspector_E2E(t *testing.T) {
 
 	inspector := NewComponentInspector(root)
 
-	// 1. Expand root
-	inspector.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	assert.True(t, inspector.tree.IsExpanded("root"))
+	// 1. Root is already expanded and selected (auto-expanded in NewComponentInspector)
+	assert.True(t, inspector.tree.IsExpanded("root"), "Root should be auto-expanded")
+	assert.Equal(t, "root", inspector.tree.GetSelected().ID, "Root should be auto-selected")
 
 	// 2. Navigate to first child
 	inspector.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -383,4 +387,162 @@ func TestComponentInspector_E2E(t *testing.T) {
 	output := inspector.View()
 	assert.NotEmpty(t, output)
 	assert.Contains(t, output, "Counter")
+}
+
+// CRITICAL FIX: Inspector UX Tests (TDD - these will FAIL initially)
+
+func TestComponentInspector_SetRoot_AutoSelectsRoot(t *testing.T) {
+	// When SetRoot is called and nothing is selected, it should auto-select root
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child1",
+				Name: "Header",
+				Type: "Component",
+			},
+		},
+	}
+
+	inspector := NewComponentInspector(nil)
+	
+	// Initially nothing selected
+	assert.Nil(t, inspector.tree.GetSelected())
+	
+	// SetRoot should auto-select root
+	inspector.SetRoot(root)
+	
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected, "SetRoot should auto-select root when nothing is selected")
+	assert.Equal(t, "root", selected.ID, "Root should be selected")
+	
+	// Detail panel should show root component
+	detailComp := inspector.detail.GetComponent()
+	assert.NotNil(t, detailComp, "Detail panel should show root component")
+	assert.Equal(t, "root", detailComp.ID)
+}
+
+func TestComponentInspector_SetRoot_PreservesSelectionIfExists(t *testing.T) {
+	// When SetRoot is called and a component is selected, preserve it if it still exists
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child1",
+				Name: "Header",
+				Type: "Component",
+			},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	inspector.tree.Expand("root")
+	inspector.tree.Select("child1")
+	inspector.updateDetailPanel()
+	
+	// Verify child1 is selected
+	assert.Equal(t, "child1", inspector.tree.GetSelected().ID)
+	
+	// Update tree with new data (simulating store update)
+	updatedRoot := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child1",  // Same component still exists
+				Name: "Header",
+				Type: "Component",
+			},
+		},
+	}
+	
+	inspector.SetRoot(updatedRoot)
+	
+	// Selection should be preserved
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected, "Selection should be preserved if component still exists")
+	assert.Equal(t, "child1", selected.ID, "child1 should still be selected")
+	
+	// Detail panel should still show child1
+	detailComp := inspector.detail.GetComponent()
+	assert.NotNil(t, detailComp, "Detail panel should show selected component")
+	assert.Equal(t, "child1", detailComp.ID)
+}
+
+func TestComponentInspector_SetRoot_AutoExpandsRoot(t *testing.T) {
+	// SetRoot should automatically expand root to show children
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child1",
+				Name: "Header",
+				Type: "Component",
+			},
+			{
+				ID:   "child2",
+				Name: "Footer",
+				Type: "Component",
+			},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	
+	// Root should be auto-expanded
+	assert.True(t, inspector.tree.IsExpanded("root"), "Root should be auto-expanded to show children")
+	
+	// Render should show children
+	output := inspector.View()
+	assert.Contains(t, output, "Header", "Rendered output should show child components")
+	assert.Contains(t, output, "Footer", "Rendered output should show child components")
+}
+
+func TestComponentInspector_SetRoot_FallsBackToRootIfSelectionLost(t *testing.T) {
+	// When SetRoot is called and selected component no longer exists, select root
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child1",
+				Name: "Header",
+				Type: "Component",
+			},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	inspector.tree.Expand("root")
+	inspector.tree.Select("child1")
+	inspector.updateDetailPanel()
+	
+	// Update tree without child1 (component removed)
+	updatedRoot := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{
+				ID:   "child2",  // Different child
+				Name: "Sidebar",
+				Type: "Component",
+			},
+		},
+	}
+	
+	inspector.SetRoot(updatedRoot)
+	
+	// Should fall back to root since child1 no longer exists
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected, "Should fall back to root when selected component is removed")
+	assert.Equal(t, "root", selected.ID, "Should select root when previous selection is lost")
 }

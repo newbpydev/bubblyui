@@ -536,10 +536,14 @@ func (c *componentImpl) Init() tea.Cmd {
 		ctx := &Context{component: c}
 		c.setup(ctx)
 		c.mounted = true
-
-		// Notify framework hooks that component has mounted
-		notifyHookComponentMount(c.id, c.name)
 	}
+	
+	// CRITICAL FIX: Notify hook for ALL components, not just those with setup
+	// This ensures DevTools tracks all components, even simple template-only ones
+	if !c.mounted {
+		c.mounted = true
+	}
+	notifyHookComponentMount(c.id, c.name)
 
 	// Initialize child components
 	if len(c.children) > 0 {

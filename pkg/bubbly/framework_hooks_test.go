@@ -22,6 +22,7 @@ type mockHook struct {
 	effectCalls       atomic.Int32
 	childAddedCalls   atomic.Int32
 	childRemovedCalls atomic.Int32
+	refExposedCalls   atomic.Int32
 	lastMountID       string
 	lastMountName     string
 	lastUpdateID      string
@@ -41,10 +42,13 @@ type mockHook struct {
 	lastWatchID       string
 	lastWatchNew      interface{}
 	lastWatchOld      interface{}
-	lastEffectID      string
-	lastParentID      string
-	lastChildID       string
-	mu                sync.RWMutex
+	lastEffectID         string
+	lastParentID         string
+	lastChildID          string
+	lastRefExposedCompID string
+	lastRefExposedRefID  string
+	lastRefExposedName   string
+	mu                   sync.RWMutex
 }
 
 func (m *mockHook) OnComponentMount(id, name string) {
@@ -134,6 +138,15 @@ func (m *mockHook) OnChildRemoved(parentID, childID string) {
 	m.mu.Lock()
 	m.lastParentID = parentID
 	m.lastChildID = childID
+	m.mu.Unlock()
+}
+
+func (m *mockHook) OnRefExposed(componentID, refID, refName string) {
+	m.refExposedCalls.Add(1)
+	m.mu.Lock()
+	m.lastRefExposedCompID = componentID
+	m.lastRefExposedRefID = refID
+	m.lastRefExposedName = refName
 	m.mu.Unlock()
 }
 
@@ -804,4 +817,213 @@ func TestNotifyHookChildMutations_ThreadSafe(t *testing.T) {
 	// Verify all calls were made
 	assert.Equal(t, int32(iterations), hook.childAddedCalls.Load())
 	assert.Equal(t, int32(iterations), hook.childRemovedCalls.Load())
+}
+
+// CRITICAL FIX 1: Tests for OnRefExposed hook (TDD - these will FAIL initially)
+
+func TestContext_Expose_NotifiesHookForRef(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	tests := []struct {
+		name     string
+		refName  string
+		refValue interface{}
+	}{
+		{
+			name:     "expose int ref",
+			refName:  "count",
+			refValue: NewRef(42),
+		},
+		{
+			name:     "expose string ref",
+			refName:  "message",
+			refValue: NewRef("hello"),
+		},
+		{
+			name:     "expose bool ref",
+			refName:  "isActive",
+			refValue: NewRef(true),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Register mock hook
+			hook := &mockHook{}
+			RegisterHook(hook)
+			defer UnregisterHook()
+
+			// Create component with context
+			component := newComponentImpl("TestComponent")
+			ctx := &Context{component: component}
+
+			// Expose the ref - this should call OnRefExposed hook
+			ctx.Expose(tt.refName, tt.refValue)
+
+			// Verify hook was called
+			assert.Equal(t, int32(1), hook.refExposedCalls.Load(),
+				"OnRefExposed should be called when Ref is exposed")
+
+			hook.mu.RLock()
+			assert.Equal(t, component.id, hook.lastRefExposedCompID,
+				"Component ID should match")
+			assert.Equal(t, tt.refName, hook.lastRefExposedName,
+				"Ref name should match")
+			assert.NotEmpty(t, hook.lastRefExposedRefID,
+				"Ref ID should not be empty")
+			hook.mu.RUnlock()
+		})
+	}
+}
+
+func TestContext_Expose_DoesNotNotifyForNonRef(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	tests := []struct {
+		name     string
+		key      string
+		value    interface{}
+	}{
+		{
+			name:  "plain int",
+			key:   "count",
+			value: 42,
+		},
+		{
+			name:  "plain string",
+			key:   "message",
+			value: "hello",
+		},
+		{
+			name:  "plain struct",
+			key:   "data",
+			value: struct{ X int }{X: 10},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Register mock hook
+			hook := &mockHook{}
+			RegisterHook(hook)
+			defer UnregisterHook()
+
+			// Create component with context
+			component := newComponentImpl("TestComponent")
+			ctx := &Context{component: component}
+
+			// Expose non-ref value - should NOT call OnRefExposed
+			ctx.Expose(tt.key, tt.value)
+
+			// Verify hook was NOT called
+			assert.Equal(t, int32(0), hook.refExposedCalls.Load(),
+				"OnRefExposed should NOT be called for non-Ref values")
+		})
+	}
+}
+
+func TestNotifyHookRefExposed(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Call notifyHookRefExposed directly
+	notifyHookRefExposed("comp-123", "ref-0xABC", "myRef")
+
+	// Verify hook was called
+	assert.Equal(t, int32(1), hook.refExposedCalls.Load())
+	hook.mu.RLock()
+	assert.Equal(t, "comp-123", hook.lastRefExposedCompID)
+	assert.Equal(t, "ref-0xABC", hook.lastRefExposedRefID)
+	assert.Equal(t, "myRef", hook.lastRefExposedName)
+	hook.mu.RUnlock()
+}
+
+func TestNotifyHookRefExposed_NoHook(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Should not panic when no hook registered
+	notifyHookRefExposed("comp-1", "ref-1", "test")
+}
+
+func TestNotifyHookRefExposed_ThreadSafe(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Concurrent ref exposed notifications
+	var wg sync.WaitGroup
+	iterations := 100
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			notifyHookRefExposed("comp", "ref", "test")
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify all calls were made
+	assert.Equal(t, int32(iterations), hook.refExposedCalls.Load())
+}
+
+// CRITICAL FIX 2: Tests for ExposeComponent calling OnChildAdded hook
+
+func TestContext_ExposeComponent_NotifiesHookChildAdded(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	hook := &mockHook{}
+	RegisterHook(hook)
+
+	// Create parent and child components
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+	ctx := &Context{component: parent}
+
+	// ExposeComponent should call AddChild which notifies hook
+	err := ctx.ExposeComponent("myChild", child)
+	assert.NoError(t, err)
+
+	// Verify OnChildAdded hook was called
+	assert.Equal(t, int32(1), hook.childAddedCalls.Load(),
+		"OnChildAdded should be called when component is exposed")
+
+	hook.mu.RLock()
+	assert.Equal(t, parent.id, hook.lastParentID,
+		"Parent ID should match")
+	assert.Equal(t, child.id, hook.lastChildID,
+		"Child ID should match")
+	hook.mu.RUnlock()
+}
+
+func TestContext_ExposeComponent_EstablishesParentChildRelationship(t *testing.T) {
+	// Clean up
+	defer UnregisterHook()
+
+	// Create parent and child components
+	parent := newComponentImpl("Parent")
+	child := newComponentImpl("Child")
+	ctx := &Context{component: parent}
+
+	// Initially, parent should have no children
+	assert.Len(t, parent.Children(), 0)
+
+	// ExposeComponent should add child to parent
+	err := ctx.ExposeComponent("myChild", child)
+	assert.NoError(t, err)
+
+	// Verify parent-child relationship
+	children := parent.Children()
+	assert.Len(t, children, 1, "Parent should have 1 child")
+	assert.Equal(t, child.ID(), children[0].ID(), "Child should be in parent's children")
 }

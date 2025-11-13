@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // DevToolsUI is the main UI component that integrates all dev tools panels.
@@ -77,6 +78,11 @@ type DevToolsUI struct {
 	// manualLayoutOverride indicates if user manually set layout mode
 	// When true, automatic responsive layout adjustments are disabled
 	manualLayoutOverride bool
+
+	// focusMode indicates if DevTools has keyboard focus
+	// When true, arrow keys and other inputs are routed to DevTools
+	// When false, inputs go to the application
+	focusMode bool
 }
 
 // NewDevToolsUI creates a new DevTools UI with all panels initialized.
@@ -184,6 +190,33 @@ func (ui *DevToolsUI) setupKeyboardShortcuts() {
 	})
 }
 
+// IsFocusMode returns whether DevTools is in focus mode.
+//
+// When in focus mode, keyboard input is routed to DevTools for navigation.
+// When not in focus mode, keyboard input goes to the application.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+func (ui *DevToolsUI) IsFocusMode() bool {
+	ui.mu.RLock()
+	defer ui.mu.RUnlock()
+	return ui.focusMode
+}
+
+// SetFocusMode sets the focus mode state.
+//
+// This is useful for programmatically entering/exiting focus mode.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+func (ui *DevToolsUI) SetFocusMode(enabled bool) {
+	ui.mu.Lock()
+	defer ui.mu.Unlock()
+	ui.focusMode = enabled
+}
+
 // Update processes Bubbletea messages and updates the UI state.
 //
 // It routes keyboard messages to the keyboard handler first for global shortcuts,
@@ -210,23 +243,53 @@ func (ui *DevToolsUI) setupKeyboardShortcuts() {
 func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Try keyboard handler first for global shortcuts
+		// Handle focus mode toggle keys FIRST (before any other processing)
+		switch msg.Type {
+		case tea.KeyRunes:
+			// '/' enters focus mode
+			if string(msg.Runes) == "/" {
+				ui.mu.Lock()
+				ui.focusMode = true
+				ui.mu.Unlock()
+				return ui, nil
+			}
+		case tea.KeyEsc:
+			// ESC exits focus mode
+			ui.mu.Lock()
+			wasFocused := ui.focusMode
+			ui.focusMode = false
+			ui.mu.Unlock()
+			
+			// If we were in focus mode, ESC consumed (exit focus only)
+			// If we weren't in focus mode, let it pass through
+			if wasFocused {
+				return ui, nil
+			}
+		}
+
+		// Try keyboard handler for global shortcuts (Tab, Shift+Tab)
 		cmd := ui.keyboard.Handle(msg)
 		if cmd != nil {
 			return ui, cmd
 		}
 
-		// Route to active panel's Update() if it has one
+		// Route to active panel's Update() ONLY if in focus mode
 		ui.mu.RLock()
 		activePanel := ui.activePanel
+		inFocusMode := ui.focusMode
 		ui.mu.RUnlock()
+
+		// Only route keyboard input to panels when in focus mode
+		if !inFocusMode {
+			return ui, nil
+		}
 
 		switch activePanel {
 		case 0: // Inspector
 			ui.mu.Lock()
-			ui.inspector.Update(msg)
+			cmd := ui.inspector.Update(msg)  // CRITICAL: Capture return value!
 			ui.mu.Unlock()
-			return ui, nil
+			return ui, cmd  // Return cmd so updates trigger redraws
 		case 1: // State viewer doesn't have Update()
 			return ui, nil
 		case 2: // Event tracker doesn't have Update()
@@ -296,7 +359,19 @@ func (ui *DevToolsUI) View() string {
 	ui.updateInspectorFromStore()
 
 	// Render tabs + panel content
-	toolsContent := ui.tabs.Render()
+	tabsContent := ui.tabs.Render()
+
+	// Add focus mode indicator if in focus mode
+	var toolsContent string
+	if ui.focusMode {
+		// Show focus mode badge with keyboard shortcuts
+		focusBadge := ui.renderFocusBadge()
+		toolsContent = focusBadge + "\n" + tabsContent
+	} else {
+		// Show normal mode help text
+		helpText := ui.renderNormalModeHelp()
+		toolsContent = helpText + "\n" + tabsContent
+	}
 
 	// Combine app content and tools content using layout manager
 	return ui.layout.Render(ui.appContent, toolsContent)
@@ -305,16 +380,44 @@ func (ui *DevToolsUI) View() string {
 // updateInspectorFromStore updates the inspector with component data from the store.
 // Must be called with read lock held.
 func (ui *DevToolsUI) updateInspectorFromStore() {
-	// Get all components from store
-	components := ui.store.GetAllComponents()
+	// Get root components (those without parents) from store
+	// The store properly tracks component hierarchy via AddComponentChild
+	roots := ui.store.GetRootComponents()
 	
-	// Build root component tree (find root components - those without parents)
-	// For now, just use the first component as root or create a virtual root
-	if len(components) > 0 {
-		// Simple approach: use first component as root
-		// TODO: Build proper hierarchy based on parent-child relationships
-		ui.inspector.SetRoot(components[0])
+	if len(roots) > 0 {
+		// Use first root as display root
+		// Root components have their Children field populated by the store
+		ui.inspector.SetRoot(roots[0])
 	}
+}
+
+// renderFocusBadge renders the focus mode indicator badge.
+// Must be called with read lock held.
+func (ui *DevToolsUI) renderFocusBadge() string {
+	badge := "🔧 DEVTOOLS FOCUS MODE  " +
+		"↑/↓: Navigate • Enter: Expand • →/←: Tabs • ESC: Exit"
+	
+	// Style with green background to indicate active focus
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("0")).    // Black text
+		Background(lipgloss.Color("35")).   // Green background
+		Bold(true).
+		Padding(0, 1)
+	
+	return style.Render(badge)
+}
+
+// renderNormalModeHelp renders help text for normal mode.
+// Must be called with read lock held.
+func (ui *DevToolsUI) renderNormalModeHelp() string {
+	helpText := "Press '/' to enter DevTools focus mode • Tab: Switch Tabs • F12: Toggle"
+	
+	// Style with subtle grey
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).  // Grey text
+		Italic(true)
+	
+	return style.Render(helpText)
 }
 
 // getActivePanelContent returns the content of the currently active panel.

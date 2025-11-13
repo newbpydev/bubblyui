@@ -50,13 +50,16 @@ type ComponentInspector struct {
 //
 // The root component can be nil, in which case the inspector will display
 // an empty state until a root is set via SetRoot.
+//
+// CRITICAL UX: Root is auto-selected and auto-expanded for better default experience.
 func NewComponentInspector(root *ComponentSnapshot) *ComponentInspector {
 	// Collect all components for search
 	components := collectAllComponents(root)
 
-	// Create tree view and select root by default
+	// Create tree view and select + expand root by default
 	tree := NewTreeView(root)
 	if root != nil {
+		tree.Expand(root.ID)  // Auto-expand to show children
 		tree.Select(root.ID)
 	}
 
@@ -110,13 +113,13 @@ func (ci *ComponentInspector) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
 		// Select next component in tree
 		ci.tree.SelectNext()
 		ci.updateDetailPanel()
-		return nil
+		return tea.ClearScreen  // Force redraw to show selection change
 
 	case tea.KeyUp:
 		// Select previous component in tree
 		ci.tree.SelectPrevious()
 		ci.updateDetailPanel()
-		return nil
+		return tea.ClearScreen  // Force redraw to show selection change
 
 	case tea.KeyEnter:
 		// Toggle expansion of selected node
@@ -129,17 +132,27 @@ func (ci *ComponentInspector) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
 			ci.tree.Toggle(ci.tree.GetRoot().ID)
 			ci.updateDetailPanel()
 		}
-		return nil
+		return tea.ClearScreen  // Force redraw to show expansion change
+
+	case tea.KeyRight:
+		// Next detail panel tab (more intuitive than Tab)
+		ci.detail.NextTab()
+		return tea.ClearScreen
+
+	case tea.KeyLeft:
+		// Previous detail panel tab
+		ci.detail.PreviousTab()
+		return tea.ClearScreen
 
 	case tea.KeyTab:
 		// Next detail panel tab
 		ci.detail.NextTab()
-		return nil
+		return tea.ClearScreen
 
 	case tea.KeyShiftTab:
 		// Previous detail panel tab
 		ci.detail.PreviousTab()
-		return nil
+		return tea.ClearScreen
 	}
 
 	return nil
@@ -263,19 +276,64 @@ func (ci *ComponentInspector) renderSearchMode() string {
 //
 // This method should be called when the component tree changes to keep
 // the inspector in sync with the application state.
+//
+// CRITICAL UX BEHAVIOR:
+// 1. Preserves expansion state (which nodes are expanded/collapsed)
+// 2. If a component is currently selected, tries to preserve the selection
+// 3. If selection cannot be preserved (component removed), selects root
+// 4. If nothing was selected, auto-selects root
+// 5. Auto-expands root on first load (better default UX)
 func (ci *ComponentInspector) SetRoot(root *ComponentSnapshot) {
 	ci.mu.Lock()
 	defer ci.mu.Unlock()
 
-	// Update tree view
+	// Remember current selection ID (if any)
+	var previousSelectionID string
+	if ci.tree != nil && ci.tree.GetSelected() != nil {
+		previousSelectionID = ci.tree.GetSelected().ID
+	}
+
+	// Remember current expansion state (CRITICAL FIX: preserve across rebuilds)
+	var previousExpanded map[string]bool
+	if ci.tree != nil {
+		previousExpanded = ci.tree.GetExpandedIDs()
+	}
+
+	// Update tree view (creates new tree with empty expansion map)
 	ci.tree = NewTreeView(root)
+
+	// Restore expansion state if we had one
+	if previousExpanded != nil && len(previousExpanded) > 0 {
+		ci.tree.SetExpandedIDs(previousExpanded)
+	} else if root != nil {
+		// First time or no previous state: auto-expand root
+		ci.tree.Expand(root.ID)
+	}
+
+	// Try to preserve previous selection
+	selectionRestored := false
+	if previousSelectionID != "" && root != nil {
+		// Try to find the previously selected component in new tree
+		ci.tree.Select(previousSelectionID)
+		if ci.tree.GetSelected() != nil {
+			// Selection restored successfully
+			selectionRestored = true
+			ci.updateDetailPanel()
+		}
+	}
+
+	// If selection not restored and root exists, auto-select root
+	if !selectionRestored && root != nil {
+		ci.tree.Select(root.ID)
+		ci.updateDetailPanel()
+	} else if !selectionRestored {
+		// No root, clear detail panel
+		ci.detail.SetComponent(nil)
+	}
 
 	// Update search widget with new components
 	components := collectAllComponents(root)
 	ci.search.SetComponents(components)
-
-	// Clear detail panel if current selection is no longer valid
-	ci.detail.SetComponent(nil)
 }
 
 // ApplyFilter applies the current filter to the search results.

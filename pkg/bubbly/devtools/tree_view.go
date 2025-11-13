@@ -135,10 +135,17 @@ func (tv *TreeView) buildNodeLine(node *ComponentSnapshot, depth int) string {
 	// Combine all parts
 	line := fmt.Sprintf("%s%s%s%s", selectionPrefix, indent, expandIcon, componentInfo)
 
-	// Apply styling
+	// Apply styling - CRITICAL: Background highlight for selection visibility
 	style := lipgloss.NewStyle()
 	if tv.selected != nil && tv.selected.ID == node.ID {
-		style = style.Foreground(lipgloss.Color("99")).Bold(true)
+		// Selected item: bright background + contrasting text for clear visibility
+		style = style.
+			Background(lipgloss.Color("99")).  // Purple/blue background
+			Foreground(lipgloss.Color("15")).  // White text
+			Bold(true)
+	} else {
+		// Normal item: standard text color
+		style = style.Foreground(lipgloss.Color("252"))  // Light gray
 	}
 
 	return style.Render(line)
@@ -195,6 +202,32 @@ func (tv *TreeView) IsExpanded(id string) bool {
 // isExpandedUnsafe checks expansion state without locking (internal use).
 func (tv *TreeView) isExpandedUnsafe(id string) bool {
 	return tv.expanded[id]
+}
+
+// GetExpandedIDs returns a copy of all currently expanded node IDs.
+// This is used to preserve expansion state when rebuilding the tree.
+func (tv *TreeView) GetExpandedIDs() map[string]bool {
+	tv.mu.RLock()
+	defer tv.mu.RUnlock()
+	
+	// Return a copy to prevent external modification
+	expandedCopy := make(map[string]bool, len(tv.expanded))
+	for id, expanded := range tv.expanded {
+		expandedCopy[id] = expanded
+	}
+	return expandedCopy
+}
+
+// SetExpandedIDs sets which nodes should be expanded.
+// This is used to restore expansion state after rebuilding the tree.
+func (tv *TreeView) SetExpandedIDs(expanded map[string]bool) {
+	tv.mu.Lock()
+	defer tv.mu.Unlock()
+	
+	tv.expanded = make(map[string]bool, len(expanded))
+	for id, exp := range expanded {
+		tv.expanded[id] = exp
+	}
 }
 
 // SelectNext selects the next visible component in the tree.

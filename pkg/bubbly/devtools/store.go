@@ -2,6 +2,7 @@ package devtools
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -502,6 +503,18 @@ type DevToolsStore struct {
 	// components maps component ID to snapshot
 	components map[string]*ComponentSnapshot
 
+	// componentRefs maps component ID to its owned ref IDs
+	componentRefs map[string][]string
+
+	// refOwners maps ref ID to owning component ID
+	refOwners map[string]string
+
+	// componentTree maps parent component ID to child IDs
+	componentTree map[string][]string
+
+	// componentParent maps child component ID to parent ID
+	componentParent map[string]string
+
 	// stateHistory tracks state changes over time
 	stateHistory *StateHistory
 
@@ -514,7 +527,7 @@ type DevToolsStore struct {
 	// commands tracks command execution timeline
 	commands *CommandTimeline
 
-	// mu protects concurrent access to components map
+	// mu protects concurrent access to all maps
 	mu sync.RWMutex
 }
 
@@ -529,11 +542,15 @@ type DevToolsStore struct {
 //   - *DevToolsStore: A new store instance
 func NewDevToolsStore(maxStateHistory, maxEvents, maxCommands int) *DevToolsStore {
 	return &DevToolsStore{
-		components:   make(map[string]*ComponentSnapshot),
-		stateHistory: NewStateHistory(maxStateHistory),
-		events:       NewEventLog(maxEvents),
-		performance:  NewPerformanceData(),
-		commands:     NewCommandTimeline(maxCommands),
+		components:      make(map[string]*ComponentSnapshot),
+		componentRefs:   make(map[string][]string),
+		refOwners:       make(map[string]string),
+		componentTree:   make(map[string][]string),
+		componentParent: make(map[string]string),
+		stateHistory:    NewStateHistory(maxStateHistory),
+		events:          NewEventLog(maxEvents),
+		performance:     NewPerformanceData(),
+		commands:        NewCommandTimeline(maxCommands),
 	}
 }
 
@@ -609,6 +626,265 @@ func (s *DevToolsStore) RemoveComponent(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.components, id)
+	
+	// Clean up ownership tracking
+	delete(s.componentRefs, id)
+	delete(s.componentParent, id)
+	delete(s.componentTree, id)
+}
+
+// RegisterRefOwner registers that a specific component owns a specific ref.
+// This enables proper tracking of which refs belong to which components.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - componentID: The component that owns the ref
+//   - refID: The ref ID being owned
+func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Add ref to component's ref list
+	if s.componentRefs[componentID] == nil {
+		s.componentRefs[componentID] = make([]string, 0)
+	}
+	
+	// Check if already registered
+	for _, existingRef := range s.componentRefs[componentID] {
+		if existingRef == refID {
+			return
+		}
+	}
+	
+	s.componentRefs[componentID] = append(s.componentRefs[componentID], refID)
+	s.refOwners[refID] = componentID
+	
+	// CRITICAL FIX: Add ref to component snapshot immediately
+	// Previously, refs only appeared after value changed (OnRefChange hook)
+	// This ensures refs are visible as soon as they're exposed
+	comp, exists := s.components[componentID]
+	if exists {
+		// Check if ref already in snapshot
+		for _, ref := range comp.Refs {
+			if ref.ID == refID {
+				return
+			}
+		}
+		
+		// Add ref to snapshot with initial value (will be updated on first change)
+		refName := extractRefName(refID)
+		comp.Refs = append(comp.Refs, &RefSnapshot{
+			ID:    refID,
+			Name:  refName,
+			Value: nil,  // Initial value unknown until first ref.Set()
+			Type:  "unknown",
+		})
+	}
+}
+
+// UpdateRefValue updates a ref value only for the component that owns it.
+// Returns the owning component ID, or empty string if ref has no owner.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - refID: The ref to update
+//   - newValue: The new value
+//
+// Returns:
+//   - string: The owning component ID
+//   - bool: Whether the update was applied
+func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Find the component that owns this ref
+	ownerID, exists := s.refOwners[refID]
+	if !exists {
+		return "", false
+	}
+	
+	// Update the component's ref value
+	comp, exists := s.components[ownerID]
+	if !exists {
+		return ownerID, false
+	}
+	
+	// Update existing ref or add new one
+	refUpdated := false
+	for i, ref := range comp.Refs {
+		if ref.ID == refID {
+			comp.Refs[i].Value = newValue
+			comp.Refs[i].Type = fmt.Sprintf("%T", newValue)  // Update type too
+			refUpdated = true
+			break
+		}
+	}
+	
+	if !refUpdated {
+		// Add new ref
+		refName := extractRefName(refID)
+		comp.Refs = append(comp.Refs, &RefSnapshot{
+			ID:    refID,
+			Name:  refName,
+			Value: newValue,
+			Type:  fmt.Sprintf("%T", newValue),
+		})
+	}
+	
+	// Also update State map
+	if comp.State == nil {
+		comp.State = make(map[string]interface{})
+	}
+	comp.State[refID] = newValue
+	comp.Timestamp = time.Now()
+	
+	return ownerID, true
+}
+
+// AddComponentChild adds a child-parent relationship in the component tree.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - parentID: The parent component ID
+//   - childID: The child component ID
+func (s *DevToolsStore) AddComponentChild(parentID, childID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Initialize parent's children list if needed
+	if s.componentTree[parentID] == nil {
+		s.componentTree[parentID] = make([]string, 0)
+	}
+	
+	// Check if already added
+	for _, existing := range s.componentTree[parentID] {
+		if existing == childID {
+			return
+		}
+	}
+	
+	s.componentTree[parentID] = append(s.componentTree[parentID], childID)
+	s.componentParent[childID] = parentID
+	
+	// Update component snapshot's Children field
+	if parent, exists := s.components[parentID]; exists {
+		if child, exists := s.components[childID]; exists {
+			if parent.Children == nil {
+				parent.Children = make([]*ComponentSnapshot, 0)
+			}
+			parent.Children = append(parent.Children, child)
+		}
+	}
+}
+
+// RemoveComponentChild removes a child-parent relationship from the component tree.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - parentID: The parent component ID
+//   - childID: The child component ID to remove
+func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Remove from parent's children list
+	if children, exists := s.componentTree[parentID]; exists {
+		for i, id := range children {
+			if id == childID {
+				s.componentTree[parentID] = append(children[:i], children[i+1:]...)
+				break
+			}
+		}
+	}
+	
+	// Remove parent reference
+	delete(s.componentParent, childID)
+	
+	// Update component snapshot's Children field
+	if parent, exists := s.components[parentID]; exists {
+		if parent.Children != nil {
+			for i, child := range parent.Children {
+				if child.ID == childID {
+					parent.Children = append(parent.Children[:i], parent.Children[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+}
+
+// GetComponentChildren returns the IDs of a component's direct children.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - componentID: The parent component ID
+//
+// Returns:
+//   - []string: List of child component IDs
+func (s *DevToolsStore) GetComponentChildren(componentID string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	children := s.componentTree[componentID]
+	if children == nil {
+		return []string{}
+	}
+	
+	// Return a copy
+	result := make([]string, len(children))
+	copy(result, children)
+	return result
+}
+
+// GetRootComponents returns components that have no parent.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - []*ComponentSnapshot: List of root components
+func (s *DevToolsStore) GetRootComponents() []*ComponentSnapshot {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	roots := make([]*ComponentSnapshot, 0)
+	for id, comp := range s.components {
+		// Check if this component has no parent
+		if _, hasParent := s.componentParent[id]; !hasParent {
+			roots = append(roots, comp)
+		}
+	}
+	return roots
+}
+
+// extractRefName extracts a simple name from a ref ID.
+// Example: "ref-0x123abc" -> "ref", "count-ref-0x456" -> "count"
+func extractRefName(refID string) string {
+	// Split on "-ref-" or "-0x" to get the prefix
+	if idx := strings.Index(refID, "-ref-"); idx >= 0 {
+		return refID[:idx]
+	}
+	if idx := strings.Index(refID, "-0x"); idx >= 0 {
+		return refID[:idx]
+	}
+	// If no pattern matches, return the full ID
+	return refID
 }
 
 // GetStateHistory returns the state history tracker.

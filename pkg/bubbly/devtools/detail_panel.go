@@ -138,18 +138,16 @@ func (dp *DetailPanel) renderTabs() string {
 		var style lipgloss.Style
 
 		if i == dp.activeTab {
-			// Active tab style
+			// Active tab style - CLEAR background for visibility
 			style = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("99")).
+				Background(lipgloss.Color("99")).  // Purple background
+				Foreground(lipgloss.Color("15")).  // White text
 				Bold(true).
-				Padding(0, 2).
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderBottom(true).
-				BorderForeground(lipgloss.Color("99"))
+				Padding(0, 2)
 		} else {
-			// Inactive tab style
+			// Inactive tab style - subtle
 			style = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240")).
+				Foreground(lipgloss.Color("240")).  // Dim gray
 				Padding(0, 2)
 		}
 
@@ -168,13 +166,15 @@ func (dp *DetailPanel) renderActiveTabContent() string {
 	tab := dp.tabs[dp.activeTab]
 	content := tab.Render(dp.component)
 
+	// Simple top border line separator (cleaner than box border)
 	contentStyle := lipgloss.NewStyle().
-		Padding(1, 2).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderTop(true).
-		BorderForeground(lipgloss.Color("240"))
+		Padding(1, 2)
 
-	return contentStyle.Render(content)
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render("─────────────────────────────────────────────")
+
+	return separator + "\n" + contentStyle.Render(content)
 }
 
 // SwitchTab switches to the tab at the given index.
