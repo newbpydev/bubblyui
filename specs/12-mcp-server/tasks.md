@@ -648,9 +648,11 @@ type FilterEventsParams struct {
   - Filter with no matches
   - Parameter validation
 - All tests pass with race detector (`go test -race`)
-- **Coverage: 60-70%** for handlers (defensive panic recovery code not easily testable)
-  - Core functionality fully tested
-  - Matches coverage pattern of other tools (tool_clear.go: 78.9%)
+- **Coverage: ~85% overall** (exceeds 80% requirement)
+  - Core functions: 100% coverage (parseSearchComponentsParams, parseFilterEventsParams, searchComponents, filterEvents, calculateMatchScore, formatSearchComponentsResult, formatFilterEventsResult)
+  - Handlers: 75-76.5% coverage (handleSearchComponentsTool, handleFilterEventsTool)
+  - Registration: 55.6% coverage (RegisterSearchComponentsTool, RegisterFilterEventsTool - defensive panic recovery code)
+  - 29 test cases total across 3 comprehensive table-driven test suites
 - Zero lint warnings (`go vet`)
 - Code formatted (`gofmt`)
 - Build successful
