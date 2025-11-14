@@ -259,7 +259,7 @@ func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			wasFocused := ui.focusMode
 			ui.focusMode = false
 			ui.mu.Unlock()
-			
+
 			// If we were in focus mode, ESC consumed (exit focus only)
 			// If we weren't in focus mode, let it pass through
 			if wasFocused {
@@ -287,9 +287,9 @@ func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch activePanel {
 		case 0: // Inspector
 			ui.mu.Lock()
-			cmd := ui.inspector.Update(msg)  // CRITICAL: Capture return value!
+			cmd := ui.inspector.Update(msg) // CRITICAL: Capture return value!
 			ui.mu.Unlock()
-			return ui, cmd  // Return cmd so updates trigger redraws
+			return ui, cmd // Return cmd so updates trigger redraws
 		case 1: // State viewer doesn't have Update()
 			return ui, nil
 		case 2: // Event tracker doesn't have Update()
@@ -383,7 +383,7 @@ func (ui *DevToolsUI) updateInspectorFromStore() {
 	// Get root components (those without parents) from store
 	// The store properly tracks component hierarchy via AddComponentChild
 	roots := ui.store.GetRootComponents()
-	
+
 	if len(roots) > 0 {
 		// Use first root as display root
 		// Root components have their Children field populated by the store
@@ -396,14 +396,14 @@ func (ui *DevToolsUI) updateInspectorFromStore() {
 func (ui *DevToolsUI) renderFocusBadge() string {
 	badge := "🔧 DEVTOOLS FOCUS MODE  " +
 		"↑/↓: Navigate • Enter: Expand • →/←: Tabs • ESC: Exit"
-	
+
 	// Style with green background to indicate active focus
 	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("0")).    // Black text
-		Background(lipgloss.Color("35")).   // Green background
+		Foreground(lipgloss.Color("0")).  // Black text
+		Background(lipgloss.Color("35")). // Green background
 		Bold(true).
 		Padding(0, 1)
-	
+
 	return style.Render(badge)
 }
 
@@ -411,12 +411,12 @@ func (ui *DevToolsUI) renderFocusBadge() string {
 // Must be called with read lock held.
 func (ui *DevToolsUI) renderNormalModeHelp() string {
 	helpText := "Press '/' to enter DevTools focus mode • Tab: Switch Tabs • F12: Toggle"
-	
+
 	// Style with subtle grey
 	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).  // Grey text
+		Foreground(lipgloss.Color("240")). // Grey text
 		Italic(true)
-	
+
 	return style.Render(helpText)
 }
 

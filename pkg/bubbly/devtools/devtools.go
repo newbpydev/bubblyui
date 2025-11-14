@@ -88,6 +88,11 @@ type DevTools struct {
 	// Implemented in Task 1.5
 	config *Config
 
+	// mcpServer holds the MCP server instance if MCP is enabled
+	// Stored as interface{} to avoid import cycle with mcp subpackage
+	// Task 7.1 - MCP integration
+	mcpServer interface{}
+
 	// mu protects concurrent access to enabled and visible fields
 	mu sync.RWMutex
 }
@@ -140,16 +145,16 @@ func Enable() *DevTools {
 	globalDevToolsOnce.Do(func() {
 		// Initialize store
 		store := NewDevToolsStore(1000, 1000, 1000)
-		
+
 		// Initialize UI
 		ui := NewDevToolsUI(store)
-		
+
 		// Initialize data collector
 		collector := NewDataCollector()
-		
+
 		// Initialize config
 		config := DefaultConfig()
-		
+
 		globalDevTools = &DevTools{
 			enabled:   true,
 			visible:   false,
@@ -173,7 +178,7 @@ func Enable() *DevTools {
 
 			// Intercept F12 or ctrl+t to toggle visibility
 			isToggleKey := key.Type == tea.KeyF12 || key.String() == "ctrl+t"
-			
+
 			if isToggleKey {
 				// Toggle dev tools visibility
 				if globalDevTools != nil && globalDevTools.IsEnabled() {
@@ -243,6 +248,7 @@ func Disable() {
 		dt.mu.Lock()
 		dt.enabled = false
 		dt.visible = false // Hide UI when disabling
+		dt.mcpServer = nil // Clear MCP server reference (Task 7.1)
 		dt.mu.Unlock()
 	}
 }
@@ -543,13 +549,13 @@ func (h *frameworkHookAdapter) OnComponentMount(id, name string) {
 	if h.store == nil {
 		return
 	}
-	
+
 	// Filter out framework internal components to reduce noise
 	// Only track user-level components for better developer experience
 	if isFrameworkInternalComponent(name) {
 		return
 	}
-	
+
 	snapshot := &ComponentSnapshot{
 		ID:        id,
 		Name:      name,
@@ -620,7 +626,7 @@ func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interfa
 	if h.store == nil {
 		return
 	}
-	
+
 	// Record state change in history (extractRefName is in store.go)
 	change := StateChange{
 		RefID:     id,
@@ -631,7 +637,7 @@ func (h *frameworkHookAdapter) OnRefChange(id string, oldValue, newValue interfa
 		Source:    "ref_change",
 	}
 	h.store.stateHistory.Record(change)
-	
+
 	// Update ref value for its owning component ONLY
 	// This is the PRODUCTION approach - track exact ownership
 	ownerID, updated := h.store.UpdateRefValue(id, newValue)
@@ -714,4 +720,69 @@ func (h *frameworkHookAdapter) OnRefExposed(componentID, refID, refName string) 
 	// Register that this component owns this ref
 	// This enables accurate state display in Inspector and State tabs
 	h.store.RegisterRefOwner(componentID, refID)
+}
+
+// SetMCPServer sets the MCP server instance.
+//
+// This is an internal method used by the mcp package to register the MCP server
+// with DevTools. Application code should use mcp.EnableWithMCP() instead.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Parameters:
+//   - server: The MCP server instance (should be *mcp.MCPServer)
+func (dt *DevTools) SetMCPServer(server interface{}) {
+	dt.mu.Lock()
+	defer dt.mu.Unlock()
+	dt.mcpServer = server
+}
+
+// GetMCPServer returns the MCP server instance if MCP is enabled.
+//
+// Returns nil if MCP was not enabled via mcp.EnableWithMCP().
+// The returned interface{} should be type-asserted to *mcp.MCPServer.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	dt := devtools.Enable()
+//	if server := dt.GetMCPServer(); server != nil {
+//	    mcpServer := server.(*mcp.MCPServer)
+//	    fmt.Println("MCP enabled and running")
+//	}
+//
+// Returns:
+//   - interface{}: The MCP server instance, or nil if not enabled
+func (dt *DevTools) GetMCPServer() interface{} {
+	dt.mu.RLock()
+	defer dt.mu.RUnlock()
+	return dt.mcpServer
+}
+
+// MCPEnabled returns true if MCP server is enabled.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	dt := devtools.Enable()
+//	if dt.MCPEnabled() {
+//	    fmt.Println("MCP server is running")
+//	} else {
+//	    fmt.Println("MCP server is not enabled")
+//	}
+//
+// Returns:
+//   - bool: true if MCP server is enabled, false otherwise
+func (dt *DevTools) MCPEnabled() bool {
+	dt.mu.RLock()
+	defer dt.mu.RUnlock()
+	return dt.mcpServer != nil
 }

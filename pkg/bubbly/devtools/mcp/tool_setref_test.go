@@ -16,9 +16,9 @@ import (
 // TestRegisterSetRefValueTool_WriteEnabled tests that tool only registers when WriteEnabled=true.
 func TestRegisterSetRefValueTool_WriteEnabled(t *testing.T) {
 	tests := []struct {
-		name         string
-		writeEnabled bool
-		wantError    bool
+		name          string
+		writeEnabled  bool
+		wantError     bool
 		errorContains string
 	}{
 		{
@@ -384,7 +384,7 @@ func TestCheckTypeCompatibility(t *testing.T) {
 		{"nil to nil", nil, nil, true},
 		{"nil to int", nil, 10, false},
 		{"int to nil", 10, nil, false},
-		{"int32 to int", int32(10), 20, true}, // Go allows int32->int conversion
+		{"int32 to int", int32(10), 20, true},             // Go allows int32->int conversion
 		{"float32 to float64", float32(3.14), 2.71, true}, // Go allows float32->float64 conversion
 	}
 

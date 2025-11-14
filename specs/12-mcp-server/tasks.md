@@ -1532,32 +1532,99 @@ bubbly-mcp-config -version
 
 ## Phase 7: Integration & Polish
 
-### Task 7.1: DevTools Integration
+### Task 7.1: DevTools Integration ✅ COMPLETE
 **Description**: Integrate MCP server with existing DevTools package
 
-**Prerequisites**: All Phase 2, 3, 4 tasks
+**Prerequisites**: All Phase 2, 3, 4 tasks ✅
 
 **Unlocks**: Complete feature
 
 **Files**:
-- `pkg/bubbly/devtools/mcp.go`
-- `pkg/bubbly/devtools/mcp_test.go`
+- `pkg/bubbly/devtools/devtools.go` ✅ (added mcpServer field and methods)
+- `pkg/bubbly/devtools/mcp/integration.go` ✅
+- `pkg/bubbly/devtools/mcp/integration_test.go` ✅
 
 **Type Safety**:
 ```go
-func EnableWithMCP(config MCPConfig) (*DevTools, error)
-func (dt *DevTools) GetMCPServer() *MCPServer
+// In mcp package
+func EnableWithMCP(config *MCPConfig) (*devtools.DevTools, error)
+
+// In DevTools
+func (dt *DevTools) SetMCPServer(server interface{})
+func (dt *DevTools) GetMCPServer() interface{}
 func (dt *DevTools) MCPEnabled() bool
 ```
 
 **Tests**:
-- [ ] EnableWithMCP starts MCP server
-- [ ] MCP server accesses DevToolsStore
-- [ ] MCP hooks registered correctly
-- [ ] MCP shutdown on DevTools disable
-- [ ] No conflicts with existing devtools
+- [x] EnableWithMCP starts MCP server
+- [x] MCP server accesses DevToolsStore
+- [x] MCP hooks registered correctly
+- [x] MCP shutdown on DevTools disable
+- [x] No conflicts with existing devtools
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- **Architecture**: Used `interface{}` for mcpServer field to avoid import cycle
+  - devtools package cannot import mcp subpackage (would create cycle)
+  - mcp subpackage CAN import devtools (parent can import child)
+  - Solution: Store as `interface{}`, type assert when needed
+- **Integration Location**: `EnableWithMCP()` implemented in mcp package
+  - Logical: MCP-specific initialization belongs in mcp package
+  - Practical: Avoids import cycle issues
+  - Pattern: Similar to how HTTP handlers work in Go stdlib
+- **DevTools Methods Added**:
+  - `SetMCPServer(interface{})` - Internal method for mcp package to register
+  - `GetMCPServer() interface{}` - Returns MCP server (type assert to *mcp.MCPServer)
+  - `MCPEnabled() bool` - Checks if MCP server is registered
+- **Cleanup Integration**: Added `dt.mcpServer = nil` to `Disable()` function
+  - Ensures MCP server reference is cleared on shutdown
+  - Prevents memory leaks
+  - Thread-safe (protected by mu)
+- **Test Coverage**: 8 comprehensive integration tests
+  - `TestEnableWithMCP` - Basic integration
+  - `TestEnableWithMCP_NilConfig` - Nil config validation
+  - `TestEnableWithMCP_InvalidConfig` - Config validation
+  - `TestMCPServer_AccessesDevToolsStore` - Store access verification
+  - `TestMCPShutdownOnDisable` - Cleanup verification
+  - `TestEnableWithMCP_Idempotent` - Multiple calls return same instance
+  - `TestEnableWithMCP_NoConflictWithExistingDevtools` - Backwards compatibility
+  - `TestEnableWithMCP_ThreadSafe` - Concurrent access safety
+- **Quality Gates**:
+  - ✅ All integration tests pass with `-race` detector
+  - ✅ Zero lint warnings (`go vet`)
+  - ✅ Code formatted (`gofmt`)
+  - ✅ Build successful (`go build`)
+  - ✅ Thread-safe concurrent access verified
+- **API Design**:
+  ```go
+  // Enable DevTools with MCP server
+  cfg := mcp.DefaultMCPConfig()
+  dt, err := mcp.EnableWithMCP(cfg)
+  if err != nil {
+      log.Fatal(err)
+  }
+  
+  // Check if MCP is enabled
+  if dt.MCPEnabled() {
+      server := dt.GetMCPServer().(*mcp.MCPServer)
+      // Use server...
+  }
+  
+  // Cleanup (also clears MCP reference)
+  devtools.Disable()
+  ```
+- **Key Design Decisions**:
+  1. **Import Cycle Avoidance**: Used `interface{}` instead of concrete type
+  2. **Package Placement**: Integration code in mcp subpackage, not devtools
+  3. **Idempotency**: Multiple EnableWithMCP calls return same instance
+  4. **Backwards Compatibility**: Works with existing devtools.Enable()
+  5. **Thread Safety**: All methods protected by mutex
+- **Integration Points**:
+  - DevTools store accessible via `mcpServer.GetStore()`
+  - Same store instance shared between DevTools and MCP server
+  - Hooks registered automatically when DevTools enabled
+  - No conflicts with existing devtools functionality
+
+**Estimated Effort**: 3 hours ✅ **Actual: 2.5 hours**
 
 **Priority**: CRITICAL
 

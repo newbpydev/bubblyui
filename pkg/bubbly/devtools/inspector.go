@@ -59,7 +59,7 @@ func NewComponentInspector(root *ComponentSnapshot) *ComponentInspector {
 	// Create tree view and select + expand root by default
 	tree := NewTreeView(root)
 	if root != nil {
-		tree.Expand(root.ID)  // Auto-expand to show children
+		tree.Expand(root.ID) // Auto-expand to show children
 		tree.Select(root.ID)
 	}
 
@@ -113,13 +113,13 @@ func (ci *ComponentInspector) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
 		// Select next component in tree
 		ci.tree.SelectNext()
 		ci.updateDetailPanel()
-		return tea.ClearScreen  // Force redraw to show selection change
+		return tea.ClearScreen // Force redraw to show selection change
 
 	case tea.KeyUp:
 		// Select previous component in tree
 		ci.tree.SelectPrevious()
 		ci.updateDetailPanel()
-		return tea.ClearScreen  // Force redraw to show selection change
+		return tea.ClearScreen // Force redraw to show selection change
 
 	case tea.KeyEnter:
 		// Toggle expansion of selected node
@@ -132,7 +132,7 @@ func (ci *ComponentInspector) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
 			ci.tree.Toggle(ci.tree.GetRoot().ID)
 			ci.updateDetailPanel()
 		}
-		return tea.ClearScreen  // Force redraw to show expansion change
+		return tea.ClearScreen // Force redraw to show expansion change
 
 	case tea.KeyRight:
 		// Next detail panel tab (more intuitive than Tab)

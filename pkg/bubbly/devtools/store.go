@@ -626,7 +626,7 @@ func (s *DevToolsStore) RemoveComponent(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.components, id)
-	
+
 	// Clean up ownership tracking
 	delete(s.componentRefs, id)
 	delete(s.componentParent, id)
@@ -646,22 +646,22 @@ func (s *DevToolsStore) RemoveComponent(id string) {
 func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Add ref to component's ref list
 	if s.componentRefs[componentID] == nil {
 		s.componentRefs[componentID] = make([]string, 0)
 	}
-	
+
 	// Check if already registered
 	for _, existingRef := range s.componentRefs[componentID] {
 		if existingRef == refID {
 			return
 		}
 	}
-	
+
 	s.componentRefs[componentID] = append(s.componentRefs[componentID], refID)
 	s.refOwners[refID] = componentID
-	
+
 	// CRITICAL FIX: Add ref to component snapshot immediately
 	// Previously, refs only appeared after value changed (OnRefChange hook)
 	// This ensures refs are visible as soon as they're exposed
@@ -673,13 +673,13 @@ func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
 				return
 			}
 		}
-		
+
 		// Add ref to snapshot with initial value (will be updated on first change)
 		refName := extractRefName(refID)
 		comp.Refs = append(comp.Refs, &RefSnapshot{
 			ID:    refID,
 			Name:  refName,
-			Value: nil,  // Initial value unknown until first ref.Set()
+			Value: nil, // Initial value unknown until first ref.Set()
 			Type:  "unknown",
 		})
 	}
@@ -702,30 +702,30 @@ func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
 func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Find the component that owns this ref
 	ownerID, exists := s.refOwners[refID]
 	if !exists {
 		return "", false
 	}
-	
+
 	// Update the component's ref value
 	comp, exists := s.components[ownerID]
 	if !exists {
 		return ownerID, false
 	}
-	
+
 	// Update existing ref or add new one
 	refUpdated := false
 	for i, ref := range comp.Refs {
 		if ref.ID == refID {
 			comp.Refs[i].Value = newValue
-			comp.Refs[i].Type = fmt.Sprintf("%T", newValue)  // Update type too
+			comp.Refs[i].Type = fmt.Sprintf("%T", newValue) // Update type too
 			refUpdated = true
 			break
 		}
 	}
-	
+
 	if !refUpdated {
 		// Add new ref
 		refName := extractRefName(refID)
@@ -736,14 +736,14 @@ func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (stri
 			Type:  fmt.Sprintf("%T", newValue),
 		})
 	}
-	
+
 	// Also update State map
 	if comp.State == nil {
 		comp.State = make(map[string]interface{})
 	}
 	comp.State[refID] = newValue
 	comp.Timestamp = time.Now()
-	
+
 	return ownerID, true
 }
 
@@ -759,22 +759,22 @@ func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (stri
 func (s *DevToolsStore) AddComponentChild(parentID, childID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Initialize parent's children list if needed
 	if s.componentTree[parentID] == nil {
 		s.componentTree[parentID] = make([]string, 0)
 	}
-	
+
 	// Check if already added
 	for _, existing := range s.componentTree[parentID] {
 		if existing == childID {
 			return
 		}
 	}
-	
+
 	s.componentTree[parentID] = append(s.componentTree[parentID], childID)
 	s.componentParent[childID] = parentID
-	
+
 	// Update component snapshot's Children field
 	if parent, exists := s.components[parentID]; exists {
 		if child, exists := s.components[childID]; exists {
@@ -798,7 +798,7 @@ func (s *DevToolsStore) AddComponentChild(parentID, childID string) {
 func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Remove from parent's children list
 	if children, exists := s.componentTree[parentID]; exists {
 		for i, id := range children {
@@ -808,10 +808,10 @@ func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
 			}
 		}
 	}
-	
+
 	// Remove parent reference
 	delete(s.componentParent, childID)
-	
+
 	// Update component snapshot's Children field
 	if parent, exists := s.components[parentID]; exists {
 		if parent.Children != nil {
@@ -839,12 +839,12 @@ func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
 func (s *DevToolsStore) GetComponentChildren(componentID string) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	children := s.componentTree[componentID]
 	if children == nil {
 		return []string{}
 	}
-	
+
 	// Return a copy
 	result := make([]string, len(children))
 	copy(result, children)
@@ -862,7 +862,7 @@ func (s *DevToolsStore) GetComponentChildren(componentID string) []string {
 func (s *DevToolsStore) GetRootComponents() []*ComponentSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	roots := make([]*ComponentSnapshot, 0)
 	for id, comp := range s.components {
 		// Check if this component has no parent

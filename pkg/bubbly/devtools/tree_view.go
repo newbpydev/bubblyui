@@ -140,12 +140,12 @@ func (tv *TreeView) buildNodeLine(node *ComponentSnapshot, depth int) string {
 	if tv.selected != nil && tv.selected.ID == node.ID {
 		// Selected item: bright background + contrasting text for clear visibility
 		style = style.
-			Background(lipgloss.Color("99")).  // Purple/blue background
-			Foreground(lipgloss.Color("15")).  // White text
+			Background(lipgloss.Color("99")). // Purple/blue background
+			Foreground(lipgloss.Color("15")). // White text
 			Bold(true)
 	} else {
 		// Normal item: standard text color
-		style = style.Foreground(lipgloss.Color("252"))  // Light gray
+		style = style.Foreground(lipgloss.Color("252")) // Light gray
 	}
 
 	return style.Render(line)
@@ -209,7 +209,7 @@ func (tv *TreeView) isExpandedUnsafe(id string) bool {
 func (tv *TreeView) GetExpandedIDs() map[string]bool {
 	tv.mu.RLock()
 	defer tv.mu.RUnlock()
-	
+
 	// Return a copy to prevent external modification
 	expandedCopy := make(map[string]bool, len(tv.expanded))
 	for id, expanded := range tv.expanded {
@@ -223,7 +223,7 @@ func (tv *TreeView) GetExpandedIDs() map[string]bool {
 func (tv *TreeView) SetExpandedIDs(expanded map[string]bool) {
 	tv.mu.Lock()
 	defer tv.mu.Unlock()
-	
+
 	tv.expanded = make(map[string]bool, len(expanded))
 	for id, exp := range expanded {
 		tv.expanded[id] = exp

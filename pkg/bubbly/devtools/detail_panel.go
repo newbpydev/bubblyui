@@ -140,14 +140,14 @@ func (dp *DetailPanel) renderTabs() string {
 		if i == dp.activeTab {
 			// Active tab style - CLEAR background for visibility
 			style = lipgloss.NewStyle().
-				Background(lipgloss.Color("99")).  // Purple background
-				Foreground(lipgloss.Color("15")).  // White text
+				Background(lipgloss.Color("99")). // Purple background
+				Foreground(lipgloss.Color("15")). // White text
 				Bold(true).
 				Padding(0, 2)
 		} else {
 			// Inactive tab style - subtle
 			style = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240")).  // Dim gray
+				Foreground(lipgloss.Color("240")). // Dim gray
 				Padding(0, 2)
 		}
 

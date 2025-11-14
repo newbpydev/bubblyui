@@ -70,11 +70,11 @@ func TestStateChangeDetector_Initialize_CollectorNil(t *testing.T) {
 	// so we'll test the scenario where it might return nil
 	sm := NewSubscriptionManager(50)
 	detector := NewStateChangeDetector(sm)
-	
+
 	// Try with a devtools instance that might not have a collector initialized
 	dt := &devtools.DevTools{}
 	err := detector.Initialize(dt)
-	
+
 	// Should either succeed or fail gracefully with collector not available
 	if err != nil {
 		assert.Contains(t, err.Error(), "collector not available")
@@ -637,7 +637,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 	t.Run("component_unmount_empty_name", func(t *testing.T) {
 		mockNotifier := &mockNotificationSender{}
 		detector.notifier = mockNotifier
-		
+
 		detector.mu.Lock()
 		detector.subscriptions["client1"] = []*Subscription{
 			{
@@ -651,7 +651,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 		detector.mu.Unlock()
 
 		detector.HandleComponentUnmount("comp-1", "")
-		
+
 		// Should have processed and matched
 		assert.Equal(t, 1, mockNotifier.notificationCount)
 	})
@@ -660,7 +660,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 	t.Run("component_mount_special_chars", func(t *testing.T) {
 		mockNotifier := &mockNotificationSender{}
 		detector.notifier = mockNotifier
-		
+
 		detector.mu.Lock()
 		detector.subscriptions["client2"] = []*Subscription{
 			{
@@ -674,7 +674,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 		detector.mu.Unlock()
 
 		detector.HandleComponentMount("comp-special-123", "SpecialComponent")
-		
+
 		// Should have processed and matched
 		assert.Equal(t, 1, mockNotifier.notificationCount)
 	})
@@ -683,7 +683,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 	t.Run("event_emit_nil_data", func(t *testing.T) {
 		mockNotifier := &mockNotificationSender{}
 		detector.notifier = mockNotifier
-		
+
 		detector.mu.Lock()
 		detector.subscriptions["client3"] = []*Subscription{
 			{
@@ -697,7 +697,7 @@ func TestStateChangeDetector_EdgeCases(t *testing.T) {
 		detector.mu.Unlock()
 
 		detector.HandleEventEmit("test-event", "comp-1", nil)
-		
+
 		// Should have processed even with nil data
 		assert.Equal(t, 1, mockNotifier.notificationCount)
 	})
@@ -794,34 +794,34 @@ func TestStateDetectorHook(t *testing.T) {
 // TestGetAllSubscriptions tests subscription retrieval logic
 func TestGetAllSubscriptions(t *testing.T) {
 	tests := []struct {
-		name           string
-		subscriptions  map[string][]*Subscription
+		name            string
+		subscriptions   map[string][]*Subscription
 		subscriptionMgr *SubscriptionManager
-		expectedCount  int
+		expectedCount   int
 	}{
 		{
-			name:           "uses internal subscriptions map when available",
-			subscriptions:  map[string][]*Subscription{"client1": {{ID: "sub1"}, {ID: "sub2"}}},
+			name:            "uses internal subscriptions map when available",
+			subscriptions:   map[string][]*Subscription{"client1": {{ID: "sub1"}, {ID: "sub2"}}},
 			subscriptionMgr: nil,
-			expectedCount:  2,
+			expectedCount:   2,
 		},
 		{
-			name:           "falls back to subscription manager when internal map empty",
-			subscriptions:  map[string][]*Subscription{},
+			name:            "falls back to subscription manager when internal map empty",
+			subscriptions:   map[string][]*Subscription{},
 			subscriptionMgr: NewSubscriptionManager(50),
-			expectedCount:  0,
+			expectedCount:   0,
 		},
 		{
-			name:           "both internal and manager subscriptions",
-			subscriptions:  map[string][]*Subscription{"client1": {{ID: "sub1"}}},
+			name:            "both internal and manager subscriptions",
+			subscriptions:   map[string][]*Subscription{"client1": {{ID: "sub1"}}},
 			subscriptionMgr: NewSubscriptionManager(50),
-			expectedCount:  1,
+			expectedCount:   1,
 		},
 		{
-			name:           "nil subscription manager returns empty slice",
-			subscriptions:  map[string][]*Subscription{},
+			name:            "nil subscription manager returns empty slice",
+			subscriptions:   map[string][]*Subscription{},
 			subscriptionMgr: nil,
-			expectedCount:  0,
+			expectedCount:   0,
 		},
 	}
 
