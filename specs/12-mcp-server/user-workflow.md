@@ -65,7 +65,7 @@ bubbly-mcp-config --ide=vscode
 }
 ```
 
-### Step 3: Connect IDE to MCP Server
+### Step 3A: Connect IDE to MCP Server (Stdio - Limited)
 **User Action**: Restart IDE or reload MCP configuration
 
 **IDE Actions** (Windsurf/Cursor/VS Code):
@@ -78,6 +78,48 @@ bubbly-mcp-config --ide=vscode
 - Application runs in background
 - MCP client establishes stdio connection
 - Handshake completes (protocol version negotiation)
+
+**Limitation**: Stdio transport conflicts with Bubbletea TUI (both need stdin/stdout)
+
+### Step 3B: Connect IDE to MCP Server (HTTP - Recommended)
+**User Action**: Start app manually in terminal, configure IDE for HTTP
+
+**Terminal 1** (Start App):
+```bash
+# Run app with HTTP MCP server
+go run ./my-app
+```
+
+**System Response**:
+- App renders full TUI in terminal (interactive)
+- MCP HTTP server starts on port 8765 (background goroutine)
+- Both run concurrently without conflicts
+- Logs: "✅ MCP server enabled on http://localhost:8765"
+
+**IDE Configuration** (`.windsurf/mcp_config.json`):
+```json
+{
+  "mcpServers": {
+    "my-bubblyui-app": {
+      "url": "http://localhost:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      }
+    }
+  }
+}
+```
+
+**IDE Actions**:
+1. Detects HTTP MCP server configuration
+2. Connects to running server via HTTP
+3. No subprocess needed - connects to existing process
+
+**Benefits**:
+- User sees and interacts with full TUI
+- AI inspects live state via HTTP
+- No I/O conflicts
+- Better debugging experience
 
 **UI Update**: 
 - IDE shows ✓ Connected to "BubblyUI App"

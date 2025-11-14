@@ -1872,6 +1872,17 @@ func (dt *DevTools) MCPEnabled() bool
    - Fixes "Unexpected token" JSON parse errors
    - MCP spec explicitly allows stderr for logging/diagnostics
    - Applied probabilistic reasoning protocol to select optimal solution (95% confidence, 9.2/10 score)
+7. **Concurrent TUI + MCP Architecture Fix** (Nov 14, 2024):
+   - **Root Cause**: HTTP MCP server was running but TUI wasn't rendering (app blocked with `select{}`)
+   - **Solution**: Run both Bubbletea TUI and MCP HTTP server concurrently
+     - MCP HTTP server runs in goroutine (port 8765)
+     - Bubbletea TUI runs in main thread with `p.Run()`
+     - No I/O conflicts - HTTP uses port, TUI uses stdin/stdout
+   - **Implementation**: Replace `select{}` with proper `tea.NewProgram()` and `p.Run()`
+   - **Benefits**: User sees/interacts with TUI while AI inspects live state via MCP
+   - **Resource Registration**: Added explicit registration of 5 resources + 5 tools
+   - **Confidence**: 85% - validated with Context7 Bubbletea docs and sequential thinking
+   - **Specs Updated**: requirements.md (2.9, 2.10), designs.md (concurrent architecture), user-workflow.md (Step 3B)
 
 **Estimated Effort**: 3 hours ✅ **Actual: 3 hours**
 

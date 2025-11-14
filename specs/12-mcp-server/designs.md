@@ -72,6 +72,44 @@ MCP Server System
                                    └────────────────────────┘
 ```
 
+### Concurrent TUI + MCP Architecture (HTTP Transport)
+
+```
+┌──────────────────────── Main Thread ────────────────────────┐
+│                                                              │
+│  tea.Program.Run() ──── Bubbletea Event Loop                │
+│       ↓                                                      │
+│  Component Rendering ─── Terminal UI (stdin/stdout)         │
+│       ↓                                                      │
+│  User Interactions ───── Keyboard Events                    │
+│       ↓                                                      │
+│  State Updates ──────────→ DevTools Store                   │
+│                                    ↓                         │
+└────────────────────────────────────┼─────────────────────────┘
+                                     │
+                                     │ (shared memory)
+                                     │
+┌──────────────────────── Background Goroutine ───────────────┐
+│                                    ↓                         │
+│  MCP HTTP Server ──────── Port 8765                         │
+│       ↓                                                      │
+│  HTTP/SSE Requests ───── AI Agent Queries                   │
+│       ↓                                                      │
+│  Resource Handlers ────→ DevTools Store (read live state)   │
+│       ↓                                                      │
+│  JSON-RPC Response ───── Back to AI Agent                   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+**Key Design Points:**
+- HTTP MCP uses dedicated port (8765), independent of stdin/stdout
+- Bubbletea TUI runs normally in main thread
+- MCP server runs concurrently in goroutine
+- Both access DevTools Store (thread-safe with mutex)
+- User sees/interacts with TUI while AI inspects state
+- No I/O conflicts - different channels completely
+```
+
 ### Data Flow
 
 ```

@@ -39,6 +39,8 @@ Implement a Model Context Protocol (MCP) server that exposes BubblyUI devtools d
 2.6. Optional authentication token for HTTP transport  
 2.7. Auto-detection of available transports  
 2.8. Connection lifecycle management  
+2.9. **Concurrent Operation**: HTTP transport enables simultaneous TUI rendering and MCP inspection  
+2.10. **Independent I/O**: HTTP MCP uses port (not stdin/stdout), allowing full Bubbletea TUI functionality  
 
 ### 3. Resources (Read-Only Data)
 3.1. `bubblyui://components` - Full component tree snapshot  

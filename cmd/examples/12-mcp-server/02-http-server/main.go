@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
 )
@@ -54,8 +56,54 @@ func main() {
 		fmt.Fprintln(os.Stderr, "")
 	}
 
-	// Get the MCP server and start it
+	// Get the MCP server and register resources/tools
 	mcpServer := dt.GetMCPServer().(*mcp.MCPServer)
+	
+	// Register MCP resources (what AI can inspect)
+	if err := mcpServer.RegisterComponentsResource(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering components resource: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterComponentResource(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering component resource: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterStateResource(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering state resource: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterEventsResource(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering events resource: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterPerformanceResource(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering performance resource: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Register MCP tools (what AI can do)
+	if err := mcpServer.RegisterSearchComponentsTool(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering search tool: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterFilterEventsTool(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering filter tool: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterExportTool(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering export tool: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterClearStateHistoryTool(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering clear state tool: %v\n", err)
+		os.Exit(1)
+	}
+	if err := mcpServer.RegisterClearEventLogTool(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering clear events tool: %v\n", err)
+		os.Exit(1)
+	}
+	
+	fmt.Fprintln(os.Stderr, "📋 Registered 5 resources and 5 tools for MCP")
 	
 	// Start HTTP server in goroutine (blocks until shutdown)
 	ctx := context.Background()
@@ -75,9 +123,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize component state (MCP can now inspect this)
-	app.Init()
+	// Run Bubbletea TUI - MCP HTTP server runs concurrently in goroutine
+	// The TUI renders in terminal while MCP serves HTTP requests on port 8765
+	// User can interact with TUI (keyboard) while AI inspects state via MCP
+	p := tea.NewProgram(
+		bubbly.Wrap(app),
+		tea.WithAltScreen(), // Full screen TUI
+	)
 
-	// Block forever - MCP server runs in background with component state
-	select {}
+	if _, err := p.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
+		os.Exit(1)
+	}
 }
