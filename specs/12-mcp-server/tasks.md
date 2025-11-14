@@ -932,42 +932,113 @@ func (d *StateChangeDetector) HandleEventEmit(eventName, componentID string, dat
 
 ---
 
-### Task 4.3: Update Batcher and Throttler
+### Task 4.3: Update Batcher and Throttler ✅ COMPLETE
 **Description**: Batch and throttle updates to prevent client overload
 
-**Prerequisites**: Task 4.2
+**Prerequisites**: Task 4.2 ✅
 
-**Unlocks**: Scalable subscriptions
+**Unlocks**: Scalable subscriptions, Task 4.4 (notification sender)
 
 **Files**:
-- `pkg/bubbly/devtools/mcp/batcher.go`
-- `pkg/bubbly/devtools/mcp/batcher_test.go`
+- `pkg/bubbly/devtools/mcp/batcher.go` ✅
+- `pkg/bubbly/devtools/mcp/batcher_test.go` ✅
 
 **Type Safety**:
 ```go
+type UpdateNotification struct {
+    ClientID string
+    URI      string
+    Data     map[string]interface{}
+}
+
+type FlushHandler func(clientID string, updates []UpdateNotification)
+
 type UpdateBatcher struct {
-    pendingUpdates map[string][]*UpdateNotification
+    pendingUpdates map[string][]UpdateNotification
     flushInterval  time.Duration
     maxBatchSize   int
+    flushHandler   FlushHandler
+    ticker         *time.Ticker
+    stopChan       chan struct{}
+    wg             sync.WaitGroup
     mu             sync.Mutex
 }
 
+func NewUpdateBatcher(flushInterval time.Duration, maxBatchSize int) (*UpdateBatcher, error)
+func (b *UpdateBatcher) SetFlushHandler(handler FlushHandler)
+func (b *UpdateBatcher) AddUpdate(update UpdateNotification)
+func (b *UpdateBatcher) Stop()
+
 type Throttler struct {
-    lastSent      map[string]time.Time
-    minInterval   time.Duration
-    mu            sync.RWMutex
+    lastSent    map[string]time.Time
+    minInterval time.Duration
+    mu          sync.RWMutex
 }
+
+func NewThrottler(minInterval time.Duration) (*Throttler, error)
+func (t *Throttler) ShouldSend(clientID, resourceURI string) bool
+func (t *Throttler) Reset(clientID string)
 ```
 
 **Tests**:
-- [ ] Batching collects updates
-- [ ] Batch flushes after interval
-- [ ] Batch size limit enforced
-- [ ] Throttling prevents spam
-- [ ] Per-client throttling works
-- [ ] No updates lost
+- [x] Batching collects updates
+- [x] Batch flushes after interval (time-based)
+- [x] Batch size limit enforced (size-based)
+- [x] Throttling prevents spam
+- [x] Per-client throttling works
+- [x] Per-resource throttling works
+- [x] No updates lost
+- [x] Concurrent access safe (10 goroutines tested)
+- [x] Graceful shutdown flushes pending updates
+- [x] Reset clears throttle state
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- Created `UpdateNotification` type for batched notifications
+- Created `FlushHandler` function type for callback when batch is ready
+- Implemented `UpdateBatcher` with dual flush triggers:
+  - **Time-based**: Flushes after `flushInterval` using `time.Ticker`
+  - **Size-based**: Flushes immediately when batch reaches `maxBatchSize`
+- Implemented `Throttler` with per-client+resource throttling:
+  - Key format: `"clientID:resourceURI"` for granular control
+  - Tracks last send time for each key
+  - Enforces minimum interval between sends
+- Both components are thread-safe using mutexes
+- Batcher runs flush loop in background goroutine
+- Graceful shutdown with `Stop()` method flushes pending updates
+- All errors wrapped with context using `fmt.Errorf` with `%w`
+- 13 comprehensive test suites covering all scenarios:
+  - Batcher: 7 test suites (creation, batching, flushing, per-client, concurrent, stop)
+  - Throttler: 6 test suites (creation, throttling, per-client, per-resource, concurrent, reset)
+- All tests pass with race detector (`go test -race`)
+- **Coverage: 98.4%** (exceeds 80% requirement)
+- Zero lint warnings (`go vet`)
+- Code formatted (`gofmt`)
+- Build successful
+
+**Key Features**:
+- **UpdateBatcher**:
+  - Collects updates per client
+  - Flushes on interval OR batch size (whichever comes first)
+  - Background goroutine with ticker for periodic flushing
+  - Graceful shutdown flushes all pending updates
+  - Thread-safe with mutex protection
+  - Configurable flush interval and batch size
+- **Throttler**:
+  - Per-client+resource throttling (not just per-client)
+  - Minimum interval enforcement
+  - Reset capability for client disconnect/reconnect
+  - Thread-safe with RWMutex (read-heavy workload)
+  - Simple key-based tracking
+
+**Design Decisions**:
+- Used `time.Ticker` for periodic flushing (standard Go pattern)
+- Separate goroutine for flush loop (non-blocking)
+- Per-client batching (not global) for fairness
+- Per-client+resource throttling for fine-grained control
+- Flush handler callback pattern for flexibility
+- Stop channel + WaitGroup for graceful shutdown
+
+**Estimated Effort**: 3 hours ✅ **Actual: 3 hours**
 
 **Priority**: MEDIUM
 
