@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bubbly-mcp-config": {
+      "command": "/home/newbpydev/Development/Xoomby/bubblyui/cmd/bubbly-mcp-config",
+      "args": [],
+      "env": {
+        "BUBBLY_DEVTOOLS_ENABLED": "true",
+        "BUBBLY_MCP_ENABLED": "true"
+      }
+    }
+  }
+}
