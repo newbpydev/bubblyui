@@ -89,6 +89,31 @@ func NewStateChangeDetector(subscriptionMgr *SubscriptionManager) *StateChangeDe
 	}
 }
 
+// SetNotifier sets the notification sender for this detector.
+//
+// This method configures the detector to use the provided notifier
+// for sending notifications to clients when changes are detected.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently, but should be called before any changes occur.
+//
+// Example:
+//
+//	notifier, err := NewNotificationSender(batcher)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	detector.SetNotifier(notifier)
+//
+// Parameters:
+//   - notifier: The notification sender to use
+func (d *StateChangeDetector) SetNotifier(notifier notificationSender) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.notifier = notifier
+}
+
 // Initialize hooks the detector into the DevTools system.
 //
 // This method registers a custom hook with DevTools that will be called
