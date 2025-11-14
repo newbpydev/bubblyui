@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "bubblyui-todos": {
+      "url": "http://localhost:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer demo-token-12345"
+      }
+    }
+  }
+}

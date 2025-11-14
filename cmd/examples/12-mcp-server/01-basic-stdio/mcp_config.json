@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bubblyui-counter": {
+      "command": "go",
+      "args": [
+        "run",
+        "/home/newbpydev/Development/Xoomby/bubblyui/cmd/examples/12-mcp-server/01-basic-stdio"
+      ],
+      "env": {}
+    }
+  }
+}
