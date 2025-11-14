@@ -122,13 +122,21 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 		},
 	)
 
+	// Create authentication handler
+	authHandler, err := NewAuthHandler(config.AuthToken, config.EnableAuth)
+	if err != nil {
+		return fmt.Errorf("failed to create auth handler: %w", err)
+	}
+
 	// Create HTTP server with routes
 	mux := http.NewServeMux()
 
 	// MCP endpoint - handles all MCP protocol messages
-	mux.Handle("/mcp", handler)
+	// Apply authentication middleware to protect MCP endpoint
+	mux.Handle("/mcp", authHandler.Middleware(handler))
 
 	// Health check endpoint - for monitoring and readiness probes
+	// Health check is NOT protected by auth (for monitoring systems)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

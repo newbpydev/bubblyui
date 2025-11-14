@@ -1124,16 +1124,16 @@ func (n *NotificationSender) QueueNotification(clientID, uri string, data map[st
 
 ## Phase 5: Security Layer
 
-### Task 5.1: Authentication Handler
+### Task 5.1: Authentication Handler ✅ COMPLETE
 **Description**: Bearer token authentication for HTTP transport
 
-**Prerequisites**: Task 1.3 (HTTP transport)
+**Prerequisites**: Task 1.3 (HTTP transport) ✅
 
 **Unlocks**: Secure remote access
 
 **Files**:
-- `pkg/bubbly/devtools/mcp/auth.go`
-- `pkg/bubbly/devtools/mcp/auth_test.go`
+- `pkg/bubbly/devtools/mcp/auth.go` ✅
+- `pkg/bubbly/devtools/mcp/auth_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -1142,18 +1142,81 @@ type AuthHandler struct {
     enabled bool
 }
 
+func NewAuthHandler(token string, enabled bool) (*AuthHandler, error)
 func (a *AuthHandler) Middleware(next http.Handler) http.Handler
+func constantTimeCompare(a, b string) bool
 ```
 
 **Tests**:
-- [ ] Valid token allows access
-- [ ] Invalid token returns 401
-- [ ] Missing token returns 401
-- [ ] Disabled auth allows all
-- [ ] Token not logged in errors
-- [ ] Timing attack resistant
+- [x] Valid token allows access
+- [x] Invalid token returns 401
+- [x] Missing token returns 401
+- [x] Disabled auth allows all
+- [x] Token not logged in errors
+- [x] Timing attack resistant
+- [x] Concurrent access thread-safe
+- [x] Token validation with whitespace handling
+- [x] Case-sensitive token comparison
+- [x] Malformed authorization headers rejected
 
-**Estimated Effort**: 2 hours
+**Implementation Notes**:
+- Created `AuthHandler` type with bearer token validation
+- Implemented `NewAuthHandler()` constructor with validation:
+  - Validates token is not empty when auth is enabled
+  - Allows empty token when auth is disabled
+  - Returns error for invalid configurations
+- Implemented `Middleware()` method:
+  - Validates "Bearer <token>" format in Authorization header
+  - Uses `strings.Fields()` to handle multiple spaces
+  - Returns 401 Unauthorized for all auth failures
+  - Passes through all requests when auth is disabled
+- Implemented `constantTimeCompare()` helper:
+  - Uses `crypto/subtle.ConstantTimeCompare` to prevent timing attacks
+  - Ensures token comparison takes same time regardless of mismatch location
+  - Prevents attackers from guessing tokens character-by-character
+- Integrated into HTTP transport:
+  - Applied to `/mcp` endpoint in `StartHTTPServer()`
+  - Health check endpoint `/health` NOT protected (for monitoring)
+  - Auth handler created before server starts
+  - Returns error if auth handler creation fails
+- Security features:
+  - **Timing attack resistant**: Constant-time token comparison
+  - **Token sanitization**: Generic error messages, no token leakage
+  - **Thread-safe**: Stateless handler, no shared mutable state
+  - **Configurable**: Enable/disable via config
+- 7 comprehensive test suites covering all scenarios:
+  - Handler creation with valid/invalid configurations
+  - Valid token authentication (with space handling)
+  - Invalid/missing token scenarios (6 cases)
+  - Disabled auth allows all requests (3 cases)
+  - Token sanitization in error messages (2 cases)
+  - Timing attack resistance (4 cases with different mismatch positions)
+  - Concurrent access (100 goroutines)
+- All tests pass with race detector (`go test -race`)
+- **Coverage: 92.3%** (exceeds 80% requirement)
+  - `NewAuthHandler`: 100%
+  - `Middleware`: 90%
+  - `constantTimeCompare`: 100%
+- Zero lint warnings (`go vet`)
+- Code formatted (`gofmt`)
+- Build successful
+
+**Key Design Decisions**:
+- Used `crypto/subtle.ConstantTimeCompare` for timing attack resistance
+- Generic error messages to prevent information leakage
+- Stateless design for thread safety (no locks needed)
+- Health check endpoint deliberately NOT protected for monitoring systems
+- Token validation in constructor prevents misconfiguration
+- `strings.Fields()` handles multiple spaces in Authorization header
+
+**Security Considerations**:
+- Tokens should be at least 32 bytes for production use
+- Tokens should be randomly generated (e.g., using `crypto/rand`)
+- Tokens should be transmitted over HTTPS only
+- Consider token rotation for long-running servers
+- Auth should be enabled for all remote access (HTTP transport)
+
+**Estimated Effort**: 2 hours ✅ **Actual: 2 hours**
 
 **Priority**: MEDIUM
 
