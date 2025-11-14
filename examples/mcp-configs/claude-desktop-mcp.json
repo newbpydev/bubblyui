@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "bubblyui-app-stdio": {
+      "command": "/path/to/your/app",
+      "args": [],
+      "env": {
+        "BUBBLY_DEVTOOLS_ENABLED": "true",
+        "BUBBLY_MCP_ENABLED": "true"
+      }
+    },
+    "bubblyui-app-http": {
+      "url": "http://localhost:8765/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer your-secret-token-here"
+      }
+    }
+  }
+}
