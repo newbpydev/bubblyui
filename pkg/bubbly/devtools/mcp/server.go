@@ -210,3 +210,26 @@ func (s *MCPServer) GetStore() *devtools.DevToolsStore {
 	defer s.mu.RUnlock()
 	return s.store
 }
+
+// GetSDKServer returns the underlying MCP SDK server instance.
+//
+// This is primarily for testing purposes to allow integration tests
+// to connect the server with custom transports (e.g., in-memory).
+//
+// Thread Safety:
+//
+//	Safe to call concurrently.
+//
+// Example (for testing):
+//
+//	mcpServer := mcp.NewMCPServer(config, dt)
+//	sdkServer := mcpServer.GetSDKServer()
+//	session, _ := sdkServer.Connect(ctx, inMemoryTransport, nil)
+//
+// Returns:
+//   - *mcp.Server: The MCP SDK server instance
+func (s *MCPServer) GetSDKServer() *mcp.Server {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.server
+}
