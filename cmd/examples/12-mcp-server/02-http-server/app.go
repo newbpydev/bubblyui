@@ -30,8 +30,8 @@ func CreateApp() (bubbly.Component, error) {
 		// Use todos composable for reactive state management
 		todos := UseTodos(ctx)
 
-		// Track selected todo index
-		selectedIndex := bubbly.NewRef(0)
+		// Track selected todo index (context-aware for MCP tracking)
+		selectedIndex := ctx.Ref(0)
 
 		// Expose state for MCP inspection
 		ctx.Expose("items", todos.Items)
@@ -77,7 +77,7 @@ func CreateApp() (bubbly.Component, error) {
 	})
 
 	builder = builder.Template(func(ctx bubbly.RenderContext) string {
-		items := ctx.Get("items").(*bubbly.Ref[[]Todo]).Get().([]Todo)
+		items := ctx.Get("items").(*bubbly.Ref[interface{}]).Get().([]Todo)
 		completed := ctx.Get("completedCount").(*bubbly.Computed[interface{}]).Get().(int)
 		total := ctx.Get("totalCount").(*bubbly.Computed[interface{}]).Get().(int)
 		selectedIdx := ctx.Get("selectedIndex").(*bubbly.Ref[int]).Get().(int)

@@ -4,7 +4,7 @@ import "github.com/newbpydev/bubblyui/pkg/bubbly"
 
 // TodosComposable encapsulates todo list logic and reactive state
 type TodosComposable struct {
-	Items          *bubbly.Ref[[]Todo]
+	Items          *bubbly.Ref[interface{}] // Context-aware ref for MCP tracking
 	Add            func(title string)
 	Toggle         func(index int)
 	Delete         func(index int)
@@ -15,8 +15,8 @@ type TodosComposable struct {
 // UseTodos creates a todos composable with reactive state
 // This follows Vue's Composition API pattern for reusable logic
 func UseTodos(ctx *bubbly.Context) *TodosComposable {
-	// Create reactive state
-	items := bubbly.NewRef([]Todo{
+	// Create reactive state with context-aware refs (tracked by devtools)
+	items := ctx.Ref([]Todo{
 		{ID: 1, Title: "Connect AI assistant to MCP server", Completed: false},
 		{ID: 2, Title: "Query todo list via AI", Completed: false},
 		{ID: 3, Title: "Inspect component state", Completed: false},
