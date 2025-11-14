@@ -128,12 +128,18 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 		return fmt.Errorf("failed to create auth handler: %w", err)
 	}
 
+	// Create rate limiter
+	rateLimiter, err := NewRateLimiter(config.RateLimit)
+	if err != nil {
+		return fmt.Errorf("failed to create rate limiter: %w", err)
+	}
+
 	// Create HTTP server with routes
 	mux := http.NewServeMux()
 
 	// MCP endpoint - handles all MCP protocol messages
-	// Apply authentication middleware to protect MCP endpoint
-	mux.Handle("/mcp", authHandler.Middleware(handler))
+	// Apply middleware chain: rate limiting -> authentication -> handler
+	mux.Handle("/mcp", rateLimiter.Middleware(authHandler.Middleware(handler)))
 
 	// Health check endpoint - for monitoring and readiness probes
 	// Health check is NOT protected by auth (for monitoring systems)
