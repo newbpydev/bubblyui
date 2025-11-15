@@ -3,6 +3,7 @@ package testutil
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -42,15 +43,78 @@ type TestHarness struct {
 // HarnessOption is a functional option for configuring a TestHarness.
 type HarnessOption func(*TestHarness)
 
-// EventTracker is a minimal stub for tracking events.
-// Full implementation will be provided in Task 3.3.
+// EventTracker tracks events emitted during component testing.
+// It provides thread-safe event tracking with methods to query event history.
+//
+// EventTracker is used internally by the test harness to track all events
+// emitted by components during tests, enabling assertions on event behavior.
 type EventTracker struct {
-	// Placeholder for now
+	events []EmittedEvent
+	mu     sync.RWMutex
+}
+
+// EmittedEvent represents an event that was emitted during testing.
+type EmittedEvent struct {
+	Name      string
+	Payload   interface{}
+	Timestamp time.Time
+	Source    string
 }
 
 // NewEventTracker creates a new event tracker.
 func NewEventTracker() *EventTracker {
-	return &EventTracker{}
+	return &EventTracker{
+		events: []EmittedEvent{},
+	}
+}
+
+// Track records an event emission.
+// This method is thread-safe and can be called concurrently.
+//
+// Parameters:
+//   - name: The name of the event
+//   - payload: The event payload (can be nil)
+//   - source: The source component that emitted the event
+func (et *EventTracker) Track(name string, payload interface{}, source string) {
+	et.mu.Lock()
+	defer et.mu.Unlock()
+
+	et.events = append(et.events, EmittedEvent{
+		Name:      name,
+		Payload:   payload,
+		Timestamp: time.Now(),
+		Source:    source,
+	})
+}
+
+// GetEvents returns all events with the given name.
+// Returns an empty slice if no events with that name were tracked.
+// This method is thread-safe.
+func (et *EventTracker) GetEvents(name string) []EmittedEvent {
+	et.mu.RLock()
+	defer et.mu.RUnlock()
+
+	events := []EmittedEvent{}
+	for _, e := range et.events {
+		if e.Name == name {
+			events = append(events, e)
+		}
+	}
+
+	return events
+}
+
+// WasFired returns true if at least one event with the given name was tracked.
+// This method is thread-safe.
+func (et *EventTracker) WasFired(name string) bool {
+	return len(et.GetEvents(name)) > 0
+}
+
+// FiredCount returns the number of times an event with the given name was tracked.
+// Returns 0 if no events with that name were tracked.
+// This method is thread-safe.
+func (et *EventTracker) FiredCount(name string) int {
+	return len(et.GetEvents(name))
 }
 
 // NewHarness creates a new test harness for component testing.
