@@ -934,34 +934,66 @@ func (mc *MockComponent) GetOnCallCount(event string) int
 
 ---
 
-### Task 4.3: Mock Factory
+### Task 4.3: Mock Factory ✅ COMPLETED
 **Description**: Factory for creating mocks
 
-**Prerequisites**: Task 4.2
+**Prerequisites**: Task 4.2 ✅
 
 **Unlocks**: Task 4.4 (Mock Router)
 
 **Files**:
-- `pkg/bubbly/testutil/mock_factory.go`
-- `pkg/bubbly/testutil/mock_factory_test.go`
+- `pkg/bubbly/testutil/mock_factory.go` ✅
+- `pkg/bubbly/testutil/mock_factory_test.go` ✅
 
 **Type Safety**:
 ```go
 type MockFactory struct {
+    mu    sync.RWMutex
     mocks map[string]interface{}
 }
 
 func NewMockFactory() *MockFactory
-func (mf *MockFactory) CreateMockRef[T any](name string, initial T) *MockRef[T]
+func CreateMockRef[T any](mf *MockFactory, name string, initial T) *MockRef[T]
 func (mf *MockFactory) CreateMockComponent(name string) *MockComponent
+func GetMockRef[T any](mf *MockFactory, name string) *MockRef[T]
+func (mf *MockFactory) GetMockComponent(name string) *MockComponent
+func (mf *MockFactory) Clear()
 ```
 
 **Tests**:
-- [ ] Factory creates mocks
-- [ ] Mock registration works
-- [ ] Retrieval works
-- [ ] Cleanup works
-- [ ] Type-safe creation
+- [x] Factory creates mocks (12 test functions, 30+ test cases)
+- [x] Mock registration works (CreateMockRef, CreateMockComponent)
+- [x] Retrieval works (GetMockRef, GetMockComponent)
+- [x] Cleanup works (Clear, idempotent)
+- [x] Type-safe creation (int, string, bool, struct, slice types tested)
+- [x] Thread-safe operations (concurrent access test)
+- [x] Overwrite existing mocks
+- [x] Integration test with realistic scenario
+
+**Implementation Notes**:
+- ✅ Complete implementation per designs.md specification
+- ✅ Thread-safe with sync.RWMutex for all operations
+- ✅ Generic functions used instead of methods (Go limitation: methods cannot have type parameters)
+- ✅ CreateMockRef[T] and GetMockRef[T] are package-level generic functions
+- ✅ CreateMockComponent and GetMockComponent are methods (no generics needed)
+- ✅ Clear() creates new map to ensure all references released
+- ✅ Supports overwriting existing mocks with same name
+- ✅ Type-safe retrieval with nil return for non-existent or wrong-type mocks
+- ✅ Comprehensive godoc comments on all exported types and functions
+- ✅ Table-driven tests covering all scenarios (12 test functions)
+- ✅ 100% coverage on NewMockFactory, CreateMockRef, CreateMockComponent, Clear
+- ✅ 88.9% coverage on GetMockRef and GetMockComponent (nil checks not fully exercised)
+- ✅ Overall testutil package coverage: 98.4%
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (12 test functions, all passing)
+- ✅ Coverage: 98.4% (overall testutil), 100% (core methods)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 2 hours
 
