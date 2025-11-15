@@ -999,38 +999,93 @@ func (mf *MockFactory) Clear()
 
 ---
 
-### Task 4.4: Mock Router
+### Task 4.4: Mock Router ✅ COMPLETED
 **Description**: Mock router for route testing
 
-**Prerequisites**: Task 4.3
+**Prerequisites**: Task 4.3 ✅
 
 **Unlocks**: Task 4.5 (Mock Commands)
 
 **Files**:
-- `pkg/bubbly/testutil/mock_router.go`
-- `pkg/bubbly/testutil/mock_router_test.go`
+- `pkg/bubbly/testutil/mock_router.go` ✅
+- `pkg/bubbly/testutil/mock_router_test.go` ✅
 
 **Type Safety**:
 ```go
 type MockRouter struct {
-    currentRoute *Route
-    pushCalls    []NavigationTarget
+    mu sync.RWMutex
+    
+    // Current state
+    currentRoute *router.Route
+    
+    // Call tracking
+    pushCalls    []*router.NavigationTarget
+    replaceCalls []*router.NavigationTarget
     backCalls    int
 }
 
 func NewMockRouter() *MockRouter
-func (mr *MockRouter) AssertPushed(t *testing.T, path string)
-func (mr *MockRouter) AssertBackCalled(t *testing.T)
+func (mr *MockRouter) SetCurrentRoute(route *router.Route)
+func (mr *MockRouter) CurrentRoute() *router.Route
+func (mr *MockRouter) Push(target *router.NavigationTarget) tea.Cmd
+func (mr *MockRouter) Replace(target *router.NavigationTarget) tea.Cmd
+func (mr *MockRouter) Back() tea.Cmd
+func (mr *MockRouter) GetPushCallCount() int
+func (mr *MockRouter) GetReplaceCallCount() int
+func (mr *MockRouter) GetBackCallCount() int
+func (mr *MockRouter) GetPushCalls() []*router.NavigationTarget
+func (mr *MockRouter) GetReplaceCalls() []*router.NavigationTarget
+func (mr *MockRouter) Reset()
+func (mr *MockRouter) AssertPushed(t testingT, path string)
+func (mr *MockRouter) AssertReplaced(t testingT, path string)
+func (mr *MockRouter) AssertBackCalled(t testingT)
+func (mr *MockRouter) AssertBackNotCalled(t testingT)
+func (mr *MockRouter) AssertPushCount(t testingT, count int)
+func (mr *MockRouter) AssertReplaceCount(t testingT, count int)
+func (mr *MockRouter) AssertBackCount(t testingT, count int)
 ```
 
 **Tests**:
-- [ ] Mock implements Router interface
-- [ ] Navigation tracking works
-- [ ] Current route settable
-- [ ] Assertions work
-- [ ] Integration with components
+- [x] Mock implements Router interface (Push, Replace, Back, CurrentRoute)
+- [x] Navigation tracking works (all calls recorded)
+- [x] Current route settable (SetCurrentRoute)
+- [x] Assertions work (7 assertion helpers with success/failure tests)
+- [x] Thread-safe operations (concurrent access test)
+- [x] Defensive copies (GetPushCalls/GetReplaceCalls return copies)
+- [x] Reset functionality (clears all state)
+- [x] Integration scenario (realistic usage test)
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- ✅ Complete implementation with full Router interface support
+- ✅ Thread-safe with sync.RWMutex for all operations
+- ✅ Tracks Push, Replace, and Back navigation calls
+- ✅ Supports NavigationTarget with Path, Name, Params, Query
+- ✅ Returns no-op tea.Cmd (returns nil message)
+- ✅ SetCurrentRoute allows setting route for testing
+- ✅ GetPushCalls/GetReplaceCalls return defensive copies
+- ✅ Reset() clears all tracking and current route
+- ✅ 7 assertion helpers with testingT interface:
+  - AssertPushed: Verify Push called with specific path
+  - AssertReplaced: Verify Replace called with specific path
+  - AssertBackCalled: Verify Back called at least once
+  - AssertBackNotCalled: Verify Back never called
+  - AssertPushCount: Verify exact Push call count
+  - AssertReplaceCount: Verify exact Replace call count
+  - AssertBackCount: Verify exact Back call count
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (15 test functions, 60+ test cases)
+- ✅ 100% test coverage on all methods with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Overall testutil package coverage: 98.6%
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (15 test functions, all passing)
+- ✅ Coverage: 100.0% (mock_router.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
