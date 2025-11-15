@@ -35,7 +35,7 @@ func main() {
 	// Result: "could not open a new TTY" errors when running as subprocess
 	//
 	// Use HTTP transport (02-http-server) instead for working MCP integration
-	
+
 	// Enable dev tools with MCP server (stdio transport - BROKEN with BubblyUI)
 	_, err := mcp.EnableWithMCP(&mcp.MCPConfig{
 		Transport:            mcp.MCPTransportStdio,

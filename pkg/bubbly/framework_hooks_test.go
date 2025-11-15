@@ -11,37 +11,37 @@ import (
 
 // mockHook is a test implementation of FrameworkHook
 type mockHook struct {
-	mountCalls        atomic.Int32
-	updateCalls       atomic.Int32
-	unmountCalls      atomic.Int32
-	refChangeCalls    atomic.Int32
-	eventCalls        atomic.Int32
-	renderCalls       atomic.Int32
-	computedCalls     atomic.Int32
-	watchCalls        atomic.Int32
-	effectCalls       atomic.Int32
-	childAddedCalls   atomic.Int32
-	childRemovedCalls atomic.Int32
-	refExposedCalls   atomic.Int32
-	lastMountID       string
-	lastMountName     string
-	lastUpdateID      string
-	lastUpdateMsg     interface{}
-	lastUnmountID     string
-	lastRefID         string
-	lastRefOld        interface{}
-	lastRefNew        interface{}
-	lastEventCompID   string
-	lastEventName     string
-	lastEventData     interface{}
-	lastRenderID      string
-	lastRenderDur     time.Duration
-	lastComputedID    string
-	lastComputedOld   interface{}
-	lastComputedNew   interface{}
-	lastWatchID       string
-	lastWatchNew      interface{}
-	lastWatchOld      interface{}
+	mountCalls           atomic.Int32
+	updateCalls          atomic.Int32
+	unmountCalls         atomic.Int32
+	refChangeCalls       atomic.Int32
+	eventCalls           atomic.Int32
+	renderCalls          atomic.Int32
+	computedCalls        atomic.Int32
+	watchCalls           atomic.Int32
+	effectCalls          atomic.Int32
+	childAddedCalls      atomic.Int32
+	childRemovedCalls    atomic.Int32
+	refExposedCalls      atomic.Int32
+	lastMountID          string
+	lastMountName        string
+	lastUpdateID         string
+	lastUpdateMsg        interface{}
+	lastUnmountID        string
+	lastRefID            string
+	lastRefOld           interface{}
+	lastRefNew           interface{}
+	lastEventCompID      string
+	lastEventName        string
+	lastEventData        interface{}
+	lastRenderID         string
+	lastRenderDur        time.Duration
+	lastComputedID       string
+	lastComputedOld      interface{}
+	lastComputedNew      interface{}
+	lastWatchID          string
+	lastWatchNew         interface{}
+	lastWatchOld         interface{}
 	lastEffectID         string
 	lastParentID         string
 	lastChildID          string
@@ -882,9 +882,9 @@ func TestContext_Expose_DoesNotNotifyForNonRef(t *testing.T) {
 	defer UnregisterHook()
 
 	tests := []struct {
-		name     string
-		key      string
-		value    interface{}
+		name  string
+		key   string
+		value interface{}
 	}{
 		{
 			name:  "plain int",

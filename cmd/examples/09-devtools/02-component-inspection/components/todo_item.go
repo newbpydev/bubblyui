@@ -10,9 +10,9 @@ import (
 
 // TodoItemProps defines the props for TodoItem component
 type TodoItemProps struct {
-	ID        int
-	Text      string
-	Completed *bubbly.Ref[bool]
+	ID         int
+	Text       string
+	Completed  *bubbly.Ref[bool]
 	IsSelected bool
 }
 

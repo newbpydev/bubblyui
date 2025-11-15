@@ -68,19 +68,19 @@ func CreateFooter(props FooterProps) (bubbly.Component, error) {
 
 		// Create badges for statistics
 		totalBadge := components.Badge(components.BadgeProps{
-			Label:  fmt.Sprintf("Total: %d", total),
+			Label:   fmt.Sprintf("Total: %d", total),
 			Variant: components.VariantInfo,
 		})
 		totalBadge.Init()
 
 		completedBadge := components.Badge(components.BadgeProps{
-			Label:  fmt.Sprintf("Done: %d", completed),
+			Label:   fmt.Sprintf("Done: %d", completed),
 			Variant: components.VariantSuccess,
 		})
 		completedBadge.Init()
 
 		pendingBadge := components.Badge(components.BadgeProps{
-			Label:  fmt.Sprintf("Pending: %d", pending),
+			Label:   fmt.Sprintf("Pending: %d", pending),
 			Variant: components.VariantWarning,
 		})
 		pendingBadge.Init()

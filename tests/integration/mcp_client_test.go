@@ -16,13 +16,13 @@ import (
 
 // testMCPSetup holds the test MCP server and client setup
 type testMCPSetup struct {
-	devtools    *devtools.DevTools
-	mcpServer   *mcp.MCPServer
-	client      *mcpsdk.Client
-	session     *mcpsdk.ClientSession
-	cleanup     func()
-	ctx         context.Context
-	cancelCtx   context.CancelFunc
+	devtools  *devtools.DevTools
+	mcpServer *mcp.MCPServer
+	client    *mcpsdk.Client
+	session   *mcpsdk.ClientSession
+	cleanup   func()
+	ctx       context.Context
+	cancelCtx context.CancelFunc
 }
 
 // createTestMCPServer creates a test MCP server with populated data
@@ -31,7 +31,7 @@ func createTestMCPServer(t *testing.T, config *mcp.MCPConfig) (*devtools.DevTool
 
 	// Ensure clean state - disable any existing DevTools instance
 	devtools.Disable()
-	
+
 	// Small delay to ensure cleanup completes
 	time.Sleep(10 * time.Millisecond)
 
@@ -162,7 +162,7 @@ func setupMCPClientServer(t *testing.T, config *mcp.MCPConfig) *testMCPSetup {
 			t.Logf("Failed to register set_ref_value tool: %v", err)
 		}
 	}
-	
+
 	// Start server transport in background using SDK server
 	serverErrCh := make(chan error, 1)
 	go func() {
@@ -315,18 +315,18 @@ func TestMCPClientServer_ReadStateResource(t *testing.T) {
 	// t.Parallel() - Disabled: tests use global DevTools singleton
 
 	tests := []struct {
-		name          string
-		uri           string
+		name           string
+		uri            string
 		expectedFields []string
 	}{
 		{
-			name:          "State refs",
-			uri:           "bubblyui://state/refs",
+			name:           "State refs",
+			uri:            "bubblyui://state/refs",
 			expectedFields: []string{"refs", "computed", "timestamp"},
 		},
 		{
-			name:          "State history",
-			uri:           "bubblyui://state/history",
+			name:           "State history",
+			uri:            "bubblyui://state/history",
 			expectedFields: []string{"changes", "count", "timestamp"},
 		},
 	}
@@ -667,14 +667,14 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 	// t.Parallel() - Disabled: tests use global DevTools singleton
 
 	config := mcp.DefaultMCPConfig()
-	
+
 	// Create server once
 	_, mcpServer := createTestMCPServer(t, config)
 	defer devtools.Disable()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Register all resources (done once for the shared server)
 	mcpServer.RegisterComponentsResource()
 	mcpServer.RegisterComponentResource()
@@ -690,10 +690,10 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 	// Create multiple clients
 	numClients := 3
 	clients := make([]*mcpsdk.ClientSession, numClients)
-	
+
 	for i := 0; i < numClients; i++ {
 		clientTransport, servTransport := mcpsdk.NewInMemoryTransports()
-		
+
 		// Each client needs its own server connection
 		go func() {
 			mcpServer.GetSDKServer().Connect(ctx, servTransport, nil)
@@ -715,7 +715,7 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 	for i, session := range clients {
 		go func(clientNum int, s *mcpsdk.ClientSession) {
 			defer func() { done <- true }()
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
@@ -743,13 +743,13 @@ func BenchmarkMCPOverhead(b *testing.B) {
 	// Setup MCP server - use t-compatible helper
 	config := mcp.DefaultMCPConfig()
 	config.Transport = mcp.MCPTransportStdio
-	
+
 	dt, err := mcp.EnableWithMCP(config)
 	if err != nil {
 		b.Fatalf("Failed to enable MCP: %v", err)
 	}
 	defer devtools.Disable()
-	
+
 	// Populate test data
 	populateTestData(&testing.T{}, dt)
 

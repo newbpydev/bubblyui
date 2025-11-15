@@ -53,7 +53,7 @@ func CreateApp() (bubbly.Component, error) {
 		// State: Todos list (use NewRef for typed refs)
 		todos := bubbly.NewRef(initialTodos)
 
-		// State: Selected index  
+		// State: Selected index
 		selectedIndex := bubbly.NewRef(0)
 
 		// Create child components

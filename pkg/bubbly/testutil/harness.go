@@ -7,6 +7,15 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
+// testingT is an interface that matches the methods we need from testing.T.
+// This allows for mocking in tests while maintaining compatibility with real testing.T.
+type testingT interface {
+	Errorf(format string, args ...interface{})
+	Helper()
+	Logf(format string, args ...interface{})
+	Cleanup(func())
+}
+
 // TestHarness provides a testing environment for BubblyUI components.
 // It manages component lifecycle, state inspection, event tracking, and cleanup.
 //
@@ -21,7 +30,7 @@ import (
 //	    // Cleanup happens automatically
 //	}
 type TestHarness struct {
-	t         *testing.T
+	t         testingT
 	component bubbly.Component
 	refs      map[string]*bubbly.Ref[interface{}]
 	events    *EventTracker

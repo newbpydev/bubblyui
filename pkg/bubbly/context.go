@@ -299,9 +299,9 @@ func (ctx *Context) Expose(key string, value interface{}) {
 	case *Ref[interface{}]:
 		refID := fmt.Sprintf("ref-%p", v)
 		notifyHookRefExposed(ctx.component.id, refID, key)
-	// Note: This covers the most common types. For other Ref[T] types,
-	// they won't be tracked by DevTools ref ownership (but will still work).
-	// A future improvement could use reflection to detect all Ref types.
+		// Note: This covers the most common types. For other Ref[T] types,
+		// they won't be tracked by DevTools ref ownership (but will still work).
+		// A future improvement could use reflection to detect all Ref types.
 	}
 }
 

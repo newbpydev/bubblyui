@@ -537,7 +537,7 @@ func (c *componentImpl) Init() tea.Cmd {
 		c.setup(ctx)
 		c.mounted = true
 	}
-	
+
 	// CRITICAL FIX: Notify hook for ALL components, not just those with setup
 	// This ensures DevTools tracks all components, even simple template-only ones
 	if !c.mounted {

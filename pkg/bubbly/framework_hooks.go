@@ -73,7 +73,6 @@ type FrameworkHook interface {
 	//   - newValue: The new value
 	OnRefChange(id string, oldValue, newValue interface{})
 
-	
 	// OnEvent is called when a component emits an event.
 	//
 	// Parameters:
@@ -267,7 +266,6 @@ func notifyHookComponentUnmount(id string) {
 		hook.OnComponentUnmount(id)
 	}
 }
-
 
 // notifyHookRefChange calls the registered hook's OnRefChange method.
 // This is an internal helper used by framework integration points.
