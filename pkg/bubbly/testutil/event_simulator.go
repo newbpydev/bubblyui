@@ -9,7 +9,7 @@ import (
 type Event struct {
 	// Name is the event name to emit
 	Name string
-	
+
 	// Payload is the data to pass with the event
 	Payload interface{}
 }
@@ -28,10 +28,10 @@ type Event struct {
 //	ct.AssertEventFired("submit")
 func (ct *ComponentTest) Emit(name string, payload interface{}) {
 	ct.harness.t.Helper()
-	
+
 	// Emit event on the component
 	ct.component.Emit(name, payload)
-	
+
 	// Give a tiny delay for event handlers to execute
 	// This ensures handlers run before assertions
 	time.Sleep(1 * time.Millisecond)
@@ -50,14 +50,14 @@ func (ct *ComponentTest) Emit(name string, payload interface{}) {
 //	ct.AssertRefEquals("loading", false)
 func (ct *ComponentTest) EmitAndWait(name string, payload interface{}, timeout time.Duration) {
 	ct.harness.t.Helper()
-	
+
 	// Emit the event
 	ct.component.Emit(name, payload)
-	
+
 	// Wait for event to be tracked
 	deadline := time.Now().Add(timeout)
 	interval := 10 * time.Millisecond
-	
+
 	for time.Now().Before(deadline) {
 		if ct.events.tracker.WasFired(name) {
 			// Event was tracked, give handlers time to complete
@@ -66,7 +66,7 @@ func (ct *ComponentTest) EmitAndWait(name string, payload interface{}, timeout t
 		}
 		time.Sleep(interval)
 	}
-	
+
 	// Timeout reached - event may not have been tracked
 	// Don't fail here, just return (caller can assert if needed)
 }
@@ -88,7 +88,7 @@ func (ct *ComponentTest) EmitAndWait(name string, payload interface{}, timeout t
 //	ct.EmitMultiple(events)
 func (ct *ComponentTest) EmitMultiple(events []Event) {
 	ct.harness.t.Helper()
-	
+
 	for _, event := range events {
 		ct.Emit(event.Name, event.Payload)
 	}

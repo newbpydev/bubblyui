@@ -332,3 +332,110 @@ func (c *messageCaptureComponent) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	*c.capturedMsg = msg
 	return c.Component.Update(msg)
 }
+
+// TestCreateKeyMsg_SpecialKeys tests createKeyMsg with all special key combinations
+func TestCreateKeyMsg_SpecialKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		expected tea.KeyType
+	}{
+		// Navigation keys
+		{"enter key", "enter", tea.KeyEnter},
+		{"escape key", "esc", tea.KeyEsc},
+		{"tab key", "tab", tea.KeyTab},
+		{"backspace key", "backspace", tea.KeyBackspace},
+		{"delete key", "delete", tea.KeyDelete},
+		{"up arrow", "up", tea.KeyUp},
+		{"down arrow", "down", tea.KeyDown},
+		{"left arrow", "left", tea.KeyLeft},
+		{"right arrow", "right", tea.KeyRight},
+		{"home key", "home", tea.KeyHome},
+		{"end key", "end", tea.KeyEnd},
+		{"page up", "pgup", tea.KeyPgUp},
+		{"page down", "pgdown", tea.KeyPgDown},
+
+		// Ctrl combinations
+		{"ctrl+c", "ctrl+c", tea.KeyCtrlC},
+		{"ctrl+d", "ctrl+d", tea.KeyCtrlD},
+		{"ctrl+a", "ctrl+a", tea.KeyCtrlA},
+		{"ctrl+e", "ctrl+e", tea.KeyCtrlE},
+		{"ctrl+k", "ctrl+k", tea.KeyCtrlK},
+		{"ctrl+u", "ctrl+u", tea.KeyCtrlU},
+		{"ctrl+w", "ctrl+w", tea.KeyCtrlW},
+		{"ctrl+l", "ctrl+l", tea.KeyCtrlL},
+		{"ctrl+n", "ctrl+n", tea.KeyCtrlN},
+		{"ctrl+p", "ctrl+p", tea.KeyCtrlP},
+		{"ctrl+b", "ctrl+b", tea.KeyCtrlB},
+		{"ctrl+f", "ctrl+f", tea.KeyCtrlF},
+
+		// Function keys
+		{"f1 key", "f1", tea.KeyF1},
+		{"f2 key", "f2", tea.KeyF2},
+		{"f3 key", "f3", tea.KeyF3},
+		{"f4 key", "f4", tea.KeyF4},
+		{"f5 key", "f5", tea.KeyF5},
+		{"f6 key", "f6", tea.KeyF6},
+		{"f7 key", "f7", tea.KeyF7},
+		{"f8 key", "f8", tea.KeyF8},
+		{"f9 key", "f9", tea.KeyF9},
+		{"f10 key", "f10", tea.KeyF10},
+		{"f11 key", "f11", tea.KeyF11},
+		{"f12 key", "f12", tea.KeyF12},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createKeyMsg(tt.key)
+			assert.Equal(t, tt.expected, result.Type, "Key type should match expected")
+			assert.Empty(t, result.Runes, "Special keys should have no runes")
+		})
+	}
+}
+
+// TestCreateKeyMsg_CharacterKeys tests createKeyMsg with regular character input
+func TestCreateKeyMsg_CharacterKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		expected []rune
+	}{
+		{"single letter", "a", []rune{'a'}},
+		{"single number", "5", []rune{'5'}},
+		{"uppercase letter", "X", []rune{'X'}},
+		{"special character", "!", []rune{'!'}},
+		{"space character", " ", []rune{' '}},
+		{"multi-character", "hello", []rune{'h', 'e', 'l', 'l', 'o'}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createKeyMsg(tt.key)
+			assert.Equal(t, tea.KeyRunes, result.Type, "Character keys should be KeyRunes type")
+			assert.Equal(t, tt.expected, result.Runes, "Runes should match input")
+		})
+	}
+}
+
+// TestCreateKeyMsg_EdgeCases tests createKeyMsg with edge cases
+func TestCreateKeyMsg_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		expected tea.KeyType
+	}{
+		{"empty string", "", tea.KeyRunes},
+		{"single character", "x", tea.KeyRunes},
+		{"unknown f key", "f13", tea.KeyRunes},   // Not in switch, falls back to runes
+		{"unknown ctrl", "ctrl+z", tea.KeyRunes}, // Not in switch, falls back to runes
+		{"partial match", "ctrl", tea.KeyRunes},  // Not a full match, falls back to runes
+		{"f without number", "f", tea.KeyRunes},  // Not a full match, falls back to runes
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := createKeyMsg(tt.key)
+			assert.Equal(t, tt.expected, result.Type, "Key type should match expected")
+		})
+	}
+}

@@ -40,11 +40,11 @@ func TestEmit_Basic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := NewHarness(t)
-			
+
 			// Create a simple component that tracks events
 			eventReceived := false
 			var receivedPayload interface{}
-			
+
 			component, err := bubbly.NewComponent("TestComponent").
 				Setup(func(ctx *bubbly.Context) {
 					ctx.On(tt.event, func(data interface{}) {
@@ -57,12 +57,12 @@ func TestEmit_Basic(t *testing.T) {
 				}).
 				Build()
 			assert.NoError(t, err)
-			
+
 			ct := harness.Mount(component)
-			
+
 			// Emit event
 			ct.Emit(tt.event, tt.payload)
-			
+
 			// Verify event was received
 			assert.True(t, eventReceived, "event should have been received")
 			assert.Equal(t, tt.payload, receivedPayload, "payload should match")
@@ -73,7 +73,7 @@ func TestEmit_Basic(t *testing.T) {
 // TestEmit_EventTracking tests that emitted events are tracked.
 func TestEmit_EventTracking(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("test-event", func(data interface{}) {
@@ -85,12 +85,12 @@ func TestEmit_EventTracking(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit event
 	ct.Emit("test-event", "payload")
-	
+
 	// Verify event was tracked
 	assert.True(t, ct.events.tracker.WasFired("test-event"))
 	events := ct.events.tracker.GetEvents("test-event")
@@ -101,9 +101,9 @@ func TestEmit_EventTracking(t *testing.T) {
 // TestEmit_MultipleEvents tests emitting multiple different events.
 func TestEmit_MultipleEvents(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	events := make(map[string]int)
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("event1", func(data interface{}) {
@@ -121,15 +121,15 @@ func TestEmit_MultipleEvents(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit multiple events
 	ct.Emit("event1", nil)
 	ct.Emit("event2", nil)
 	ct.Emit("event3", nil)
 	ct.Emit("event1", nil) // Emit event1 again
-	
+
 	// Verify all events received
 	assert.Equal(t, 2, events["event1"])
 	assert.Equal(t, 1, events["event2"])
@@ -139,9 +139,9 @@ func TestEmit_MultipleEvents(t *testing.T) {
 // TestEmitAndWait_Success tests successful wait for event processing.
 func TestEmitAndWait_Success(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	processed := false
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("process", func(data interface{}) {
@@ -155,12 +155,12 @@ func TestEmitAndWait_Success(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit and wait
 	ct.EmitAndWait("process", nil, 200*time.Millisecond)
-	
+
 	// Should have processed by now
 	assert.True(t, processed, "event should have been processed")
 }
@@ -168,7 +168,7 @@ func TestEmitAndWait_Success(t *testing.T) {
 // TestEmitAndWait_Timeout tests timeout behavior.
 func TestEmitAndWait_Timeout(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("slow", func(data interface{}) {
@@ -181,22 +181,22 @@ func TestEmitAndWait_Timeout(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// This should timeout (50ms timeout, but handler takes 200ms)
 	// EmitAndWait should not panic, just return after timeout
 	ct.EmitAndWait("slow", nil, 50*time.Millisecond)
-	
+
 	// Test passes if we get here without hanging
 }
 
 // TestEmitMultiple_Order tests that multiple events are emitted in order.
 func TestEmitMultiple_Order(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	var order []string
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("event1", func(data interface{}) {
@@ -214,9 +214,9 @@ func TestEmitMultiple_Order(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit multiple events
 	events := []Event{
 		{Name: "event1", Payload: nil},
@@ -224,7 +224,7 @@ func TestEmitMultiple_Order(t *testing.T) {
 		{Name: "event3", Payload: nil},
 	}
 	ct.EmitMultiple(events)
-	
+
 	// Verify order
 	assert.Equal(t, []string{"event1", "event2", "event3"}, order)
 }
@@ -232,9 +232,9 @@ func TestEmitMultiple_Order(t *testing.T) {
 // TestEmitMultiple_WithPayloads tests multiple events with different payloads.
 func TestEmitMultiple_WithPayloads(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	var payloads []interface{}
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("data", func(data interface{}) {
@@ -246,9 +246,9 @@ func TestEmitMultiple_WithPayloads(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit multiple events with payloads
 	events := []Event{
 		{Name: "data", Payload: "first"},
@@ -256,7 +256,7 @@ func TestEmitMultiple_WithPayloads(t *testing.T) {
 		{Name: "data", Payload: true},
 	}
 	ct.EmitMultiple(events)
-	
+
 	// Verify payloads
 	assert.Len(t, payloads, 3)
 	assert.Equal(t, "first", payloads[0])
@@ -267,7 +267,7 @@ func TestEmitMultiple_WithPayloads(t *testing.T) {
 // TestEmitMultiple_Empty tests emitting empty event list.
 func TestEmitMultiple_Empty(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -275,9 +275,9 @@ func TestEmitMultiple_Empty(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Should not panic with empty list
 	ct.EmitMultiple([]Event{})
 	ct.EmitMultiple(nil)
@@ -286,12 +286,12 @@ func TestEmitMultiple_Empty(t *testing.T) {
 // TestEmit_StateUpdates tests that state updates after event emission.
 func TestEmit_StateUpdates(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			count := ctx.Ref(0)
 			ctx.Expose("count", count)
-			
+
 			ctx.On("increment", func(data interface{}) {
 				current := count.Get().(int)
 				count.Set(current + 1)
@@ -302,18 +302,18 @@ func TestEmit_StateUpdates(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Initial state
 	ct.AssertRefEquals("count", 0)
-	
+
 	// Emit event
 	ct.Emit("increment", nil)
-	
+
 	// State should be updated
 	ct.AssertRefEquals("count", 1)
-	
+
 	// Emit again
 	ct.Emit("increment", nil)
 	ct.AssertRefEquals("count", 2)
@@ -322,10 +322,10 @@ func TestEmit_StateUpdates(t *testing.T) {
 // TestEmit_HandlerExecution tests that event handlers execute correctly.
 func TestEmit_HandlerExecution(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	handlerCalled := false
 	var receivedData interface{}
-	
+
 	component, err := bubbly.NewComponent("TestComponent").
 		Setup(func(ctx *bubbly.Context) {
 			ctx.On("test", func(data interface{}) {
@@ -338,13 +338,13 @@ func TestEmit_HandlerExecution(t *testing.T) {
 		}).
 		Build()
 	assert.NoError(t, err)
-	
+
 	ct := harness.Mount(component)
-	
+
 	// Emit event
 	testData := map[string]string{"key": "value"}
 	ct.Emit("test", testData)
-	
+
 	// Verify handler executed
 	assert.True(t, handlerCalled)
 	assert.Equal(t, testData, receivedData)

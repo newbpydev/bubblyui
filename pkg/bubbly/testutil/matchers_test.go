@@ -50,26 +50,27 @@ func TestBeEmpty(t *testing.T) {
 			}
 		})
 	}
-}
 
-// TestBeEmpty_InvalidTypes tests BeEmpty with invalid types
-func TestBeEmpty_InvalidTypes(t *testing.T) {
-	tests := []struct {
+	// Test error cases - unsupported types
+	errorTests := []struct {
 		name   string
 		actual interface{}
 	}{
-		{"int", 42},
-		{"bool", true},
+		{"integer", 42},
+		{"float", 3.14},
+		{"boolean", true},
+		{"function", func() {}},
 		{"struct", struct{}{}},
-		{"pointer", new(int)},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range errorTests {
+		t.Run(tt.name+" error", func(t *testing.T) {
 			matcher := BeEmpty()
-			_, err := matcher.Match(tt.actual)
+			matched, err := matcher.Match(tt.actual)
 
-			assert.Error(t, err, "BeEmpty should error for non-collection types")
+			assert.Error(t, err, "BeEmpty() should return error for unsupported type")
+			assert.False(t, matched, "BeEmpty() should not match unsupported type")
+			assert.Contains(t, err.Error(), "BeEmpty matcher expects", "Error message should be descriptive")
 		})
 	}
 }
