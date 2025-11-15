@@ -117,6 +117,32 @@ func (et *EventTracker) FiredCount(name string) int {
 	return len(et.GetEvents(name))
 }
 
+// testHook implements bubbly.FrameworkHook to track events for testing.
+type testHook struct {
+	tracker *EventTracker
+	harness *TestHarness
+}
+
+func (h *testHook) OnComponentMount(id, name string)                         {}
+func (h *testHook) OnComponentUpdate(id string, msg interface{})             {}
+func (h *testHook) OnComponentUnmount(id string)                             {}
+func (h *testHook) OnRefChange(id string, oldValue, newValue interface{})    {}
+func (h *testHook) OnRefExposed(componentID, refName, refID string) {
+	// Refs are exposed during Init(), so we can't access them here yet
+	// They will be extracted in Mount() after Init() completes
+	// This hook is primarily for DevTools tracking, not for test harness
+}
+func (h *testHook) OnRenderComplete(componentID string, duration time.Duration) {}
+func (h *testHook) OnComputedChange(id string, oldValue, newValue interface{}) {}
+func (h *testHook) OnWatchCallback(watcherID string, oldValue, newValue interface{}) {}
+func (h *testHook) OnEffectRun(effectID string)                              {}
+func (h *testHook) OnChildAdded(parentID, childID string)                    {}
+func (h *testHook) OnChildRemoved(parentID, childID string)                  {}
+
+func (h *testHook) OnEvent(componentID, eventName string, data interface{}) {
+	h.tracker.Track(eventName, data, componentID)
+}
+
 // NewHarness creates a new test harness for component testing.
 // It initializes the harness with empty state and registers automatic
 // cleanup with the provided testing.T.
@@ -138,6 +164,15 @@ func NewHarness(t *testing.T, opts ...HarnessOption) *TestHarness {
 	for _, opt := range opts {
 		opt(h)
 	}
+
+	// Install framework hook to track events
+	hook := &testHook{tracker: h.events}
+	bubbly.RegisterHook(hook)
+
+	// Register cleanup to unregister hook
+	h.RegisterCleanup(func() {
+		bubbly.UnregisterHook()
+	})
 
 	// Register automatic cleanup with testing.T
 	t.Cleanup(func() {

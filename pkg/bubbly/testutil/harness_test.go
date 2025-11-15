@@ -70,12 +70,12 @@ func TestHarness_CleanupExecution(t *testing.T) {
 func TestHarness_CleanupClearsSlice(t *testing.T) {
 	harness := NewHarness(t)
 
-	// Register some cleanup functions
+	// Register some cleanup functions (harness already has 1 for hook cleanup)
 	harness.RegisterCleanup(func() {})
 	harness.RegisterCleanup(func() {})
 
-	// Verify cleanup functions registered
-	assert.Len(t, harness.cleanup, 2, "should have 2 cleanup functions")
+	// Verify cleanup functions registered (3 total: 1 for hook + 2 registered)
+	assert.Len(t, harness.cleanup, 3, "should have 3 cleanup functions")
 
 	// Execute cleanup
 	harness.Cleanup()
@@ -102,8 +102,8 @@ func TestHarness_CleanupThreadSafe(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify all cleanup functions were registered
-	assert.Len(t, harness.cleanup, numGoroutines, "all cleanup functions should be registered")
+	// Verify all cleanup functions were registered (10 + 1 for hook cleanup)
+	assert.Len(t, harness.cleanup, numGoroutines+1, "all cleanup functions should be registered")
 }
 
 // TestHarness_CleanupIdempotent tests that calling Cleanup multiple times is safe

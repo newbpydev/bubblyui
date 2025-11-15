@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"reflect"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
@@ -79,6 +81,10 @@ func (h *TestHarness) Mount(component bubbly.Component, props ...interface{}) *C
 	// Initialize component (calls Setup function)
 	component.Init()
 
+	// Extract refs from component state using reflection
+	// This is necessary because the component's state map is private
+	extractRefsFromComponent(component, h.refs)
+
 	// Create state inspector with harness refs
 	// TODO: Extract computed values and watchers from component in future tasks
 	stateInspector := NewStateInspector(h.refs, nil, nil)
@@ -101,6 +107,41 @@ func (h *TestHarness) Mount(component bubbly.Component, props ...interface{}) *C
 	})
 
 	return ct
+}
+
+// extractRefsFromComponent uses reflection to extract refs from the component's state.
+// This is a workaround since the component's state map is private.
+func extractRefsFromComponent(component bubbly.Component, refs map[string]*bubbly.Ref[interface{}]) {
+	// Use reflection to access the private state field
+	// This is safe for testing purposes
+	v := reflect.ValueOf(component)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	// Find the state field
+	stateField := v.FieldByName("state")
+	if !stateField.IsValid() || stateField.IsNil() {
+		return
+	}
+
+	// Make the field accessible (it's unexported)
+	stateField = reflect.NewAt(stateField.Type(), stateField.Addr().UnsafePointer()).Elem()
+
+	// Access the state map
+	if stateField.Kind() == reflect.Map {
+		// Iterate over the map
+		iter := stateField.MapRange()
+		for iter.Next() {
+			key := iter.Key().String()
+			value := iter.Value().Interface()
+
+			// Check if the value is a Ref
+			if ref, ok := value.(*bubbly.Ref[interface{}]); ok {
+				refs[key] = ref
+			}
+		}
+	}
 }
 
 // Unmount unmounts the component and performs cleanup.
