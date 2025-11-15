@@ -25,6 +25,7 @@ type TestHarness struct {
 	component bubbly.Component
 	refs      map[string]*bubbly.Ref[interface{}]
 	events    *EventTracker
+	hooks     *TestHooks
 	cleanup   []func()
 	cleanupMu sync.Mutex
 }
