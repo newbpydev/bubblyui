@@ -1302,16 +1302,16 @@ func formatForTerminal(diff string) string
 
 ---
 
-### Task 5.3: Snapshot Helpers
+### Task 5.3: Snapshot Helpers ✅ COMPLETED
 **Description**: Convenience helpers for snapshot testing
 
-**Prerequisites**: Task 5.2
+**Prerequisites**: Task 5.2 ✅
 
 **Unlocks**: Task 5.4 (Snapshot Normalization)
 
 **Files**:
-- `pkg/bubbly/testutil/snapshot_helpers.go`
-- `pkg/bubbly/testutil/snapshot_helpers_test.go`
+- `pkg/bubbly/testutil/snapshot_helpers.go` ✅
+- `pkg/bubbly/testutil/snapshot_helpers_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -1319,14 +1319,55 @@ func MatchSnapshot(t *testing.T, actual string)
 func MatchNamedSnapshot(t *testing.T, name, actual string)
 func MatchComponentSnapshot(t *testing.T, component Component)
 func UpdateSnapshots(t *testing.T) bool
+
+// Additional helper functions
+func GetSnapshotManager(t *testing.T) *SnapshotManager
+func MatchSnapshotWithOptions(t *testing.T, name, actual, dir string, update bool)
+func SnapshotExists(t *testing.T, name string) bool
+func GetSnapshotPath(t *testing.T, name string) string
+func ReadSnapshot(t *testing.T, name string) (string, error)
 ```
 
 **Tests**:
-- [ ] MatchSnapshot works
-- [ ] Named snapshots work
-- [ ] Component snapshots work
-- [ ] Update flag detection works
-- [ ] Default naming works
+- [x] MatchSnapshot works (3 test cases: simple, multiline, empty)
+- [x] Named snapshots work (3 test cases: custom name, descriptive, underscores)
+- [x] Component snapshots work (2 test cases: simple, complex)
+- [x] Update flag detection works (6 test cases: true, 1, yes, false, 0, no env)
+- [x] Default naming works (automatic test name generation)
+- [x] Integration test (full workflow)
+- [x] Automatic naming with subtests
+- [x] GetSnapshotManager helper
+- [x] MatchSnapshotWithOptions (custom dir and default)
+- [x] SnapshotExists (non-existent and existing)
+- [x] GetSnapshotPath (path validation)
+- [x] ReadSnapshot (read existing and error on missing)
+
+**Implementation Notes**:
+- ✅ Complete implementation per designs.md specification
+- ✅ MatchSnapshot: Automatic naming from test name with "_default" suffix
+- ✅ MatchNamedSnapshot: Custom naming combined with test name
+- ✅ MatchComponentSnapshot: Calls component.View() and matches output
+- ✅ UpdateSnapshots: Checks UPDATE_SNAPS env var (true, 1, yes, y)
+- ✅ Test directory caching: Uses sync.Mutex to cache temp dir per test
+- ✅ Prevents multiple temp directories for same test
+- ✅ Thread-safe with proper locking
+- ✅ Automatic cleanup via t.Cleanup()
+- ✅ Sanitizes test names (replaces / and spaces with _)
+- ✅ Additional helper functions for advanced use cases
+- ✅ Comprehensive godoc comments on all exported functions
+- ✅ Table-driven tests covering all scenarios (11 test functions, 30+ test cases)
+- ✅ 100% test coverage on all functions with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Overall testutil package coverage: 97.6%
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (11 test functions, all passing)
+- ✅ Coverage: 100.0% (snapshot_helpers.go), 97.6% (overall testutil)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 2 hours
 
