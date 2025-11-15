@@ -944,6 +944,698 @@ func (ti *TestIsolation) Restore()
 
 ---
 
+## Phase 8: Command System Testing (6 tasks, 18 hours)
+
+### Task 8.1: Command Queue Inspector
+**Description**: Implement command queue inspection utilities for testing auto-reactive bridge
+
+**Prerequisites**: Task 4.5, Feature 08 (Auto-Reactive Bridge)
+
+**Unlocks**: Task 8.2 (Batcher Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/command_queue_inspector.go`
+- `pkg/bubbly/testutil/command_queue_inspector_test.go`
+
+**Type Safety**:
+```go
+type CommandQueueInspector struct {
+    queue    *CommandQueue
+    captured []tea.Cmd
+    mu       sync.Mutex
+}
+
+func NewCommandQueueInspector(queue *CommandQueue) *CommandQueueInspector
+func (cqi *CommandQueueInspector) Len() int
+func (cqi *CommandQueueInspector) Peek() tea.Cmd
+func (cqi *CommandQueueInspector) GetAll() []tea.Cmd
+func (cqi *CommandQueueInspector) Clear()
+func (cqi *CommandQueueInspector) AssertEnqueued(t *testing.T, count int)
+```
+
+**Tests**:
+- [ ] Inspector tracks queue length
+- [ ] Peek returns next command
+- [ ] GetAll returns all commands
+- [ ] Clear empties queue
+- [ ] AssertEnqueued validates count
+- [ ] Thread-safe operations
+- [ ] Integration with harness
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 8.2: Command Batcher Tester
+**Description**: Test command batching and deduplication
+
+**Prerequisites**: Task 8.1
+
+**Unlocks**: Task 8.3 (Mock Generator)
+
+**Files**:
+- `pkg/bubbly/testutil/command_batcher_tester.go`
+- `pkg/bubbly/testutil/command_batcher_tester_test.go`
+
+**Type Safety**:
+```go
+type BatcherTester struct {
+    batcher    *CommandBatcher
+    batches    [][]tea.Cmd
+    batchCount int
+}
+
+func NewBatcherTester(batcher *CommandBatcher) *BatcherTester
+func (bt *BatcherTester) TrackBatching()
+func (bt *BatcherTester) AssertBatched(t *testing.T, expectedBatches int)
+```
+
+**Tests**:
+- [ ] Tracks batching correctly
+- [ ] Batch count accurate
+- [ ] Batch sizes correct
+- [ ] Deduplication verified
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 8.3: Mock Command Generator
+**Description**: Mock command generator for testing
+
+**Prerequisites**: Task 8.2
+
+**Unlocks**: Task 8.4 (Loop Detection)
+
+**Files**:
+- `pkg/bubbly/testutil/mock_command_generator.go`
+- `pkg/bubbly/testutil/mock_command_generator_test.go`
+
+**Type Safety**:
+```go
+type MockCommandGenerator struct {
+    generateCalled int
+    returnCmd      tea.Cmd
+    capturedArgs   []GenerateArgs
+}
+
+func NewMockCommandGenerator(returnCmd tea.Cmd) *MockCommandGenerator
+func (mcg *MockCommandGenerator) Generate(args GenerateArgs) tea.Cmd
+func (mcg *MockCommandGenerator) AssertCalled(t *testing.T, times int)
+```
+
+**Tests**:
+- [ ] Mock returns configured command
+- [ ] Captures call arguments
+- [ ] AssertCalled validates count
+- [ ] Thread-safe
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 8.4: Loop Detection Verifier
+**Description**: Test command generation loop detection
+
+**Prerequisites**: Task 8.3
+
+**Unlocks**: Task 8.5 (Auto-Command Testing)
+
+**Files**:
+- `pkg/bubbly/testutil/loop_detection_verifier.go`
+- `pkg/bubbly/testutil/loop_detection_verifier_test.go`
+
+**Type Safety**:
+```go
+type LoopDetectionVerifier struct {
+    detector *LoopDetector
+    detected []LoopEvent
+}
+
+func NewLoopDetectionVerifier(detector *LoopDetector) *LoopDetectionVerifier
+func (ldv *LoopDetectionVerifier) SimulateLoop(componentID, refID string, iterations int)
+func (ldv *LoopDetectionVerifier) AssertLoopDetected(t *testing.T)
+```
+
+**Tests**:
+- [ ] Simulates command loops
+- [ ] Detects actual loops
+- [ ] No false positives
+- [ ] Loop events captured
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 8.5: Auto-Command Testing Helpers
+**Description**: Comprehensive auto-command testing utilities
+
+**Prerequisites**: Task 8.4
+
+**Unlocks**: Task 8.6 (Command Assertions)
+
+**Files**:
+- `pkg/bubbly/testutil/auto_command_tester.go`
+- `pkg/bubbly/testutil/auto_command_tester_test.go`
+
+**Type Safety**:
+```go
+type AutoCommandTester struct {
+    component  Component
+    queue      *CommandQueueInspector
+    detector   *LoopDetectionVerifier
+}
+
+func NewAutoCommandTester(comp Component) *AutoCommandTester
+func (act *AutoCommandTester) EnableAutoCommands()
+func (act *AutoCommandTester) TriggerStateChange(refName string, value interface{})
+```
+
+**Tests**:
+- [ ] Auto-commands enable/disable
+- [ ] State changes trigger commands
+- [ ] Commands logged correctly
+- [ ] Integration with queue
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 8.6: Command Assertions
+**Description**: High-level command assertion helpers
+
+**Prerequisites**: Task 8.5
+
+**Unlocks**: Phase 9 (Composables Testing)
+
+**Files**:
+- `pkg/bubbly/testutil/command_assertions.go`
+- `pkg/bubbly/testutil/command_assertions_test.go`
+
+**Type Safety**:
+```go
+func AssertCommandEnqueued(t *testing.T, harness *TestHarness, count int)
+func AssertNoCommandLoop(t *testing.T, detector *LoopDetectionVerifier)
+```
+
+**Tests**:
+- [ ] Enqueued assertion works
+- [ ] Loop assertions work
+- [ ] Clear error messages
+
+**Estimated Effort**: 3 hours
+
+---
+
+## Phase 9: Composables Testing (9 tasks, 27 hours)
+
+### Task 9.1: Time Simulator
+**Description**: Time simulation for debounce/throttle testing
+
+**Prerequisites**: Task 8.6, Feature 04 (Composition API)
+
+**Unlocks**: Task 9.2 (useDebounce Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/time_simulator.go`
+- `pkg/bubbly/testutil/time_simulator_test.go`
+
+**Type Safety**:
+```go
+type TimeSimulator struct {
+    currentTime time.Time
+    timers      []SimulatedTimer
+    mu          sync.Mutex
+}
+
+func NewTimeSimulator() *TimeSimulator
+func (ts *TimeSimulator) Now() time.Time
+func (ts *TimeSimulator) Advance(d time.Duration)
+func (ts *TimeSimulator) After(d time.Duration) <-chan time.Time
+```
+
+**Tests**:
+- [ ] Time advances correctly
+- [ ] Timers fire at correct time
+- [ ] Multiple timers supported
+- [ ] Fast-forward works
+- [ ] Thread-safe
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.2: useDebounce Tester
+**Description**: Test debounced values without delays
+
+**Prerequisites**: Task 9.1
+
+**Unlocks**: Task 9.3 (useThrottle Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_debounce_tester.go`
+- `pkg/bubbly/testutil/use_debounce_tester_test.go`
+
+**Type Safety**:
+```go
+type UseDebounceTester struct {
+    timeSim   *TimeSimulator
+    component Component
+    debounced *Ref[interface{}]
+}
+
+func NewUseDebounceTester(comp Component, timeSim *TimeSimulator) *UseDebounceTester
+func (udt *UseDebounceTester) TriggerChange(value interface{})
+func (udt *UseDebounceTester) AdvanceTime(d time.Duration)
+```
+
+**Tests**:
+- [ ] Debounce delays value updates
+- [ ] Multiple changes within delay cancel previous
+- [ ] Time simulation works
+- [ ] Final value correct
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.3-9.9: Remaining Composable Testers
+**Description**: Testers for useThrottle, useAsync, useForm, useLocalStorage, useEffect, useEventListener, useState, useTextInput
+
+**Prerequisites**: Task 9.2
+
+**Unlocks**: Phase 10 (Directives Testing)
+
+**Files**: 7 files (one per composable)
+
+**Tests**: Each composable fully testable
+
+**Estimated Effort**: 21 hours (3 hours each)
+
+---
+
+## Phase 10: Directives Testing (5 tasks, 15 hours)
+
+### Task 10.1: ForEach Directive Tester
+**Description**: Test ForEach list rendering
+
+**Prerequisites**: Phase 9, Feature 05 (Directives)
+
+**Unlocks**: Task 10.2 (Bind Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/foreach_tester.go`
+- `pkg/bubbly/testutil/foreach_tester_test.go`
+
+**Type Safety**:
+```go
+type ForEachTester struct {
+    items    *Ref[[]interface{}]
+    rendered []string
+}
+
+func NewForEachTester(items *Ref[[]interface{}]) *ForEachTester
+func (fet *ForEachTester) AssertItemCount(t *testing.T, expected int)
+func (fet *ForEachTester) AssertItemRendered(t *testing.T, idx int, expected string)
+```
+
+**Tests**:
+- [ ] List renders all items
+- [ ] Items update on change
+- [ ] Item removal works
+- [ ] Item addition works
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 10.2: Bind Directive Tester
+**Description**: Test two-way data binding
+
+**Prerequisites**: Task 10.1
+
+**Unlocks**: Task 10.3 (If Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/bind_tester.go`
+- `pkg/bubbly/testutil/bind_tester_test.go`
+
+**Type Safety**:
+```go
+type BindTester struct {
+    ref     *Ref[interface{}]
+    element string
+}
+
+func NewBindTester(ref *Ref[interface{}]) *BindTester
+func (bt *BindTester) TriggerElementChange(value interface{})
+func (bt *BindTester) AssertRefUpdated(t *testing.T, expected interface{})
+```
+
+**Tests**:
+- [ ] Ref changes update element
+- [ ] Element changes update ref
+- [ ] Two-way binding works
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 10.3-10.5: If, On, Show Directive Testers
+**Description**: Test remaining directives
+
+**Prerequisites**: Task 10.2
+
+**Unlocks**: Phase 11 (Router Testing)
+
+**Files**: 3 files (one per directive)
+
+**Tests**: All directives fully testable
+
+**Estimated Effort**: 9 hours (3 hours each)
+
+---
+
+## Phase 11: Router Testing (7 tasks, 21 hours)
+
+### Task 11.1: Route Guard Tester
+**Description**: Test route navigation guards
+
+**Prerequisites**: Phase 10, Feature 07 (Router)
+
+**Unlocks**: Task 11.2 (Navigation Simulator)
+
+**Files**:
+- `pkg/bubbly/testutil/route_guard_tester.go`
+- `pkg/bubbly/testutil/route_guard_tester_test.go`
+
+**Type Safety**:
+```go
+type RouteGuardTester struct {
+    router     *Router
+    guardCalls int
+    blocked    bool
+}
+
+func NewRouteGuardTester(router *Router) *RouteGuardTester
+func (rgt *RouteGuardTester) AttemptNavigation(path string)
+func (rgt *RouteGuardTester) AssertGuardCalled(t *testing.T, times int)
+```
+
+**Tests**:
+- [ ] Guards called on navigation
+- [ ] Guards can block navigation
+- [ ] Guard return values respected
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.2: Navigation Simulator
+**Description**: Simulate router navigation and history
+
+**Prerequisites**: Task 11.1
+
+**Unlocks**: Task 11.3 (History Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/navigation_simulator.go`
+- `pkg/bubbly/testutil/navigation_simulator_test.go`
+
+**Type Safety**:
+```go
+type NavigationSimulator struct {
+    router     *Router
+    history    []string
+    currentIdx int
+}
+
+func NewNavigationSimulator(router *Router) *NavigationSimulator
+func (ns *NavigationSimulator) Navigate(path string)
+func (ns *NavigationSimulator) Back()
+func (ns *NavigationSimulator) Forward()
+```
+
+**Tests**:
+- [ ] Navigation updates current path
+- [ ] History tracked correctly
+- [ ] Back/forward work
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.3-11.7: Remaining Router Testers
+**Description**: Testers for history, nested routes, query params, named routes, path matching
+
+**Prerequisites**: Task 11.2
+
+**Unlocks**: Phase 12 (Advanced Reactivity)
+
+**Files**: 5 files (one per feature)
+
+**Tests**: All router features fully testable
+
+**Estimated Effort**: 15 hours (3 hours each)
+
+---
+
+## Phase 12: Advanced Reactivity Testing (6 tasks, 18 hours)
+
+### Task 12.1: WatchEffect Tester
+**Description**: Test automatic dependency tracking with WatchEffect
+
+**Prerequisites**: Phase 11
+
+**Unlocks**: Task 12.2 (Flush Mode Controller)
+
+**Files**:
+- `pkg/bubbly/testutil/watch_effect_tester.go`
+- `pkg/bubbly/testutil/watch_effect_tester_test.go`
+
+**Type Safety**:
+```go
+type WatchEffectTester struct {
+    effect      WatchEffect
+    execCount   int
+    dependencies []interface{}
+}
+
+func NewWatchEffectTester() *WatchEffectTester
+func (wet *WatchEffectTester) TrackEffect(fn func())
+func (wet *WatchEffectTester) TriggerDependency(dep interface{})
+func (wet *WatchEffectTester) AssertExecuted(t *testing.T, times int)
+```
+
+**Tests**:
+- [ ] Effect auto-executes on dependency changes
+- [ ] Execution count tracked
+- [ ] Multiple dependencies supported
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 12.2-12.6: Remaining Advanced Reactivity Testers
+**Description**: Flush mode controller, deep watch tester, custom comparator tester, computed cache verifier, dependency tracking inspector
+
+**Prerequisites**: Task 12.1
+
+**Unlocks**: Phase 13 (Core Systems)
+
+**Files**: 5 files (one per feature)
+
+**Tests**: All advanced reactivity features testable
+
+**Estimated Effort**: 15 hours (3 hours each)
+
+---
+
+## Phase 13: Core Systems Testing (5 tasks, 15 hours)
+
+### Task 13.1: Provide/Inject Tester
+**Description**: Test dependency injection across component tree
+
+**Prerequisites**: Phase 12
+
+**Unlocks**: Task 13.2 (Key Bindings Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/provide_inject_tester.go`
+- `pkg/bubbly/testutil/provide_inject_tester_test.go`
+
+**Type Safety**:
+```go
+type ProvideInjectTester struct {
+    root       Component
+    providers  map[string]interface{}
+    injections map[string][]Component
+}
+
+func NewProvideInjectTester(root Component) *ProvideInjectTester
+func (pit *ProvideInjectTester) Provide(key string, value interface{})
+func (pit *ProvideInjectTester) Inject(comp Component, key string) interface{}
+func (pit *ProvideInjectTester) AssertInjected(t *testing.T, comp Component, key string, expected interface{})
+```
+
+**Tests**:
+- [ ] Injection works across tree
+- [ ] Tree traversal correct
+- [ ] Default values work
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 13.2: Key Bindings Tester
+**Description**: Test key binding registration and help text
+
+**Prerequisites**: Task 13.1
+
+**Unlocks**: Task 13.3 (Message Handler Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/key_bindings_tester.go`
+- `pkg/bubbly/testutil/key_bindings_tester_test.go`
+
+**Type Safety**:
+```go
+type KeyBindingsTester struct {
+    component Component
+    bindings  map[string][]KeyBinding
+    conflicts []string
+}
+
+func NewKeyBindingsTester(comp Component) *KeyBindingsTester
+func (kbt *KeyBindingsTester) SimulateKeyPress(key string) tea.Cmd
+func (kbt *KeyBindingsTester) AssertHelpText(t *testing.T, expected string)
+func (kbt *KeyBindingsTester) DetectConflicts() []string
+```
+
+**Tests**:
+- [ ] Key press simulation works
+- [ ] Help text generates correctly
+- [ ] Conflict detection works
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 13.3-13.5: Message Handler, Children, Template Safety Testers
+**Description**: Test message handlers, children management, and template mutation prevention
+
+**Prerequisites**: Task 13.2
+
+**Unlocks**: Phase 14 (Integration & Observability)
+
+**Files**: 3 files (one per feature)
+
+**Tests**: All core systems testable
+
+**Estimated Effort**: 9 hours (3 hours each)
+
+---
+
+## Phase 14: Integration & Observability (4 tasks, 12 hours)
+
+### Task 14.1: Mock Error Reporter
+**Description**: Mock observability error reporter for testing
+
+**Prerequisites**: Phase 13
+
+**Unlocks**: Task 14.2 (Observability Assertions)
+
+**Files**:
+- `pkg/bubbly/testutil/mock_error_reporter.go`
+- `pkg/bubbly/testutil/mock_error_reporter_test.go`
+
+**Type Safety**:
+```go
+type MockErrorReporter struct {
+    errors   []error
+    panics   []interface{}
+    contexts []*observability.ErrorContext
+}
+
+func NewMockErrorReporter() *MockErrorReporter
+func (mer *MockErrorReporter) ReportError(err error, ctx *ErrorContext)
+func (mer *MockErrorReporter) ReportPanic(panic interface{}, ctx *ErrorContext)
+func (mer *MockErrorReporter) AssertErrorReported(t *testing.T, expectedErr error)
+func (mer *MockErrorReporter) GetBreadcrumbs() []Breadcrumb
+```
+
+**Tests**:
+- [ ] Errors captured
+- [ ] Panics captured
+- [ ] Contexts recorded
+- [ ] Breadcrumbs tracked
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 14.2-14.4: Observability Assertions, Props Verifier, Error Testing
+**Description**: Complete observability testing, props immutability verification, and comprehensive error handling tests
+
+**Prerequisites**: Task 14.1
+
+**Unlocks**: Phase 15 (Documentation)
+
+**Files**: 3 files (one per feature)
+
+**Tests**: All integration and observability features testable
+
+**Estimated Effort**: 9 hours (3 hours each)
+
+---
+
+## Phase 15: Final Documentation (2 tasks, 6 hours)
+
+### Task 15.1: Update All Examples
+**Description**: Update all example tests to use new testing utilities
+
+**Prerequisites**: Phase 14
+
+**Unlocks**: Task 15.2 (Integration Guide)
+
+**Files**:
+- Update all examples in `cmd/examples/*/`
+- Add examples for Commands, Composables, Directives, Router
+
+**Examples**:
+- Command queue testing
+- Composable testing with time simulation
+- Directive rendering tests
+- Router guard tests
+- All advanced features
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 15.2: Final Integration Guide
+**Description**: Complete integration testing guide with all features
+
+**Prerequisites**: Task 15.1
+
+**Unlocks**: Production-ready testing framework
+
+**Files**:
+- `docs/guides/testing-guide.md`
+- `docs/guides/advanced-testing.md`
+- `docs/api/testutil-reference.md`
+
+**Content**:
+- Complete API reference
+- Testing patterns for all features
+- Best practices
+- Migration guide
+- Troubleshooting
+
+**Estimated Effort**: 3 hours
+
+---
+
 ## Task Dependency Graph
 
 ```
@@ -969,6 +1661,30 @@ Phase 6: Fixtures
     ↓
 Phase 7: Documentation
     7.1 API Docs → 7.2 Guide → 7.3 Examples
+    ↓
+Phase 8: Command Testing
+    8.1 Queue Inspector → 8.2 Batcher → 8.3 Mock Generator → 8.4 Loop Detection → 8.5 Auto-Command → 8.6 Assertions
+    ↓
+Phase 9: Composables Testing
+    9.1 Time Simulator → 9.2 useDebounce → 9.3-9.9 All Composables
+    ↓
+Phase 10: Directives Testing
+    10.1 ForEach → 10.2 Bind → 10.3-10.5 If, On, Show
+    ↓
+Phase 11: Router Testing
+    11.1 Route Guards → 11.2 Navigation → 11.3-11.7 History, Nested, Query, Named, Matching
+    ↓
+Phase 12: Advanced Reactivity
+    12.1 WatchEffect → 12.2-12.6 Flush, Deep, Comparators, Cache, Tracking
+    ↓
+Phase 13: Core Systems
+    13.1 Provide/Inject → 13.2 Key Bindings → 13.3-13.5 Message Handler, Children, Template Safety
+    ↓
+Phase 14: Integration & Observability
+    14.1 Mock Reporter → 14.2-14.4 Assertions, Props, Error Testing
+    ↓
+Phase 15: Documentation
+    15.1 Update Examples → 15.2 Integration Guide
 ```
 
 ---
@@ -1010,19 +1726,87 @@ Phase 7: Documentation
 - [ ] No memory leaks
 - [ ] Parallel tests safe
 
+### Commands (NEW)
+- [ ] Command queue inspectable
+- [ ] Batching verifiable
+- [ ] Loop detection works
+- [ ] Auto-commands testable
+- [ ] Mock generators work
+
+### Composables (NEW)
+- [ ] All 9 composables testable
+- [ ] Time simulation works (debounce/throttle)
+- [ ] Storage mocking works (useLocalStorage)
+- [ ] Async testing reliable (useAsync)
+- [ ] Form validation testable (useForm)
+
+### Directives (NEW)
+- [ ] All 5 directives testable
+- [ ] ForEach rendering verifiable
+- [ ] Bind two-way binding works
+- [ ] If conditional rendering testable
+- [ ] Custom directives testable
+
+### Router (NEW)
+- [ ] Guards testable (all types)
+- [ ] Navigation simulation works
+- [ ] History management testable
+- [ ] Nested routes work
+- [ ] Query params testable
+
+### Advanced Reactivity (NEW)
+- [ ] WatchEffect testable
+- [ ] Flush modes controllable
+- [ ] Deep watching verifiable
+- [ ] Computed caching testable
+- [ ] Dependency tracking inspectable
+
+### Core Systems (NEW)
+- [ ] Provide/Inject testable
+- [ ] Key bindings fully testable
+- [ ] Message handlers testable
+- [ ] Children management verifiable
+- [ ] Template safety enforceable
+
+### Integration & Observability (NEW)
+- [ ] Observability mockable
+- [ ] Error reporting testable
+- [ ] Props immutability verifiable
+- [ ] Panic recovery testable
+- [ ] Comprehensive error handling
+
 ---
 
 ## Estimated Total Effort
 
-- Phase 1: 12 hours
-- Phase 2: 15 hours
-- Phase 3: 9 hours
-- Phase 4: 15 hours
-- Phase 5: 12 hours
-- Phase 6: 12 hours
-- Phase 7: 9 hours
+**Original Phases (1-7):**
+- Phase 1: 12 hours (Test Harness Foundation)
+- Phase 2: 15 hours (Assertions & Matchers)
+- Phase 3: 9 hours (Event & Message Simulation)
+- Phase 4: 15 hours (Mock System)
+- Phase 5: 12 hours (Snapshot Testing)
+- Phase 6: 12 hours (Fixtures & Utilities)
+- Phase 7: 9 hours (Documentation & Examples)
 
-**Total**: ~84 hours (approximately 2.5 weeks)
+**Subtotal Original**: ~84 hours
+
+**New Phases (8-15) - Critical for 95%+ Coverage:**
+- Phase 8: 18 hours (Command System Testing)
+- Phase 9: 27 hours (Composables Testing)
+- Phase 10: 15 hours (Directives Testing)
+- Phase 11: 21 hours (Router Testing)
+- Phase 12: 18 hours (Advanced Reactivity)
+- Phase 13: 15 hours (Core Systems)
+- Phase 14: 12 hours (Integration & Observability)
+- Phase 15: 6 hours (Final Documentation)
+
+**Subtotal New**: ~132 hours
+
+**GRAND TOTAL**: ~216 hours (approximately 5.4 weeks or 27 working days)
+
+**Coverage Achieved**: 95%+ of bubbly package features
+
+**Note**: Original spec covered ~25-30% of package. New phases add 65-70 percentage points to achieve professional-grade testing framework.
 
 ---
 
