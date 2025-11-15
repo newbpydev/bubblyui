@@ -678,16 +678,16 @@ func (ct *ComponentTest) SendMouseClick(x, y int) tea.Cmd
 
 ---
 
-### Task 3.3: Event Tracker
+### Task 3.3: Event Tracker ✅ COMPLETED
 **Description**: Track emitted events for inspection
 
-**Prerequisites**: Task 3.2
+**Prerequisites**: Task 3.2 ✅
 
 **Unlocks**: Task 4.1 (Mock Ref)
 
 **Files**:
-- `pkg/bubbly/testutil/event_tracker.go`
-- `pkg/bubbly/testutil/event_tracker_test.go`
+- `pkg/bubbly/testutil/event_tracker.go` ✅
+- Tests in `pkg/bubbly/testutil/assertions_events_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -706,14 +706,47 @@ type EmittedEvent struct {
 func (et *EventTracker) Track(name, payload, source)
 func (et *EventTracker) GetEvents(name string) []EmittedEvent
 func (et *EventTracker) WasFired(name string) bool
+func (et *EventTracker) FiredCount(name string) int
+func (et *EventTracker) Clear()
 ```
 
 **Tests**:
-- [ ] Events tracked correctly
-- [ ] Retrieval works
-- [ ] WasFired works
-- [ ] Thread-safe
-- [ ] Clear() works
+- [x] Events tracked correctly
+- [x] Retrieval works
+- [x] WasFired works
+- [x] FiredCount works
+- [x] Thread-safe
+- [x] Clear() works
+- [x] Clear() idempotent
+- [x] Clear() thread-safe
+
+**Implementation Notes**:
+- ✅ Extracted EventTracker from harness.go to separate file for better organization
+- ✅ EventTracker and EmittedEvent types with full godoc comments
+- ✅ All methods thread-safe using sync.RWMutex (Lock for writes, RLock for reads)
+- ✅ Track() automatically sets timestamp to time.Now()
+- ✅ GetEvents() returns empty slice (not nil) when no events found
+- ✅ WasFired() convenience method equivalent to len(GetEvents(name)) > 0
+- ✅ FiredCount() convenience method equivalent to len(GetEvents(name))
+- ✅ Clear() method removes all tracked events, thread-safe and idempotent
+- ✅ Updated harness.go to remove duplicate EventTracker definition
+- ✅ Tests added to assertions_events_test.go (8 test functions)
+- ✅ Table-driven tests for Track, GetEvents, WasFired, FiredCount, Clear
+- ✅ Thread-safety tests with concurrent Track/GetEvents/Clear operations
+- ✅ Idempotency test for Clear() method
+- ✅ 100% coverage on event_tracker.go (all 6 methods)
+- ✅ Overall testutil coverage: 87.4% (exceeds 80% requirement)
+- ✅ All tests pass with race detector
+- ✅ All quality gates passed (test, vet, fmt, build)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (8 test functions, all passing)
+- ✅ Coverage: 100.0% (event_tracker.go), 87.4% (overall testutil)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 

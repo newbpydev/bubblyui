@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -417,6 +418,118 @@ func TestEventTracker_ThreadSafety(t *testing.T) {
 
 	// Verify all events tracked
 	assert.Equal(t, 10, tracker.FiredCount("click"))
+}
+
+// TestEventTracker_Clear tests the Clear method.
+func TestEventTracker_Clear(t *testing.T) {
+	tests := []struct {
+		name   string
+		events []struct {
+			name, source string
+			payload      interface{}
+		}
+	}{
+		{
+			name: "clear with events",
+			events: []struct {
+				name, source string
+				payload      interface{}
+			}{
+				{name: "click", source: "button-1", payload: "data1"},
+				{name: "hover", source: "button-2", payload: "data2"},
+				{name: "focus", source: "input-1", payload: "data3"},
+			},
+		},
+		{
+			name: "clear empty tracker",
+			events: []struct {
+				name, source string
+				payload      interface{}
+			}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracker := NewEventTracker()
+
+			// Track events
+			for _, e := range tt.events {
+				tracker.Track(e.name, e.payload, e.source)
+			}
+
+			// Verify events exist before clear
+			if len(tt.events) > 0 {
+				assert.True(t, tracker.WasFired("click"))
+			}
+
+			// Clear events
+			tracker.Clear()
+
+			// Verify all events cleared
+			assert.False(t, tracker.WasFired("click"))
+			assert.False(t, tracker.WasFired("hover"))
+			assert.False(t, tracker.WasFired("focus"))
+			assert.Equal(t, 0, tracker.FiredCount("click"))
+			assert.Equal(t, 0, tracker.FiredCount("hover"))
+			assert.Len(t, tracker.GetEvents("click"), 0)
+		})
+	}
+}
+
+// TestEventTracker_Clear_Idempotent tests that Clear is idempotent.
+func TestEventTracker_Clear_Idempotent(t *testing.T) {
+	tracker := NewEventTracker()
+	tracker.Track("click", "data", "button-1")
+
+	// Clear multiple times
+	tracker.Clear()
+	tracker.Clear()
+	tracker.Clear()
+
+	// Should still be empty
+	assert.False(t, tracker.WasFired("click"))
+	assert.Equal(t, 0, tracker.FiredCount("click"))
+}
+
+// TestEventTracker_Clear_ThreadSafety tests Clear with concurrent operations.
+func TestEventTracker_Clear_ThreadSafety(t *testing.T) {
+	tracker := NewEventTracker()
+	var wg sync.WaitGroup
+
+	// Concurrent writes, reads, and clears
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			tracker.Track("event", n, "source")
+		}(i)
+	}
+
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = tracker.GetEvents("event")
+			_ = tracker.WasFired("event")
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tracker.Clear()
+		}()
+	}
+
+	wg.Wait()
+
+	// Should not panic and tracker should be in valid state
+	assert.NotNil(t, tracker)
+	// After all clears, tracker should be empty or have some events
+	// depending on timing, but should not panic
+	_ = tracker.FiredCount("event")
 }
 
 // TestEventInspector_Integration tests EventInspector integration.

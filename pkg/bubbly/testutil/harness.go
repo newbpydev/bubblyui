@@ -43,101 +43,27 @@ type TestHarness struct {
 // HarnessOption is a functional option for configuring a TestHarness.
 type HarnessOption func(*TestHarness)
 
-// EventTracker tracks events emitted during component testing.
-// It provides thread-safe event tracking with methods to query event history.
-//
-// EventTracker is used internally by the test harness to track all events
-// emitted by components during tests, enabling assertions on event behavior.
-type EventTracker struct {
-	events []EmittedEvent
-	mu     sync.RWMutex
-}
-
-// EmittedEvent represents an event that was emitted during testing.
-type EmittedEvent struct {
-	Name      string
-	Payload   interface{}
-	Timestamp time.Time
-	Source    string
-}
-
-// NewEventTracker creates a new event tracker.
-func NewEventTracker() *EventTracker {
-	return &EventTracker{
-		events: []EmittedEvent{},
-	}
-}
-
-// Track records an event emission.
-// This method is thread-safe and can be called concurrently.
-//
-// Parameters:
-//   - name: The name of the event
-//   - payload: The event payload (can be nil)
-//   - source: The source component that emitted the event
-func (et *EventTracker) Track(name string, payload interface{}, source string) {
-	et.mu.Lock()
-	defer et.mu.Unlock()
-
-	et.events = append(et.events, EmittedEvent{
-		Name:      name,
-		Payload:   payload,
-		Timestamp: time.Now(),
-		Source:    source,
-	})
-}
-
-// GetEvents returns all events with the given name.
-// Returns an empty slice if no events with that name were tracked.
-// This method is thread-safe.
-func (et *EventTracker) GetEvents(name string) []EmittedEvent {
-	et.mu.RLock()
-	defer et.mu.RUnlock()
-
-	events := []EmittedEvent{}
-	for _, e := range et.events {
-		if e.Name == name {
-			events = append(events, e)
-		}
-	}
-
-	return events
-}
-
-// WasFired returns true if at least one event with the given name was tracked.
-// This method is thread-safe.
-func (et *EventTracker) WasFired(name string) bool {
-	return len(et.GetEvents(name)) > 0
-}
-
-// FiredCount returns the number of times an event with the given name was tracked.
-// Returns 0 if no events with that name were tracked.
-// This method is thread-safe.
-func (et *EventTracker) FiredCount(name string) int {
-	return len(et.GetEvents(name))
-}
-
 // testHook implements bubbly.FrameworkHook to track events for testing.
 type testHook struct {
 	tracker *EventTracker
 	harness *TestHarness
 }
 
-func (h *testHook) OnComponentMount(id, name string)                         {}
-func (h *testHook) OnComponentUpdate(id string, msg interface{})             {}
-func (h *testHook) OnComponentUnmount(id string)                             {}
-func (h *testHook) OnRefChange(id string, oldValue, newValue interface{})    {}
+func (h *testHook) OnComponentMount(id, name string)                      {}
+func (h *testHook) OnComponentUpdate(id string, msg interface{})          {}
+func (h *testHook) OnComponentUnmount(id string)                          {}
+func (h *testHook) OnRefChange(id string, oldValue, newValue interface{}) {}
 func (h *testHook) OnRefExposed(componentID, refName, refID string) {
 	// Refs are exposed during Init(), so we can't access them here yet
 	// They will be extracted in Mount() after Init() completes
 	// This hook is primarily for DevTools tracking, not for test harness
 }
-func (h *testHook) OnRenderComplete(componentID string, duration time.Duration) {}
-func (h *testHook) OnComputedChange(id string, oldValue, newValue interface{}) {}
+func (h *testHook) OnRenderComplete(componentID string, duration time.Duration)      {}
+func (h *testHook) OnComputedChange(id string, oldValue, newValue interface{})       {}
 func (h *testHook) OnWatchCallback(watcherID string, oldValue, newValue interface{}) {}
-func (h *testHook) OnEffectRun(effectID string)                              {}
-func (h *testHook) OnChildAdded(parentID, childID string)                    {}
-func (h *testHook) OnChildRemoved(parentID, childID string)                  {}
+func (h *testHook) OnEffectRun(effectID string)                                      {}
+func (h *testHook) OnChildAdded(parentID, childID string)                            {}
+func (h *testHook) OnChildRemoved(parentID, childID string)                          {}
 
 func (h *testHook) OnEvent(componentID, eventName string, data interface{}) {
 	h.tracker.Track(eventName, data, componentID)
