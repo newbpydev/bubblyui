@@ -1230,30 +1230,73 @@ func (sm *SnapshotManager) Match(t *testing.T, name, actual string)
 
 ---
 
-### Task 5.2: Snapshot Diff Generation
+### Task 5.2: Snapshot Diff Generation ✅ COMPLETED
 **Description**: Generate diffs for snapshot mismatches
 
-**Prerequisites**: Task 5.1
+**Prerequisites**: Task 5.1 ✅
 
 **Unlocks**: Task 5.3 (Snapshot Helpers)
 
 **Files**:
-- `pkg/bubbly/testutil/snapshot_diff.go`
-- `pkg/bubbly/testutil/snapshot_diff_test.go`
+- `pkg/bubbly/testutil/snapshot_diff.go` ✅
+- `pkg/bubbly/testutil/snapshot_diff_test.go` ✅
 
 **Type Safety**:
 ```go
+// ANSI color codes for terminal output
+const (
+    ansiReset   = "\x1b[0m"
+    ansiRed     = "\x1b[38;5;196m" // Bright red for deletions
+    ansiGreen   = "\x1b[38;5;46m"  // Bright green for additions
+    ansiCyan    = "\x1b[38;5;51m"  // Bright cyan for headers
+    ansiYellow  = "\x1b[38;5;226m" // Bright yellow for hunks
+    ansiGray    = "\x1b[38;5;250m" // Light gray for context
+)
+
 func generateDiff(expected, actual string) string
 func highlightDiff(diff string) string
 func formatForTerminal(diff string) string
 ```
 
 **Tests**:
-- [ ] Diff generation works
-- [ ] Highlighting works
-- [ ] Terminal formatting works
-- [ ] Large diffs handled
-- [ ] Readable output
+- [x] Diff generation works (unified diff format with difflib)
+- [x] Highlighting works (ANSI color codes)
+- [x] Terminal formatting works (Lipgloss borders and styling)
+- [x] Large diffs handled (100+ lines tested)
+- [x] Readable output (clear visual structure)
+- [x] Empty strings handled
+- [x] Unicode characters supported
+- [x] Special characters handled
+- [x] Integration test (full pipeline)
+- [x] Edge cases covered
+
+**Implementation Notes**:
+- ✅ Complete implementation using pmezard/go-difflib for unified diff generation
+- ✅ Manual ANSI color codes for reliable highlighting (Lipgloss doesn't output ANSI in non-TTY)
+- ✅ generateDiff: Uses difflib.UnifiedDiff with 3 lines of context
+- ✅ highlightDiff: Applies ANSI 256 color codes based on line prefix:
+  - Red (196) for deletions (-)
+  - Green (46) for additions (+)
+  - Cyan (51) for headers (---, +++)
+  - Yellow (226) for hunk markers (@@)
+  - Gray (250) for context lines
+- ✅ formatForTerminal: Uses Lipgloss for borders, padding, and title
+- ✅ Returns empty string for identical content (optimization)
+- ✅ Fallback to simple diff if unified diff fails
+- ✅ Comprehensive godoc comments on all functions
+- ✅ Table-driven tests covering all scenarios (11 test functions, 40+ test cases)
+- ✅ 97.6% test coverage with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Overall testutil package coverage: 97.4%
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (11 test functions, all passing)
+- ✅ Coverage: 97.6% (snapshot_diff.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
