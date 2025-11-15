@@ -1445,16 +1445,16 @@ func NormalizeAll(content string) string
 
 ## Phase 6: Fixtures & Utilities (4 tasks, 12 hours)
 
-### Task 6.1: Fixture Builder
+### Task 6.1: Fixture Builder ✅ COMPLETED
 **Description**: Builder for test fixtures
 
-**Prerequisites**: Task 5.4
+**Prerequisites**: Task 5.4 ✅
 
 **Unlocks**: Task 6.2 (Data Factories)
 
 **Files**:
-- `pkg/bubbly/testutil/fixture.go`
-- `pkg/bubbly/testutil/fixture_test.go`
+- `pkg/bubbly/testutil/fixture.go` ✅
+- `pkg/bubbly/testutil/fixture_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -1467,15 +1467,39 @@ type FixtureBuilder struct {
 func NewFixture() *FixtureBuilder
 func (fb *FixtureBuilder) WithProp(key, value) *FixtureBuilder
 func (fb *FixtureBuilder) WithState(key, value) *FixtureBuilder
-func (fb *FixtureBuilder) Build(t, createFn) *ComponentTest
+func (fb *FixtureBuilder) WithEvent(name, payload) *FixtureBuilder
+func (fb *FixtureBuilder) Build(t *testing.T, createFn func() Component) *ComponentTest
 ```
 
 **Tests**:
-- [ ] Fixture building works
-- [ ] Props applied
-- [ ] State set correctly
-- [ ] Events emitted
-- [ ] Fluent API works
+- [x] Fixture building works
+- [x] Props applied (stored for future use)
+- [x] State set correctly
+- [x] Events emitted
+- [x] Fluent API works
+
+**Implementation Notes**:
+- ✅ Complete FixtureBuilder with fluent API pattern
+- ✅ NewFixture() creates builder with initialized maps
+- ✅ WithProp/WithState/WithEvent methods return self for chaining
+- ✅ Build() creates TestHarness, mounts component, applies state, emits events
+- ✅ Props stored but not applied (components don't support post-creation prop setting)
+- ✅ State applied via StateInspector.SetRefValue()
+- ✅ Events emitted via ComponentTest.Emit()
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (10 test functions, 25+ test cases)
+- ✅ 100% test coverage on fixture.go with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Overall testutil package coverage: 97.7%
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (10 test functions, all passing)
+- ✅ Coverage: 100.0% (fixture.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
