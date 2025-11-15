@@ -6,14 +6,14 @@
 - [x] 01-reactivity-system completed (State testing)
 - [x] 02-component-model completed (Component testing)
 - [x] 03-lifecycle-hooks completed (Lifecycle testing)
-- [ ] testify library integrated
-- [ ] Go testing conventions established
+- [x] testify library integrated (used in Task 1.1)
+- [x] Go testing conventions established (table-driven tests, t.Cleanup)
 
 ---
 
 ## Phase 1: Test Harness Foundation (4 tasks, 12 hours)
 
-### Task 1.1: Test Harness Core
+### Task 1.1: Test Harness Core ✅ COMPLETED
 **Description**: Main test harness for component mounting
 
 **Prerequisites**: None
@@ -21,8 +21,8 @@
 **Unlocks**: Task 1.2 (Component Mounting)
 
 **Files**:
-- `pkg/bubbly/testutil/harness.go`
-- `pkg/bubbly/testutil/harness_test.go`
+- `pkg/bubbly/testutil/harness.go` ✅
+- `pkg/bubbly/testutil/harness_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -36,16 +36,35 @@ type TestHarness struct {
 
 func NewHarness(t *testing.T, opts ...HarnessOption) *TestHarness
 func (h *TestHarness) Cleanup()
+func (h *TestHarness) RegisterCleanup(fn func())
 ```
 
 **Tests**:
-- [ ] Harness creation
-- [ ] Cleanup registration
-- [ ] Automatic cleanup on test end
-- [ ] Options pattern works
-- [ ] Thread-safe operations
+- [x] Harness creation
+- [x] Cleanup registration
+- [x] Automatic cleanup on test end
+- [x] Options pattern works
+- [x] Thread-safe operations
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- ✅ Implemented with functional options pattern for extensibility
+- ✅ LIFO cleanup execution order (like defer statements)
+- ✅ Thread-safe cleanup registration with sync.Mutex
+- ✅ Automatic cleanup via t.Cleanup()
+- ✅ Panic recovery in cleanup functions
+- ✅ Idempotent cleanup execution
+- ✅ 100% test coverage with race detector
+- ✅ EventTracker stub created (full implementation in Task 3.3)
+- ✅ All 8 tests passing
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag
+- ✅ Coverage: 100.0%
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
