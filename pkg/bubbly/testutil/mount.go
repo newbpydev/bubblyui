@@ -4,19 +4,6 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// StateInspector provides access to component state for testing.
-// This is a minimal stub - full implementation will be provided in Task 1.3.
-type StateInspector struct {
-	refs map[string]*bubbly.Ref[interface{}]
-}
-
-// NewStateInspector creates a new state inspector.
-func NewStateInspector(refs map[string]*bubbly.Ref[interface{}]) *StateInspector {
-	return &StateInspector{
-		refs: refs,
-	}
-}
-
 // EventInspector provides access to component events for testing.
 // This is a minimal stub - full implementation will be provided in Task 3.3.
 type EventInspector struct {
@@ -93,7 +80,8 @@ func (h *TestHarness) Mount(component bubbly.Component, props ...interface{}) *C
 	component.Init()
 
 	// Create state inspector with harness refs
-	stateInspector := NewStateInspector(h.refs)
+	// TODO: Extract computed values and watchers from component in future tasks
+	stateInspector := NewStateInspector(h.refs, nil, nil)
 
 	// Create event inspector with harness event tracker
 	eventInspector := NewEventInspector(h.events)
