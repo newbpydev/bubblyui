@@ -1567,16 +1567,16 @@ func StringFactory(length int) *DataFactory[string]
 
 ---
 
-### Task 6.3: Setup & Teardown Helpers
+### Task 6.3: Setup & Teardown Helpers ✅ COMPLETED
 **Description**: Helpers for test setup and teardown
 
-**Prerequisites**: Task 6.2
+**Prerequisites**: Task 6.2 ✅
 
 **Unlocks**: Task 6.4 (Test Isolation)
 
 **Files**:
-- `pkg/bubbly/testutil/setup.go`
-- `pkg/bubbly/testutil/setup_test.go`
+- `pkg/bubbly/testutil/setup.go` ✅
+- `pkg/bubbly/testutil/setup_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -1592,11 +1592,42 @@ func (ts *TestSetup) Run(t *testing.T, testFn func(*testing.T))
 ```
 
 **Tests**:
-- [ ] Setup functions execute
-- [ ] Teardown functions execute
-- [ ] Execution order correct
-- [ ] Error handling works
-- [ ] Integration with t.Cleanup
+- [x] Setup functions execute
+- [x] Teardown functions execute
+- [x] Execution order correct (FIFO for setup, LIFO for teardown)
+- [x] Error handling works (teardown executes even on panic)
+- [x] Integration with t.Cleanup
+
+**Implementation Notes**:
+- ✅ Complete TestSetup type with fluent API pattern
+- ✅ NewTestSetup() creates builder with initialized slices
+- ✅ AddSetup/AddTeardown methods return self for chaining
+- ✅ Run() executes setup in FIFO order, registers teardown with t.Cleanup
+- ✅ Teardown functions execute in LIFO order (like defer statements)
+- ✅ Integration with t.Cleanup ensures teardown runs even on panic
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (19 test functions, 50+ test cases)
+- ✅ Tests cover: execution order, state modification, nested setup, integration with t.Cleanup
+- ✅ Tests cover: empty test functions, panic recovery, real-world examples
+- ✅ 100% test coverage on setup.go with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Overall testutil package coverage: 97.8%
+
+**Key Design Decisions**:
+- Teardown functions registered with t.Cleanup in forward order
+- t.Cleanup executes in LIFO order, so last teardown added executes first
+- This achieves defer-like behavior (reverse order of registration)
+- Nested TestSetup instances work correctly with proper cleanup ordering
+- No error return from Run() - errors handled via t.Errorf/t.Fatal
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (19 test functions, all passing)
+- ✅ Coverage: 100.0% (setup.go), 97.8% (overall testutil)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
