@@ -3049,18 +3049,195 @@ func (wet *WatchEffectTester) AssertExecuted(t *testing.T, times int)
 
 ---
 
-### Task 12.2-12.6: Remaining Advanced Reactivity Testers
-**Description**: Flush mode controller, deep watch tester, custom comparator tester, computed cache verifier, dependency tracking inspector
+### Task 12.2: Flush Mode Controller
+**Description**: Test flush timing control for reactive updates
 
 **Prerequisites**: Task 12.1
 
+**Unlocks**: Task 12.3 (Deep Watch Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/flush_mode_controller.go`
+- `pkg/bubbly/testutil/flush_mode_controller_test.go`
+
+**Type Safety**:
+```go
+type FlushModeController struct {
+    mode         FlushMode
+    pendingFlush int
+    syncCount    int
+    asyncCount   int
+}
+
+func NewFlushModeController() *FlushModeController
+func (fmc *FlushModeController) SetMode(mode FlushMode)
+func (fmc *FlushModeController) TriggerFlush()
+func (fmc *FlushModeController) AssertSyncFlush(t *testing.T, expected int)
+func (fmc *FlushModeController) AssertAsyncFlush(t *testing.T, expected int)
+```
+
+**Tests**:
+- [ ] Sync mode flushes immediately
+- [ ] Async mode batches updates
+- [ ] Pre/post flush hooks called
+- [ ] Mode switching works
+- [ ] Nested flush handling
+- [ ] Flush queue management
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 12.3: Deep Watch Tester
+**Description**: Test deep object watching and nested change detection
+
+**Prerequisites**: Task 12.2
+
+**Unlocks**: Task 12.4 (Custom Comparator Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/deep_watch_tester.go`
+- `pkg/bubbly/testutil/deep_watch_tester_test.go`
+
+**Type Safety**:
+```go
+type DeepWatchTester struct {
+    watched      *Ref[interface{}]
+    watchCount   int
+    changedPaths []string
+    deep         bool
+}
+
+func NewDeepWatchTester(ref *Ref[interface{}], deep bool) *DeepWatchTester
+func (dwt *DeepWatchTester) ModifyNestedField(path string, value interface{})
+func (dwt *DeepWatchTester) AssertWatchTriggered(t *testing.T, times int)
+func (dwt *DeepWatchTester) AssertPathChanged(t *testing.T, path string)
+```
+
+**Tests**:
+- [ ] Deep watch detects nested changes
+- [ ] Shallow watch only top-level
+- [ ] Array mutations tracked
+- [ ] Map mutations tracked
+- [ ] Struct field changes detected
+- [ ] Performance with large objects
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 12.4: Custom Comparator Tester
+**Description**: Test custom equality comparators for change detection
+
+**Prerequisites**: Task 12.3
+
+**Unlocks**: Task 12.5 (Computed Cache Verifier)
+
+**Files**:
+- `pkg/bubbly/testutil/custom_comparator_tester.go`
+- `pkg/bubbly/testutil/custom_comparator_tester_test.go`
+
+**Type Safety**:
+```go
+type CustomComparatorTester struct {
+    ref        *Ref[interface{}]
+    comparator func(a, b interface{}) bool
+    compared   int
+    changed    bool
+}
+
+func NewCustomComparatorTester(ref *Ref[interface{}], cmp func(a, b interface{}) bool) *CustomComparatorTester
+func (cct *CustomComparatorTester) SetValue(value interface{})
+func (cct *CustomComparatorTester) AssertComparisons(t *testing.T, expected int)
+func (cct *CustomComparatorTester) AssertChanged(t *testing.T, expected bool)
+```
+
+**Tests**:
+- [ ] Custom comparator used
+- [ ] Comparison count tracked
+- [ ] Logical equality vs identity
+- [ ] Struct comparators
+- [ ] Array comparators
+- [ ] Performance optimization
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 12.5: Computed Cache Verifier
+**Description**: Test computed value caching and invalidation
+
+**Prerequisites**: Task 12.4
+
+**Unlocks**: Task 12.6 (Dependency Tracking Inspector)
+
+**Files**:
+- `pkg/bubbly/testutil/computed_cache_verifier.go`
+- `pkg/bubbly/testutil/computed_cache_verifier_test.go`
+
+**Type Safety**:
+```go
+type ComputedCacheVerifier struct {
+    computed      *Computed[interface{}]
+    computeCount  int
+    cacheHits     int
+    cacheMisses   int
+}
+
+func NewComputedCacheVerifier(comp *Computed[interface{}]) *ComputedCacheVerifier
+func (ccv *ComputedCacheVerifier) GetValue() interface{}
+func (ccv *ComputedCacheVerifier) AssertComputeCount(t *testing.T, expected int)
+func (ccv *ComputedCacheVerifier) AssertCacheHits(t *testing.T, expected int)
+func (ccv *ComputedCacheVerifier) InvalidateCache()
+```
+
+**Tests**:
+- [ ] Computed values cached
+- [ ] Cache invalidated on dependency change
+- [ ] Multiple gets use cache
+- [ ] Cache hit/miss tracking
+- [ ] Memory management
+- [ ] Circular dependency detection
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 12.6: Dependency Tracking Inspector
+**Description**: Test dependency graph tracking and visualization
+
+**Prerequisites**: Task 12.5
+
 **Unlocks**: Phase 13 (Core Systems)
 
-**Files**: 5 files (one per feature)
+**Files**:
+- `pkg/bubbly/testutil/dependency_tracking_inspector.go`
+- `pkg/bubbly/testutil/dependency_tracking_inspector_test.go`
 
-**Tests**: All advanced reactivity features testable
+**Type Safety**:
+```go
+type DependencyTrackingInspector struct {
+    tracked      map[string][]string
+    dependencies map[string][]Dependency
+    graph        *DependencyGraph
+}
 
-**Estimated Effort**: 15 hours (3 hours each)
+func NewDependencyTrackingInspector() *DependencyTrackingInspector
+func (dti *DependencyTrackingInspector) TrackDependency(source, target string)
+func (dti *DependencyTrackingInspector) AssertDependency(t *testing.T, source, target string)
+func (dti *DependencyTrackingInspector) GetDependencyGraph() *DependencyGraph
+func (dti *DependencyTrackingInspector) VisualizeDependencies() string
+```
+
+**Tests**:
+- [ ] Dependencies tracked correctly
+- [ ] Dependency graph accurate
+- [ ] Circular dependencies detected
+- [ ] Orphaned dependencies found
+- [ ] Graph visualization works
+- [ ] Performance with many deps
+
+**Estimated Effort**: 3 hours
 
 ---
 
@@ -3134,18 +3311,121 @@ func (kbt *KeyBindingsTester) DetectConflicts() []string
 
 ---
 
-### Task 13.3-13.5: Message Handler, Children, Template Safety Testers
-**Description**: Test message handlers, children management, and template mutation prevention
+### Task 13.3: Message Handler Tester
+**Description**: Test Bubbletea message handling and routing
 
 **Prerequisites**: Task 13.2
 
+**Unlocks**: Task 13.4 (Children Management Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/message_handler_tester.go`
+- `pkg/bubbly/testutil/message_handler_tester_test.go`
+
+**Type Safety**:
+```go
+type MessageHandlerTester struct {
+    component     Component
+    messages      []tea.Msg
+    handled       map[string]int
+    unhandled     []tea.Msg
+}
+
+func NewMessageHandlerTester(comp Component) *MessageHandlerTester
+func (mht *MessageHandlerTester) SendMessage(msg tea.Msg)
+func (mht *MessageHandlerTester) AssertMessageHandled(t *testing.T, msgType string, times int)
+func (mht *MessageHandlerTester) AssertUnhandledMessages(t *testing.T, count int)
+func (mht *MessageHandlerTester) GetHandledMessages() []tea.Msg
+```
+
+**Tests**:
+- [ ] Messages routed correctly
+- [ ] Handler functions called
+- [ ] Message types identified
+- [ ] Unhandled messages tracked
+- [ ] Message batching works
+- [ ] Command results captured
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 13.4: Children Management Tester
+**Description**: Test component children rendering and lifecycle
+
+**Prerequisites**: Task 13.3
+
+**Unlocks**: Task 13.5 (Template Safety Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/children_management_tester.go`
+- `pkg/bubbly/testutil/children_management_tester_test.go`
+
+**Type Safety**:
+```go
+type ChildrenManagementTester struct {
+    parent     Component
+    children   []Component
+    mounted    map[Component]bool
+    unmounted  map[Component]bool
+}
+
+func NewChildrenManagementTester(parent Component) *ChildrenManagementTester
+func (cmt *ChildrenManagementTester) AddChild(child Component)
+func (cmt *ChildrenManagementTester) RemoveChild(child Component)
+func (cmt *ChildrenManagementTester) AssertChildMounted(t *testing.T, child Component)
+func (cmt *ChildrenManagementTester) AssertChildUnmounted(t *testing.T, child Component)
+func (cmt *ChildrenManagementTester) AssertChildCount(t *testing.T, expected int)
+```
+
+**Tests**:
+- [ ] Children mounted correctly
+- [ ] Children unmounted on removal
+- [ ] Lifecycle hooks propagate
+- [ ] Props passed to children
+- [ ] Child order preserved
+- [ ] Dynamic children updates
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 13.5: Template Safety Tester
+**Description**: Test template mutation prevention and safety checks
+
+**Prerequisites**: Task 13.4
+
 **Unlocks**: Phase 14 (Integration & Observability)
 
-**Files**: 3 files (one per feature)
+**Files**:
+- `pkg/bubbly/testutil/template_safety_tester.go`
+- `pkg/bubbly/testutil/template_safety_tester_test.go`
 
-**Tests**: All core systems testable
+**Type Safety**:
+```go
+type TemplateSafetyTester struct {
+    template      string
+    mutations     []string
+    violations    []SafetyViolation
+    immutable     bool
+}
 
-**Estimated Effort**: 9 hours (3 hours each)
+func NewTemplateSafetyTester(template string) *TemplateSafetyTester
+func (tst *TemplateSafetyTester) AttemptMutation(mutation string)
+func (tst *TemplateSafetyTester) AssertImmutable(t *testing.T)
+func (tst *TemplateSafetyTester) AssertViolations(t *testing.T, expected int)
+func (tst *TemplateSafetyTester) GetViolations() []SafetyViolation
+```
+
+**Tests**:
+- [ ] Templates are immutable
+- [ ] Mutation attempts detected
+- [ ] Safety violations logged
+- [ ] Deep cloning works
+- [ ] Shared templates isolated
+- [ ] Performance overhead minimal
+
+**Estimated Effort**: 3 hours
 
 ---
 
@@ -3187,18 +3467,122 @@ func (mer *MockErrorReporter) GetBreadcrumbs() []Breadcrumb
 
 ---
 
-### Task 14.2-14.4: Observability Assertions, Props Verifier, Error Testing
-**Description**: Complete observability testing, props immutability verification, and comprehensive error handling tests
+### Task 14.2: Observability Assertions
+**Description**: Test observability hooks and telemetry data collection
 
 **Prerequisites**: Task 14.1
 
+**Unlocks**: Task 14.3 (Props Verifier)
+
+**Files**:
+- `pkg/bubbly/testutil/observability_assertions.go`
+- `pkg/bubbly/testutil/observability_assertions_test.go`
+
+**Type Safety**:
+```go
+type ObservabilityAssertions struct {
+    metrics     map[string][]Metric
+    traces      []Trace
+    logs        []LogEntry
+    reporter    *MockErrorReporter
+}
+
+func NewObservabilityAssertions(reporter *MockErrorReporter) *ObservabilityAssertions
+func (oa *ObservabilityAssertions) AssertMetricRecorded(t *testing.T, name string, value float64)
+func (oa *ObservabilityAssertions) AssertTraceSpan(t *testing.T, operation string)
+func (oa *ObservabilityAssertions) AssertLogEntry(t *testing.T, level, message string)
+func (oa *ObservabilityAssertions) GetAllMetrics() map[string][]Metric
+```
+
+**Tests**:
+- [ ] Metrics collected correctly
+- [ ] Trace spans created
+- [ ] Log entries captured
+- [ ] Performance markers set
+- [ ] Custom tags included
+- [ ] Sampling works correctly
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 14.3: Props Verifier
+**Description**: Test component props immutability and type safety
+
+**Prerequisites**: Task 14.2
+
+**Unlocks**: Task 14.4 (Error Testing)
+
+**Files**:
+- `pkg/bubbly/testutil/props_verifier.go`
+- `pkg/bubbly/testutil/props_verifier_test.go`
+
+**Type Safety**:
+```go
+type PropsVerifier struct {
+    component      Component
+    originalProps  map[string]interface{}
+    mutations      []PropsMutation
+    immutable      bool
+}
+
+func NewPropsVerifier(comp Component) *PropsVerifier
+func (pv *PropsVerifier) CaptureOriginalProps()
+func (pv *PropsVerifier) AttemptPropMutation(key string, value interface{})
+func (pv *PropsVerifier) AssertPropsImmutable(t *testing.T)
+func (pv *PropsVerifier) AssertNoMutations(t *testing.T)
+func (pv *PropsVerifier) GetMutations() []PropsMutation
+```
+
+**Tests**:
+- [ ] Props are immutable
+- [ ] Mutation attempts blocked
+- [ ] Deep immutability enforced
+- [ ] Type safety maintained
+- [ ] Props cloned on pass
+- [ ] Reference integrity preserved
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 14.4: Error Testing
+**Description**: Test comprehensive error handling and recovery
+
+**Prerequisites**: Task 14.3
+
 **Unlocks**: Phase 15 (Documentation)
 
-**Files**: 3 files (one per feature)
+**Files**:
+- `pkg/bubbly/testutil/error_testing.go`
+- `pkg/bubbly/testutil/error_testing_test.go`
 
-**Tests**: All integration and observability features testable
+**Type Safety**:
+```go
+type ErrorTesting struct {
+    errors        []error
+    recovered     []interface{}
+    errorHandlers map[string]func(error)
+    panicHandlers map[string]func(interface{})
+}
 
-**Estimated Effort**: 9 hours (3 hours each)
+func NewErrorTesting() *ErrorTesting
+func (et *ErrorTesting) TriggerError(err error)
+func (et *ErrorTesting) TriggerPanic(panic interface{})
+func (et *ErrorTesting) AssertErrorHandled(t *testing.T, expectedErr error)
+func (et *ErrorTesting) AssertPanicRecovered(t *testing.T)
+func (et *ErrorTesting) AssertErrorCount(t *testing.T, expected int)
+```
+
+**Tests**:
+- [ ] Errors caught and handled
+- [ ] Panics recovered gracefully
+- [ ] Error boundaries work
+- [ ] Stack traces captured
+- [ ] Recovery strategies applied
+- [ ] Cascading errors prevented
+
+**Estimated Effort**: 3 hours
 
 ---
 
@@ -3278,25 +3662,29 @@ Phase 7: Documentation
 Phase 8: Command Testing
     8.1 Queue Inspector → 8.2 Batcher → 8.3 Mock Generator → 8.4 Loop Detection → 8.5 Auto-Command → 8.6 Assertions
     ↓
-Phase 9: Composables Testing
-    9.1 Time Simulator → 9.2 useDebounce → 9.3-9.9 All Composables
+Phase 9: Composables Testing (9 tasks)
+    9.1 Time Simulator → 9.2 Debounce → 9.3 Throttle → 9.4 Async → 9.5 Form
+    → 9.6 LocalStorage → 9.7 Effect → 9.8 EventListener → 9.9 TextInput
     ↓
-Phase 10: Directives Testing
-    10.1 ForEach → 10.2 Bind → 10.3-10.5 If, On, Show
+Phase 10: Directives Testing (5 tasks)
+    10.1 ForEach → 10.2 Bind → 10.3 If → 10.4 On → 10.5 Show
     ↓
-Phase 11: Router Testing
-    11.1 Route Guards → 11.2 Navigation → 11.3-11.7 History, Nested, Query, Named, Matching
+Phase 11: Router Testing (7 tasks)
+    11.1 Route Guards → 11.2 Navigation → 11.3 History → 11.4 Nested Routes
+    → 11.5 Query Params → 11.6 Named Routes → 11.7 Path Matching
     ↓
-Phase 12: Advanced Reactivity
-    12.1 WatchEffect → 12.2-12.6 Flush, Deep, Comparators, Cache, Tracking
+Phase 12: Advanced Reactivity (6 tasks)
+    12.1 WatchEffect → 12.2 Flush Mode → 12.3 Deep Watch → 12.4 Comparators
+    → 12.5 Cache Verifier → 12.6 Dependency Tracking
     ↓
-Phase 13: Core Systems
-    13.1 Provide/Inject → 13.2 Key Bindings → 13.3-13.5 Message Handler, Children, Template Safety
+Phase 13: Core Systems (5 tasks)
+    13.1 Provide/Inject → 13.2 Key Bindings → 13.3 Message Handler
+    → 13.4 Children → 13.5 Template Safety
     ↓
-Phase 14: Integration & Observability
-    14.1 Mock Reporter → 14.2-14.4 Assertions, Props, Error Testing
+Phase 14: Integration & Observability (4 tasks)
+    14.1 Mock Reporter → 14.2 Observability → 14.3 Props → 14.4 Error Testing
     ↓
-Phase 15: Documentation
+Phase 15: Documentation (2 tasks)
     15.1 Update Examples → 15.2 Integration Guide
 ```
 
