@@ -2172,23 +2172,29 @@ func AssertNoCommandLoop(t testingT, detector *LoopDetectionVerifier)
 
 ## Phase 9: Composables Testing (9 tasks, 27 hours)
 
-### Task 9.1: Time Simulator
+### Task 9.1: Time Simulator ✅ COMPLETED
 **Description**: Time simulation for debounce/throttle testing
 
-**Prerequisites**: Task 8.6, Feature 04 (Composition API)
+**Prerequisites**: Task 8.6 ✅, Feature 04 (Composition API)
 
 **Unlocks**: Task 9.2 (useDebounce Tester)
 
 **Files**:
-- `pkg/bubbly/testutil/time_simulator.go`
-- `pkg/bubbly/testutil/time_simulator_test.go`
+- `pkg/bubbly/testutil/time_simulator.go` ✅
+- `pkg/bubbly/testutil/time_simulator_test.go` ✅
 
 **Type Safety**:
 ```go
+type SimulatedTimer struct {
+    targetTime time.Time
+    ch         chan time.Time
+    fired      bool
+}
+
 type TimeSimulator struct {
-    currentTime time.Time
-    timers      []SimulatedTimer
     mu          sync.Mutex
+    currentTime time.Time
+    timers      []*SimulatedTimer
 }
 
 func NewTimeSimulator() *TimeSimulator
@@ -2198,11 +2204,45 @@ func (ts *TimeSimulator) After(d time.Duration) <-chan time.Time
 ```
 
 **Tests**:
-- [ ] Time advances correctly
-- [ ] Timers fire at correct time
-- [ ] Multiple timers supported
-- [ ] Fast-forward works
-- [ ] Thread-safe
+- [x] Time advances correctly (4 test cases)
+- [x] Timers fire at correct time (4 test cases)
+- [x] Multiple timers supported (sequential firing test)
+- [x] Fast-forward works (all timers fire when time exceeded)
+- [x] Thread-safe (concurrent access test with 20 goroutines)
+- [x] Timer order verification
+- [x] Zero duration timers fire immediately
+- [x] Now() doesn't advance automatically
+
+**Implementation Notes**:
+- ✅ Complete implementation per designs.md specification
+- ✅ Thread-safe with sync.Mutex for all operations
+- ✅ SimulatedTimer type with targetTime, channel, and fired flag
+- ✅ Buffered channels (size 1) prevent blocking on timer firing
+- ✅ Zero/negative duration timers fire immediately
+- ✅ Advance() fires all timers that have reached target time
+- ✅ Non-blocking timer firing using select with default
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (9 test functions, 20+ test cases)
+- ✅ 100% test coverage with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Fixed deadlock issue: timers must be created before goroutines wait on them
+- ✅ Enables deterministic testing of time-dependent composables (useDebounce, useThrottle)
+
+**Key Design Decisions**:
+- Buffered channels prevent blocking when firing timers
+- Timers stored as pointers for efficient mutation
+- fired flag prevents double-firing
+- Lock held during entire Advance() to ensure atomic time progression
+- No automatic cleanup of fired timers (keeps implementation simple)
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (9 test functions, all passing)
+- ✅ Coverage: 100.0%
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
