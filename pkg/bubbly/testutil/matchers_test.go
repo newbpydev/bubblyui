@@ -287,7 +287,7 @@ func TestAssertThat_ErrorPath(t *testing.T) {
 
 	// This should call t.Errorf with the matcher error
 	ct.AssertThat("test", errorMatcher)
-	
+
 	assert.True(t, mockT.failed, "AssertThat should fail when matcher returns error")
 	assert.Contains(t, mockT.errors[0], "matcher error")
 	assert.Contains(t, mockT.errors[0], "test matcher error")
@@ -307,19 +307,19 @@ func (f MatcherFunc) FailureMessage(actual interface{}) string {
 // TestBeEmpty_ErrorPath tests BeEmpty matcher with invalid types
 func TestBeEmpty_ErrorPath(t *testing.T) {
 	matcher := BeEmpty()
-	
+
 	// Test with invalid type (should return error)
 	invalidTypes := []interface{}{
-		42,                    // int
-		3.14,                  // float64
-		true,                  // bool
-		struct{}{},           // struct
+		42,         // int
+		3.14,       // float64
+		true,       // bool
+		struct{}{}, // struct
 	}
-	
+
 	for _, invalid := range invalidTypes {
 		t.Run(fmt.Sprintf("invalid_type_%T", invalid), func(t *testing.T) {
 			matched, err := matcher.Match(invalid)
-			
+
 			assert.Error(t, err, "should return error for invalid type")
 			assert.False(t, matched, "should not match invalid type")
 			assert.Contains(t, err.Error(), "BeEmpty matcher expects")
@@ -330,19 +330,19 @@ func TestBeEmpty_ErrorPath(t *testing.T) {
 // TestHaveLength_ErrorPath tests HaveLength matcher with invalid types
 func TestHaveLength_ErrorPath(t *testing.T) {
 	matcher := HaveLength(3)
-	
+
 	// Test with invalid type (should return error)
 	invalidTypes := []interface{}{
-		42,                    // int
-		3.14,                  // float64
-		true,                  // bool
-		struct{}{},           // struct
+		42,         // int
+		3.14,       // float64
+		true,       // bool
+		struct{}{}, // struct
 	}
-	
+
 	for _, invalid := range invalidTypes {
 		t.Run(fmt.Sprintf("invalid_type_%T", invalid), func(t *testing.T) {
 			matched, err := matcher.Match(invalid)
-			
+
 			assert.Error(t, err, "should return error for invalid type")
 			assert.False(t, matched, "should not match invalid type")
 			assert.Contains(t, err.Error(), "HaveLength matcher expects")

@@ -182,54 +182,54 @@ func TestHarness_AutomaticCleanup(t *testing.T) {
 // TestTestHook_LifecycleMethods tests that all lifecycle methods can be called without panicking
 func TestTestHook_LifecycleMethods(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	// Create a test hook to verify all lifecycle methods work
 	hook := &testHook{
 		tracker: harness.events,
 		harness: harness,
 	}
-	
+
 	// Test all lifecycle methods - they should not panic
 	assert.NotPanics(t, func() {
 		hook.OnComponentMount("comp1", "TestComponent")
 	}, "OnComponentMount should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnComponentUpdate("comp1", "test message")
 	}, "OnComponentUpdate should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnComponentUnmount("comp1")
 	}, "OnComponentUnmount should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnRefChange("comp1", "old", "new")
 	}, "OnRefChange should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnRefExposed("comp1", "ref1", "ref1")
 	}, "OnRefExposed should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnRenderComplete("comp1", 100*time.Millisecond)
 	}, "OnRenderComplete should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnComputedChange("comp1", "old", "new")
 	}, "OnComputedChange should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnWatchCallback("watch1", "old", "new")
 	}, "OnWatchCallback should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnEffectRun("effect1")
 	}, "OnEffectRun should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnChildAdded("parent1", "child1")
 	}, "OnChildAdded should not panic")
-	
+
 	assert.NotPanics(t, func() {
 		hook.OnChildRemoved("parent1", "child1")
 	}, "OnChildRemoved should not panic")
@@ -238,19 +238,19 @@ func TestTestHook_LifecycleMethods(t *testing.T) {
 // TestTestHook_OnEvent tests that OnEvent properly tracks events
 func TestTestHook_OnEvent(t *testing.T) {
 	harness := NewHarness(t)
-	
+
 	hook := &testHook{
 		tracker: harness.events,
 		harness: harness,
 	}
-	
+
 	// Call OnEvent with test data
 	hook.OnEvent("comp1", "testEvent", "testData")
-	
+
 	// Verify event was tracked
 	events := harness.events.GetEvents("testEvent")
 	assert.Len(t, events, 1, "should have tracked one event")
-	
+
 	event := events[0]
 	assert.Equal(t, "testEvent", event.Name, "event name should match")
 	assert.Equal(t, "comp1", event.Source, "component source should match")

@@ -345,14 +345,14 @@ func TestUseDebounceTester_GetDebouncedValue(t *testing.T) {
 
 	// Change source value
 	tester.TriggerChange("new value")
-	
+
 	// Should still return old value (debounced)
 	value = tester.GetDebouncedValue()
 	assert.Equal(t, "initial", value, "should still return initial value before debounce")
 
 	// Advance time past debounce delay
 	tester.AdvanceTime(60 * time.Millisecond)
-	
+
 	// Now should return new value
 	value = tester.GetDebouncedValue()
 	assert.Equal(t, "new value", value, "should return debounced value after delay")
@@ -385,7 +385,7 @@ func TestUseDebounceTester_GetSourceValue(t *testing.T) {
 
 	// Change source value
 	tester.TriggerChange("new value")
-	
+
 	// Should immediately return new value (not debounced)
 	value = tester.GetSourceValue()
 	assert.Equal(t, "new value", value, "should immediately return new source value")

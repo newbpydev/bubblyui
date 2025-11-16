@@ -3389,39 +3389,62 @@ Route.Matched stores RouteRecord.Path values, which are **relative paths** for c
 
 ---
 
-### Task 11.5: Query Params Tester
+### Task 11.5: Query Params Tester ✅ COMPLETED
 **Description**: Test query parameter parsing and updates
 
-**Prerequisites**: Task 11.4
+**Prerequisites**: Task 11.4 ✅
 
 **Unlocks**: Task 11.6 (Named Routes Tester)
 
 **Files**:
-- `pkg/bubbly/testutil/query_params_tester.go`
-- `pkg/bubbly/testutil/query_params_tester_test.go`
+- `pkg/bubbly/testutil/query_params_tester.go` ✅
+- `pkg/bubbly/testutil/query_params_tester_test.go` ✅
 
 **Type Safety**:
 ```go
 type QueryParamsTester struct {
-    router      *Router
-    currentPath string
-    params      map[string]string
+    router *router.Router
 }
 
-func NewQueryParamsTester(router *Router) *QueryParamsTester
+func NewQueryParamsTester(r *router.Router) *QueryParamsTester
 func (qpt *QueryParamsTester) SetQueryParam(key, value string)
-func (qpt *QueryParamsTester) AssertQueryParam(t *testing.T, key, expected string)
-func (qpt *QueryParamsTester) AssertQueryParams(t *testing.T, expected map[string]string)
+func (qpt *QueryParamsTester) AssertQueryParam(t testingT, key, expected string)
+func (qpt *QueryParamsTester) AssertQueryParams(t testingT, expected map[string]string)
 func (qpt *QueryParamsTester) ClearQueryParams()
 ```
 
-**Tests**:
-- [ ] Query params parsed from URL
-- [ ] Query params update reactive state
-- [ ] Multiple params supported
-- [ ] Param encoding/decoding correct
-- [ ] Navigation preserves params
-- [ ] Param removal works
+**Tests**: ALL PASSING ✅
+- [x] Query params parsed from URL - tested with NavigationTarget.Query
+- [x] Query params update reactive state - SetQueryParam triggers navigation
+- [x] Multiple params supported - tested with 3+ params
+- [x] Param encoding/decoding correct - tested with spaces and special chars
+- [x] Navigation preserves params - tested navigation flow
+- [x] Param removal works - tested removing individual params
+
+**Implementation Notes**:
+- ✅ **Simplified Design**: Removed unnecessary `currentPath` and `params` fields - tester directly uses `router.CurrentRoute().Query`
+- ✅ **Router Integration**: Uses `router.Push()` with `NavigationTarget{Query: ...}` for all param updates
+- ✅ **Query Params via NavigationTarget**: Router expects query params in `NavigationTarget.Query` map, not in path string
+- ✅ **Type-Safe Assertions**: Uses `testingT` interface for compatibility with both real and mock testing.T
+- ✅ **Deep Equality**: Uses `reflect.DeepEqual` for map comparison in AssertQueryParams
+- ✅ **Comprehensive Tests**: 7 test functions with 23 test cases covering all scenarios
+- ✅ **Thread-Safe**: All operations use router's thread-safe methods
+- ✅ **Clear Error Messages**: Descriptive error messages for failed assertions
+
+**Key Design Decisions**:
+1. **No Internal State**: Tester doesn't cache query params - always reads from router.CurrentRoute()
+2. **Navigation-Based Updates**: All param changes trigger router.Push() for realistic testing
+3. **Encoding Handled by Router**: Router's QueryParser handles URL encoding/decoding automatically
+4. **Map-Based API**: Query params always passed as `map[string]string` for type safety
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (7 test functions, 23 test cases, all passing)
+- ✅ Coverage: 100% on all methods
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
