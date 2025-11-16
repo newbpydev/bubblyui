@@ -2303,18 +2303,275 @@ func (udt *UseDebounceTester) GetSourceValue() interface{}
 
 ---
 
-### Task 9.3-9.9: Remaining Composable Testers
-**Description**: Testers for useThrottle, useAsync, useForm, useLocalStorage, useEffect, useEventListener, useState, useTextInput
+### Task 9.3: useThrottle Tester
+**Description**: Test throttled values without delays
 
 **Prerequisites**: Task 9.2
 
+**Unlocks**: Task 9.4 (useAsync Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_throttle_tester.go`
+- `pkg/bubbly/testutil/use_throttle_tester_test.go`
+
+**Type Safety**:
+```go
+type UseThrottleTester struct {
+    timeSim   *TimeSimulator
+    component Component
+    throttled *Ref[interface{}]
+    source    *Ref[interface{}]
+}
+
+func NewUseThrottleTester(comp Component, timeSim *TimeSimulator) *UseThrottleTester
+func (utt *UseThrottleTester) TriggerChange(value interface{})
+func (utt *UseThrottleTester) AdvanceTime(d time.Duration)
+func (utt *UseThrottleTester) GetThrottledValue() interface{}
+func (utt *UseThrottleTester) GetSourceValue() interface{}
+```
+
+**Tests**:
+- [ ] Throttle limits update frequency
+- [ ] First value emitted immediately
+- [ ] Subsequent values throttled
+- [ ] Time simulation works
+- [ ] Type safety with different types
+- [ ] Trailing edge behavior
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.4: useAsync Tester
+**Description**: Test async operations and loading states
+
+**Prerequisites**: Task 9.3
+
+**Unlocks**: Task 9.5 (useForm Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_async_tester.go`
+- `pkg/bubbly/testutil/use_async_tester_test.go`
+
+**Type Safety**:
+```go
+type UseAsyncTester struct {
+    component Component
+    loading   *Ref[bool]
+    data      *Ref[interface{}]
+    error     *Ref[error]
+}
+
+func NewUseAsyncTester(comp Component) *UseAsyncTester
+func (uat *UseAsyncTester) TriggerAsyncOperation()
+func (uat *UseAsyncTester) CompleteWithSuccess(data interface{})
+func (uat *UseAsyncTester) CompleteWithError(err error)
+func (uat *UseAsyncTester) AssertLoading(t *testing.T, expected bool)
+func (uat *UseAsyncTester) AssertData(t *testing.T, expected interface{})
+```
+
+**Tests**:
+- [ ] Loading state transitions correctly
+- [ ] Success state captured
+- [ ] Error state captured
+- [ ] Concurrent operations handled
+- [ ] Cancellation works
+- [ ] Type safety for data/error
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.5: useForm Tester
+**Description**: Test form state and validation
+
+**Prerequisites**: Task 9.4
+
+**Unlocks**: Task 9.6 (useLocalStorage Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_form_tester.go`
+- `pkg/bubbly/testutil/use_form_tester_test.go`
+
+**Type Safety**:
+```go
+type UseFormTester struct {
+    component Component
+    values    *Ref[map[string]interface{}]
+    errors    *Ref[map[string]string]
+    dirty     *Ref[bool]
+    valid     *Ref[bool]
+}
+
+func NewUseFormTester(comp Component) *UseFormTester
+func (uft *UseFormTester) SetField(name string, value interface{})
+func (uft *UseFormTester) TriggerValidation()
+func (uft *UseFormTester) AssertFieldValue(t *testing.T, name string, expected interface{})
+func (uft *UseFormTester) AssertFieldError(t *testing.T, name string, expected string)
+```
+
+**Tests**:
+- [ ] Field updates tracked
+- [ ] Validation triggered correctly
+- [ ] Error messages captured
+- [ ] Dirty state management
+- [ ] Form submission handling
+- [ ] Reset functionality
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.6: useLocalStorage Tester
+**Description**: Test local storage persistence with mocking
+
+**Prerequisites**: Task 9.5
+
+**Unlocks**: Task 9.7 (useEffect Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_local_storage_tester.go`
+- `pkg/bubbly/testutil/use_local_storage_tester_test.go`
+
+**Type Safety**:
+```go
+type UseLocalStorageTester struct {
+    component Component
+    storage   map[string]interface{}
+    key       string
+    value     *Ref[interface{}]
+}
+
+func NewUseLocalStorageTester(comp Component, key string) *UseLocalStorageTester
+func (ulst *UseLocalStorageTester) SetStorageValue(value interface{})
+func (ulst *UseLocalStorageTester) GetStorageValue() interface{}
+func (ulst *UseLocalStorageTester) ClearStorage()
+func (ulst *UseLocalStorageTester) AssertPersisted(t *testing.T, expected interface{})
+```
+
+**Tests**:
+- [ ] Values persist to storage
+- [ ] Values load from storage
+- [ ] Updates sync to storage
+- [ ] JSON serialization works
+- [ ] Type safety maintained
+- [ ] Storage isolation
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.7: useEffect Tester
+**Description**: Test side effects and cleanup
+
+**Prerequisites**: Task 9.6
+
+**Unlocks**: Task 9.8 (useEventListener Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_effect_tester.go`
+- `pkg/bubbly/testutil/use_effect_tester_test.go`
+
+**Type Safety**:
+```go
+type UseEffectTester struct {
+    component    Component
+    effectCount  int
+    cleanupCount int
+    dependencies []interface{}
+}
+
+func NewUseEffectTester(comp Component) *UseEffectTester
+func (uet *UseEffectTester) TriggerDependencyChange(dep interface{})
+func (uet *UseEffectTester) AssertEffectCalled(t *testing.T, times int)
+func (uet *UseEffectTester) AssertCleanupCalled(t *testing.T, times int)
+```
+
+**Tests**:
+- [ ] Effect runs on mount
+- [ ] Effect runs on dependency change
+- [ ] Cleanup runs before re-execution
+- [ ] Cleanup runs on unmount
+- [ ] Dependency tracking accurate
+- [ ] Multiple effects supported
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.8: useEventListener Tester
+**Description**: Test event listener registration and cleanup
+
+**Prerequisites**: Task 9.7
+
+**Unlocks**: Task 9.9 (useTextInput Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/use_event_listener_tester.go`
+- `pkg/bubbly/testutil/use_event_listener_tester_test.go`
+
+**Type Safety**:
+```go
+type UseEventListenerTester struct {
+    component Component
+    listeners map[string][]func(interface{})
+    events    []string
+}
+
+func NewUseEventListenerTester(comp Component) *UseEventListenerTester
+func (uelt *UseEventListenerTester) EmitEvent(name string, payload interface{})
+func (uelt *UseEventListenerTester) AssertListenerRegistered(t *testing.T, event string)
+func (uelt *UseEventListenerTester) AssertListenerCalled(t *testing.T, event string, times int)
+```
+
+**Tests**:
+- [ ] Listeners registered correctly
+- [ ] Events trigger handlers
+- [ ] Multiple listeners supported
+- [ ] Cleanup removes listeners
+- [ ] Type safety for payloads
+- [ ] Event bubbling works
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 9.9: useTextInput Tester
+**Description**: Test text input state management and events
+
+**Prerequisites**: Task 9.8
+
 **Unlocks**: Phase 10 (Directives Testing)
 
-**Files**: 7 files (one per composable)
+**Files**:
+- `pkg/bubbly/testutil/use_text_input_tester.go`
+- `pkg/bubbly/testutil/use_text_input_tester_test.go`
 
-**Tests**: Each composable fully testable
+**Type Safety**:
+```go
+type UseTextInputTester struct {
+    component Component
+    value     *Ref[string]
+    cursor    *Ref[int]
+    focused   *Ref[bool]
+}
 
-**Estimated Effort**: 21 hours (3 hours each)
+func NewUseTextInputTester(comp Component) *UseTextInputTester
+func (utit *UseTextInputTester) TypeText(text string)
+func (utit *UseTextInputTester) MoveCursor(pos int)
+func (utit *UseTextInputTester) SetFocus(focused bool)
+func (utit *UseTextInputTester) AssertValue(t *testing.T, expected string)
+```
+
+**Tests**:
+- [ ] Text input updates value
+- [ ] Cursor position tracked
+- [ ] Focus state managed
+- [ ] Input validation works
+- [ ] Multi-line support
+- [ ] Selection handling
+
+**Estimated Effort**: 3 hours
 
 ---
 
@@ -2385,18 +2642,115 @@ func (bt *BindTester) AssertRefUpdated(t *testing.T, expected interface{})
 
 ---
 
-### Task 10.3-10.5: If, On, Show Directive Testers
-**Description**: Test remaining directives
+### Task 10.3: If Directive Tester
+**Description**: Test conditional rendering with If directive
 
 **Prerequisites**: Task 10.2
 
+**Unlocks**: Task 10.4 (On Directive Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/if_tester.go`
+- `pkg/bubbly/testutil/if_tester_test.go`
+
+**Type Safety**:
+```go
+type IfTester struct {
+    component Component
+    condition *Ref[bool]
+    rendered  bool
+}
+
+func NewIfTester(comp Component, condition *Ref[bool]) *IfTester
+func (it *IfTester) SetCondition(value bool)
+func (it *IfTester) AssertRendered(t *testing.T, expected bool)
+func (it *IfTester) AssertNotRendered(t *testing.T)
+```
+
+**Tests**:
+- [ ] Content renders when condition true
+- [ ] Content hidden when condition false
+- [ ] Reactivity works on condition change
+- [ ] Nested If directives work
+- [ ] Else clause supported
+- [ ] Performance with frequent toggles
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 10.4: On Directive Tester
+**Description**: Test event handler binding with On directive
+
+**Prerequisites**: Task 10.3
+
+**Unlocks**: Task 10.5 (Show Directive Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/on_tester.go`
+- `pkg/bubbly/testutil/on_tester_test.go`
+
+**Type Safety**:
+```go
+type OnTester struct {
+    component   Component
+    handlers    map[string]func(interface{})
+    callCounts  map[string]int
+    lastPayload interface{}
+}
+
+func NewOnTester(comp Component) *OnTester
+func (ot *OnTester) TriggerEvent(name string, payload interface{})
+func (ot *OnTester) AssertHandlerCalled(t *testing.T, event string, times int)
+func (ot *OnTester) AssertPayload(t *testing.T, expected interface{})
+```
+
+**Tests**:
+- [ ] Event handlers registered correctly
+- [ ] Handlers called on event trigger
+- [ ] Payload passed correctly
+- [ ] Multiple handlers per event
+- [ ] Event modifiers work (stop, prevent)
+- [ ] Handler cleanup on unmount
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 10.5: Show Directive Tester
+**Description**: Test visibility toggling with Show directive
+
+**Prerequisites**: Task 10.4
+
 **Unlocks**: Phase 11 (Router Testing)
 
-**Files**: 3 files (one per directive)
+**Files**:
+- `pkg/bubbly/testutil/show_tester.go`
+- `pkg/bubbly/testutil/show_tester_test.go`
 
-**Tests**: All directives fully testable
+**Type Safety**:
+```go
+type ShowTester struct {
+    component Component
+    visible   *Ref[bool]
+    element   string
+}
 
-**Estimated Effort**: 9 hours (3 hours each)
+func NewShowTester(comp Component, visible *Ref[bool]) *ShowTester
+func (st *ShowTester) SetVisible(value bool)
+func (st *ShowTester) AssertVisible(t *testing.T, expected bool)
+func (st *ShowTester) AssertElementPresent(t *testing.T)
+```
+
+**Tests**:
+- [ ] Element visible when condition true
+- [ ] Element hidden when condition false
+- [ ] CSS/styling changes applied
+- [ ] Reactivity on visibility change
+- [ ] Difference from If directive (DOM presence)
+- [ ] Animation/transition hooks
+
+**Estimated Effort**: 3 hours
 
 ---
 
@@ -2469,18 +2823,193 @@ func (ns *NavigationSimulator) Forward()
 
 ---
 
-### Task 11.3-11.7: Remaining Router Testers
-**Description**: Testers for history, nested routes, query params, named routes, path matching
+### Task 11.3: History Tester
+**Description**: Test router history management and navigation stack
 
 **Prerequisites**: Task 11.2
 
+**Unlocks**: Task 11.4 (Nested Routes Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/history_tester.go`
+- `pkg/bubbly/testutil/history_tester_test.go`
+
+**Type Safety**:
+```go
+type HistoryTester struct {
+    router      *Router
+    history     []HistoryEntry
+    currentIdx  int
+    maxEntries  int
+}
+
+func NewHistoryTester(router *Router) *HistoryTester
+func (ht *HistoryTester) AssertHistoryLength(t *testing.T, expected int)
+func (ht *HistoryTester) AssertCanGoBack(t *testing.T, expected bool)
+func (ht *HistoryTester) AssertCanGoForward(t *testing.T, expected bool)
+func (ht *HistoryTester) GetHistoryEntries() []HistoryEntry
+```
+
+**Tests**:
+- [ ] History entries added on navigation
+- [ ] Back navigation works correctly
+- [ ] Forward navigation works correctly
+- [ ] History limit enforced
+- [ ] Replace navigation doesn't add entry
+- [ ] State associated with entries
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.4: Nested Routes Tester
+**Description**: Test nested route configuration and rendering
+
+**Prerequisites**: Task 11.3
+
+**Unlocks**: Task 11.5 (Query Params Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/nested_routes_tester.go`
+- `pkg/bubbly/testutil/nested_routes_tester_test.go`
+
+**Type Safety**:
+```go
+type NestedRoutesTester struct {
+    router        *Router
+    parentRoute   *Route
+    childRoutes   []*Route
+    activeRoutes  []string
+}
+
+func NewNestedRoutesTester(router *Router) *NestedRoutesTester
+func (nrt *NestedRoutesTester) AssertActiveRoutes(t *testing.T, expected []string)
+func (nrt *NestedRoutesTester) AssertParentActive(t *testing.T)
+func (nrt *NestedRoutesTester) AssertChildActive(t *testing.T, childPath string)
+```
+
+**Tests**:
+- [ ] Parent route renders
+- [ ] Child routes render within parent
+- [ ] Path hierarchy respected
+- [ ] Props passed to nested routes
+- [ ] Navigation between siblings
+- [ ] Deep nesting supported
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.5: Query Params Tester
+**Description**: Test query parameter parsing and updates
+
+**Prerequisites**: Task 11.4
+
+**Unlocks**: Task 11.6 (Named Routes Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/query_params_tester.go`
+- `pkg/bubbly/testutil/query_params_tester_test.go`
+
+**Type Safety**:
+```go
+type QueryParamsTester struct {
+    router      *Router
+    currentPath string
+    params      map[string]string
+}
+
+func NewQueryParamsTester(router *Router) *QueryParamsTester
+func (qpt *QueryParamsTester) SetQueryParam(key, value string)
+func (qpt *QueryParamsTester) AssertQueryParam(t *testing.T, key, expected string)
+func (qpt *QueryParamsTester) AssertQueryParams(t *testing.T, expected map[string]string)
+func (qpt *QueryParamsTester) ClearQueryParams()
+```
+
+**Tests**:
+- [ ] Query params parsed from URL
+- [ ] Query params update reactive state
+- [ ] Multiple params supported
+- [ ] Param encoding/decoding correct
+- [ ] Navigation preserves params
+- [ ] Param removal works
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.6: Named Routes Tester
+**Description**: Test named route registration and navigation
+
+**Prerequisites**: Task 11.5
+
+**Unlocks**: Task 11.7 (Path Matching Tester)
+
+**Files**:
+- `pkg/bubbly/testutil/named_routes_tester.go`
+- `pkg/bubbly/testutil/named_routes_tester_test.go`
+
+**Type Safety**:
+```go
+type NamedRoutesTester struct {
+    router      *Router
+    routeNames  map[string]*Route
+}
+
+func NewNamedRoutesTester(router *Router) *NamedRoutesTester
+func (nrt *NamedRoutesTester) NavigateByName(name string, params map[string]string)
+func (nrt *NamedRoutesTester) AssertRouteName(t *testing.T, expected string)
+func (nrt *NamedRoutesTester) AssertRouteExists(t *testing.T, name string)
+func (nrt *NamedRoutesTester) GetRouteURL(name string, params map[string]string) string
+```
+
+**Tests**:
+- [ ] Routes registered with names
+- [ ] Navigate by name works
+- [ ] URL generated from name and params
+- [ ] Name uniqueness enforced
+- [ ] Alias routes supported
+- [ ] Error on unknown name
+
+**Estimated Effort**: 3 hours
+
+---
+
+### Task 11.7: Path Matching Tester
+**Description**: Test route path pattern matching and parameters
+
+**Prerequisites**: Task 11.6
+
 **Unlocks**: Phase 12 (Advanced Reactivity)
 
-**Files**: 5 files (one per feature)
+**Files**:
+- `pkg/bubbly/testutil/path_matching_tester.go`
+- `pkg/bubbly/testutil/path_matching_tester_test.go`
 
-**Tests**: All router features fully testable
+**Type Safety**:
+```go
+type PathMatchingTester struct {
+    router       *Router
+    patterns     []string
+    matchResults []MatchResult
+}
 
-**Estimated Effort**: 15 hours (3 hours each)
+func NewPathMatchingTester(router *Router) *PathMatchingTester
+func (pmt *PathMatchingTester) TestMatch(pattern, path string) bool
+func (pmt *PathMatchingTester) AssertMatches(t *testing.T, pattern, path string)
+func (pmt *PathMatchingTester) AssertNotMatches(t *testing.T, pattern, path string)
+func (pmt *PathMatchingTester) ExtractParams(pattern, path string) map[string]string
+```
+
+**Tests**:
+- [ ] Static paths match exactly
+- [ ] Dynamic segments captured
+- [ ] Wildcard patterns work
+- [ ] Optional segments supported
+- [ ] Regex constraints validated
+- [ ] Priority/specificity ordering
+
+**Estimated Effort**: 3 hours
 
 ---
 
