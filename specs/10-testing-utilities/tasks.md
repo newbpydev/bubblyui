@@ -1776,7 +1776,7 @@ func (ti *TestIsolation) Restore()
 
 ## Phase 8: Command System Testing (6 tasks, 18 hours)
 
-### Task 8.1: Command Queue Inspector
+### Task 8.1: Command Queue Inspector ✅ COMPLETED
 **Description**: Implement command queue inspection utilities for testing auto-reactive bridge
 
 **Prerequisites**: Task 4.5, Feature 08 (Auto-Reactive Bridge)
@@ -1784,35 +1784,54 @@ func (ti *TestIsolation) Restore()
 **Unlocks**: Task 8.2 (Batcher Tester)
 
 **Files**:
-- `pkg/bubbly/testutil/command_queue_inspector.go`
-- `pkg/bubbly/testutil/command_queue_inspector_test.go`
+- `pkg/bubbly/testutil/command_queue_inspector.go` ✅
+- `pkg/bubbly/testutil/command_queue_inspector_test.go` ✅
 
 **Type Safety**:
 ```go
 type CommandQueueInspector struct {
-    queue    *CommandQueue
-    captured []tea.Cmd
-    mu       sync.Mutex
+    queue *bubbly.CommandQueue
 }
 
-func NewCommandQueueInspector(queue *CommandQueue) *CommandQueueInspector
+func NewCommandQueueInspector(queue *bubbly.CommandQueue) *CommandQueueInspector
 func (cqi *CommandQueueInspector) Len() int
 func (cqi *CommandQueueInspector) Peek() tea.Cmd
 func (cqi *CommandQueueInspector) GetAll() []tea.Cmd
 func (cqi *CommandQueueInspector) Clear()
-func (cqi *CommandQueueInspector) AssertEnqueued(t *testing.T, count int)
+func (cqi *CommandQueueInspector) AssertEnqueued(t testingT, count int)
 ```
 
 **Tests**:
-- [ ] Inspector tracks queue length
-- [ ] Peek returns next command
-- [ ] GetAll returns all commands
-- [ ] Clear empties queue
-- [ ] AssertEnqueued validates count
-- [ ] Thread-safe operations
-- [ ] Integration with harness
+- [x] Inspector tracks queue length
+- [x] Peek returns next command
+- [x] GetAll returns all commands
+- [x] Clear empties queue
+- [x] AssertEnqueued validates count
+- [x] Thread-safe operations
+- [x] Integration with harness
+- [x] Nil queue handling
+- [x] Idempotent operations
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- ✅ Simplified design: removed `captured` and `mu` fields (redundant with CommandQueue's internal storage and mutex)
+- ✅ Delegates to CommandQueue methods for thread safety
+- ✅ Peek() returns first command (tea.Cmd), GetAll() returns all commands ([]tea.Cmd)
+- ✅ Nil queue handling with safe defaults (0 length, nil commands, no-op operations)
+- ✅ Uses testingT interface for assertion compatibility with mock testing
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (8 test functions, 20+ test cases)
+- ✅ 100% test coverage with race detector
+- ✅ Integration test verifies usage with real StateChangedMsg commands
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (8 test functions, all passing)
+- ✅ Coverage: 100.0% (command_queue_inspector.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
