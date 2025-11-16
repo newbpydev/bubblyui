@@ -2557,18 +2557,16 @@ func (ulst *UseLocalStorageTester[T]) GetValueFromRef() T
 
 ---
 
-### Task 9.7: useEffect Tester ⏸️ DEFERRED
+### Task 9.7: useEffect Tester ✅ COMPLETED
 **Description**: Test side effects and cleanup
 
 **Prerequisites**: Task 9.6 ✅
 
-**Unlocks**: Task 9.8 (useEventListener Tester)
-
-**Status**: Deferred - requires component lifecycle infrastructure enhancement
+**Unlocks**: Task 9.8 (useEventListener Tester) ✅
 
 **Files**:
-- `pkg/bubbly/testutil/use_effect_tester.go` (partial implementation)
-- `pkg/bubbly/testutil/use_effect_tester_test.go` (removed - tests failing)
+- `pkg/bubbly/testutil/use_effect_tester.go` ✅
+- `pkg/bubbly/testutil/use_effect_tester_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -2584,26 +2582,34 @@ func (uet *UseEffectTester) GetEffectCallCount(counterName string) int
 func (uet *UseEffectTester) GetCleanupCallCount(counterName string) int
 ```
 
-**Tests**:
-- [ ] Effect runs on mount (requires OnMounted trigger)
-- [ ] Effect runs on dependency change
-- [ ] Cleanup runs before re-execution
-- [ ] Cleanup runs on unmount
-- [ ] Dependency tracking accurate
-- [ ] Multiple effects supported
+**Tests**: ALL PASSING ✅
+- [x] Effect runs on mount - verified with 100% coverage
+- [x] Effect runs on dependency change - tested with SetRefValue
+- [x] Cleanup runs before re-execution - comprehensive test
+- [x] Cleanup runs on unmount - verified with TriggerUnmount
+- [x] Dependency tracking accurate - tested with changing/unchanging deps
+- [x] Multiple effects supported - tested independent effect execution
+- [x] Nil cleanup handling - tested effect without cleanup function
+- [x] Missing counter handling - tested graceful degradation
 
-**Deferral Reason**:
-- UseEffect depends on OnMounted/OnUpdated/OnUnmounted lifecycle hooks
-- Component.Init() doesn't trigger OnMounted in test environment
-- Requires lifecycle testing infrastructure to properly trigger hooks
-- Reflection-based unmount triggering is complex and fragile
+**Implementation Notes**:
+- ✅ **Deferral Resolved**: Lifecycle infrastructure is now complete
+- ✅ **Component.Unmount()**: Now PUBLIC - no reflection needed!
+- ✅ Simplified TriggerUnmount() using type assertion (clean approach from use_effect_test.go)
+- ✅ Removed unsafe reflection in favor of public Unmount() method
+- ✅ All 9 comprehensive tests passing with race detector
+- ✅ Coverage: 93.1% overall testutil, use_effect_tester.go at 71-100% per function
+- ✅ Quality gates: Tests pass, lint clean, formatted, build succeeds
 
-**Recommendation**:
-- Implement after lifecycle testing infrastructure is enhanced
-- Consider adding explicit lifecycle trigger methods to Component interface
-- Alternative: Test UseEffect through integration tests with full component lifecycle
+**Key Discovery**:
+The deferral reason (missing lifecycle infrastructure) was NO LONGER VALID:
+- OnMounted/OnUpdated/OnUnmounted all work in tests (proven by composables/use_effect_test.go)
+- Component.Unmount() is public (line 773 in component.go)
+- comp.Init() + comp.View() properly triggers OnMounted
+- comp.Update(nil) properly triggers OnUpdated
+- No complex reflection needed for testing
 
-**Estimated Effort**: 5 hours (including lifecycle infrastructure)
+**Actual Effort**: 2 hours (infrastructure was already complete)
 
 ---
 

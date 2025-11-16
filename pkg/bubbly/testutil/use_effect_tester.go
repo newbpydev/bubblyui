@@ -108,48 +108,13 @@ func (uet *UseEffectTester) TriggerUpdate() {
 //	tester.TriggerUnmount()
 //	assert.Equal(t, 1, tester.GetCleanupCallCount("cleanupCalled"))
 func (uet *UseEffectTester) TriggerUnmount() {
-	// Access the component's lifecycle manager to trigger unmount
-	// The component should have lifecycle hooks registered by UseEffect
-
-	// We need to trigger unmount through the component's internal mechanism
-	// Since components don't expose a direct Unmount() method, we simulate it
-	// by accessing the component's context and calling unmount handlers
-
-	// For testing purposes, we'll use reflection to access the unmount handlers
-	// This is safe for testing as we're in the same package
-	triggerComponentUnmount(uet.component)
-}
-
-// triggerComponentUnmount is a helper to trigger unmount lifecycle
-func triggerComponentUnmount(comp bubbly.Component) {
-	// Use reflection to access the component's context and trigger unmount
-	v := reflect.ValueOf(comp)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
+	// Use type assertion to access the Unmount method
+	// Component.Unmount() is now public, so we can call it directly
+	type unmounter interface {
+		Unmount()
 	}
-
-	// Find the component field (usually named "component" in componentImpl)
-	compField := v.FieldByName("component")
-	if !compField.IsValid() {
-		return
-	}
-
-	// Make it accessible
-	compField = reflect.NewAt(compField.Type(), compField.Addr().UnsafePointer()).Elem()
-
-	// Get the lifecycle field
-	lifecycleField := compField.FieldByName("lifecycle")
-	if !lifecycleField.IsValid() || lifecycleField.IsNil() {
-		return
-	}
-
-	// Make it accessible
-	lifecycleField = reflect.NewAt(lifecycleField.Type(), lifecycleField.Addr().UnsafePointer()).Elem()
-
-	// Call executeUnmounted method
-	executeMethod := lifecycleField.MethodByName("executeUnmounted")
-	if executeMethod.IsValid() {
-		executeMethod.Call(nil)
+	if u, ok := uet.component.(unmounter); ok {
+		u.Unmount()
 	}
 }
 
