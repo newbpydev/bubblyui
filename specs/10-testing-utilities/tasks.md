@@ -2132,16 +2132,41 @@ func (act *AutoCommandTester) GetLoopDetector() *LoopDetectionVerifier
 
 **Type Safety**:
 ```go
-func AssertCommandEnqueued(t *testing.T, harness *TestHarness, count int)
-func AssertNoCommandLoop(t *testing.T, detector *LoopDetectionVerifier)
+func AssertCommandEnqueued(t testingT, queue *CommandQueueInspector, count int)
+func AssertNoCommandLoop(t testingT, detector *LoopDetectionVerifier)
 ```
 
 **Tests**:
-- [ ] Enqueued assertion works
-- [ ] Loop assertions work
-- [ ] Clear error messages
+- [x] Enqueued assertion works
+- [x] Loop assertions work
+- [x] Clear error messages
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implemented AssertCommandEnqueued with clear error messages
+  - Checks for nil queue inspector
+  - Compares expected vs actual command count
+  - Error format: "expected X commands enqueued, got Y"
+- ✅ Implemented AssertNoCommandLoop with clear error messages
+  - Checks for nil loop detector
+  - Verifies no loops detected
+  - Error format: "command loop detected: X iterations"
+- ✅ Both functions use testingT interface for compatibility
+- ✅ Comprehensive table-driven tests (6 test functions, 20+ test cases)
+- ✅ Tests verify error message quality and content
+- ✅ Tests verify nil parameter handling
+- ✅ 97.7% test coverage with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (6 test functions, all passing)
+- ✅ Coverage: 97.7% (testutil package)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
