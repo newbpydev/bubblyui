@@ -1855,17 +1855,51 @@ type BatcherTester struct {
 }
 
 func NewBatcherTester(batcher *CommandBatcher) *BatcherTester
-func (bt *BatcherTester) TrackBatching()
-func (bt *BatcherTester) AssertBatched(t *testing.T, expectedBatches int)
+func (bt *BatcherTester) Batch(commands []tea.Cmd) tea.Cmd
+func (bt *BatcherTester) GetBatchCount() int
+func (bt *BatcherTester) GetBatches() [][]tea.Cmd
+func (bt *BatcherTester) GetBatchSize(batchIdx int) int
+func (bt *BatcherTester) Clear()
+func (bt *BatcherTester) AssertBatched(t testingT, expectedBatches int)
+func (bt *BatcherTester) AssertBatchSize(t testingT, batchIdx, expectedSize int)
 ```
 
 **Tests**:
-- [ ] Tracks batching correctly
-- [ ] Batch count accurate
-- [ ] Batch sizes correct
-- [ ] Deduplication verified
+- [x] Tracks batching correctly
+- [x] Batch count accurate
+- [x] Batch sizes correct
+- [x] Deduplication verified
+- [x] Nil batcher handling
+- [x] Empty commands handling
+- [x] Multiple batches tracking
+- [x] Clear resets state
+- [x] Different strategies work
+- [x] Idempotent operations
+- [x] Thread-safe with race detector
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- ✅ Decorator pattern: wraps CommandBatcher and intercepts Batch() calls
+- ✅ Stores copy of input commands for inspection (before deduplication)
+- ✅ Nil batcher handling with safe defaults (returns nil but tracks operation)
+- ✅ GetBatches() returns deep copy to prevent external modification
+- ✅ GetBatchSize() convenience method for checking specific batch sizes
+- ✅ AssertBatchSize() validates batch size with clear error messages
+- ✅ Uses testingT interface for assertion compatibility
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (17 test functions, 20+ test cases)
+- ✅ 100% test coverage with race detector
+- ✅ Tracks original commands (before deduplication) for verification
+- ✅ Works with all CoalescingStrategy types (CoalesceAll, CoalesceByType, NoCoalesce)
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (17 test functions, all passing)
+- ✅ Coverage: 100.0% (command_batcher_tester.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
