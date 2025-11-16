@@ -396,3 +396,251 @@ func TestBindTester_ThreadSafety(t *testing.T) {
 	value := tester.GetCurrentValue()
 	assert.NotNil(t, value)
 }
+
+// TestBindTester_InvalidRefValue tests invalid ref value (not a valid reflect.Value)
+func TestBindTester_InvalidRefValue(t *testing.T) {
+	// Create a tester with an invalid value (not a Ref)
+	tester := &BindTester{
+		ref: "not a ref", // String instead of *Ref
+	}
+
+	// Should not panic, just no-op
+	tester.TriggerElementChange("value")
+
+	// GetCurrentValue should return nil for invalid ref
+	value := tester.GetCurrentValue()
+	assert.Nil(t, value)
+}
+
+// TestBindTester_NilPointerRef tests nil pointer ref
+func TestBindTester_NilPointerRef(t *testing.T) {
+	// Create a nil pointer to a Ref
+	var nilRef *bubbly.Ref[string]
+	tester := NewBindTester(nilRef)
+
+	// Should not panic, just no-op
+	tester.TriggerElementChange("value")
+
+	// GetCurrentValue should return nil
+	value := tester.GetCurrentValue()
+	assert.Nil(t, value)
+}
+
+// TestBindTester_RefWithoutSetMethod tests ref without Set method
+func TestBindTester_RefWithoutSetMethod(t *testing.T) {
+	// Create a struct without Set method
+	type FakeRef struct {
+		value string
+	}
+
+	fakeRef := &FakeRef{value: "initial"}
+	tester := NewBindTester(fakeRef)
+
+	// Should not panic, just no-op
+	tester.TriggerElementChange("new value")
+
+	// Value should remain unchanged
+	assert.Equal(t, "initial", fakeRef.value)
+}
+
+// FakeRefWithSetOnly has Set method but no Get method
+type FakeRefWithSetOnly struct {
+	value string
+}
+
+func (f *FakeRefWithSetOnly) Set(v string) {
+	f.value = v
+}
+
+// TestBindTester_RefWithoutGetMethod tests ref without Get method
+func TestBindTester_RefWithoutGetMethod(t *testing.T) {
+	fakeRef := &FakeRefWithSetOnly{value: "initial"}
+	tester := NewBindTester(fakeRef)
+
+	// Should not panic, just no-op (no Get method to determine type)
+	tester.TriggerElementChange("new value")
+
+	// Value should remain unchanged
+	assert.Equal(t, "initial", fakeRef.value)
+}
+
+// FakeRefWithEmptyGetResult has Get method that returns nothing
+type FakeRefWithEmptyGetResult struct{}
+
+func (f *FakeRefWithEmptyGetResult) Get() {
+	// Returns nothing - no return value
+}
+
+func (f *FakeRefWithEmptyGetResult) Set(v interface{}) {
+	// No-op
+}
+
+// TestBindTester_GetMethodReturnsEmpty tests Get method returning no results
+func TestBindTester_GetMethodReturnsEmpty(t *testing.T) {
+	fakeRef := &FakeRefWithEmptyGetResult{}
+	tester := NewBindTester(fakeRef)
+
+	// Should not panic, just no-op (Get returns nothing)
+	tester.TriggerElementChange("value")
+}
+
+// TestBindTester_GetCurrentValue_InvalidRef tests GetCurrentValue with invalid ref
+func TestBindTester_GetCurrentValue_InvalidRef(t *testing.T) {
+	tester := &BindTester{
+		ref: "not a ref",
+	}
+
+	value := tester.GetCurrentValue()
+	assert.Nil(t, value)
+}
+
+// TestBindTester_GetCurrentValue_RefWithoutGetMethod tests GetCurrentValue without Get method
+func TestBindTester_GetCurrentValue_RefWithoutGetMethod(t *testing.T) {
+	type FakeRef struct {
+		value string
+	}
+
+	tester := &BindTester{
+		ref: &FakeRef{value: "test"},
+	}
+
+	value := tester.GetCurrentValue()
+	assert.Nil(t, value)
+}
+
+// FakeRefWithEmptyGet is a type with Get method that returns nothing
+type FakeRefWithEmptyGet struct{}
+
+func (f *FakeRefWithEmptyGet) Get() {
+	// Returns nothing - this is intentional for testing
+}
+
+// TestBindTester_GetCurrentValue_GetReturnsEmpty tests Get method returning empty results
+func TestBindTester_GetCurrentValue_GetReturnsEmpty(t *testing.T) {
+	tester := &BindTester{
+		ref: &FakeRefWithEmptyGet{},
+	}
+
+	value := tester.GetCurrentValue()
+	assert.Nil(t, value)
+}
+
+// TestBindTester_AssertRefUpdated_InvalidRef tests AssertRefUpdated with invalid ref
+func TestBindTester_AssertRefUpdated_InvalidRef(t *testing.T) {
+	tester := &BindTester{
+		ref: "not a ref",
+	}
+
+	mockT := &mockTestingT{}
+	tester.AssertRefUpdated(mockT, "expected")
+
+	// Should fail with appropriate error
+	assert.True(t, mockT.failed)
+}
+
+// TestBindTester_ConvertToType_AllBranches tests all conversion branches
+func TestBindTester_ConvertToType_AllBranches(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  interface{}
+		input    interface{}
+		expected interface{}
+	}{
+		// Int variants
+		{"int8 conversion", int8(0), "42", int8(42)},
+		{"int16 conversion", int16(0), "42", int16(42)},
+		{"int32 conversion", int32(0), "42", int32(42)},
+
+		// Uint variants
+		{"uint8 conversion", uint8(0), "42", uint8(42)},
+		{"uint16 conversion", uint16(0), "42", uint16(42)},
+		{"uint32 conversion", uint32(0), "42", uint32(42)},
+		{"uint64 conversion", uint64(0), "42", uint64(42)},
+
+		// Float variants
+		{"float64 conversion", float64(0), "3.14", float64(3.14)},
+
+		// Invalid conversions
+		{"invalid int8", int8(5), "invalid", int8(0)},
+		{"invalid uint8", uint8(5), "invalid", uint8(0)},
+		{"invalid float32", float32(5), "invalid", float32(0)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ref := bubbly.NewRef(tt.initial)
+			tester := NewBindTester(ref)
+
+			tester.TriggerElementChange(tt.input)
+
+			actual := ref.Get()
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+// TestBindTester_ConvertToType_DirectConversion tests direct type conversion
+func TestBindTester_ConvertToType_DirectConversion(t *testing.T) {
+	// Test convertible types (int to int64, etc.)
+	ref := bubbly.NewRef(int64(0))
+	tester := NewBindTester(ref)
+
+	// Pass int, should convert to int64
+	tester.TriggerElementChange(int(42))
+	assert.Equal(t, int64(42), ref.Get())
+}
+
+// TestBindTester_ConvertToType_UnconvertibleType tests unconvertible types
+func TestBindTester_ConvertToType_UnconvertibleType(t *testing.T) {
+	// Test type that can't be converted
+	type CustomType struct {
+		value string
+	}
+
+	ref := bubbly.NewRef(CustomType{value: "initial"})
+	tester := NewBindTester(ref)
+
+	// Try to set with incompatible type
+	tester.TriggerElementChange("string value")
+
+	// Should get zero value
+	result := ref.Get().(CustomType)
+	assert.Equal(t, "", result.value)
+}
+
+// TestBindTester_ConcurrentGetCurrentValue tests concurrent GetCurrentValue calls
+func TestBindTester_ConcurrentGetCurrentValue(t *testing.T) {
+	ref := bubbly.NewRef("test value")
+	tester := NewBindTester(ref)
+
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func() {
+			value := tester.GetCurrentValue()
+			assert.NotNil(t, value)
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+// TestBindTester_ConcurrentAssertRefUpdated tests concurrent assertions
+func TestBindTester_ConcurrentAssertRefUpdated(t *testing.T) {
+	ref := bubbly.NewRef("test")
+	tester := NewBindTester(ref)
+
+	done := make(chan bool)
+	for i := 0; i < 5; i++ {
+		go func() {
+			tester.AssertRefUpdated(t, "test")
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 5; i++ {
+		<-done
+	}
+}
