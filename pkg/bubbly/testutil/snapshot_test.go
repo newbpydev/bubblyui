@@ -260,4 +260,38 @@ func TestSnapshotManager_Match_DirectoryCreation(t *testing.T) {
 	assert.True(t, info.IsDir())
 }
 
+// TestSnapshotManager_createSnapshot_EdgeCases tests error paths for createSnapshot
+func TestSnapshotManager_createSnapshot_EdgeCases(t *testing.T) {
+	sm := NewSnapshotManager(t.TempDir(), false)
+
+	// Test createSnapshot with invalid directory path (permission error)
+	mockT := &mockTestingT{}
+	// Use a directory that likely doesn't exist or isn't writable
+	invalidPath := "/root/nonexistent/path/snapshot.txt"
+	sm.createSnapshot(mockT, invalidPath, "test content")
+	assert.True(t, mockT.failed, "should fail when directory creation fails")
+	assert.Contains(t, mockT.errors[0], "failed to create snapshot dir")
+
+	// Test createSnapshot with valid directory but invalid file path
+	mockT = &mockTestingT{}
+	// Use a directory that exists but try to write to an invalid location
+	validDir := t.TempDir()
+	invalidFile := filepath.Join(validDir, "subdir", "snapshot.txt")
+	sm.createSnapshot(mockT, invalidFile, "test content")
+	// This should succeed because MkdirAll creates the directory
+	assert.False(t, mockT.failed, "should succeed when directory can be created")
+}
+
+// TestSnapshotManager_updateSnapshot_EdgeCases tests error paths for updateSnapshot
+func TestSnapshotManager_updateSnapshot_EdgeCases(t *testing.T) {
+	sm := NewSnapshotManager(t.TempDir(), false)
+
+	// Test updateSnapshot with invalid file path (permission error)
+	mockT := &mockTestingT{}
+	invalidPath := "/root/nonexistent/path/snapshot.txt"
+	sm.updateSnapshot(mockT, invalidPath, "test content")
+	assert.True(t, mockT.failed, "should fail when file write fails")
+	assert.Contains(t, mockT.errors[0], "failed to update snapshot")
+}
+
 // mockTestingT is already defined in assertions_state_test.go

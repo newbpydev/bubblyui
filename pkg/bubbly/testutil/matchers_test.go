@@ -1,8 +1,10 @@
 package testutil
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -259,4 +261,91 @@ func TestMatcher_Composability(t *testing.T) {
 	ct.AssertThat(nil, BeNil())
 
 	// All should pass without errors
+}
+
+// TestAssertThat_ErrorPath tests AssertThat with a matcher that returns an error
+func TestAssertThat_ErrorPath(t *testing.T) {
+	// Create a mock harness with mockTestingT to capture error calls
+	mockT := &mockTestingT{}
+	harness := &TestHarness{
+		t:       mockT,
+		refs:    make(map[string]*bubbly.Ref[interface{}]),
+		events:  NewEventTracker(),
+		cleanup: []func(){},
+	}
+	ct := &ComponentTest{harness: harness}
+
+	// Create a matcher that always returns an error
+	errorMatcher := &struct {
+		Matcher
+	}{}
+
+	// Override Match method to return error
+	errorMatcher.Matcher = MatcherFunc(func(actual interface{}) (bool, error) {
+		return false, fmt.Errorf("test matcher error")
+	})
+
+	// This should call t.Errorf with the matcher error
+	ct.AssertThat("test", errorMatcher)
+	
+	assert.True(t, mockT.failed, "AssertThat should fail when matcher returns error")
+	assert.Contains(t, mockT.errors[0], "matcher error")
+	assert.Contains(t, mockT.errors[0], "test matcher error")
+}
+
+// MatcherFunc is a function adapter for Matcher interface
+type MatcherFunc func(actual interface{}) (bool, error)
+
+func (f MatcherFunc) Match(actual interface{}) (bool, error) {
+	return f(actual)
+}
+
+func (f MatcherFunc) FailureMessage(actual interface{}) string {
+	return fmt.Sprintf("matcher failed for %v", actual)
+}
+
+// TestBeEmpty_ErrorPath tests BeEmpty matcher with invalid types
+func TestBeEmpty_ErrorPath(t *testing.T) {
+	matcher := BeEmpty()
+	
+	// Test with invalid type (should return error)
+	invalidTypes := []interface{}{
+		42,                    // int
+		3.14,                  // float64
+		true,                  // bool
+		struct{}{},           // struct
+	}
+	
+	for _, invalid := range invalidTypes {
+		t.Run(fmt.Sprintf("invalid_type_%T", invalid), func(t *testing.T) {
+			matched, err := matcher.Match(invalid)
+			
+			assert.Error(t, err, "should return error for invalid type")
+			assert.False(t, matched, "should not match invalid type")
+			assert.Contains(t, err.Error(), "BeEmpty matcher expects")
+		})
+	}
+}
+
+// TestHaveLength_ErrorPath tests HaveLength matcher with invalid types
+func TestHaveLength_ErrorPath(t *testing.T) {
+	matcher := HaveLength(3)
+	
+	// Test with invalid type (should return error)
+	invalidTypes := []interface{}{
+		42,                    // int
+		3.14,                  // float64
+		true,                  // bool
+		struct{}{},           // struct
+	}
+	
+	for _, invalid := range invalidTypes {
+		t.Run(fmt.Sprintf("invalid_type_%T", invalid), func(t *testing.T) {
+			matched, err := matcher.Match(invalid)
+			
+			assert.Error(t, err, "should return error for invalid type")
+			assert.False(t, matched, "should not match invalid type")
+			assert.Contains(t, err.Error(), "HaveLength matcher expects")
+		})
+	}
 }

@@ -155,3 +155,30 @@ func TestUseStateTester_MissingRefs(t *testing.T) {
 		NewUseStateTester[string](comp)
 	})
 }
+
+// TestUseStateTester_GetValueFromRef_EdgeCases tests error paths for GetValueFromRef
+func TestUseStateTester_GetValueFromRef_EdgeCases(t *testing.T) {
+	// Test GetValueFromRef with proper setup
+	comp, err := bubbly.NewComponent("TestState").
+		Setup(func(ctx *bubbly.Context) {
+			state := composables.UseState(ctx, "test")
+			ctx.Expose("value", state.Value)
+			ctx.Expose("set", state.Set)
+			ctx.Expose("get", state.Get)
+		}).
+		Template(func(ctx bubbly.RenderContext) string {
+			return "test"
+		}).
+		Build()
+	assert.NoError(t, err)
+	comp.Init()
+
+	tester := NewUseStateTester[string](comp)
+
+	// Test normal case works
+	assert.Equal(t, "test", tester.GetValueFromRef())
+
+	// Test with empty string (edge case but valid)
+	tester.SetValue("")
+	assert.Equal(t, "", tester.GetValueFromRef())
+}

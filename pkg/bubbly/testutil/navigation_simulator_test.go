@@ -368,3 +368,16 @@ func TestNavigationSimulator_AssertionHelpers(t *testing.T) {
 	ns.AssertCanGoBack(t, false)
 	ns.AssertCanGoForward(t, true)
 }
+
+// TestNavigationSimulator_AssertCurrentPath_EdgeCases tests edge cases for AssertCurrentPath
+func TestNavigationSimulator_AssertCurrentPath_EdgeCases(t *testing.T) {
+	// Create a router but don't navigate anywhere
+	r := router.NewRouter()
+	ns := NewNavigationSimulator(r)
+
+	// Test AssertCurrentPath with no navigation (nil current route)
+	mockT := &mockTestingT{}
+	ns.AssertCurrentPath(mockT, "/expected")
+	assert.True(t, mockT.failed, "should fail when current route is nil")
+	assert.Contains(t, mockT.errors[0], "current route is nil")
+}

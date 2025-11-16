@@ -317,3 +317,76 @@ func TestUseDebounceTester_ZeroDelay(t *testing.T) {
 	actual := tester.debounced.Get().(string)
 	assert.Equal(t, "immediate", actual, "zero delay should update almost immediately")
 }
+
+// TestUseDebounceTester_GetDebouncedValue tests GetDebouncedValue method
+func TestUseDebounceTester_GetDebouncedValue(t *testing.T) {
+	ts := NewTimeSimulator()
+
+	comp, err := bubbly.NewComponent("TestDebounce").
+		Setup(func(ctx *bubbly.Context) {
+			source := ctx.Ref("initial")
+			debounced := composables.UseDebounce(ctx, source, 50*time.Millisecond)
+			ctx.Expose("source", source)
+			ctx.Expose("debounced", debounced)
+		}).
+		Template(func(ctx bubbly.RenderContext) string {
+			return "test"
+		}).
+		Build()
+
+	assert.NoError(t, err)
+	comp.Init()
+
+	tester := NewUseDebounceTester(comp, ts)
+
+	// Test initial value
+	value := tester.GetDebouncedValue()
+	assert.Equal(t, "initial", value, "should return initial debounced value")
+
+	// Change source value
+	tester.TriggerChange("new value")
+	
+	// Should still return old value (debounced)
+	value = tester.GetDebouncedValue()
+	assert.Equal(t, "initial", value, "should still return initial value before debounce")
+
+	// Advance time past debounce delay
+	tester.AdvanceTime(60 * time.Millisecond)
+	
+	// Now should return new value
+	value = tester.GetDebouncedValue()
+	assert.Equal(t, "new value", value, "should return debounced value after delay")
+}
+
+// TestUseDebounceTester_GetSourceValue tests GetSourceValue method
+func TestUseDebounceTester_GetSourceValue(t *testing.T) {
+	ts := NewTimeSimulator()
+
+	comp, err := bubbly.NewComponent("TestDebounce").
+		Setup(func(ctx *bubbly.Context) {
+			source := ctx.Ref("initial")
+			debounced := composables.UseDebounce(ctx, source, 50*time.Millisecond)
+			ctx.Expose("source", source)
+			ctx.Expose("debounced", debounced)
+		}).
+		Template(func(ctx bubbly.RenderContext) string {
+			return "test"
+		}).
+		Build()
+
+	assert.NoError(t, err)
+	comp.Init()
+
+	tester := NewUseDebounceTester(comp, ts)
+
+	// Test initial value
+	value := tester.GetSourceValue()
+	assert.Equal(t, "initial", value, "should return initial source value")
+
+	// Change source value
+	tester.TriggerChange("new value")
+	
+	// Should immediately return new value (not debounced)
+	value = tester.GetSourceValue()
+	assert.Equal(t, "new value", value, "should immediately return new source value")
+}
