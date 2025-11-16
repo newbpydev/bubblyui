@@ -3147,16 +3147,16 @@ func (rgt *RouteGuardTester) AssertGuardCalled(t testingT, times int)
 
 ---
 
-### Task 11.2: Navigation Simulator
+### Task 11.2: Navigation Simulator ✅ COMPLETED
 **Description**: Simulate router navigation and history
 
-**Prerequisites**: Task 11.1
+**Prerequisites**: Task 11.1 ✅
 
 **Unlocks**: Task 11.3 (History Tester)
 
 **Files**:
-- `pkg/bubbly/testutil/navigation_simulator.go`
-- `pkg/bubbly/testutil/navigation_simulator_test.go`
+- `pkg/bubbly/testutil/navigation_simulator.go` ✅
+- `pkg/bubbly/testutil/navigation_simulator_test.go` ✅
 
 **Type Safety**:
 ```go
@@ -3170,12 +3170,36 @@ func NewNavigationSimulator(router *Router) *NavigationSimulator
 func (ns *NavigationSimulator) Navigate(path string)
 func (ns *NavigationSimulator) Back()
 func (ns *NavigationSimulator) Forward()
+func (ns *NavigationSimulator) AssertCurrentPath(t testingT, expected string)
+func (ns *NavigationSimulator) AssertHistoryLength(t testingT, expected int)
+func (ns *NavigationSimulator) AssertCanGoBack(t testingT, expected bool)
+func (ns *NavigationSimulator) AssertCanGoForward(t testingT, expected bool)
 ```
 
 **Tests**:
-- [ ] Navigation updates current path
-- [ ] History tracked correctly
-- [ ] Back/forward work
+- [x] Navigation updates current path
+- [x] History tracked correctly
+- [x] Back/forward work
+- [x] History truncation when navigating after back
+- [x] Edge cases (back at start, forward at end)
+- [x] Assertion helper methods
+
+**Implementation Notes**:
+- ✅ Simplified history tracking with string paths for easy testing
+- ✅ Proper integration with Router.Push(), Back(), Forward()
+- ✅ Command execution to complete navigation
+- ✅ History truncation mimics browser behavior
+- ✅ Assertion helpers for cleaner test code
+- ✅ All 7 test functions pass with race detector
+- ✅ Comprehensive edge case coverage
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (7 test functions, all passing)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
