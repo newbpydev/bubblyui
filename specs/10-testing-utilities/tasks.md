@@ -3088,34 +3088,60 @@ func (st *ShowTester) AssertHidden(t testingT)
 
 ## Phase 11: Router Testing (7 tasks, 21 hours)
 
-### Task 11.1: Route Guard Tester
+### Task 11.1: Route Guard Tester ✅ COMPLETED
 **Description**: Test route navigation guards
 
-**Prerequisites**: Phase 10, Feature 07 (Router)
+**Prerequisites**: Phase 10 ✅, Feature 07 (Router) ✅
 
 **Unlocks**: Task 11.2 (Navigation Simulator)
 
 **Files**:
-- `pkg/bubbly/testutil/route_guard_tester.go`
-- `pkg/bubbly/testutil/route_guard_tester_test.go`
+- `pkg/bubbly/testutil/route_guard_tester.go` ✅
+- `pkg/bubbly/testutil/route_guard_tester_test.go` ✅
 
 **Type Safety**:
 ```go
 type RouteGuardTester struct {
-    router     *Router
+    router     *router.Router
     guardCalls int
     blocked    bool
 }
 
-func NewRouteGuardTester(router *Router) *RouteGuardTester
+func NewRouteGuardTester(router *router.Router) *RouteGuardTester
 func (rgt *RouteGuardTester) AttemptNavigation(path string)
-func (rgt *RouteGuardTester) AssertGuardCalled(t *testing.T, times int)
+func (rgt *RouteGuardTester) AssertGuardCalled(t testingT, times int)
 ```
 
 **Tests**:
-- [ ] Guards called on navigation
-- [ ] Guards can block navigation
-- [ ] Guard return values respected
+- [x] Guards called on navigation
+- [x] Guards can block navigation
+- [x] Guard return values respected
+- [x] Multiple guards execute in order
+- [x] Blocking guard stops chain
+- [x] Invalid route handling
+- [x] Assertion failure cases
+
+**Implementation Notes**:
+- ✅ Complete RouteGuardTester implementation with guard tracking
+- ✅ AttemptNavigation() uses router.Push() to trigger guards
+- ✅ AssertGuardCalled() uses testingT interface for compatibility
+- ✅ Integration with RouterBuilder for test setup
+- ✅ Table-driven tests covering all scenarios (6 test functions, 15+ test cases)
+- ✅ 100% test coverage on all methods with race detector
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Guards registered via RouterBuilder.BeforeEach() for proper integration
+- ✅ Supports testing guard allow, block, and redirect behaviors
+- ✅ Tracks guard call counts and blocked state for assertions
+
+**Actual Effort**: 3 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (6 test functions, all passing)
+- ✅ Coverage: 100.0% (route_guard_tester.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
