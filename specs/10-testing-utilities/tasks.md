@@ -1973,19 +1973,26 @@ func (mcg *MockCommandGenerator) Clear()
 
 ---
 
-### Task 8.4: Loop Detection Verifier
+### Task 8.4: Loop Detection Verifier ✅
 **Description**: Test command generation loop detection
 
-**Prerequisites**: Task 8.3
+**Prerequisites**: Task 8.3 ✅
 
 **Unlocks**: Task 8.5 (Auto-Command Testing)
 
 **Files**:
-- `pkg/bubbly/testutil/loop_detection_verifier.go`
-- `pkg/bubbly/testutil/loop_detection_verifier_test.go`
+- `pkg/bubbly/testutil/loop_detection_verifier.go` ✅
+- `pkg/bubbly/testutil/loop_detection_verifier_test.go` ✅
 
 **Type Safety**:
 ```go
+type LoopEvent struct {
+    ComponentID  string
+    RefID        string
+    CommandCount int
+    DetectedAt   time.Time
+}
+
 type LoopDetectionVerifier struct {
     detector *LoopDetector
     detected []LoopEvent
@@ -1994,15 +2001,45 @@ type LoopDetectionVerifier struct {
 func NewLoopDetectionVerifier(detector *LoopDetector) *LoopDetectionVerifier
 func (ldv *LoopDetectionVerifier) SimulateLoop(componentID, refID string, iterations int)
 func (ldv *LoopDetectionVerifier) AssertLoopDetected(t *testing.T)
+func (ldv *LoopDetectionVerifier) AssertNoLoop(t *testing.T)
+func (ldv *LoopDetectionVerifier) GetDetectedLoops() []LoopEvent
+func (ldv *LoopDetectionVerifier) GetLoopCount() int
+func (ldv *LoopDetectionVerifier) WasDetected() bool
+func (ldv *LoopDetectionVerifier) Clear()
 ```
 
 **Tests**:
-- [ ] Simulates command loops
-- [ ] Detects actual loops
-- [ ] No false positives
-- [ ] Loop events captured
+- [x] Simulates command loops
+- [x] Detects actual loops
+- [x] No false positives
+- [x] Loop events captured
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- ✅ Implements LoopEvent struct to capture loop detection details (componentID, refID, commandCount, timestamp)
+- ✅ Wraps commands.LoopDetector and tracks all detected loops during simulation
+- ✅ SimulateLoop() calls detector.CheckLoop() repeatedly and captures CommandLoopError when detected
+- ✅ Stops simulation after first loop detection (mimics real behavior)
+- ✅ Nil detector handling - gracefully handles nil without panicking
+- ✅ GetDetectedLoops() returns deep copy to prevent external modification
+- ✅ Additional helper methods: GetLoopCount(), WasDetected(), Clear()
+- ✅ AssertLoopDetected() and AssertNoLoop() use testingT interface for mock testing compatibility
+- ✅ Thread-safety documented (not thread-safe, like BatcherTester)
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (9 test functions, 20+ test cases)
+- ✅ 100% test coverage with race detector
+- ✅ Tests verify: no false positives (100 iterations), loop detection (150 iterations), multiple refs independence, nil detector handling
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 1.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (9 test functions, all passing)
+- ✅ Coverage: 100.0% (loop_detection_verifier.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
