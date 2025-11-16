@@ -121,40 +121,69 @@ func TestAutoCommandTester_TriggerStateChange(t *testing.T) {
 
 // TestAutoCommandTester_Integration tests integration with queue and detector
 func TestAutoCommandTester_Integration(t *testing.T) {
-	t.Run("state changes work", func(t *testing.T) {
+	t.Run("commands enqueued on state change", func(t *testing.T) {
 		component := createAutoTestComponentWithRef("count", 0)
-
 		tester := NewAutoCommandTester(component)
+
+		// Enable auto-commands
 		tester.EnableAutoCommands()
-
-		// Verify initial state
-		ref := tester.state.GetRef("count")
-		assert.NotNil(t, ref)
-		assert.Equal(t, 0, ref.Get())
-
-		// Trigger state change
-		tester.TriggerStateChange("count", 42)
-
-		// Verify state changed
-		assert.Equal(t, 42, ref.Get(), "state should be updated")
-	})
-
-	t.Run("queue inspector accessible", func(t *testing.T) {
-		component := createAutoTestComponentWithRef("count", 0)
-		tester := NewAutoCommandTester(component)
 
 		// Get queue inspector
 		queue := tester.GetQueueInspector()
-		assert.NotNil(t, queue, "queue inspector should not be nil")
+		assert.NotNil(t, queue)
+
+		// Verify queue is initially empty
+		initialLen := queue.Len()
+
+		// Trigger state change - this should generate a command
+		tester.TriggerStateChange("count", 42)
+
+		// Verify command was enqueued
+		assert.Greater(t, queue.Len(), initialLen, "command should be enqueued after state change")
+
+		// Verify state actually changed
+		ref := tester.state.GetRef("count")
+		assert.Equal(t, 42, ref.Get(), "state should be updated")
 	})
 
-	t.Run("loop detector accessible", func(t *testing.T) {
+	t.Run("loop detector accessible and functional", func(t *testing.T) {
 		component := createAutoTestComponentWithRef("count", 0)
 		tester := NewAutoCommandTester(component)
 
+		// Enable auto-commands
+		tester.EnableAutoCommands()
+
 		// Get loop detector
 		detector := tester.GetLoopDetector()
-		assert.NotNil(t, detector, "loop detector should not be nil")
+		assert.NotNil(t, detector)
+
+		// Verify detector starts with no loops detected
+		assert.False(t, detector.WasDetected(), "no loops should be detected initially")
+
+		// Note: Actual loop detection happens during recursive state changes
+		// within a single update cycle, not from manual sequential changes.
+		// The detector is accessible and ready to track loops when they occur.
+		assert.Equal(t, 0, detector.GetLoopCount(), "loop count should be zero initially")
+	})
+
+	t.Run("queue inspector tracks multiple commands", func(t *testing.T) {
+		component := createAutoTestComponentWithRef("count", 0)
+		tester := NewAutoCommandTester(component)
+
+		// Enable auto-commands
+		tester.EnableAutoCommands()
+
+		// Get queue inspector
+		queue := tester.GetQueueInspector()
+		initialLen := queue.Len()
+
+		// Trigger multiple state changes
+		tester.TriggerStateChange("count", 1)
+		tester.TriggerStateChange("count", 2)
+		tester.TriggerStateChange("count", 3)
+
+		// Verify multiple commands were enqueued
+		assert.Equal(t, initialLen+3, queue.Len(), "should have 3 commands enqueued")
 	})
 }
 
@@ -204,6 +233,7 @@ func createAutoTestComponent() bubbly.Component {
 
 func createAutoTestComponentWithRef(refName string, initialValue interface{}) bubbly.Component {
 	component, err := bubbly.NewComponent("TestComponent").
+		WithAutoCommands(true). // Enable auto-commands BEFORE setup
 		Setup(func(ctx *bubbly.Context) {
 			ref := ctx.Ref(initialValue)
 			ctx.Expose(refName, ref)
@@ -218,6 +248,7 @@ func createAutoTestComponentWithRef(refName string, initialValue interface{}) bu
 	}
 
 	// Initialize component so refs are created
+	// Refs will have setHook attached because auto-commands were enabled in builder
 	component.Init()
 
 	return component
