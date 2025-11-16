@@ -1916,24 +1916,60 @@ func (bt *BatcherTester) AssertBatchSize(t testingT, batchIdx, expectedSize int)
 
 **Type Safety**:
 ```go
+type GenerateArgs struct {
+    ComponentID string
+    RefID       string
+    OldValue    interface{}
+    NewValue    interface{}
+}
+
 type MockCommandGenerator struct {
+    mu             sync.Mutex
     generateCalled int
     returnCmd      tea.Cmd
     capturedArgs   []GenerateArgs
 }
 
 func NewMockCommandGenerator(returnCmd tea.Cmd) *MockCommandGenerator
-func (mcg *MockCommandGenerator) Generate(args GenerateArgs) tea.Cmd
-func (mcg *MockCommandGenerator) AssertCalled(t *testing.T, times int)
+func (mcg *MockCommandGenerator) Generate(componentID, refID string, oldValue, newValue interface{}) tea.Cmd
+func (mcg *MockCommandGenerator) AssertCalled(t testingT, times int)
+func (mcg *MockCommandGenerator) GetCapturedArgs() []GenerateArgs
+func (mcg *MockCommandGenerator) Clear()
 ```
 
 **Tests**:
-- [ ] Mock returns configured command
-- [ ] Captures call arguments
-- [ ] AssertCalled validates count
-- [ ] Thread-safe
+- [x] Mock returns configured command
+- [x] Captures call arguments
+- [x] AssertCalled validates count
+- [x] Thread-safe
+- [x] GetCapturedArgs returns copy
+- [x] Clear resets state
+- [x] Nil command handling
+- [x] Idempotent operations
+- [x] Interface compliance with CommandGenerator
 
-**Estimated Effort**: 3 hours
+**Implementation Notes**:
+- ✅ Implements bubbly.CommandGenerator interface with correct signature (componentID, refID, oldValue, newValue)
+- ✅ Thread-safe with mutex protection for concurrent access
+- ✅ Captures all Generate() call arguments in GenerateArgs struct
+- ✅ GetCapturedArgs() returns deep copy to prevent external modification
+- ✅ Clear() resets call count and captured args (but preserves returnCmd for reuse)
+- ✅ AssertCalled() uses testingT interface for mock testing compatibility
+- ✅ Nil returnCmd handling - returns nil but still tracks calls
+- ✅ Comprehensive godoc comments on all exported types and methods
+- ✅ Table-driven tests covering all scenarios (9 test functions, 20+ test cases)
+- ✅ 100% test coverage with race detector
+- ✅ Integration test verifies CommandGenerator interface compliance
+- ✅ All quality gates passed (test -race, vet, fmt, build)
+
+**Actual Effort**: 1.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (9 test functions, all passing)
+- ✅ Coverage: 100.0% (mock_command_generator.go)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 ---
 
