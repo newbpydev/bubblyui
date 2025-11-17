@@ -3971,23 +3971,36 @@ func (ccv *ComputedCacheVerifier) ResetCounters()
 
 ---
 
-### Task 12.6: Dependency Tracking Inspector
+### Task 12.6: Dependency Tracking Inspector ✅ COMPLETED
 **Description**: Test dependency graph tracking and visualization
 
-**Prerequisites**: Task 12.5
+**Prerequisites**: Task 12.5 ✅
 
-**Unlocks**: Phase 13 (Core Systems)
+**Unlocks**: Phase 13 (Core Systems) ✅
 
 **Files**:
-- `pkg/bubbly/testutil/dependency_tracking_inspector.go`
-- `pkg/bubbly/testutil/dependency_tracking_inspector_test.go`
+- `pkg/bubbly/testutil/dependency_tracking_inspector.go` ✅
+- `pkg/bubbly/testutil/dependency_tracking_inspector_test.go` ✅
 
 **Type Safety**:
 ```go
+type DependencyNode struct {
+    Name string
+}
+
+type DependencyEdge struct {
+    From string // Source node (dependent)
+    To   string // Target node (dependency)
+}
+
+type DependencyGraph struct {
+    Nodes []DependencyNode
+    Edges []DependencyEdge
+}
+
 type DependencyTrackingInspector struct {
-    tracked      map[string][]string
-    dependencies map[string][]Dependency
-    graph        *DependencyGraph
+    tracked map[string][]string // source -> targets
+    nodes   map[string]bool     // all unique nodes
 }
 
 func NewDependencyTrackingInspector() *DependencyTrackingInspector
@@ -3995,15 +4008,75 @@ func (dti *DependencyTrackingInspector) TrackDependency(source, target string)
 func (dti *DependencyTrackingInspector) AssertDependency(t *testing.T, source, target string)
 func (dti *DependencyTrackingInspector) GetDependencyGraph() *DependencyGraph
 func (dti *DependencyTrackingInspector) VisualizeDependencies() string
+func (dti *DependencyTrackingInspector) DetectCircularDependencies() [][]string
+func (dti *DependencyTrackingInspector) FindOrphanedDependencies() []string
 ```
 
-**Tests**:
-- [ ] Dependencies tracked correctly
-- [ ] Dependency graph accurate
-- [ ] Circular dependencies detected
-- [ ] Orphaned dependencies found
-- [ ] Graph visualization works
-- [ ] Performance with many deps
+**Tests**: ALL PASSING ✅
+- [x] Dependencies tracked correctly - basic tracking with deduplication
+- [x] Multiple dependencies - source with multiple targets
+- [x] Dependency chains - ref -> computed1 -> computed2
+- [x] Dependency graph accurate - complete graph structure with nodes and edges
+- [x] Circular dependencies detected - DFS-based cycle detection (A->B->C->A)
+- [x] Self-reference detection - node depending on itself
+- [x] Orphaned dependencies found - nodes with no incoming/outgoing edges
+- [x] Graph visualization works - text-based output with arrows and isolated nodes
+- [x] Performance with many deps - 100 sources × 10 targets (1000 edges)
+- [x] Table-driven tests - 5 scenarios (simple chain, diamond, circular, self-ref, multiple sources)
+- [x] Empty graph handling - graceful handling of empty graph
+- [x] Duplicate dependencies - automatic deduplication
+- [x] Visualization format - proper arrow notation and node listing
+- [x] Assertion failures - proper error messages for missing dependencies
+- [x] Isolated nodes - separate section in visualization
+- [x] Leaf nodes - targets with no outgoing edges (not orphaned)
+
+**Implementation Notes**:
+- ✅ **Core Functionality**: Maps source nodes to target lists with automatic deduplication
+- ✅ **Graph Structure**: DependencyNode and DependencyEdge types for complete graph representation
+- ✅ **Visualization**: Text-based output with "source -> target" format, sorted for consistency
+- ✅ **Circular Detection**: DFS algorithm with recursion stack tracking
+- ✅ **Orphaned Detection**: Identifies nodes with no incoming or outgoing edges
+- ✅ **Isolated Nodes**: Separate visualization section for disconnected nodes
+- ✅ **Deduplication**: Prevents duplicate edges in graph
+- ✅ **Sorted Output**: Alphabetically sorted nodes and edges for consistent test output
+- ✅ **Helper Methods**: AssertDependency with descriptive error messages
+- ✅ **Comprehensive godoc**: All types and methods documented with examples
+- ✅ All 16 test functions passing with race detector
+- ✅ **Coverage: 98.6%** (100% on 6/7 methods, 94.1% on FindOrphanedDependencies)
+- ✅ Quality gates: Tests pass with -race, go vet clean, gofmt clean, lint clean
+
+**Key Design Decisions**:
+1. **String-based nodes**: Simple string identifiers for maximum flexibility
+2. **Map-based tracking**: Fast O(1) dependency lookups
+3. **Automatic deduplication**: Prevents duplicate edges in graph
+4. **DFS for cycles**: Efficient circular dependency detection with path tracking
+5. **Sorted output**: Consistent visualization for testing and debugging
+6. **Separate node tracking**: Enables orphaned node detection
+7. **Helper assertions**: t.Helper() for proper test failure line numbers
+
+**Test Coverage**:
+- **16 comprehensive test functions** covering all requirements
+- Basic tracking (single dependency)
+- Multiple dependencies (one source, many targets)
+- Dependency chains (multi-level dependencies)
+- Complex graphs (diamond pattern, multiple sources)
+- Circular detection (A->B->C->A, self-reference)
+- Orphaned detection (isolated nodes)
+- Performance testing (1000 edges)
+- Table-driven tests (5 scenarios)
+- Edge cases (empty graph, duplicates, leaf nodes)
+- Assertion failures (missing source, wrong target)
+- Visualization format (arrows, node listing, isolated section)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (16 test functions, all passing)
+- ✅ **Coverage: 98.6%** (exceeds 95% requirement)
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ make lint: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
