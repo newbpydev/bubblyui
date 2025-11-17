@@ -3787,39 +3787,75 @@ func (dwt *DeepWatchTester) IsDeepWatching() bool
 
 ---
 
-### Task 12.4: Custom Comparator Tester
+### Task 12.4: Custom Comparator Tester ✅ COMPLETED
 **Description**: Test custom equality comparators for change detection
 
-**Prerequisites**: Task 12.3
+**Prerequisites**: Task 12.3 ✅
 
 **Unlocks**: Task 12.5 (Computed Cache Verifier)
 
 **Files**:
-- `pkg/bubbly/testutil/custom_comparator_tester.go`
-- `pkg/bubbly/testutil/custom_comparator_tester_test.go`
+- `pkg/bubbly/testutil/custom_comparator_tester.go` ✅
+- `pkg/bubbly/testutil/custom_comparator_tester_test.go` ✅
 
 **Type Safety**:
 ```go
 type CustomComparatorTester struct {
-    ref        *Ref[interface{}]
+    ref        *bubbly.Ref[interface{}]
     comparator func(a, b interface{}) bool
     compared   int
     changed    bool
 }
 
-func NewCustomComparatorTester(ref *Ref[interface{}], cmp func(a, b interface{}) bool) *CustomComparatorTester
+func NewCustomComparatorTester(ref *bubbly.Ref[interface{}], cmp func(a, b interface{}) bool) *CustomComparatorTester
 func (cct *CustomComparatorTester) SetValue(value interface{})
-func (cct *CustomComparatorTester) AssertComparisons(t *testing.T, expected int)
-func (cct *CustomComparatorTester) AssertChanged(t *testing.T, expected bool)
+func (cct *CustomComparatorTester) AssertComparisons(t testing.TB, expected int)
+func (cct *CustomComparatorTester) AssertChanged(t testing.TB, expected bool)
+func (cct *CustomComparatorTester) GetComparisonCount() int
+func (cct *CustomComparatorTester) WasChanged() bool
+func (cct *CustomComparatorTester) GetCurrentValue() interface{}
+func (cct *CustomComparatorTester) ResetCounters()
+func (cct *CustomComparatorTester) CompareValues(a, b interface{}) bool
+func (cct *CustomComparatorTester) VerifyComparatorBehavior(t *testing.T, testCases map[string][3]interface{})
+func (cct *CustomComparatorTester) AssertComparatorType(t testing.TB)
 ```
 
-**Tests**:
-- [ ] Custom comparator used
-- [ ] Comparison count tracked
-- [ ] Logical equality vs identity
-- [ ] Struct comparators
-- [ ] Array comparators
-- [ ] Performance optimization
+**Tests**: ALL PASSING ✅
+- [x] Custom comparator used - verified with ID-only comparison
+- [x] Comparison count tracked - multiple SetValue calls tracked correctly
+- [x] Logical equality vs identity - Point struct with logical equality
+- [x] Struct comparators - Config struct with selective field comparison (table-driven)
+- [x] Array comparators - slice length-only comparison
+- [x] Performance optimization - large struct with fast ID-only comparison
+
+**Implementation Notes**:
+- ✅ **Core Functionality**: Wraps Ref[interface{}] with custom comparator tracking
+- ✅ **Comparison Tracking**: Increments counter on each SetValue call
+- ✅ **Change Detection**: Tracks whether last comparison detected change (logical equality)
+- ✅ **Helper Methods**: GetComparisonCount, WasChanged, GetCurrentValue, ResetCounters
+- ✅ **Advanced Features**: CompareValues (direct invocation), VerifyComparatorBehavior (batch testing)
+- ✅ **Type Verification**: AssertComparatorType validates function signature
+- ✅ **Thread Safety**: Not thread-safe (documented), single test goroutine usage
+- ✅ **Performance Testing**: Demonstrates custom comparators can optimize by ignoring large fields
+- ✅ **Table-Driven Tests**: Struct comparators test uses table-driven pattern
+- ✅ **Quality Gates**: Tests pass with -race flag, go vet clean, gofmt clean, build succeeds
+
+**Key Design Decisions**:
+1. Uses `interface{}` for maximum flexibility (any type can be compared)
+2. Comparator returns `true` if equal, `false` if different (matches bubbly.DeepCompareFunc)
+3. `changed` flag reflects LAST comparison only (resets on each SetValue)
+4. Comparison counter never resets automatically (only via ResetCounters)
+5. Supports both simple equality and complex domain logic comparators
+
+**Test Coverage**:
+- 6 comprehensive test functions covering all requirements
+- Logical equality vs identity (Point struct)
+- Struct field-selective comparison (Config with Version/Debug)
+- Array/slice comparison (length-only)
+- Performance optimization (large metadata ignored)
+- Comparison count tracking across multiple SetValue calls
+
+**Actual Effort**: 2 hours
 
 **Estimated Effort**: 3 hours
 
