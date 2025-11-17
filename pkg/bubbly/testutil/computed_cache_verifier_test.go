@@ -450,3 +450,211 @@ func TestComputedCacheVerifier_CircularDependencyDetection(t *testing.T) {
 	assert.Equal(t, 42, val)
 	verifier.AssertComputeCount(t, 1)
 }
+
+// TestComputedCacheVerifier_AssertionFailures tests that assertion methods properly fail
+func TestComputedCacheVerifier_AssertionFailures(t *testing.T) {
+	count := bubbly.NewRef(5)
+	computeCount := 0
+
+	computed := bubbly.NewComputed(func() int {
+		computeCount++
+		return count.GetTyped() * 2
+	})
+
+	verifier := NewComputedCacheVerifier(computed, &computeCount)
+
+	// Get value once
+	verifier.GetValue()
+
+	// Create a mock testing.T to capture failures
+	mockT := &testing.T{}
+
+	// Test AssertComputeCount failure
+	verifier.AssertComputeCount(mockT, 999) // Wrong expectation
+	if !mockT.Failed() {
+		t.Error("AssertComputeCount should have failed but didn't")
+	}
+
+	// Reset mock
+	mockT = &testing.T{}
+
+	// Test AssertCacheHits failure
+	verifier.AssertCacheHits(mockT, 999) // Wrong expectation
+	if !mockT.Failed() {
+		t.Error("AssertCacheHits should have failed but didn't")
+	}
+
+	// Reset mock
+	mockT = &testing.T{}
+
+	// Test AssertCacheMisses failure
+	verifier.AssertCacheMisses(mockT, 999) // Wrong expectation
+	if !mockT.Failed() {
+		t.Error("AssertCacheMisses should have failed but didn't")
+	}
+}
+
+// TestComputedCacheVerifier_EdgeCases_InvalidComputed tests edge cases with invalid computed values
+func TestComputedCacheVerifier_EdgeCases_InvalidComputed(t *testing.T) {
+	computeCount := 0
+
+	// Test with a struct that has no Get() method
+	type FakeComputed struct{}
+	fakeComputed := &FakeComputed{}
+
+	verifier := NewComputedCacheVerifier(fakeComputed, &computeCount)
+
+	// GetValue should handle gracefully
+	val := verifier.GetValue()
+	assert.Nil(t, val)
+
+	// InvalidateCache should handle gracefully
+	verifier.InvalidateCache() // Should not panic
+}
+
+// TestComputedCacheVerifier_EdgeCases_InvalidInvalidateMethod tests InvalidateCache with missing method
+func TestComputedCacheVerifier_EdgeCases_InvalidInvalidateMethod(t *testing.T) {
+	computeCount := 0
+
+	// Test with nil computed (no Invalidate method available)
+	verifier := NewComputedCacheVerifier(nil, &computeCount)
+
+	// InvalidateCache should handle nil gracefully
+	verifier.InvalidateCache() // Should not panic
+	assert.NotNil(t, verifier) // Verifier should still be valid
+
+	// Test with struct that has no Invalidate method
+	type FakeComputed struct{}
+	fakeComputed := &FakeComputed{}
+	verifier2 := NewComputedCacheVerifier(fakeComputed, &computeCount)
+
+	// InvalidateCache should handle missing method gracefully
+	verifier2.InvalidateCache() // Should not panic
+	assert.NotNil(t, verifier2)
+}
+
+// TestComputedCacheVerifier_EdgeCases_EmptyResults tests GetValue with empty results
+func TestComputedCacheVerifier_EdgeCases_EmptyResults(t *testing.T) {
+	computeCount := 0
+
+	// Create a mock computed that returns empty results
+	// This is hard to test directly since reflection.Call always returns a slice
+	// But we can test the nil computed case which exercises similar code paths
+	verifier := NewComputedCacheVerifier(nil, &computeCount)
+
+	val := verifier.GetValue()
+	assert.Nil(t, val)
+
+	// Verify counters weren't incremented
+	assert.Equal(t, 0, verifier.GetCacheHits())
+	assert.Equal(t, 0, verifier.GetCacheMisses())
+}
+
+// TestComputedCacheVerifier_CounterEdgeCases tests edge cases with counter tracking
+func TestComputedCacheVerifier_CounterEdgeCases(t *testing.T) {
+	count := bubbly.NewRef(5)
+	computeCount := 0
+
+	computed := bubbly.NewComputed(func() int {
+		computeCount++
+		return count.GetTyped() * 2
+	})
+
+	verifier := NewComputedCacheVerifier(computed, &computeCount)
+
+	// Test with zero expectations
+	verifier.AssertComputeCount(t, 0)
+	verifier.AssertCacheHits(t, 0)
+	verifier.AssertCacheMisses(t, 0)
+
+	// Get value
+	verifier.GetValue()
+
+	// Test with exact match
+	verifier.AssertComputeCount(t, 1)
+	verifier.AssertCacheHits(t, 0)
+	verifier.AssertCacheMisses(t, 1)
+
+	// Get again (cached)
+	verifier.GetValue()
+
+	// Test with updated counts
+	verifier.AssertComputeCount(t, 1)
+	verifier.AssertCacheHits(t, 1)
+	verifier.AssertCacheMisses(t, 1)
+}
+
+// TestComputedCacheVerifier_MultipleInvalidations tests multiple cache invalidations
+func TestComputedCacheVerifier_MultipleInvalidations(t *testing.T) {
+	count := bubbly.NewRef(5)
+	computeCount := 0
+
+	computed := bubbly.NewComputed(func() int {
+		computeCount++
+		return count.GetTyped() * 2
+	})
+
+	verifier := NewComputedCacheVerifier(computed, &computeCount)
+
+	// Initial get
+	val := verifier.GetValue()
+	assert.Equal(t, 10, val)
+	verifier.AssertComputeCount(t, 1)
+
+	// Invalidate multiple times
+	verifier.InvalidateCache()
+	verifier.InvalidateCache()
+	verifier.InvalidateCache()
+
+	// Get should recompute
+	val = verifier.GetValue()
+	assert.Equal(t, 10, val)
+	verifier.AssertComputeCount(t, 2)
+}
+
+// TestComputedCacheVerifier_ZeroValueComputed tests computed returning zero values
+func TestComputedCacheVerifier_ZeroValueComputed(t *testing.T) {
+	computeCount := 0
+
+	// Computed that returns zero value
+	computed := bubbly.NewComputed(func() int {
+		computeCount++
+		return 0
+	})
+
+	verifier := NewComputedCacheVerifier(computed, &computeCount)
+
+	// Get zero value
+	val := verifier.GetValue()
+	assert.Equal(t, 0, val)
+	verifier.AssertComputeCount(t, 1)
+
+	// Get again (should be cached)
+	val = verifier.GetValue()
+	assert.Equal(t, 0, val)
+	verifier.AssertComputeCount(t, 1) // Still 1
+	verifier.AssertCacheHits(t, 1)
+}
+
+// TestComputedCacheVerifier_BooleanComputed tests computed with boolean values
+func TestComputedCacheVerifier_BooleanComputed(t *testing.T) {
+	flag := bubbly.NewRef(true)
+	computeCount := 0
+
+	computed := bubbly.NewComputed(func() bool {
+		computeCount++
+		return flag.GetTyped()
+	})
+
+	verifier := NewComputedCacheVerifier(computed, &computeCount)
+
+	// Get true
+	val := verifier.GetValue()
+	assert.Equal(t, true, val)
+
+	// Change to false
+	flag.Set(false)
+	val = verifier.GetValue()
+	assert.Equal(t, false, val)
+	verifier.AssertComputeCount(t, 2)
+}

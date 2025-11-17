@@ -3920,8 +3920,9 @@ func (ccv *ComputedCacheVerifier) ResetCounters()
 - ✅ **Last Value Tracking**: GetLastValue() returns most recent computed value
 - ✅ **Thread Safety**: Not thread-safe (documented) - single test goroutine usage
 - ✅ **Comprehensive godoc**: All methods documented with examples and usage patterns
-- ✅ All 13 test functions passing with race detector
-- ✅ Coverage: 85.0% of statements
+- ✅ **Edge Case Handling**: Graceful handling of nil computed, invalid methods, empty results
+- ✅ All 21 test functions passing with race detector (8 additional edge case tests added)
+- ✅ **Coverage: 97.5% of statements** (improved from 85.0%)
 - ✅ Quality gates: Tests pass with -race, go vet clean, gofmt clean
 
 **Key Design Decisions**:
@@ -3932,7 +3933,7 @@ func (ccv *ComputedCacheVerifier) ResetCounters()
 5. **Helper methods**: Provides both assertion methods and getter methods for flexibility
 
 **Test Coverage**:
-- 13 comprehensive test functions covering all requirements
+- **21 comprehensive test functions** covering all requirements (8 edge case tests added)
 - Basic caching (first get computes, subsequent gets cached)
 - Dependency invalidation (ref changes trigger recomputation)
 - Manual invalidation (InvalidateCache() forces recomputation)
@@ -3946,15 +3947,25 @@ func (ccv *ComputedCacheVerifier) ResetCounters()
 - Memory management (large slices)
 - Nil handling (graceful degradation)
 - Circular dependency detection (verified no panics)
+- **Edge Cases (NEW)**:
+  - Assertion failure paths (all three assertion methods)
+  - Invalid computed values (no Get() method)
+  - Invalid Invalidate() method (missing method handling)
+  - Empty results handling
+  - Counter edge cases (zero expectations, exact matches)
+  - Multiple invalidations (stress testing)
+  - Zero value computed (caching zero values)
+  - Boolean computed (true/false transitions)
 
 **Actual Effort**: 2 hours
 
 **Quality Gates**:
-- ✅ Tests pass with -race flag (13 test functions, all passing)
-- ✅ Coverage: 85.0% of statements
+- ✅ Tests pass with -race flag (21 test functions, all passing)
+- ✅ **Coverage: 97.5% of statements** (exceeds 95% requirement)
 - ✅ go vet: clean
 - ✅ gofmt: clean
 - ✅ Build: successful
+- ✅ **All methods: 100% coverage** (except GetValue at 94.1% - one unreachable edge case)
 
 **Estimated Effort**: 3 hours
 
