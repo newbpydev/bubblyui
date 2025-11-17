@@ -306,3 +306,284 @@ func TestTemplateSafetyTester_ImmutableFlag(t *testing.T) {
 	tester.AttemptMutation("mutation")
 	assert.False(t, tester.immutable, "Should be marked as not immutable after mutation")
 }
+
+// TestTemplateSafetyTester_GetMutations verifies mutation retrieval
+func TestTemplateSafetyTester_GetMutations(t *testing.T) {
+	tests := []struct {
+		name      string
+		mutations []string
+	}{
+		{
+			name:      "empty_mutations",
+			mutations: []string{},
+		},
+		{
+			name:      "single_mutation",
+			mutations: []string{"mutation1"},
+		},
+		{
+			name:      "multiple_mutations",
+			mutations: []string{"mutation1", "mutation2", "mutation3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tester := NewTemplateSafetyTester("test")
+
+			// Add mutations
+			for _, mutation := range tt.mutations {
+				tester.AttemptMutation(mutation)
+			}
+
+			// Get mutations
+			result := tester.GetMutations()
+
+			// Verify count and content
+			assert.Len(t, result, len(tt.mutations))
+			for i, mutation := range tt.mutations {
+				assert.Equal(t, mutation, result[i])
+			}
+
+			// Verify it returns a copy (defensive copying)
+			if len(result) > 0 {
+				result[0] = "modified"
+				assert.NotEqual(t, "modified", tester.mutations[0], "Should return a copy, not the original")
+			}
+		})
+	}
+}
+
+// TestTemplateSafetyTester_IsImmutable verifies immutability check
+func TestTemplateSafetyTester_IsImmutable(t *testing.T) {
+	tests := []struct {
+		name           string
+		addMutations   bool
+		mutationCount  int
+		expectedResult bool
+	}{
+		{
+			name:           "new_tester_is_immutable",
+			addMutations:   false,
+			expectedResult: true,
+		},
+		{
+			name:           "after_one_mutation_not_immutable",
+			addMutations:   true,
+			mutationCount:  1,
+			expectedResult: false,
+		},
+		{
+			name:           "after_multiple_mutations_not_immutable",
+			addMutations:   true,
+			mutationCount:  3,
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tester := NewTemplateSafetyTester("test")
+
+			if tt.addMutations {
+				for i := 0; i < tt.mutationCount; i++ {
+					tester.AttemptMutation("mutation")
+				}
+			}
+
+			result := tester.IsImmutable()
+			assert.Equal(t, tt.expectedResult, result)
+		})
+	}
+}
+
+// TestTemplateSafetyTester_GetTemplate verifies template retrieval
+func TestTemplateSafetyTester_GetTemplate(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+	}{
+		{
+			name:     "empty_template",
+			template: "",
+		},
+		{
+			name:     "simple_template",
+			template: "Hello World",
+		},
+		{
+			name:     "complex_template",
+			template: "Count: {{count}}\nName: {{name}}\nStatus: {{status}}",
+		},
+		{
+			name:     "template_with_special_chars",
+			template: "Special: \n\t\"quoted\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tester := NewTemplateSafetyTester(tt.template)
+
+			result := tester.GetTemplate()
+			assert.Equal(t, tt.template, result)
+
+			// Verify template doesn't change after mutations
+			tester.AttemptMutation("mutation")
+			assert.Equal(t, tt.template, tester.GetTemplate(), "Template should not change after mutations")
+		})
+	}
+}
+
+// TestTemplateSafetyTester_Reset verifies reset functionality
+func TestTemplateSafetyTester_Reset(t *testing.T) {
+	tests := []struct {
+		name          string
+		setup         func(*TemplateSafetyTester)
+		verify        func(*testing.T, *TemplateSafetyTester)
+	}{
+		{
+			name: "reset_after_mutations",
+			setup: func(tst *TemplateSafetyTester) {
+				tst.AttemptMutation("mutation1")
+				tst.AttemptMutation("mutation2")
+			},
+			verify: func(t *testing.T, tst *TemplateSafetyTester) {
+				assert.Empty(t, tst.GetMutations())
+				assert.Empty(t, tst.GetViolations())
+				assert.True(t, tst.IsImmutable())
+			},
+		},
+		{
+			name: "reset_multiple_times",
+			setup: func(tst *TemplateSafetyTester) {
+				// Add mutations, reset, add more, reset again
+				tst.AttemptMutation("mutation1")
+				tst.Reset()
+				tst.AttemptMutation("mutation2")
+				tst.Reset()
+			},
+			verify: func(t *testing.T, tst *TemplateSafetyTester) {
+				assert.Empty(t, tst.GetMutations())
+				assert.Empty(t, tst.GetViolations())
+				assert.True(t, tst.IsImmutable())
+			},
+		},
+		{
+			name: "reset_preserves_template",
+			setup: func(tst *TemplateSafetyTester) {
+				tst.AttemptMutation("mutation")
+			},
+			verify: func(t *testing.T, tst *TemplateSafetyTester) {
+				template := tst.GetTemplate()
+				assert.NotEmpty(t, template, "Template should be preserved")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tester := NewTemplateSafetyTester("test template")
+
+			// Setup
+			tt.setup(tester)
+
+			// Reset
+			tester.Reset()
+
+			// Verify
+			tt.verify(t, tester)
+		})
+	}
+}
+
+// TestTemplateSafetyTester_String verifies string representation
+func TestTemplateSafetyTester_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		setup    func(*TemplateSafetyTester)
+		contains []string
+	}{
+		{
+			name:     "new_tester_string",
+			template: "simple",
+			setup:    func(tst *TemplateSafetyTester) {},
+			contains: []string{
+				"TemplateSafetyTester",
+				"template=\"simple\"",
+				"mutations=0",
+				"immutable=true",
+			},
+		},
+		{
+			name:     "with_mutations_string",
+			template: "Count: {{count}}",
+			setup: func(tst *TemplateSafetyTester) {
+				tst.AttemptMutation("mutation1")
+				tst.AttemptMutation("mutation2")
+			},
+			contains: []string{
+				"TemplateSafetyTester",
+				"template=\"Count: {{count}}\"",
+				"mutations=2",
+				"immutable=false",
+			},
+		},
+		{
+			name:     "after_reset_string",
+			template: "test",
+			setup: func(tst *TemplateSafetyTester) {
+				tst.AttemptMutation("mutation")
+				tst.Reset()
+			},
+			contains: []string{
+				"mutations=0",
+				"immutable=true",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tester := NewTemplateSafetyTester(tt.template)
+
+			// Setup
+			tt.setup(tester)
+
+			// Get string representation
+			result := tester.String()
+
+			// Verify it contains expected substrings
+			for _, substr := range tt.contains {
+				assert.Contains(t, result, substr)
+			}
+		})
+	}
+}
+
+// TestTemplateSafetyTester_ResetReuseScenario verifies reset allows tester reuse
+func TestTemplateSafetyTester_ResetReuseScenario(t *testing.T) {
+	tester := NewTemplateSafetyTester("reusable template")
+
+	// First test case - with mutations
+	tester.AttemptMutation("mutation1")
+	assert.False(t, tester.IsImmutable())
+	assert.Len(t, tester.GetMutations(), 1)
+
+	// Reset for next test case
+	tester.Reset()
+
+	// Second test case - should be clean
+	assert.True(t, tester.IsImmutable())
+	assert.Empty(t, tester.GetMutations())
+	assert.Empty(t, tester.GetViolations())
+
+	// Third test case - add different mutations
+	tester.AttemptMutation("mutation2")
+	tester.AttemptMutation("mutation3")
+	assert.Len(t, tester.GetMutations(), 2)
+
+	// Verify template never changed
+	assert.Equal(t, "reusable template", tester.GetTemplate())
+}

@@ -512,4 +512,25 @@ func TestObservabilityAssertions_Integration(t *testing.T) {
 	assert.Equal(t, "form-123", contexts[0].ComponentID)
 }
 
+// TestObservabilityAssertions_String tests the String method
+func TestObservabilityAssertions_String(t *testing.T) {
+	reporter := NewMockErrorReporter()
+	oa := NewObservabilityAssertions(reporter)
+
+	// Add some data
+	reporter.ReportError(errors.New("test error"), &observability.ErrorContext{})
+	reporter.ReportPanic(&observability.HandlerPanicError{}, &observability.ErrorContext{})
+	observability.RecordBreadcrumb("test", "message", nil)
+
+	// Get string representation
+	str := oa.String()
+
+	// Verify it contains expected information
+	assert.Contains(t, str, "ObservabilityAssertions")
+	assert.Contains(t, str, "1 errors")
+	assert.Contains(t, str, "1 panics")
+	assert.Contains(t, str, "contexts")
+	assert.Contains(t, str, "breadcrumbs")
+}
+
 // mockTestingT is already defined in assertions_state_test.go

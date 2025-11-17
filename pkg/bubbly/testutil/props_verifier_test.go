@@ -320,3 +320,36 @@ func TestPropsVerifier_ReferenceIntegrity(t *testing.T) {
 		assert.Equal(t, 1, componentProps.Data[0])
 	}
 }
+
+// TestPropsVerifier_String tests the String method
+func TestPropsVerifier_String(t *testing.T) {
+	type TestProps struct {
+		Name   string
+		Count  int
+		Active bool
+	}
+
+	comp, err := bubbly.NewComponent("TestComp").
+		Props(TestProps{Name: "Test", Count: 42, Active: true}).
+		Template(func(ctx bubbly.RenderContext) string { return "test" }).
+		Build()
+	require.NoError(t, err)
+
+	pv := NewPropsVerifier(comp)
+
+	// Attempt some mutations
+	pv.AttemptPropMutation("Name", "Modified")
+	pv.AttemptPropMutation("Count", 100)
+
+	// Get string representation
+	str := pv.String()
+
+	// Verify it contains expected information
+	assert.Contains(t, str, "PropsVerifier")
+	assert.Contains(t, str, "props")
+	assert.Contains(t, str, "2 mutations attempted")
+	assert.Contains(t, str, "immutable")
+	
+	// Verify format is correct
+	assert.NotEmpty(t, str)
+}

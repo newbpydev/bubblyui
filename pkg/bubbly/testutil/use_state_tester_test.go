@@ -182,3 +182,64 @@ func TestUseStateTester_GetValueFromRef_EdgeCases(t *testing.T) {
 	tester.SetValue("")
 	assert.Equal(t, "", tester.GetValueFromRef())
 }
+
+// TestUseStateTester_GetValueFromRef_MultipleTypes tests GetValueFromRef with various types
+func TestUseStateTester_GetValueFromRef_MultipleTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		initialValue  interface{}
+		updatedValue  interface{}
+		setupComp     func(*bubbly.Context, interface{})
+	}{
+		{
+			name:         "bool_type",
+			initialValue: false,
+			updatedValue: true,
+			setupComp: func(ctx *bubbly.Context, val interface{}) {
+				state := composables.UseState(ctx, val.(bool))
+				ctx.Expose("value", state.Value)
+				ctx.Expose("set", state.Set)
+				ctx.Expose("get", state.Get)
+			},
+		},
+		{
+			name:         "float_type",
+			initialValue: 3.14,
+			updatedValue: 2.71,
+			setupComp: func(ctx *bubbly.Context, val interface{}) {
+				state := composables.UseState(ctx, val.(float64))
+				ctx.Expose("value", state.Value)
+				ctx.Expose("set", state.Set)
+				ctx.Expose("get", state.Get)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			comp, err := bubbly.NewComponent("TestState").
+				Setup(func(ctx *bubbly.Context) {
+					tt.setupComp(ctx, tt.initialValue)
+				}).
+				Template(func(ctx bubbly.RenderContext) string {
+					return "test"
+				}).
+				Build()
+			assert.NoError(t, err)
+			comp.Init()
+
+			switch v := tt.initialValue.(type) {
+			case bool:
+				tester := NewUseStateTester[bool](comp)
+				assert.Equal(t, v, tester.GetValueFromRef())
+				tester.SetValue(tt.updatedValue.(bool))
+				assert.Equal(t, tt.updatedValue.(bool), tester.GetValueFromRef())
+			case float64:
+				tester := NewUseStateTester[float64](comp)
+				assert.Equal(t, v, tester.GetValueFromRef())
+				tester.SetValue(tt.updatedValue.(float64))
+				assert.Equal(t, tt.updatedValue.(float64), tester.GetValueFromRef())
+			}
+		})
+	}
+}
