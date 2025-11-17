@@ -274,6 +274,93 @@ func TestKeyBindingsTester_SimulateKeyPress_SpecialKeys(t *testing.T) {
 		{"ctrl+c", "ctrl+c"},
 		{"up", "up"},
 		{"down", "down"},
+		{"left", "left"},
+		{"right", "right"},
+		{"tab", "tab"},
+		{"backspace", "backspace"},
+		{"delete", "delete"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eventFired := false
+			comp, err := bubbly.NewComponent("TestComponent").
+				WithKeyBinding(tt.key, "action", "Do action").
+				Setup(func(ctx *bubbly.Context) {
+					ctx.On("action", func(_ interface{}) {
+						eventFired = true
+					})
+				}).
+				Template(func(ctx bubbly.RenderContext) string {
+					return "Test"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			comp.Init()
+
+			tester := NewKeyBindingsTester(comp)
+
+			// Simulate key press
+			tester.SimulateKeyPress(tt.key)
+
+			// Assert event was fired
+			assert.True(t, eventFired, "Expected event to be fired for key: %s", tt.key)
+		})
+	}
+}
+
+// TestKeyBindingsTester_SimulateKeyPress_SingleCharKeys tests single character key handling
+func TestKeyBindingsTester_SimulateKeyPress_SingleCharKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{"letter_a", "a"},
+		{"letter_z", "z"},
+		{"number_1", "1"},
+		{"number_9", "9"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eventFired := false
+			comp, err := bubbly.NewComponent("TestComponent").
+				WithKeyBinding(tt.key, "action", "Do action").
+				Setup(func(ctx *bubbly.Context) {
+					ctx.On("action", func(_ interface{}) {
+						eventFired = true
+					})
+				}).
+				Template(func(ctx bubbly.RenderContext) string {
+					return "Test"
+				}).
+				Build()
+			require.NoError(t, err)
+
+			comp.Init()
+
+			tester := NewKeyBindingsTester(comp)
+
+			// Simulate key press
+			tester.SimulateKeyPress(tt.key)
+
+			// Assert event was fired
+			assert.True(t, eventFired, "Expected event to be fired for key: %s", tt.key)
+		})
+	}
+}
+
+// TestKeyBindingsTester_SimulateKeyPress_ComplexKeys tests complex key combinations
+func TestKeyBindingsTester_SimulateKeyPress_ComplexKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{"ctrl+a", "ctrl+a"},
+		{"ctrl+d", "ctrl+d"},
+		{"alt+enter", "alt+enter"},
+		{"shift+tab", "shift+tab"},
 	}
 
 	for _, tt := range tests {
