@@ -542,3 +542,244 @@ func TestDeepWatchTester_EmptyMap(t *testing.T) {
 	// Verify the value was added
 	assert.Equal(t, "dark", config.Get().(Config).Settings["theme"])
 }
+
+// TestDeepWatchTester_NavigateToField_ArrayIndexEdgeCases tests array/slice navigation edge cases
+func TestDeepWatchTester_NavigateToField_ArrayIndexEdgeCases(t *testing.T) {
+	type DataWithArrays struct {
+		Tags    []string
+		Numbers []int
+		Matrix  [][]int
+	}
+
+	data := bubbly.NewRef(DataWithArrays{
+		Tags:    []string{"one", "two", "three"},
+		Numbers: []int{10, 20, 30},
+		Matrix:  [][]int{{1, 2}, {3, 4}},
+	})
+	watchCount := 0
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Valid index access
+	tester.ModifyNestedField("Tags[0]", "first")
+	assert.Equal(t, "first", data.Get().(DataWithArrays).Tags[0])
+
+	// Out of bounds index - should not panic or modify
+	initialLen := len(data.Get().(DataWithArrays).Numbers)
+	assert.NotPanics(t, func() {
+		tester.ModifyNestedField("Numbers[999]", 100)
+	})
+	assert.Equal(t, initialLen, len(data.Get().(DataWithArrays).Numbers))
+
+	// Negative index - should not panic
+	assert.NotPanics(t, func() {
+		tester.ModifyNestedField("Numbers[-1]", 100)
+	})
+
+	// Nested array access - first navigate to row
+	tester.ModifyNestedField("Matrix[0]", []int{42, 43})
+	assert.Equal(t, 42, data.Get().(DataWithArrays).Matrix[0][0])
+}
+
+// TestDeepWatchTester_NavigateToField_MapKeyEdgeCases tests map navigation edge cases
+func TestDeepWatchTester_NavigateToField_MapKeyEdgeCases(t *testing.T) {
+	type DataWithMap struct {
+		Settings map[string]interface{}
+		Counts   map[string]int
+	}
+
+	data := bubbly.NewRef(DataWithMap{
+		Settings: map[string]interface{}{
+			"theme": "light",
+			"lang":  "en",
+		},
+		Counts: map[string]int{
+			"users":  100,
+			"posts":  50,
+		},
+	})
+	watchCount := 0
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Existing map key
+	tester.ModifyNestedField("Settings[theme]", "dark")
+	assert.Equal(t, "dark", data.Get().(DataWithMap).Settings["theme"])
+
+	// New map key (should be added)
+	tester.ModifyNestedField("Counts[comments]", 25)
+	assert.Equal(t, 25, data.Get().(DataWithMap).Counts["comments"])
+
+	// Map with integer values
+	tester.ModifyNestedField("Counts[users]", 200)
+	assert.Equal(t, 200, data.Get().(DataWithMap).Counts["users"])
+}
+
+// TestDeepWatchTester_NavigateToField_NilPointers tests nil pointer handling
+func TestDeepWatchTester_NavigateToField_NilPointers(t *testing.T) {
+	type Inner struct {
+		Value string
+	}
+	type Outer struct {
+		Inner *Inner
+	}
+
+	// Nil pointer case
+	data := bubbly.NewRef(Outer{Inner: nil})
+	watchCount := 0
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Trying to navigate through nil pointer should not panic
+	assert.NotPanics(t, func() {
+		tester.ModifyNestedField("Inner.Value", "test")
+	})
+
+	// Watch should not trigger for nil pointer path
+	assert.Equal(t, 0, watchCount)
+}
+
+// TestDeepWatchTester_NavigateToField_InvalidPaths tests invalid path handling
+func TestDeepWatchTester_NavigateToField_InvalidPaths(t *testing.T) {
+	type Simple struct {
+		Name string
+		Age  int
+	}
+
+	data := bubbly.NewRef(Simple{Name: "John", Age: 30})
+	watchCount := 0
+	
+	cleanup := bubbly.Watch(data, func(newVal, oldVal Simple) {
+		watchCount++
+	}, bubbly.WithDeep())
+	defer cleanup()
+	
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Non-existent field - should be silently ignored
+	tester.ModifyNestedField("NonExistent", "value")
+	assert.Equal(t, 0, watchCount, "non-existent field should not trigger watch")
+
+	// Valid field modification should work
+	tester.ModifyNestedField("Name", "Jane")
+	assert.Equal(t, 1, watchCount)
+	assert.Equal(t, "Jane", data.Get().(Simple).Name)
+}
+
+// TestDeepWatchTester_NavigateToField_InterfaceWrapping tests interface{} unwrapping
+func TestDeepWatchTester_NavigateToField_InterfaceWrapping(t *testing.T) {
+	// Test direct struct field access (interface wrapping happens internally in Ref)
+	data := bubbly.NewRef(User{
+		Name: "Alice",
+		Profile: Profile{
+			Age:  25,
+			City: "NYC",
+		},
+	})
+	watchCount := 0
+	
+	cleanup := bubbly.Watch(data, func(newVal, oldVal User) {
+		watchCount++
+	}, bubbly.WithDeep())
+	defer cleanup()
+	
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Modify nested field through normal path
+	tester.ModifyNestedField("Profile.City", "LA")
+	
+	// Verify modification
+	userData := data.Get().(User)
+	assert.Equal(t, "LA", userData.Profile.City)
+	assert.Equal(t, 1, watchCount)
+}
+
+// TestDeepWatchTester_SetNestedValue_TypeMismatches tests type conversion edge cases
+func TestDeepWatchTester_SetNestedValue_TypeMismatches(t *testing.T) {
+	type TypedData struct {
+		IntField    int
+		StringField string
+		BoolField   bool
+		FloatField  float64
+	}
+
+	data := bubbly.NewRef(TypedData{
+		IntField:    10,
+		StringField: "test",
+		BoolField:   false,
+		FloatField:  3.14,
+	})
+	watchCount := 0
+	
+	cleanup := bubbly.Watch(data, func(newVal, oldVal TypedData) {
+		watchCount++
+	}, bubbly.WithDeep())
+	defer cleanup()
+	
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Int to int (same type) - should work
+	tester.ModifyNestedField("IntField", 25)
+	assert.Equal(t, 25, data.Get().(TypedData).IntField)
+
+	// String to string (same type) - should work
+	tester.ModifyNestedField("StringField", "updated")
+	assert.Equal(t, "updated", data.Get().(TypedData).StringField)
+
+	// Bool to bool (same type) - should work
+	tester.ModifyNestedField("BoolField", true)
+	assert.Equal(t, true, data.Get().(TypedData).BoolField)
+
+	// Float to float (same type) - should work
+	tester.ModifyNestedField("FloatField", 2.71)
+	assert.Equal(t, 2.71, data.Get().(TypedData).FloatField)
+}
+
+// TestDeepWatchTester_AssertWatchTriggered_EdgeCases tests assertion edge cases
+func TestDeepWatchTester_AssertWatchTriggered_EdgeCases(t *testing.T) {
+	data := bubbly.NewRef(User{Name: "John"})
+	watchCount := 0
+	
+	cleanup := bubbly.Watch(data, func(newVal, oldVal User) {
+		watchCount++
+	}, bubbly.WithDeep())
+	defer cleanup()
+	
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// No modifications - count should be 0
+	tester.AssertWatchTriggered(t, 0)
+
+	// One modification
+	tester.ModifyNestedField("Name", "Jane")
+	tester.AssertWatchTriggered(t, 1)
+
+	// Multiple modifications
+	tester.ModifyNestedField("Name", "Bob")
+	tester.ModifyNestedField("Email", "bob@example.com")
+	tester.AssertWatchTriggered(t, 3)
+}
+
+// TestDeepWatchTester_AssertPathChanged_EdgeCases tests path change assertion edge cases
+func TestDeepWatchTester_AssertPathChanged_EdgeCases(t *testing.T) {
+	data := bubbly.NewRef(User{
+		Name: "John",
+		Profile: Profile{
+			Age:  30,
+			City: "NYC",
+		},
+	})
+	watchCount := 0
+	tester := NewDeepWatchTester(data, &watchCount, true)
+
+	// Modify nested field
+	tester.ModifyNestedField("Profile.Age", 31)
+	
+	// Path should be recorded
+	tester.AssertPathChanged(t, "Profile.Age")
+	
+	// Modified path should be in changed paths list
+	changedPaths := tester.GetChangedPaths()
+	assert.Contains(t, changedPaths, "Profile.Age")
+
+	// Unmodified path should not trigger assertion
+	paths := tester.GetChangedPaths()
+	assert.NotContains(t, paths, "Name")
+}
