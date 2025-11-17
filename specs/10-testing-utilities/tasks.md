@@ -4434,37 +4434,81 @@ func (tst *TemplateSafetyTester) String() string
 
 ## Phase 14: Integration & Observability (4 tasks, 12 hours)
 
-### Task 14.1: Mock Error Reporter
+### Task 14.1: Mock Error Reporter ✅ COMPLETED
 **Description**: Mock observability error reporter for testing
 
-**Prerequisites**: Phase 13
+**Prerequisites**: Phase 13 ✅
 
 **Unlocks**: Task 14.2 (Observability Assertions)
 
 **Files**:
-- `pkg/bubbly/testutil/mock_error_reporter.go`
-- `pkg/bubbly/testutil/mock_error_reporter_test.go`
+- `pkg/bubbly/testutil/mock_error_reporter.go` ✅
+- `pkg/bubbly/testutil/mock_error_reporter_test.go` ✅
 
 **Type Safety**:
 ```go
 type MockErrorReporter struct {
     errors   []error
-    panics   []interface{}
+    panics   []*observability.HandlerPanicError
     contexts []*observability.ErrorContext
+    mu       sync.RWMutex
 }
 
 func NewMockErrorReporter() *MockErrorReporter
 func (mer *MockErrorReporter) ReportError(err error, ctx *ErrorContext)
-func (mer *MockErrorReporter) ReportPanic(panic interface{}, ctx *ErrorContext)
-func (mer *MockErrorReporter) AssertErrorReported(t *testing.T, expectedErr error)
+func (mer *MockErrorReporter) ReportPanic(err *HandlerPanicError, ctx *ErrorContext)
+func (mer *MockErrorReporter) Flush(timeout time.Duration) error
+func (mer *MockErrorReporter) GetErrors() []error
+func (mer *MockErrorReporter) GetPanics() []*HandlerPanicError
+func (mer *MockErrorReporter) GetContexts() []*ErrorContext
 func (mer *MockErrorReporter) GetBreadcrumbs() []Breadcrumb
+func (mer *MockErrorReporter) AssertErrorReported(t testingT, expectedErr error)
+func (mer *MockErrorReporter) AssertPanicReported(t testingT, expectedPanic *HandlerPanicError)
+func (mer *MockErrorReporter) Reset()
+func (mer *MockErrorReporter) String() string
 ```
 
-**Tests**:
-- [ ] Errors captured
-- [ ] Panics captured
-- [ ] Contexts recorded
-- [ ] Breadcrumbs tracked
+**Tests**: ALL PASSING ✅
+- [x] Errors captured - verified with ReportError and GetErrors
+- [x] Panics captured - verified with ReportPanic and GetPanics
+- [x] Contexts recorded - verified with GetContexts
+- [x] Breadcrumbs tracked - verified with GetBreadcrumbs from contexts
+- [x] Assertion helpers - AssertErrorReported and AssertPanicReported
+- [x] Thread safety - concurrent access tested with race detector
+- [x] Reset functionality - clears all captured data
+- [x] String representation - human-readable summary
+- [x] Nil context handling - gracefully handles nil contexts
+- [x] Multiple errors/panics - supports multiple reports
+
+**Implementation Notes**:
+- ✅ **Full ErrorReporter Interface**: Implements all methods from observability.ErrorReporter
+- ✅ **Thread-Safe**: Uses sync.RWMutex for concurrent access protection
+- ✅ **Defensive Copying**: GetErrors, GetPanics, GetContexts return copies to prevent external modification
+- ✅ **Breadcrumb Aggregation**: GetBreadcrumbs collects breadcrumbs from all contexts
+- ✅ **Assertion Helpers**: AssertErrorReported and AssertPanicReported for test verification
+- ✅ **Reset Support**: Reset() method allows reusing reporter across test cases
+- ✅ **String Method**: Provides human-readable summary for debugging
+- ✅ **Comprehensive godoc**: All exported types and methods documented with examples
+- ✅ **10 test functions** covering all functionality (10 test functions, 20+ test cases)
+- ✅ **100% test coverage** - all 12 functions at 100%
+- ✅ **Quality gates**: Tests pass with -race flag, go vet clean, gofmt clean, build succeeds
+
+**Key Design Decisions**:
+1. **Type-Specific Panic Storage**: Uses `[]*observability.HandlerPanicError` instead of `[]interface{}` for type safety
+2. **Mutex Protection**: RWMutex allows concurrent reads while protecting writes
+3. **Defensive Copies**: All getter methods return copies to prevent external state modification
+4. **Breadcrumb Collection**: Aggregates breadcrumbs from all contexts in chronological order
+5. **testingT Interface**: Uses existing testingT interface from harness.go for assertion methods
+6. **No-Op Flush**: Flush always succeeds since mock has nothing to flush
+
+**Actual Effort**: 2.5 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (10 test functions, all passing)
+- ✅ Coverage: 100% on all 12 functions
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
