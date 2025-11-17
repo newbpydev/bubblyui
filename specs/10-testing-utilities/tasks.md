@@ -3861,40 +3861,100 @@ func (cct *CustomComparatorTester) AssertComparatorType(t testing.TB)
 
 ---
 
-### Task 12.5: Computed Cache Verifier
+### Task 12.5: Computed Cache Verifier ✅ COMPLETED
 **Description**: Test computed value caching and invalidation
 
-**Prerequisites**: Task 12.4
+**Prerequisites**: Task 12.4 ✅
 
 **Unlocks**: Task 12.6 (Dependency Tracking Inspector)
 
 **Files**:
-- `pkg/bubbly/testutil/computed_cache_verifier.go`
-- `pkg/bubbly/testutil/computed_cache_verifier_test.go`
+- `pkg/bubbly/testutil/computed_cache_verifier.go` ✅
+- `pkg/bubbly/testutil/computed_cache_verifier_test.go` ✅
 
 **Type Safety**:
 ```go
 type ComputedCacheVerifier struct {
-    computed      *Computed[interface{}]
-    computeCount  int
-    cacheHits     int
-    cacheMisses   int
+    computed     interface{}      // The computed value being tested (*Computed[T])
+    computeCount *int             // Pointer to external compute counter
+    cacheHits    int              // Number of cache hits
+    cacheMisses  int              // Number of cache misses
+    lastValue    interface{}      // Last value returned
 }
 
-func NewComputedCacheVerifier(comp *Computed[interface{}]) *ComputedCacheVerifier
+func NewComputedCacheVerifier(computed interface{}, computeCount *int) *ComputedCacheVerifier
 func (ccv *ComputedCacheVerifier) GetValue() interface{}
 func (ccv *ComputedCacheVerifier) AssertComputeCount(t *testing.T, expected int)
 func (ccv *ComputedCacheVerifier) AssertCacheHits(t *testing.T, expected int)
+func (ccv *ComputedCacheVerifier) AssertCacheMisses(t *testing.T, expected int)
 func (ccv *ComputedCacheVerifier) InvalidateCache()
+func (ccv *ComputedCacheVerifier) GetCacheHits() int
+func (ccv *ComputedCacheVerifier) GetCacheMisses() int
+func (ccv *ComputedCacheVerifier) GetLastValue() interface{}
+func (ccv *ComputedCacheVerifier) ResetCounters()
 ```
 
-**Tests**:
-- [ ] Computed values cached
-- [ ] Cache invalidated on dependency change
-- [ ] Multiple gets use cache
-- [ ] Cache hit/miss tracking
-- [ ] Memory management
-- [ ] Circular dependency detection
+**Tests**: ALL PASSING ✅
+- [x] Computed values cached - basic caching behavior verified
+- [x] Cache invalidated on dependency change - dependency tracking works correctly
+- [x] Multiple gets use cache - verified with various patterns
+- [x] Cache hit/miss tracking - comprehensive tracking with assertions
+- [x] Memory management - tested with large slices (1000 elements)
+- [x] Circular dependency detection - verified graceful handling
+- [x] Manual invalidation - InvalidateCache() method works correctly
+- [x] Chained computed values - multi-level dependency caching
+- [x] Reset counters - ResetCounters() method for test isolation
+- [x] Complex types - tested with structs and custom types
+- [x] Table-driven tests - 5 scenarios with different operation patterns
+- [x] Nil handling - graceful degradation with nil computed
+- [x] Getter methods - GetCacheHits(), GetCacheMisses(), GetLastValue()
+
+**Implementation Notes**:
+- ✅ **Core Functionality**: Wraps Computed[T] and tracks compute function invocations via external counter
+- ✅ **Cache Hit/Miss Tracking**: Automatically detects whether Get() triggered recomputation by comparing counter before/after
+- ✅ **Reflection-Based**: Uses reflection to call Get() and Invalidate() methods on any Computed[T] type
+- ✅ **External Counter Pattern**: Requires compute function to increment external counter for accurate tracking
+- ✅ **Helper Methods**: AssertComputeCount, AssertCacheHits, AssertCacheMisses for test assertions
+- ✅ **Manual Invalidation**: InvalidateCache() method for testing cache invalidation behavior
+- ✅ **Counter Reset**: ResetCounters() for testing multiple scenarios in same test
+- ✅ **Last Value Tracking**: GetLastValue() returns most recent computed value
+- ✅ **Thread Safety**: Not thread-safe (documented) - single test goroutine usage
+- ✅ **Comprehensive godoc**: All methods documented with examples and usage patterns
+- ✅ All 13 test functions passing with race detector
+- ✅ Coverage: 85.0% of statements
+- ✅ Quality gates: Tests pass with -race, go vet clean, gofmt clean
+
+**Key Design Decisions**:
+1. **Generic interface{} for computed**: Allows testing any Computed[T] type via reflection
+2. **External counter pointer**: Enables tracking actual compute function calls (not just Get() calls)
+3. **Automatic hit/miss detection**: Compares counter before/after Get() to determine cache behavior
+4. **Separate tracking**: Maintains independent counters for hits, misses, and total computes
+5. **Helper methods**: Provides both assertion methods and getter methods for flexibility
+
+**Test Coverage**:
+- 13 comprehensive test functions covering all requirements
+- Basic caching (first get computes, subsequent gets cached)
+- Dependency invalidation (ref changes trigger recomputation)
+- Manual invalidation (InvalidateCache() forces recomputation)
+- Multiple get patterns (various sequences of get/change/invalidate)
+- Chained computed values (multi-level dependencies)
+- Reset counters (test isolation)
+- Last value tracking (GetLastValue() verification)
+- Getter methods (GetCacheHits(), GetCacheMisses())
+- Complex types (structs with multiple fields)
+- Table-driven tests (5 scenarios with different operation patterns)
+- Memory management (large slices)
+- Nil handling (graceful degradation)
+- Circular dependency detection (verified no panics)
+
+**Actual Effort**: 2 hours
+
+**Quality Gates**:
+- ✅ Tests pass with -race flag (13 test functions, all passing)
+- ✅ Coverage: 85.0% of statements
+- ✅ go vet: clean
+- ✅ gofmt: clean
+- ✅ Build: successful
 
 **Estimated Effort**: 3 hours
 
