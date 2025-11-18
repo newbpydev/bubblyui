@@ -36,6 +36,31 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 			ctx.Expose("focusColor", focusColor)
 			ctx.Expose("inactiveColor", inactiveColor)
 
+			// Create the Input component in Setup so we can forward events to it
+			inputComp := components.Input(components.InputProps{
+				Value:       props.Value,
+				Placeholder: "What needs to be done?",
+				Width:       50,
+				CharLimit:   100,
+				NoBorder:    true, // We'll add our own border in the card
+			})
+			inputComp.Init()
+			ctx.Expose("inputComp", inputComp)
+
+			// Forward textInputUpdate events to the Input component
+			ctx.On("textInputUpdate", func(data interface{}) {
+				inputComp.Emit("textInputUpdate", data)
+			})
+
+			// Forward focus/blur events to the Input component
+			ctx.On("focus", func(data interface{}) {
+				inputComp.Emit("focus", nil)
+			})
+
+			ctx.On("blur", func(data interface{}) {
+				inputComp.Emit("blur", nil)
+			})
+
 			ctx.On("submit", func(data interface{}) {
 				value := props.Value.Get().(string)
 				if value != "" && props.OnSubmit != nil {
@@ -45,10 +70,10 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
-			valueRef := ctx.Get("value").(*bubbly.Ref[string])
 			focusedRef := ctx.Get("focused").(*bubbly.Ref[interface{}])
 			focusColor := ctx.Get("focusColor").(lipgloss.Color)
 			inactiveColor := ctx.Get("inactiveColor").(lipgloss.Color)
+			inputComp := ctx.Get("inputComp").(bubbly.Component)
 
 			isFocused := focusedRef.Get().(bool)
 			borderColor := inactiveColor
@@ -56,13 +81,8 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 				borderColor = focusColor
 			}
 
-			input := components.Input(components.InputProps{
-				Value:       valueRef,
-				Placeholder: "What needs to be done?",
-				Width:       50,
-				CharLimit:   100,
-			})
-			input.Init()
+			// Render the Input component (it has cursor support!)
+			inputView := inputComp.View()
 
 			instructColor := inactiveColor
 			if isFocused {
@@ -74,7 +94,7 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 			})
 			instructions.Init()
 
-			content := fmt.Sprintf("%s\n\n%s", input.View(), instructions.View())
+			content := fmt.Sprintf("%s\n\n%s", inputView, instructions.View())
 
 			cardStyle := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).

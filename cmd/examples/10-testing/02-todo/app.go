@@ -21,18 +21,11 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("d", "remove", "Delete first").
 		WithKeyBinding("c", "clear", "Clear all").
 		WithKeyBinding("a", "toggleAll", "Toggle all").
-		WithKeyBinding("backspace", "removeChar", "Backspace").
 		WithKeyBinding("ctrl+c", "quit", "Quit").
-		// CRITICAL: Capture keyboard for text input
-		// Parent captures keys, updates refs, components re-render automatically
+		// CRITICAL: Forward keyboard to Input component for cursor support
 		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-			if keyMsg, ok := msg.(tea.KeyMsg); ok {
-				switch keyMsg.Type {
-				case tea.KeyRunes:
-					// Emit to addChar event - updates inputValue ref
-					comp.Emit("addChar", string(keyMsg.Runes))
-				}
-			}
+			// Forward ALL keyboard input to Input component for cursor/editing
+			comp.Emit("forwardToInput", msg)
 			return nil
 		}).
 		Setup(func(ctx *bubbly.Context) {
@@ -66,6 +59,11 @@ func CreateApp() (bubbly.Component, error) {
 				ctx.Expose("error", fmt.Sprintf("Failed to create input: %v", err))
 				return
 			}
+
+			// Sync stringInputValue (from Input component) back to inputValue (for tests)
+			bubbly.Watch(stringInputValue, func(newVal, oldVal string) {
+				inputValue.Set(newVal)
+			})
 
 			// Create TodoList component
 			list, err := localcomponents.CreateTodoList(localcomponents.TodoListProps{
@@ -105,10 +103,31 @@ func CreateApp() (bubbly.Component, error) {
 			ctx.Expose("clear", todos.Clear)
 			ctx.Expose("toggleAll", todos.ToggleAll)
 
+			// Event: Forward keyboard input to Input component
+			ctx.On("forwardToInput", func(data interface{}) {
+				if !inputMode.Get().(bool) {
+					return // Only forward in input mode
+				}
+				// Forward to Input component's textInputUpdate handler
+				inputComp := ctx.Get("input").(bubbly.Component)
+				inputComp.Emit("textInputUpdate", data)
+			})
+
 			// Event: Toggle mode (ESC key)
 			ctx.On("toggleMode", func(data interface{}) {
 				current := inputMode.Get().(bool)
-				inputMode.Set(!current)
+				newMode := !current
+				inputMode.Set(newMode)
+
+				// Focus/blur Input component based on mode
+				inputComp := ctx.Get("input").(bubbly.Component)
+				if newMode {
+					// Entering input mode - focus the input
+					inputComp.Emit("focus", nil)
+				} else {
+					// Leaving input mode - blur the input
+					inputComp.Emit("blur", nil)
+				}
 			})
 
 			// Event: Submit (Enter key)
@@ -117,6 +136,7 @@ func CreateApp() (bubbly.Component, error) {
 				if value != "" {
 					todos.Add(value)
 					inputValue.Set("")
+					stringInputValue.Set("") // Sync both refs
 				}
 			})
 
@@ -159,31 +179,6 @@ func CreateApp() (bubbly.Component, error) {
 					return // Blocked in input mode
 				}
 				todos.ToggleAll()
-			})
-
-			// Event: Add character to input (typing) - Input mode only
-			ctx.On("addChar", func(data interface{}) {
-				if !inputMode.Get().(bool) {
-					return // Blocked in navigation mode
-				}
-				char := data.(string)
-				current := inputValue.Get().(string)
-				newValue := current + char
-				inputValue.Set(newValue)
-				stringInputValue.Set(newValue) // Sync both refs
-			})
-
-			// Event: Remove character from input (backspace) - Input mode only
-			ctx.On("removeChar", func(data interface{}) {
-				if !inputMode.Get().(bool) {
-					return // Blocked in navigation mode
-				}
-				current := inputValue.Get().(string)
-				if len(current) > 0 {
-					newValue := current[:len(current)-1]
-					inputValue.Set(newValue)
-					stringInputValue.Set(newValue) // Sync both refs
-				}
 			})
 
 			// Event: Quit (ctrl+c) - handled by bubbly.Wrap()
