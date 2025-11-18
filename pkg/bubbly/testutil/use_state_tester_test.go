@@ -186,10 +186,10 @@ func TestUseStateTester_GetValueFromRef_EdgeCases(t *testing.T) {
 // TestUseStateTester_GetValueFromRef_MultipleTypes tests GetValueFromRef with various types
 func TestUseStateTester_GetValueFromRef_MultipleTypes(t *testing.T) {
 	tests := []struct {
-		name          string
-		initialValue  interface{}
-		updatedValue  interface{}
-		setupComp     func(*bubbly.Context, interface{})
+		name         string
+		initialValue interface{}
+		updatedValue interface{}
+		setupComp    func(*bubbly.Context, interface{})
 	}{
 		{
 			name:         "bool_type",

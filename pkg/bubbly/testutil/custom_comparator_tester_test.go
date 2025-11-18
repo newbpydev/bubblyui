@@ -346,7 +346,7 @@ func TestCustomComparatorTester_ResetCounters(t *testing.T) {
 	// Do some comparisons
 	tester.SetValue(2)
 	tester.SetValue(3)
-	
+
 	if count := tester.GetComparisonCount(); count != 2 {
 		t.Errorf("expected count 2, got %d", count)
 	}
@@ -478,16 +478,16 @@ func TestCustomComparatorTester_AssertComparatorType(t *testing.T) {
 	ref := bubbly.NewRef[interface{}](42)
 	comparator := func(a, b interface{}) bool { return a == b }
 	tester := NewCustomComparatorTester(ref, comparator)
-	
+
 	// Should not panic or error
 	tester.AssertComparatorType(t)
-	
+
 	// Nil comparator case - test implementation itself
 	testerNil := &CustomComparatorTester{
 		ref:        ref,
 		comparator: nil,
 	}
-	
+
 	// Verify it detects nil comparator
 	if testerNil.comparator != nil {
 		t.Error("expected comparator to be nil")

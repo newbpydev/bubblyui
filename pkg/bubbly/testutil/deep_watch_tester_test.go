@@ -593,8 +593,8 @@ func TestDeepWatchTester_NavigateToField_MapKeyEdgeCases(t *testing.T) {
 			"lang":  "en",
 		},
 		Counts: map[string]int{
-			"users":  100,
-			"posts":  50,
+			"users": 100,
+			"posts": 50,
 		},
 	})
 	watchCount := 0
@@ -645,12 +645,12 @@ func TestDeepWatchTester_NavigateToField_InvalidPaths(t *testing.T) {
 
 	data := bubbly.NewRef(Simple{Name: "John", Age: 30})
 	watchCount := 0
-	
+
 	cleanup := bubbly.Watch(data, func(newVal, oldVal Simple) {
 		watchCount++
 	}, bubbly.WithDeep())
 	defer cleanup()
-	
+
 	tester := NewDeepWatchTester(data, &watchCount, true)
 
 	// Non-existent field - should be silently ignored
@@ -674,17 +674,17 @@ func TestDeepWatchTester_NavigateToField_InterfaceWrapping(t *testing.T) {
 		},
 	})
 	watchCount := 0
-	
+
 	cleanup := bubbly.Watch(data, func(newVal, oldVal User) {
 		watchCount++
 	}, bubbly.WithDeep())
 	defer cleanup()
-	
+
 	tester := NewDeepWatchTester(data, &watchCount, true)
 
 	// Modify nested field through normal path
 	tester.ModifyNestedField("Profile.City", "LA")
-	
+
 	// Verify modification
 	userData := data.Get().(User)
 	assert.Equal(t, "LA", userData.Profile.City)
@@ -707,12 +707,12 @@ func TestDeepWatchTester_SetNestedValue_TypeMismatches(t *testing.T) {
 		FloatField:  3.14,
 	})
 	watchCount := 0
-	
+
 	cleanup := bubbly.Watch(data, func(newVal, oldVal TypedData) {
 		watchCount++
 	}, bubbly.WithDeep())
 	defer cleanup()
-	
+
 	tester := NewDeepWatchTester(data, &watchCount, true)
 
 	// Int to int (same type) - should work
@@ -736,12 +736,12 @@ func TestDeepWatchTester_SetNestedValue_TypeMismatches(t *testing.T) {
 func TestDeepWatchTester_AssertWatchTriggered_EdgeCases(t *testing.T) {
 	data := bubbly.NewRef(User{Name: "John"})
 	watchCount := 0
-	
+
 	cleanup := bubbly.Watch(data, func(newVal, oldVal User) {
 		watchCount++
 	}, bubbly.WithDeep())
 	defer cleanup()
-	
+
 	tester := NewDeepWatchTester(data, &watchCount, true)
 
 	// No modifications - count should be 0
@@ -771,10 +771,10 @@ func TestDeepWatchTester_AssertPathChanged_EdgeCases(t *testing.T) {
 
 	// Modify nested field
 	tester.ModifyNestedField("Profile.Age", 31)
-	
+
 	// Path should be recorded
 	tester.AssertPathChanged(t, "Profile.Age")
-	
+
 	// Modified path should be in changed paths list
 	changedPaths := tester.GetChangedPaths()
 	assert.Contains(t, changedPaths, "Profile.Age")

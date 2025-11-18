@@ -349,7 +349,7 @@ func TestPropsVerifier_String(t *testing.T) {
 	assert.Contains(t, str, "props")
 	assert.Contains(t, str, "2 mutations attempted")
 	assert.Contains(t, str, "immutable")
-	
+
 	// Verify format is correct
 	assert.NotEmpty(t, str)
 }

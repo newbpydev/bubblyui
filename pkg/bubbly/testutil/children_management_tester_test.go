@@ -422,8 +422,8 @@ func TestChildrenManagementTester_GetChildren_AfterRemoval(t *testing.T) {
 // TestChildrenManagementTester_GetMountedChildren tests retrieving only mounted children
 func TestChildrenManagementTester_GetMountedChildren(t *testing.T) {
 	tests := []struct {
-		name              string
-		setup             func(*ChildrenManagementTester) []bubbly.Component
+		name                 string
+		setup                func(*ChildrenManagementTester) []bubbly.Component
 		expectedMountedCount int
 	}{
 		{
@@ -450,11 +450,11 @@ func TestChildrenManagementTester_GetMountedChildren(t *testing.T) {
 				child1, _ := createChildTestComponent("Child1")
 				child2, _ := createChildTestComponent("Child2")
 				child3, _ := createChildTestComponent("Child3")
-				
+
 				tester.AddChild(child1)
 				tester.AddChild(child2)
 				tester.AddChild(child3)
-				
+
 				// All three should be in mounted map
 				return []bubbly.Component{child1, child2, child3}
 			},
@@ -516,14 +516,14 @@ func TestChildrenManagementTester_GetMountedChildren_MapIteration(t *testing.T) 
 
 	// All three should be in mounted map
 	assert.Len(t, mounted, 3)
-	
+
 	// Order might not be preserved (it's from a map)
 	// Just verify all three are there
 	mountedSet := make(map[bubbly.Component]bool)
 	for _, c := range mounted {
 		mountedSet[c] = true
 	}
-	
+
 	assert.True(t, mountedSet[child1], "child1 should be mounted")
 	assert.True(t, mountedSet[child2], "child2 should be mounted")
 	assert.True(t, mountedSet[child3], "child3 should be mounted")
@@ -547,9 +547,9 @@ func TestChildrenManagementTester_GetMountedChildren_EmptyCase(t *testing.T) {
 // TestChildrenManagementTester_GetUnmountedChildren tests retrieving unmounted children
 func TestChildrenManagementTester_GetUnmountedChildren(t *testing.T) {
 	tests := []struct {
-		name                     string
-		setup                    func(*ChildrenManagementTester) []bubbly.Component
-		expectedUnmountedCount   int
+		name                   string
+		setup                  func(*ChildrenManagementTester) []bubbly.Component
+		expectedUnmountedCount int
 	}{
 		{
 			name: "no_children",
@@ -575,14 +575,14 @@ func TestChildrenManagementTester_GetUnmountedChildren(t *testing.T) {
 				child1, _ := createChildTestComponent("Child1")
 				child2, _ := createChildTestComponent("Child2")
 				child3, _ := createChildTestComponent("Child3")
-				
+
 				tester.AddChild(child1)
 				tester.AddChild(child2)
 				tester.AddChild(child3)
-				
+
 				// Unmount child2
 				tester.RemoveChild(child2)
-				
+
 				return []bubbly.Component{child2}
 			},
 			expectedUnmountedCount: 1,
@@ -592,13 +592,13 @@ func TestChildrenManagementTester_GetUnmountedChildren(t *testing.T) {
 			setup: func(tester *ChildrenManagementTester) []bubbly.Component {
 				child1, _ := createChildTestComponent("Child1")
 				child2, _ := createChildTestComponent("Child2")
-				
+
 				tester.AddChild(child1)
 				tester.AddChild(child2)
-				
+
 				tester.RemoveChild(child1)
 				tester.RemoveChild(child2)
-				
+
 				return []bubbly.Component{child1, child2}
 			},
 			expectedUnmountedCount: 2,

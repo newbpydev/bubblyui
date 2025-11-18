@@ -438,9 +438,9 @@ func TestTemplateSafetyTester_GetTemplate(t *testing.T) {
 // TestTemplateSafetyTester_Reset verifies reset functionality
 func TestTemplateSafetyTester_Reset(t *testing.T) {
 	tests := []struct {
-		name          string
-		setup         func(*TemplateSafetyTester)
-		verify        func(*testing.T, *TemplateSafetyTester)
+		name   string
+		setup  func(*TemplateSafetyTester)
+		verify func(*testing.T, *TemplateSafetyTester)
 	}{
 		{
 			name: "reset_after_mutations",
