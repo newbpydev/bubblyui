@@ -144,6 +144,18 @@ func extractRefsFromComponent(component bubbly.Component, refs map[string]*bubbl
 	}
 }
 
+// State returns the StateInspector for accessing component state.
+// This provides access to refs, computed values, and watchers for testing.
+//
+// Example:
+//
+//	ct := harness.Mount(component)
+//	value := ct.State().GetRefValue("count")
+//	ct.State().SetRefValue("count", 42)
+func (ct *ComponentTest) State() *StateInspector {
+	return ct.state
+}
+
 // Unmount unmounts the component and performs cleanup.
 // This method is idempotent - calling it multiple times will only
 // execute cleanup once.
