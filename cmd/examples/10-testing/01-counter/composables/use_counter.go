@@ -53,8 +53,8 @@ func UseCounter(ctx *bubbly.Context, initialCount int) *CounterComposable {
 	}
 
 	reset := func() {
-		count.Set(0)
-		history.Set([]int{0})
+		count.Set(initialCount)
+		history.Set([]int{initialCount})
 	}
 
 	setValue := func(val int) {
