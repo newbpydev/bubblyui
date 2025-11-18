@@ -31,7 +31,7 @@ func TestCounterDisplay_BasicMounting(t *testing.T) {
 	// Arrange
 	harness := testutil.NewHarness(t)
 	ctx := createTestContextForComponent()
-	
+
 	countRef := ctx.Ref(0)
 	isEvenComputed := ctx.Computed(func() interface{} {
 		return countRef.Get().(int)%2 == 0
