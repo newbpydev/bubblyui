@@ -36,7 +36,9 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 			ctx.Expose("focusColor", focusColor)
 			ctx.Expose("inactiveColor", inactiveColor)
 
-			// Create the Input component in Setup so we can forward events to it
+			// CRITICAL FINDING: Input component is a "molecule" component designed for inline use
+			// Pattern from 06-built-in-components showcase: Create in Setup, Init manually, store reference
+			// DO NOT use ExposeComponent - it makes Input a child which breaks event flow!
 			inputComp := components.Input(components.InputProps{
 				Value:       props.Value,
 				Placeholder: "What needs to be done?",
@@ -44,10 +46,15 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 				CharLimit:   100,
 				NoBorder:    true, // We'll add our own border in the card
 			})
+
+			// Manual Init (proven pattern from showcase)
 			inputComp.Init()
+
+			// Store for template access (NOT as child, just as reference)
 			ctx.Expose("inputComp", inputComp)
 
 			// Forward textInputUpdate events to the Input component
+			// Input component listens for this event to update its internal textinput.Model
 			ctx.On("textInputUpdate", func(data interface{}) {
 				inputComp.Emit("textInputUpdate", data)
 			})
