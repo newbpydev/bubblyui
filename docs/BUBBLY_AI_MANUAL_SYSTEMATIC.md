@@ -58,6 +58,181 @@ func main() {
 
 ---
 
+## 🎯 CRITICAL: Two Types of Components
+
+**Understanding this distinction is ESSENTIAL to avoid crashes and bugs.**
+
+### 1. Composable Components (Custom App Components)
+
+**Use Case:** Custom components that compose the application structure  
+**Pattern:** `ExposeComponent` establishes parent-child relationship  
+**Examples:** CounterDisplay, TodoList, custom app components from `components/` folders
+
+**Full Pattern:**
+```go
+// In parent Setup:
+child, err := components.CreateCustomComponent(components.CustomProps{
+    Value: valueRef,
+    OnAction: actionHandler,
+})
+if err != nil {
+    ctx.Expose("error", err)
+    return
+}
+
+// CRITICAL: Use ExposeComponent for composable components
+if err := ctx.ExposeComponent("child", child); err != nil {
+    ctx.Expose("error", fmt.Sprintf("Failed to expose: %v", err))
+    return
+}
+
+// In parent Template:
+child := ctx.Get("child").(bubbly.Component)
+return child.View()
+```
+
+**Why ExposeComponent:**
+- Establishes parent-child relationship in component tree
+- Automatically calls `child.Init()` if not initialized
+- Parent's `Update()` automatically propagates to children
+- Required for DevTools component tree inspection
+- Enables proper lifecycle management
+
+**Examples from codebase:**
+- `09-devtools/01-basic-enablement/app.go` - CounterDisplay, CounterControls
+- `09-devtools/02-component-inspection/app.go` - TodoList, Header, Footer
+- `10-testing/01-counter/app.go` - CounterDisplay
+
+---
+
+### 2. Molecule Components (Built-in Rendering Helpers)
+
+**Use Case:** Pre-built components from `pkg/components` for inline rendering  
+**Pattern:** Manual `.Init()` + `ctx.Expose()` for storage  
+**Examples:** Input, Button, Text, Badge, Card, Modal, etc.
+
+**Full Pattern:**
+```go
+// In Setup (store reference):
+inputComp := components.Input(components.InputProps{
+    Value:       valueRef,
+    Placeholder: "Enter text...",
+    Width:       50,
+    CharLimit:   100,
+})
+
+// CRITICAL: Manual Init, NOT ExposeComponent!
+inputComp.Init()
+
+// Store as reference (NOT as child)
+ctx.Expose("inputComp", inputComp)
+
+// Forward events to molecule component
+ctx.On("textInputUpdate", func(data interface{}) {
+    inputComp.Emit("textInputUpdate", data)
+})
+
+// In Template:
+inputComp := ctx.Get("inputComp").(bubbly.Component)
+return inputComp.View()
+```
+
+**OR Create Inline in Template (also valid):**
+```go
+// In Template (create + render inline):
+inputComp := components.Input(components.InputProps{
+    Value:       ctx.Get("value").(*bubbly.Ref[string]),
+    Placeholder: "Enter text...",
+    Width:       25,
+})
+inputComp.Init()
+return inputComp.View()
+```
+
+**Why NOT ExposeComponent:**
+- Molecule components are **rendering helpers**, not tree nodes
+- They use **event-based updates** (`Emit("textInputUpdate", msg)`), not Update() override
+- Making them children creates conflict: parent Update() + event updates = **CRASH**
+- They're designed for inline composition, not parent-child relationships
+
+**Examples from codebase:**
+- `06-built-in-components/components-showcase/main.go` - ALL molecule components
+- `10-testing/02-todo/components/todo_input.go` - Input component usage
+
+---
+
+### Decision Matrix: Which Pattern to Use?
+
+| Component Type | Use ExposeComponent? | Pattern | Example |
+|----------------|---------------------|---------|---------|
+| **Custom component with Setup/Template** | ✅ YES | `ctx.ExposeComponent("name", comp)` | CounterDisplay, TodoList |
+| **Built-in from pkg/components** | ❌ NO | `comp.Init()` + `ctx.Expose("name", comp)` | Input, Button, Text, Badge |
+| **Component that manages children** | ✅ YES | `ctx.ExposeComponent("name", comp)` | AppLayout, PageLayout |
+| **Component for inline rendering** | ❌ NO | Create in Template + `.Init()` | Card, Modal (dynamic) |
+
+---
+
+### Common Mistakes & Fixes
+
+**❌ WRONG: Using ExposeComponent on molecule components**
+```go
+// This will CRASH when emitting events!
+inputComp := components.Input(props)
+ctx.ExposeComponent("input", inputComp)  // ❌ Makes Input a child - breaks event flow!
+```
+
+**✅ CORRECT: Manual Init for molecule components**
+```go
+// This works correctly
+inputComp := components.Input(props)
+inputComp.Init()                         // ✅ Manual init
+ctx.Expose("input", inputComp)           // ✅ Store reference, NOT as child
+```
+
+**❌ WRONG: Manual Init on composable components**
+```go
+// This bypasses parent-child relationship!
+display, _ := components.CreateCounterDisplay(props)
+display.Init()                           // ❌ Manual init bypasses lifecycle
+ctx.Expose("display", display)           // ❌ No parent-child relationship!
+```
+
+**✅ CORRECT: ExposeComponent for composable components**
+```go
+// This establishes proper relationships
+display, _ := components.CreateCounterDisplay(props)
+ctx.ExposeComponent("display", display)  // ✅ Auto-init + parent-child relationship
+```
+
+---
+
+### Why This Matters: Technical Deep Dive
+
+**ExposeComponent Side Effects:**
+1. Calls `comp.Init()` if not initialized
+2. Calls `ctx.component.AddChild(comp)` - **registers as child**
+3. Parent's `Update(msg)` automatically calls `child.Update(msg)` for ALL children
+
+**Input Component Architecture:**
+- Uses `bubbles/textinput` internally
+- Updates via **"textInputUpdate"** event (event handler pattern)
+- Event handler calls `ti.Update(msg)` on internal textinput
+- Does NOT override `Update()` method (uses default framework behavior)
+
+**The Conflict:**
+- If Input is a child via ExposeComponent:
+  - Parent calls `child.Update(msg)` automatically
+  - You also emit "textInputUpdate" events
+  - Two update paths to same internal state → **race condition → CRASH**
+
+**The Solution:**
+- Keep molecule components as **references**, not children
+- They receive updates ONLY via events (single update path)
+- No automatic Update() propagation from parent
+- Clean, predictable event flow
+
+---
+
 ## Part 1: Composables Pattern (Core)
 
 ### File: `composables/use_counter.go`

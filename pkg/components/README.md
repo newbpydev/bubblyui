@@ -1,3 +1,125 @@
+# BubblyUI Components Package
+
+**Pre-built, production-ready TUI components for the BubblyUI framework.**
+
+**Version:** 3.0  
+**Status:** Stable  
+**Coverage:** ~88%
+
+---
+
+## 🚨 CRITICAL: Component Usage Patterns
+
+**Understanding this is ESSENTIAL to avoid crashes and bugs in your application.**
+
+### Two Types of Components
+
+All components in this package are **"molecule components"** - pre-built rendering helpers designed for **inline composition**, NOT for parent-child relationships in the component tree.
+
+### ✅ Correct Usage Pattern
+
+**For ALL components in `pkg/components`:**
+
+```go
+// In Setup (store reference):
+inputComp := components.Input(components.InputProps{
+    Value:       valueRef,
+    Placeholder: "Enter text...",
+    Width:       50,
+})
+
+// CRITICAL: Manual Init, NOT ExposeComponent!
+inputComp.Init()
+
+// Store as reference (NOT as child)
+ctx.Expose("inputComp", inputComp)
+
+// Forward events if needed
+ctx.On("textInputUpdate", func(data interface{}) {
+    inputComp.Emit("textInputUpdate", data)
+})
+
+// In Template:
+inputComp := ctx.Get("inputComp").(bubbly.Component)
+return inputComp.View()
+```
+
+**OR Create Inline in Template (also valid):**
+
+```go
+// In Template (create + render inline):
+inputComp := components.Input(components.InputProps{
+    Value:       ctx.Get("value").(*bubbly.Ref[string]),
+    Placeholder: "Enter text...",
+    Width:       25,
+})
+inputComp.Init()
+return inputComp.View()
+```
+
+### ❌ WRONG: Do NOT Use ExposeComponent
+
+```go
+// ❌ This will CRASH when emitting events!
+inputComp := components.Input(props)
+ctx.ExposeComponent("input", inputComp)  // ❌ Makes Input a child - breaks event flow!
+```
+
+**Why this crashes:**
+- `ExposeComponent` registers the component as a **child** in the component tree
+- Parent's `Update(msg)` automatically calls `child.Update(msg)` for all children
+- Molecule components use **event-based updates** (`Emit("textInputUpdate", msg)`)
+- Two update paths to same state → **race condition → CRASH**
+
+### 🎯 When to Use ExposeComponent
+
+**ExposeComponent is ONLY for custom composable components** (not from this package):
+
+```go
+// ✅ CORRECT: Use ExposeComponent for custom app components
+display, _ := components.CreateCounterDisplay(props)  // Your custom component
+ctx.ExposeComponent("display", display)  // ✅ Establishes parent-child relationship
+```
+
+**Examples of composable components:**
+- Custom components with `Setup` and `Template` functions
+- Components from your app's `components/` folder
+- Components that manage their own children
+
+**All components in `pkg/components` are molecules - use manual `.Init()` pattern.**
+
+---
+
+## 📦 Component Categories
+
+### Atoms (Basic Building Blocks)
+- **Input** - Text input with cursor, validation, password mode
+- **Button** - Clickable buttons (Primary, Secondary variants)
+- **Text** - Styled text labels and content
+- **Badge** - Status indicators and counts
+- **Icon** - Icon display component
+- **Spacer** - Layout spacing component
+- **Spinner** - Loading indicators
+
+### Molecules (Form Components)
+- **Checkbox** - Boolean checkbox inputs
+- **Radio** - Radio button groups
+- **Toggle** - Boolean switch/toggle
+- **Select** - Dropdown selection
+- **Textarea** - Multi-line text input
+- **Form** - Form wrapper with validation
+
+### Organisms (Data Display)
+- **Table** - Tabular data with columns, sorting, selection
+- **List** - Vertical list with custom rendering
+- **Card** - Content cards with title/content
+- **Modal** - Overlay dialogs
+
+### Navigation
+- **Tabs** - Tabbed interface
+- **Menu** - Menu navigation
+- **Accordion** - Expandable/collapsible sections
+
 ### Templates (Layout Structures)
 
 #### 21. AppLayout
