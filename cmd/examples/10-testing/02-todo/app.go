@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	localcomponents "github.com/newbpydev/bubblyui/cmd/examples/10-testing/02-todo/components"
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/02-todo/composables"
@@ -22,12 +21,6 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("c", "clear", "Clear all").
 		WithKeyBinding("a", "toggleAll", "Toggle all").
 		WithKeyBinding("ctrl+c", "quit", "Quit").
-		// CRITICAL: Forward keyboard to Input component for cursor support
-		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-			// Forward ALL keyboard input to Input component for cursor/editing
-			comp.Emit("forwardToInput", msg)
-			return nil
-		}).
 		Setup(func(ctx *bubbly.Context) {
 			// Initialize todos composable (testable business logic)
 			todos := composables.UseTodos(ctx, []composables.Todo{})
@@ -103,16 +96,6 @@ func CreateApp() (bubbly.Component, error) {
 			ctx.Expose("clear", todos.Clear)
 			ctx.Expose("toggleAll", todos.ToggleAll)
 
-			// Event: Forward keyboard input to Input component
-			ctx.On("forwardToInput", func(data interface{}) {
-				if !inputMode.Get().(bool) {
-					return // Only forward in input mode
-				}
-				// Forward to Input component's textInputUpdate handler
-				inputComp := ctx.Get("input").(bubbly.Component)
-				inputComp.Emit("textInputUpdate", data)
-			})
-
 			// Event: Toggle mode (ESC key)
 			ctx.On("toggleMode", func(data interface{}) {
 				current := inputMode.Get().(bool)
@@ -122,11 +105,11 @@ func CreateApp() (bubbly.Component, error) {
 				// Focus/blur Input component based on mode
 				inputComp := ctx.Get("input").(bubbly.Component)
 				if newMode {
-					// Entering input mode - focus the input
-					inputComp.Emit("focus", nil)
+					// Entering input mode - emit setFocus (forwarded to Input's "focus")
+					inputComp.Emit("setFocus", nil)
 				} else {
-					// Leaving input mode - blur the input
-					inputComp.Emit("blur", nil)
+					// Leaving input mode - emit setBlur (forwarded to Input's "blur")
+					inputComp.Emit("setBlur", nil)
 				}
 			})
 

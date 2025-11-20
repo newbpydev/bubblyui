@@ -36,9 +36,9 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 			ctx.Expose("focusColor", focusColor)
 			ctx.Expose("inactiveColor", inactiveColor)
 
-			// CRITICAL FINDING: Input component is a "molecule" component designed for inline use
-			// Pattern from 06-built-in-components showcase: Create in Setup, Init manually, store reference
-			// DO NOT use ExposeComponent - it makes Input a child which breaks event flow!
+			// Create Input component using unified pattern
+			// Input now uses WithMessageHandler for keyboard input
+			// This allows it to work with ExposeComponent like all other components
 			inputComp := components.Input(components.InputProps{
 				Value:       props.Value,
 				Placeholder: "What needs to be done?",
@@ -47,25 +47,24 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
 				NoBorder:    true, // We'll add our own border in the card
 			})
 
-			// Manual Init (proven pattern from showcase)
-			inputComp.Init()
-
-			// Store for template access (NOT as child, just as reference)
-			ctx.Expose("inputComp", inputComp)
-
-			// Forward textInputUpdate events to the Input component
-			// Input component listens for this event to update its internal textinput.Model
-			ctx.On("textInputUpdate", func(data interface{}) {
-				inputComp.Emit("textInputUpdate", data)
-			})
+			// Use ExposeComponent for automatic Init + parent-child relationship
+			// This is now the UNIFIED pattern for ALL components!
+			if err := ctx.ExposeComponent("inputComp", inputComp); err != nil {
+				ctx.Expose("error", fmt.Sprintf("Failed to expose input: %v", err))
+				return
+			}
 
 			// Forward focus/blur events to the Input component
-			ctx.On("focus", func(data interface{}) {
-				inputComp.Emit("focus", nil)
+			// Use internal event names to avoid bubble-back loops
+			// (parent emits "setFocus" -> we forward as "focus" to child)
+			ctx.On("setFocus", func(data interface{}) {
+				comp := ctx.Get("inputComp").(bubbly.Component)
+				comp.Emit("focus", nil)
 			})
 
-			ctx.On("blur", func(data interface{}) {
-				inputComp.Emit("blur", nil)
+			ctx.On("setBlur", func(data interface{}) {
+				comp := ctx.Get("inputComp").(bubbly.Component)
+				comp.Emit("blur", nil)
 			})
 
 			ctx.On("submit", func(data interface{}) {
