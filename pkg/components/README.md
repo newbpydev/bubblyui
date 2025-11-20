@@ -8,85 +8,48 @@
 
 ---
 
-## 🚨 CRITICAL: Component Usage Patterns
+## 🎉 Unified Component Pattern
 
-**Understanding this is ESSENTIAL to avoid crashes and bugs in your application.**
+**All components now use the same pattern!**
 
-### Two Types of Components
+As of the latest refactor, **all BubblyUI components** - both custom app components and built-in components from this package - use the **same unified pattern**.
 
-All components in this package are **"molecule components"** - pre-built rendering helpers designed for **inline composition**, NOT for parent-child relationships in the component tree.
+### ✅ Use ExposeComponent for Everything
 
-### ✅ Correct Usage Pattern
-
-**For ALL components in `pkg/components`:**
+**For ALL components including those in `pkg/components`:**
 
 ```go
-// In Setup (store reference):
+// In Setup:
 inputComp := components.Input(components.InputProps{
     Value:       valueRef,
     Placeholder: "Enter text...",
     Width:       50,
 })
 
-// CRITICAL: Manual Init, NOT ExposeComponent!
-inputComp.Init()
-
-// Store as reference (NOT as child)
-ctx.Expose("inputComp", inputComp)
-
-// Forward events if needed
-ctx.On("textInputUpdate", func(data interface{}) {
-    inputComp.Emit("textInputUpdate", data)
-})
+// ✅ UNIFIED PATTERN: Use ExposeComponent for all components!
+if err := ctx.ExposeComponent("inputComp", inputComp); err != nil {
+    ctx.Expose("error", err)
+    return
+}
 
 // In Template:
 inputComp := ctx.Get("inputComp").(bubbly.Component)
 return inputComp.View()
 ```
 
-**OR Create Inline in Template (also valid):**
+**Benefits:**
+- ✅ Consistent pattern across all components
+- ✅ Automatic initialization (no manual `.Init()` needed)
+- ✅ Proper parent-child relationships
+- ✅ Works with DevTools component tree
+- ✅ Simpler, cleaner code
 
-```go
-// In Template (create + render inline):
-inputComp := components.Input(components.InputProps{
-    Value:       ctx.Get("value").(*bubbly.Ref[string]),
-    Placeholder: "Enter text...",
-    Width:       25,
-})
-inputComp.Init()
-return inputComp.View()
-```
+### How This Was Achieved
 
-### ❌ WRONG: Do NOT Use ExposeComponent
+The `Input` component (the only one with special requirements due to `bubbles/textinput` integration) was refactored to use `WithMessageHandler` internally. This allows it to work seamlessly with `ExposeComponent` without conflicts.
 
-```go
-// ❌ This will CRASH when emitting events!
-inputComp := components.Input(props)
-ctx.ExposeComponent("input", inputComp)  // ❌ Makes Input a child - breaks event flow!
-```
-
-**Why this crashes:**
-- `ExposeComponent` registers the component as a **child** in the component tree
-- Parent's `Update(msg)` automatically calls `child.Update(msg)` for all children
-- Molecule components use **event-based updates** (`Emit("textInputUpdate", msg)`)
-- Two update paths to same state → **race condition → CRASH**
-
-### 🎯 When to Use ExposeComponent
-
-**ExposeComponent is ONLY for custom composable components** (not from this package):
-
-```go
-// ✅ CORRECT: Use ExposeComponent for custom app components
-display, _ := components.CreateCounterDisplay(props)  // Your custom component
-ctx.ExposeComponent("display", display)  // ✅ Establishes parent-child relationship
-```
-
-**Examples of composable components:**
-- Custom components with `Setup` and `Template` functions
-- Components from your app's `components/` folder
-- Components that manage their own children
-
-**All components in `pkg/components` are molecules - use manual `.Init()` pattern.**
+**All 27 components now support ExposeComponent:**
+Input, Button, Text, Badge, Icon, Spacer, Spinner, Checkbox, Radio, Toggle, Select, Textarea, Form, Table, List, Card, Modal, Tabs, Menu, Accordion, AppLayout, PageLayout, PanelLayout, GridLayout, and all others.
 
 ---
 

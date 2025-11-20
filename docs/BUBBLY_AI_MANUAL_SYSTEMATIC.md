@@ -58,155 +58,261 @@ func main() {
 
 ---
 
-## 🎯 CRITICAL: Two Types of Components
+## 🎉 Unified Component Pattern
 
-**Understanding this distinction is ESSENTIAL to avoid crashes and bugs.**
+**All BubblyUI components now use the same pattern!**
 
-### 1. Composable Components (Custom App Components)
+As of the latest refactor, there is **ONE unified pattern** for all components - both custom app components and built-in `pkg/components` components.
 
-**Use Case:** Custom components that compose the application structure  
-**Pattern:** `ExposeComponent` establishes parent-child relationship  
-**Examples:** CounterDisplay, TodoList, custom app components from `components/` folders
+### The Universal Pattern: ExposeComponent
 
-**Full Pattern:**
+**Use `ctx.ExposeComponent()` for ALL components:**
+
 ```go
-// In parent Setup:
-child, err := components.CreateCustomComponent(components.CustomProps{
-    Value: valueRef,
-    OnAction: actionHandler,
-})
-if err != nil {
-    ctx.Expose("error", err)
-    return
-}
+// Custom app components
+display, _ := components.CreateCounterDisplay(props)
+ctx.ExposeComponent("display", display)  // ✅ Unified pattern
 
-// CRITICAL: Use ExposeComponent for composable components
-if err := ctx.ExposeComponent("child", child); err != nil {
-    ctx.Expose("error", fmt.Sprintf("Failed to expose: %v", err))
-    return
-}
-
-// In parent Template:
-child := ctx.Get("child").(bubbly.Component)
-return child.View()
-```
-
-**Why ExposeComponent:**
-- Establishes parent-child relationship in component tree
-- Automatically calls `child.Init()` if not initialized
-- Parent's `Update()` automatically propagates to children
-- Required for DevTools component tree inspection
-- Enables proper lifecycle management
-
-**Examples from codebase:**
-- `09-devtools/01-basic-enablement/app.go` - CounterDisplay, CounterControls
-- `09-devtools/02-component-inspection/app.go` - TodoList, Header, Footer
-- `10-testing/01-counter/app.go` - CounterDisplay
-
----
-
-### 2. Molecule Components (Built-in Rendering Helpers)
-
-**Use Case:** Pre-built components from `pkg/components` for inline rendering  
-**Pattern:** Manual `.Init()` + `ctx.Expose()` for storage  
-**Examples:** Input, Button, Text, Badge, Card, Modal, etc.
-
-**Full Pattern:**
-```go
-// In Setup (store reference):
+// Built-in components from pkg/components
 inputComp := components.Input(components.InputProps{
     Value:       valueRef,
     Placeholder: "Enter text...",
     Width:       50,
-    CharLimit:   100,
 })
-
-// CRITICAL: Manual Init, NOT ExposeComponent!
-inputComp.Init()
-
-// Store as reference (NOT as child)
-ctx.Expose("inputComp", inputComp)
-
-// Forward events to molecule component
-ctx.On("textInputUpdate", func(data interface{}) {
-    inputComp.Emit("textInputUpdate", data)
-})
+ctx.ExposeComponent("input", inputComp)  // ✅ Same pattern!
 
 // In Template:
-inputComp := ctx.Get("inputComp").(bubbly.Component)
-return inputComp.View()
+display := ctx.Get("display").(bubbly.Component)
+input := ctx.Get("input").(bubbly.Component)
+return display.View() + "\n" + input.View()
 ```
 
-**OR Create Inline in Template (also valid):**
+**Benefits of ExposeComponent:**
+- ✅ Automatically calls `.Init()` if not initialized
+- ✅ Establishes parent-child relationship in component tree
+- ✅ Parent's `Update(msg)` automatically propagates to children
+- ✅ Enables DevTools component tree inspection
+- ✅ Proper lifecycle management
+- ✅ **Works for ALL components now!**
+
+---
+
+### How Input Component Was Fixed
+
+The `Input` component was the only one that previously required special handling. It's now been refactored to work seamlessly with `ExposeComponent`:
+
+**Before (Required special pattern):**
 ```go
-// In Template (create + render inline):
-inputComp := components.Input(components.InputProps{
-    Value:       ctx.Get("value").(*bubbly.Ref[string]),
-    Placeholder: "Enter text...",
-    Width:       25,
+// Had to manually Init and forward events
+inputComp := components.Input(props)
+inputComp.Init()  // Manual init
+ctx.Expose("input", inputComp)
+
+ctx.On("textInputUpdate", func(data interface{}) {
+    inputComp.Emit("textInputUpdate", data)  // Manual forwarding
 })
-inputComp.Init()
-return inputComp.View()
 ```
 
-**Why NOT ExposeComponent:**
-- Molecule components are **rendering helpers**, not tree nodes
-- They use **event-based updates** (`Emit("textInputUpdate", msg)`), not Update() override
-- Making them children creates conflict: parent Update() + event updates = **CRASH**
-- They're designed for inline composition, not parent-child relationships
-
-**Examples from codebase:**
-- `06-built-in-components/components-showcase/main.go` - ALL molecule components
-- `10-testing/02-todo/components/todo_input.go` - Input component usage
-
----
-
-### Decision Matrix: Which Pattern to Use?
-
-| Component Type | Use ExposeComponent? | Pattern | Example |
-|----------------|---------------------|---------|---------|
-| **Custom component with Setup/Template** | ✅ YES | `ctx.ExposeComponent("name", comp)` | CounterDisplay, TodoList |
-| **Built-in from pkg/components** | ❌ NO | `comp.Init()` + `ctx.Expose("name", comp)` | Input, Button, Text, Badge |
-| **Component that manages children** | ✅ YES | `ctx.ExposeComponent("name", comp)` | AppLayout, PageLayout |
-| **Component for inline rendering** | ❌ NO | Create in Template + `.Init()` | Card, Modal (dynamic) |
-
----
-
-### Common Mistakes & Fixes
-
-**❌ WRONG: Using ExposeComponent on molecule components**
+**After (Unified pattern):**
 ```go
-// This will CRASH when emitting events!
+// Just use ExposeComponent like everything else!
 inputComp := components.Input(props)
-ctx.ExposeComponent("input", inputComp)  // ❌ Makes Input a child - breaks event flow!
+ctx.ExposeComponent("input", inputComp)  // That's it!
+
+// Focus/blur still use events (for state management)
+ctx.On("setFocus", func(data interface{}) {
+    input := ctx.Get("input").(bubbly.Component)
+    input.Emit("focus", nil)
+})
 ```
 
-**✅ CORRECT: Manual Init for molecule components**
+**Technical change:** Input now uses `WithMessageHandler` to intercept keyboard messages before child Update() processing, eliminating the dual-update conflict.
+
+---
+
+## Part 1: Composables Pattern (Core)
+
+### File: `composables/use_counter.go`
+
 ```go
-// This works correctly
-inputComp := components.Input(props)
-inputComp.Init()                         // ✅ Manual init
-ctx.Expose("input", inputComp)           // ✅ Store reference, NOT as child
+package composables
+
+import "github.com/newbpydev/bubblyui/pkg/bubbly"
+
+type CounterComposable struct {
+    Count     *bubbly.Ref[int]
+    Increment func()
+    Decrement func()
+    Reset     func()
+    IsEven    *bubbly.Computed[interface{}]
+}
+
+func UseCounter(ctx *bubbly.Context, initial int) *CounterComposable {
+    count := bubbly.NewRef(initial)
+    
+    isEven := ctx.Computed(func() interface{} {
+        return count.Get()%2 == 0
+    })
+    
+    return &CounterComposable{
+        Count: count,
+        Increment: func() { count.Set(count.Get() + 1) },
+        Decrement: func() { count.Set(count.Get() - 1) },
+        Reset:     func() { count.Set(initial) },
+        IsEven:    isEven,
+    }
+}
 ```
 
-**❌ WRONG: Manual Init on composable components**
+### Composable Return Patterns
+
+**UseState (simple):**
 ```go
-// This bypasses parent-child relationship!
-display, _ := components.CreateCounterDisplay(props)
-display.Init()                           // ❌ Manual init bypasses lifecycle
-ctx.Expose("display", display)           // ❌ No parent-child relationship!
+type UseStateReturn[T any] struct {
+    Value *bubbly.Ref[T]
+    Set   func(T)
+    Get   func() T
+}
+
+state := composables.UseState(ctx, 0)
+state.Set(42)
+current := state.Get()  // int
 ```
 
-**✅ CORRECT: ExposeComponent for composable components**
+**UseAsync (async data):**
 ```go
-// This establishes proper relationships
-display, _ := components.CreateCounterDisplay(props)
-ctx.ExposeComponent("display", display)  // ✅ Auto-init + parent-child relationship
+type UseAsyncReturn[T any] struct {
+    Data    *bubbly.Ref[*T]
+    Loading *bubbly.Ref[bool]
+    Error   *bubbly.Ref[error]
+    Execute func()
+    Reset   func()
+}
+
+async := composables.UseAsync(ctx, fetchUser)
+async.Execute()
+user := async.Data.Get()  // *User or nil
+```
+
+**UseForm (validated form):**
+```go
+type UseFormReturn[T any] struct {
+    Values   *bubbly.Ref[T]
+    Errors   *bubbly.Ref[map[string]string]
+    Touched  *bubbly.Ref[map[string]bool]
+    IsValid  *bubbly.Ref[bool]
+    IsDirty  *bubbly.Ref[bool]
+    SetField func(field string, value interface{})
+    Reset    func()
+}
+
+form := composables.UseForm(ctx, LoginForm{}, validateLogin)
+form.SetField("Username", "alice")
+if form.IsValid.Get() { submit() }
+```
+
+**UseEffect (side effects with cleanup):**
+```go
+cleanup := composables.UseEffect(ctx, func() composables.UseEffectCleanup {
+    ticker := time.NewTicker(1 * time.Second)
+    go worker(ticker)
+    
+    return func() { ticker.Stop() }  // Cleanup
+}, dep1, dep2)  // Re-run when deps change
 ```
 
 ---
 
-### Why This Matters: Technical Deep Dive
+## Part 2: Component Factory Pattern
+
+### File: `components/counter_display.go`
+
+```go
+package components
+
+import (
+    "fmt"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/components"
+)
+
+type CounterDisplayProps struct {
+    Count  *bubbly.Ref[int]
+    IsEven *bubbly.Computed[interface{}]
+}
+
+func CreateCounterDisplay(props CounterDisplayProps) (bubbly.Component, error) {
+    return bubbly.NewComponent("CounterDisplay").
+        Setup(func(ctx *bubbly.Context) {
+            ctx.Expose("count", props.Count)
+            ctx.Expose("isEven", props.IsEven)
+            ctx.OnMounted(func() { fmt.Println("[CounterDisplay] Mounted!") })
+        }).
+        Template(func(ctx *bubbly.RenderContext) string {
+            count := ctx.Get("count").(*bubbly.Ref[int]).Get()
+            isEven := ctx.Get("isEven").(*bubbly.Computed[interface{}]).Get().(bool)
+            
+            card := components.Card(components.CardProps{
+                Title: "Counter Display",
+                Content: fmt.Sprintf("Count: %d (%s)", count, 
+                    map[bool]string{true: "even", false: "odd"}[isEven]),
+            })
+            card.Init()
+            return card.View()
+        }).
+        Build()
+}
+```
+
+### File: `components/counter_controls.go`
+
+```go
+package components
+
+import (
+    "github.com/charmbracelet/lipgloss"
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui/pkg/components"
+)
+
+type CounterControlsProps struct {
+    OnIncrement func()
+    OnDecrement func()
+    OnReset     func()
+}
+
+func CreateCounterControls(props CounterControlsProps) (bubbly.Component, error) {
+    return bubbly.NewComponent("CounterControls").
+        Setup(func(ctx *bubbly.Context) {
+            ctx.On("increment", func(_ interface{}) { if props.OnIncrement != nil { props.OnIncrement() } })
+            ctx.On("decrement", func(_ interface{}) { if props.OnDecrement != nil { props.OnDecrement() } })
+            ctx.On("reset", func(_ interface{}) { if props.OnReset != nil { props.OnReset() } })
+        }).
+        Template(func(ctx *bubbly.RenderContext) string {
+            text := components.Text(components.TextProps{
+                Content: "Controls: [i] Increment  [d] Decrement  [r] Reset",
+                Color:   lipgloss.Color("240"),
+            })
+            text.Init()
+            return text.View()
+        }).
+        Build()
+}
+```
+
+### Component Builder Methods
+
+**Full API (11 methods):**
+```go
+bubbly.NewComponent(name).
+    Props(props).                    // Set component props
+    Setup(fn).                       // Setup function (REQUIRED)
+    Template(fn).                    // Render function (REQUIRED)
+```
+
+---
+
+## Why This Matters: Technical Deep Dive
 
 **ExposeComponent Side Effects:**
 1. Calls `comp.Init()` if not initialized

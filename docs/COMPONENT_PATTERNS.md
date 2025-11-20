@@ -1,25 +1,27 @@
 # BubblyUI Component Patterns Guide
 
-**Critical Reference for Understanding Component Architecture**
+**Unified Pattern for All Components**
 
-**Version:** 3.0  
-**Last Updated:** November 19, 2025  
-**Status:** VERIFIED - Based on Real Production Issues  
+**Version:** 3.1  
+**Last Updated:** November 20, 2025  
+**Status:** UNIFIED - Single Pattern for All Components  
 **Target Audience:** All BubblyUI Developers
 
 ---
 
-## 🚨 CRITICAL: Read This First
+## 🎉 Great News: Unified Pattern!
 
-**Failure to follow these patterns WILL cause your application to crash.**
+**All BubblyUI components now use the same pattern.**
 
-This guide was created after discovering a critical bug where using `ExposeComponent` with molecule components from `pkg/components` caused application crashes due to conflicting update mechanisms.
+As of v3.1, the framework has been refactored to use **one universal pattern** for all components. No more confusion about "molecule" vs "composable" components!
 
 ---
 
-## The Two Types of Components
+## The Universal Pattern: ExposeComponent
 
-### 1. Composable Components (Custom App Components)
+**Use `ctx.ExposeComponent()` for ALL components - both custom and built-in.**
+
+### Example: Custom App Component
 
 **Definition:** Components you create for your application that compose together to form the UI structure.
 
@@ -75,23 +77,13 @@ return display.View()
 
 ---
 
-### 2. Molecule Components (Built-in Rendering Helpers)
+### Example: Built-in Components from pkg/components
 
-**Definition:** Pre-built components from `pkg/components` package used for inline rendering.
+**All built-in components now work with `ExposeComponent`!**
 
-**Characteristics:**
-- Factory functions returning `bubbly.Component`
-- Use `bubbles/textinput`, `lipgloss` internally
-- Update via **event-based pattern** (`Emit("textInputUpdate", msg)`)
-- Do NOT override `Update()` method (use default framework behavior)
-- Are **rendering helpers**, not tree nodes
-- Examples: Input, Button, Text, Badge, Card, Modal, Table, etc.
-
-**Pattern:** Manual `.Init()` + `ctx.Expose()` for storage
-
-**Example:**
+**Example: Using Input Component**
 ```go
-// In Setup (store reference):
+// In Setup:
 inputComp := components.Input(components.InputProps{
     Value:       valueRef,
     Placeholder: "Enter text...",
@@ -99,15 +91,16 @@ inputComp := components.Input(components.InputProps{
     CharLimit:   100,
 })
 
-// CRITICAL: Manual Init, NOT ExposeComponent!
-inputComp.Init()
+// ✅ UNIFIED PATTERN: Same as custom components!
+if err := ctx.ExposeComponent("inputComp", inputComp); err != nil {
+    ctx.Expose("error", err)
+    return
+}
 
-// Store as reference (NOT as child)
-ctx.Expose("inputComp", inputComp)
-
-// Forward events to molecule component
-ctx.On("textInputUpdate", func(data interface{}) {
-    inputComp.Emit("textInputUpdate", data)
+// Focus/blur events (for state management)
+ctx.On("setFocus", func(data interface{}) {
+    input := ctx.Get("inputComp").(bubbly.Component)
+    input.Emit("focus", nil)
 })
 
 // In Template:
@@ -115,99 +108,49 @@ inputComp := ctx.Get("inputComp").(bubbly.Component)
 return inputComp.View()
 ```
 
-**Alternative: Create Inline in Template:**
-```go
-// In Template (create + render inline):
-inputComp := components.Input(components.InputProps{
-    Value:       ctx.Get("value").(*bubbly.Ref[string]),
-    Placeholder: "Enter text...",
-    Width:       25,
-})
-inputComp.Init()
-return inputComp.View()
-```
-
-**Why NOT ExposeComponent:**
-- Molecule components are **rendering helpers**, not tree nodes
-- They use **event-based updates**, not Update() override
-- Making them children creates conflict: parent Update() + event updates = **CRASH**
-- They're designed for inline composition, not parent-child relationships
+**How This Works:**
+- Input component uses `WithMessageHandler` internally
+- Keyboard messages are processed via the handler before child Update() propagation
+- Focus/blur events manage state without conflicting with Update() flow
+- No more dual update paths - clean, single architecture
 
 ---
 
 ## Decision Matrix
 
+**Simple: Always use ExposeComponent!**
+
 | Component Type | Source | Use ExposeComponent? | Pattern |
 |----------------|--------|---------------------|---------|
 | Custom component with Setup/Template | Your `components/` folder | ✅ YES | `ctx.ExposeComponent("name", comp)` |
-| Built-in from pkg/components | `components.Input()`, etc. | ❌ NO | `comp.Init()` + `ctx.Expose("name", comp)` |
+| Built-in from pkg/components | `components.Input()`, `components.Card()`, etc. | ✅ YES | `ctx.ExposeComponent("name", comp)` |
 | Component that manages children | Your app | ✅ YES | `ctx.ExposeComponent("name", comp)` |
-| Component for inline rendering | `pkg/components` | ❌ NO | Create in Template + `.Init()` |
+| ANY component | Anywhere | ✅ YES | `ctx.ExposeComponent("name", comp)` |
 | Layout components | `components.AppLayout()`, etc. | ❌ NO | Manual `.Init()` |
 
 ---
 
-## Common Mistakes & Fixes
+## Benefits of Unified Pattern
 
-### ❌ Mistake 1: Using ExposeComponent on Molecule Components
+### ✅ Simpler to Learn
+- Only one pattern to remember
+- No mental overhead deciding which pattern to use
+- Consistent across entire codebase
 
-```go
-// ❌ This will CRASH when emitting events!
-inputComp := components.Input(props)
-ctx.ExposeComponent("input", inputComp)  // ❌ Makes Input a child - breaks event flow!
-```
+### ✅ Cleaner Code
+- No manual `.Init()` calls
+- Automatic parent-child relationships
+- Less boilerplate
 
-**Error:** Application crashes when pressing ESC or emitting focus/blur events.
+### ✅ Better DevTools Integration
+- All components visible in component tree
+- Easier debugging and inspection
+- Proper lifecycle tracking
 
-**Fix:**
-```go
-// ✅ CORRECT
-inputComp := components.Input(props)
-inputComp.Init()                         // ✅ Manual init
-ctx.Expose("input", inputComp)           // ✅ Store reference, NOT as child
-```
-
----
-
-### ❌ Mistake 2: Manual Init on Composable Components
-
-```go
-// ❌ This bypasses parent-child relationship!
-display, _ := components.CreateCounterDisplay(props)
-display.Init()                           // ❌ Manual init bypasses lifecycle
-ctx.Expose("display", display)           // ❌ No parent-child relationship!
-```
-
-**Error:** Component doesn't receive Update() calls, lifecycle hooks don't fire, DevTools can't see it.
-
-**Fix:**
-```go
-// ✅ CORRECT
-display, _ := components.CreateCounterDisplay(props)
-ctx.ExposeComponent("display", display)  // ✅ Auto-init + parent-child relationship
-```
-
----
-
-### ❌ Mistake 3: Forgetting to Init Molecule Components
-
-```go
-// ❌ Component not initialized!
-inputComp := components.Input(props)
-ctx.Expose("input", inputComp)
-// Missing .Init() call!
-
-// In Template:
-return inputComp.View()  // ❌ Will render blank or crash
-```
-
-**Fix:**
-```go
-// ✅ CORRECT
-inputComp := components.Input(props)
-inputComp.Init()  // ✅ Required!
-ctx.Expose("input", inputComp)
-```
+### ✅ Fewer Bugs
+- No dual update path conflicts
+- Correct Update() propagation
+- Proper cleanup and lifecycle
 
 ---
 
@@ -242,51 +185,48 @@ func (ctx *Context) ExposeComponent(name string, comp Component) error {
 }
 ```
 
-### Molecule Component Architecture
+### How Input Component Was Fixed
 
-Example: `Input` component from `pkg/components/input.go`
+The `Input` component now uses `WithMessageHandler` to intercept keyboard messages **before** child Update() processing:
 
-**Event-Based Update Pattern:**
+**New Architecture:**
 ```go
-// Input component Setup:
-ctx.On("textInputUpdate", func(data interface{}) {
-    if msg, ok := data.(tea.Msg); ok {
-        var cmd tea.Cmd
-        ti, cmd = ti.Update(msg)  // Update internal textinput.Model
+// Input component (simplified):
+bubbly.NewComponent("Input").
+    Setup(func(ctx *bubbly.Context) {
+        ti := textinput.New()  // bubbles/textinput
+        focusedRef := bubbly.NewRef(false)
         
-        // Sync value back to props.Value
-        newValue := ti.Value()
-        if newValue != props.Value.Get().(string) {
-            props.Value.Set(newValue)
-        }
-    }
-})
+        // Internal event handler for keyboard processing
+        ctx.On("__processKeyboard", func(data interface{}) {
+            if msg, ok := data.(tea.Msg); ok {
+                if focusedRef.GetTyped() {
+                    ti, cmd = ti.Update(msg)  // Update textinput
+                    // Sync value...
+                }
+            }
+        })
+        
+        // Focus/blur events
+        ctx.On("focus", func(_ interface{}) {
+            focusedRef.Set(true)
+            ti.Focus()
+        })
+    }).
+    WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+        // Forward to internal handler
+        comp.Emit("__processKeyboard", msg)
+        return nil
+    }).
+    Build()
 ```
 
 **Key Points:**
-- Input does NOT override `Update()` method
-- Uses default `componentImpl.Update()` from framework
-- Internal `textinput.Model` ONLY updates via "textInputUpdate" event
-- No automatic Update() propagation from parent needed
-
-### The Conflict (Why It Crashes)
-
-**Scenario: Input is made a child via ExposeComponent**
-
-1. User presses ESC → toggleMode event fires
-2. App emits `inputComp.Emit("focus", nil)`
-3. TodoInput receives "focus" event
-4. TodoInput forwards to Input: `inputComp.Emit("textInputUpdate", msg)`
-5. **SIMULTANEOUSLY:**
-   - Parent calls `child.Update(msg)` (automatic propagation)
-   - Input's "textInputUpdate" handler calls `ti.Update(msg)` (event-based)
-6. **Two update paths to same internal state** → race condition → **CRASH**
-
-**Solution:**
-- Keep molecule components as **references**, not children
-- They receive updates ONLY via events (single update path)
-- No automatic Update() propagation from parent
-- Clean, predictable event flow
+- `WithMessageHandler` runs **before** child Update() propagation
+- Internal handler `__processKeyboard` has access to textinput state
+- Only processes when focused
+- Single update path - no conflicts
+- Works perfectly with `ExposeComponent`!
 
 ---
 
@@ -294,12 +234,13 @@ ctx.On("textInputUpdate", func(data interface{}) {
 
 **File:** `cmd/examples/10-testing/02-todo/components/todo_input.go`
 
+**Using the Unified Pattern:**
+
 ```go
 func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
     return bubbly.NewComponent("TodoInput").
         Setup(func(ctx *bubbly.Context) {
-            // CRITICAL: Input is a molecule component
-            // DO NOT use ExposeComponent!
+            // Create Input component
             inputComp := components.Input(components.InputProps{
                 Value:       props.Value,
                 Placeholder: "What needs to be done?",
@@ -308,15 +249,21 @@ func CreateTodoInput(props TodoInputProps) (bubbly.Component, error) {
                 NoBorder:    true,
             })
             
-            // Manual Init (proven pattern)
-            inputComp.Init()
+            // ✅ UNIFIED PATTERN: Use ExposeComponent!
+            if err := ctx.ExposeComponent("inputComp", inputComp); err != nil {
+                ctx.Expose("error", fmt.Sprintf("Failed: %v", err))
+                return
+            }
             
-            // Store as reference (NOT as child)
-            ctx.Expose("inputComp", inputComp)
+            // Forward focus/blur for state management
+            ctx.On("setFocus", func(data interface{}) {
+                comp := ctx.Get("inputComp").(bubbly.Component)
+                comp.Emit("focus", nil)
+            })
             
-            // Forward events to Input component
-            ctx.On("textInputUpdate", func(data interface{}) {
-                inputComp.Emit("textInputUpdate", data)
+            ctx.On("setBlur", func(data interface{}) {
+                comp := ctx.Get("inputComp").(bubbly.Component)
+                comp.Emit("blur", nil)
             })
             
             ctx.On("focus", func(data interface{}) {
@@ -422,9 +369,9 @@ inputComp := components.Input(components.InputProps{
 // Which pattern?
 ```
 
-**Answer:** ✅ `inputComp.Init()` + `ctx.Expose("input", inputComp)` - It's a molecule from pkg/components.
+**Answer:** ✅ `ctx.ExposeComponent("input", inputComp)` - Same unified pattern for all!
 
-### Quiz 3: What's wrong here?
+### Quiz 3: What's the correct pattern?
 
 ```go
 // In Setup:
@@ -434,49 +381,49 @@ cardComp := components.Card(components.CardProps{
 ctx.ExposeComponent("card", cardComp)  // Is this correct?
 ```
 
-**Answer:** ❌ NO! Card is a molecule component. Should be:
-```go
-cardComp := components.Card(components.CardProps{
-    Title: "Welcome",
-})
-cardComp.Init()
-ctx.Expose("card", cardComp)
-```
+**Answer:** ✅ YES! All components use ExposeComponent now. This is the unified pattern!
 
 ---
 
 ## Debugging Checklist
 
-**App crashes when emitting events to components?**
-- [ ] Check if you used `ExposeComponent` on a `pkg/components` molecule
-- [ ] Verify you're using manual `.Init()` for all `pkg/components` components
-- [ ] Confirm event forwarding is one-way (no circular emissions)
-
 **Component not rendering after state change?**
-- [ ] Check if component is created in Setup vs Template
+- [ ] Check if component was properly exposed with `ExposeComponent`
 - [ ] Verify refs are passed correctly to component props
-- [ ] Confirm component is re-created in Template if values change
+- [ ] Confirm reactive values are updating
 
 **DevTools shows missing components in tree?**
-- [ ] Check if you used manual `.Init()` on a custom composable component
-- [ ] Should be using `ExposeComponent` for custom components
-- [ ] Molecule components won't appear in tree (this is correct)
+- [ ] Verify you used `ExposeComponent` (not manual `.Init()`)
+- [ ] Check parent component is properly initialized
+- [ ] All components should be visible now with unified pattern
 
 **Lifecycle hooks not firing?**
 - [ ] Verify component is registered via `ExposeComponent`
-- [ ] Confirm it's a composable component, not a molecule
 - [ ] Check parent component is properly initialized
+- [ ] Ensure component has lifecycle hooks defined
+
+**Event loop issues?**
+- [ ] Check for circular event emissions (e.g., "focus" → "focus")
+- [ ] Use internal event names to prevent bubble-back loops
+- [ ] Example: Parent emits "setFocus" → child forwards as "focus"
 
 ---
 
 ## Summary
 
-**Golden Rules:**
+**The Golden Rule:**
 
-1. **All `pkg/components` are molecules** → Manual `.Init()` + `ctx.Expose()`
-2. **All custom `components/` are composables** → `ctx.ExposeComponent()`
-3. **ExposeComponent = parent-child relationship** → Use for app structure
-4. **Manual .Init() = inline rendering** → Use for visual helpers
-5. **When in doubt, check working examples** → `09-devtools/`, `10-testing/`
+**Use `ctx.ExposeComponent()` for ALL components!**
 
-**This guide was created from real production issues. Following these patterns is NOT optional.**
+1. ✅ **Custom components** → `ctx.ExposeComponent()`
+2. ✅ **Built-in components** → `ctx.ExposeComponent()`
+3. ✅ **Input component** → `ctx.ExposeComponent()`
+4. ✅ **Everything** → `ctx.ExposeComponent()`
+
+**Benefits:**
+- Simpler to learn - one pattern
+- Cleaner code - less boilerplate
+- Better DevTools integration
+- Fewer bugs - no dual update paths
+
+**This unified pattern was achieved through careful refactoring of the Input component to use WithMessageHandler, enabling it to work seamlessly with ExposeComponent.**
