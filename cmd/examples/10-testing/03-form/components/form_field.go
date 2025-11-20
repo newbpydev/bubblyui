@@ -123,15 +123,17 @@ func CreateFormField(props FormFieldProps) (bubbly.Component, error) {
 			inputView := inputBorder.Render(inputComp.View())
 
 			// Error message
+			segments := []string{labelText, inputView}
 			errorView := ""
 			if errorMsg != "" {
 				errorStyle := lipgloss.NewStyle().
 					Foreground(errorColor).
 					PaddingLeft(2)
-				errorView = "\n" + errorStyle.Render("⚠ "+errorMsg)
+				errorView = errorStyle.Render("⚠ " + errorMsg)
+				segments = append(segments, errorView)
 			}
 
-			return labelText + "  " + inputView + errorView
+			return lipgloss.JoinVertical(lipgloss.Left, segments...)
 		}).
 		Build()
 }
