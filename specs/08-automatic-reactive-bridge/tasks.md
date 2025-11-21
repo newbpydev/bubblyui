@@ -3948,21 +3948,72 @@ func BenchmarkRun_TickOverhead(b *testing.B)
 ```
 
 **Tests**:
-- [ ] All integration tests pass
-- [ ] Async detection works correctly
-- [ ] All options function properly
-- [ ] Error handling robust
-- [ ] Performance acceptable (no regression)
-- [ ] Race detector clean (`go test -race`)
+- [x] All integration tests pass ✅
+- [x] Async detection works correctly ✅
+- [x] All options function properly ✅
+- [x] Error handling robust ✅
+- [x] Performance acceptable (no regression) ✅
+- [x] Race detector clean (`go test -race`) ✅
 
 **Type Safety**:
 - All tests use type-safe APIs
 - No unsafe type assertions
 - Proper error type checking
 
-**Actual Effort**: TBD
+**Actual Effort**: 2 hours (matched estimate)
 
 **Estimated Effort**: 2 hours
+
+**Status**: ✅ COMPLETED
+
+**Implementation Notes**:
+- Created 3 comprehensive test files with 21 tests total
+- All tests pass with race detector (`go test -race`)
+- Zero lint warnings (`go vet`)
+- Code formatted with `gofmt`
+- Comprehensive test coverage:
+  - **run_api_test.go**: 6 basic functionality tests
+  - **run_async_test.go**: 6 async detection tests (10 total with subtests)
+  - **run_options_test.go**: 9 run options and compatibility tests (18 total with subtests)
+- Performance benchmarks:
+  - BenchmarkRun_SyncApp: Tests sync component overhead
+  - BenchmarkRun_AsyncApp: Tests async component overhead
+  - BenchmarkRun_TickOverhead: Compares sync vs async tick overhead
+- All tests use `ctx.Ref()` for proper type handling (returns `*Ref[interface{}]`)
+- Tests verify:
+  - Basic Run() functionality with simple components
+  - Alt screen and all program options work correctly
+  - Error propagation and context cancellation
+  - Component lifecycle (Init, Update, View)
+  - Async auto-detection based on `WithAutoCommands()` flag
+  - Explicit async interval configuration
+  - Override behavior (explicit options override auto-detection)
+  - Custom refresh intervals (10ms, 100ms, 500ms, disabled)
+  - All 15 RunOption builders function correctly
+  - Multiple options can be combined
+  - Option priority (explicit overrides defaults)
+  - Mouse support (all motion, cell motion)
+  - Custom FPS settings (30, 60, 120)
+  - Backward compatibility with `Wrap()` + `tea.NewProgram()`
+  - Migration path from manual setup to `bubbly.Run()`
+  - Old manual wrapper pattern still works
+- Test execution time: ~2.4 seconds for all tests
+- Zero race conditions detected
+- Production-ready Run() API validated
+
+**Key Testing Patterns**:
+1. Use `context.WithTimeout()` for controlled test execution
+2. Use `strings.NewReader("")` for custom input in tests
+3. Context deadline exceeded is expected behavior (not an error)
+4. Tests verify both sync and async app patterns
+5. Benchmarks measure performance impact of async wrapper
+
+**Files Created**:
+- `tests/integration/run_api_test.go` (192 lines)
+- `tests/integration/run_async_test.go` (236 lines)
+- `tests/integration/run_options_test.go` (497 lines)
+
+**Total Lines**: 925 lines of comprehensive integration tests
 
 ---
 
