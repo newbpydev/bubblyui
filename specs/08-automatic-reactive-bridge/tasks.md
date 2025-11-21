@@ -3546,9 +3546,49 @@ func TestBuildTeaOptions(t *testing.T)
 - Component type assertion with safety check
 - tea.ProgramOption conversion verified
 
-**Actual Effort**: TBD
+**Actual Effort**: 3.5 hours
 
 **Estimated Effort**: 4 hours
+
+**Implementation Notes**:
+- ✅ Created `runner.go` with `Run()` function and `runConfig` struct
+- ✅ Implemented `asyncWrapperModel` for automatic async tick support
+- ✅ Created `runner_options.go` with all 15 RunOption builders
+- ✅ Comprehensive test suite in `runner_test.go` with 13 tests
+- ✅ All tests pass with race detector
+- ✅ Coverage: 93.0% for bubbly package
+- ✅ Backward compatible with existing `Wrap()` function
+- ✅ Auto-detection works correctly based on `WithAutoCommands` flag
+- ✅ Default async interval: 100ms (10 updates/sec)
+- ✅ All quality gates passed (test, vet, format, build)
+
+**Key Design Decisions**:
+1. Auto-detection enabled by default (`autoDetectAsync: true`)
+2. Async interval defaults to 100ms when auto-detected
+3. Users can override with `WithAsyncRefresh(interval)` or `WithAsyncRefresh(0)` to disable
+4. `WithoutAsyncAutoDetect()` disables auto-detection entirely
+5. Type assertion to `*componentImpl` for accessing `autoCommands` field (safe fallback if fails)
+6. `asyncWrapperModel` batches component.Init() with first tick command
+7. All Bubbletea program options supported via corresponding RunOption builders
+
+**Testing Strategy**:
+- Sync app (no async wrapper)
+- Async app with auto-detection
+- Async app with explicit interval
+- Async disabled explicitly (overrides auto-detection)
+- All 15 run options tested together
+- Error handling (context cancellation)
+- Backward compatibility with Wrap()
+- asyncWrapperModel Init/Update/View
+- Tick interval timing
+- buildTeaOptions conversion
+
+**Files Created**:
+- `pkg/bubbly/runner.go` (235 lines)
+- `pkg/bubbly/runner_options.go` (228 lines)
+- `pkg/bubbly/runner_test.go` (474 lines)
+
+**Status**: ✅ COMPLETED
 
 ---
 
