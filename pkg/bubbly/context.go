@@ -656,6 +656,40 @@ func (ctx *Context) UseTheme(defaultTheme Theme) Theme {
 	return defaultTheme
 }
 
+// ProvideTheme provides a theme to all descendant components.
+// This is a convenience method that wraps ctx.Provide("theme", theme) to eliminate
+// boilerplate when sharing theme colors across the component hierarchy.
+//
+// Parent components should call this in their Setup function to make the theme
+// available to all descendants. Child components can then retrieve the theme using
+// ctx.UseTheme(defaultTheme).
+//
+// The theme is propagated down the component tree via the standard Provide/Inject
+// mechanism. Children can override the theme for their subtree by calling ProvideTheme
+// with a different theme, which will take precedence for their descendants.
+//
+// Usage in parent component:
+//
+//	Setup(func(ctx *Context) {
+//	    // Provide custom theme to all descendants
+//	    customTheme := bubbly.DefaultTheme
+//	    customTheme.Primary = lipgloss.Color("99")  // Override primary color
+//	    ctx.ProvideTheme(customTheme)
+//	})
+//
+// Usage in child component:
+//
+//	Setup(func(ctx *Context) {
+//	    // Retrieve theme from parent
+//	    theme := ctx.UseTheme(bubbly.DefaultTheme)
+//	    titleStyle := lipgloss.NewStyle().Foreground(theme.Primary)
+//	})
+//
+// This method is thread-safe and can be called concurrently.
+func (ctx *Context) ProvideTheme(theme Theme) {
+	ctx.Provide("theme", theme)
+}
+
 // EnableAutoCommands enables automatic command generation for reactive state changes.
 // When enabled, calling Ref.Set() automatically generates Bubbletea commands that
 // trigger UI updates without manual event emission.

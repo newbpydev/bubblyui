@@ -2,6 +2,7 @@ package bubbly
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1513,4 +1514,299 @@ func TestContext_UseTheme_ThreadSafe(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		<-done
 	}
+}
+
+// TestContext_ProvideTheme tests that ProvideTheme makes theme available to children
+func TestContext_ProvideTheme(t *testing.T) {
+	// Arrange
+	parent := &componentImpl{
+		name:        "ParentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	customTheme := Theme{
+		Primary:    "99",
+		Secondary:  "120",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	// Act
+	ctx := &Context{component: parent}
+	ctx.ProvideTheme(customTheme)
+
+	// Assert - Verify theme is in provides map
+	parent.providesMu.RLock()
+	providedTheme, exists := parent.provides["theme"]
+	parent.providesMu.RUnlock()
+
+	assert.True(t, exists, "Theme should be provided")
+	assert.Equal(t, customTheme, providedTheme, "Provided theme should match")
+}
+
+// TestContext_ProvideTheme_DirectChild tests theme available to direct child
+func TestContext_ProvideTheme_DirectChild(t *testing.T) {
+	// Arrange - Create parent and child
+	parent := &componentImpl{
+		name:        "ParentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	child := &componentImpl{
+		name:        "ChildComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      parent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	customTheme := Theme{
+		Primary:    "99",
+		Secondary:  "120",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	// Act - Parent provides theme
+	parentCtx := &Context{component: parent}
+	parentCtx.ProvideTheme(customTheme)
+
+	// Child uses theme
+	childCtx := &Context{component: child}
+	result := childCtx.UseTheme(DefaultTheme)
+
+	// Assert
+	assert.Equal(t, customTheme, result, "Child should receive parent's theme")
+}
+
+// TestContext_ProvideTheme_ThreeLevelHierarchy tests theme available to grandchildren
+func TestContext_ProvideTheme_ThreeLevelHierarchy(t *testing.T) {
+	// Arrange - Create 3-level hierarchy
+	grandparent := &componentImpl{
+		name:        "GrandparentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	parent := &componentImpl{
+		name:        "ParentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      grandparent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	child := &componentImpl{
+		name:        "ChildComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      parent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	customTheme := Theme{
+		Primary:    "99",
+		Secondary:  "120",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	// Act - Grandparent provides theme
+	grandparentCtx := &Context{component: grandparent}
+	grandparentCtx.ProvideTheme(customTheme)
+
+	// Grandchild uses theme
+	childCtx := &Context{component: child}
+	result := childCtx.UseTheme(DefaultTheme)
+
+	// Assert
+	assert.Equal(t, customTheme, result, "Grandchild should receive grandparent's theme")
+}
+
+// TestContext_ProvideTheme_LocalOverride tests theme override in middle of hierarchy
+func TestContext_ProvideTheme_LocalOverride(t *testing.T) {
+	// Arrange - Create 3-level hierarchy
+	grandparent := &componentImpl{
+		name:        "GrandparentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	parent := &componentImpl{
+		name:        "ParentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      grandparent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	child := &componentImpl{
+		name:        "ChildComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      parent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	grandparentTheme := Theme{
+		Primary:    "35",
+		Secondary:  "99",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	parentTheme := Theme{
+		Primary:    "99",
+		Secondary:  "120",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	// Act - Grandparent provides theme
+	grandparentCtx := &Context{component: grandparent}
+	grandparentCtx.ProvideTheme(grandparentTheme)
+
+	// Parent overrides with own theme
+	parentCtx := &Context{component: parent}
+	parentCtx.ProvideTheme(parentTheme)
+
+	// Child uses theme
+	childCtx := &Context{component: child}
+	result := childCtx.UseTheme(DefaultTheme)
+
+	// Assert - Child should get parent's theme (closest ancestor)
+	assert.Equal(t, parentTheme, result, "Child should receive parent's overridden theme")
+}
+
+// TestContext_ProvideTheme_MixedWithOtherProvides tests theme works with other Provide/Inject values
+func TestContext_ProvideTheme_MixedWithOtherProvides(t *testing.T) {
+	// Arrange
+	parent := &componentImpl{
+		name:        "ParentComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	child := &componentImpl{
+		name:        "ChildComponent",
+		state:       make(map[string]interface{}),
+		provides:    make(map[string]interface{}),
+		injectCache: make(map[string]interface{}),
+		parent:      parent,
+		providesMu:  sync.RWMutex{},
+		children:    make([]Component, 0),
+		childrenMu:  sync.RWMutex{},
+		handlers:    make(map[string][]EventHandler),
+		handlersMu:  sync.RWMutex{},
+		keyBindings: make(map[string][]KeyBinding),
+	}
+
+	customTheme := Theme{
+		Primary:    "99",
+		Secondary:  "120",
+		Muted:      "240",
+		Warning:    "220",
+		Error:      "196",
+		Success:    "35",
+		Background: "236",
+	}
+
+	// Act - Parent provides theme AND other values
+	parentCtx := &Context{component: parent}
+	parentCtx.ProvideTheme(customTheme)
+	parentCtx.Provide("apiKey", "secret123")
+	parentCtx.Provide("userId", 42)
+
+	// Child injects theme and other values
+	childCtx := &Context{component: child}
+	resultTheme := childCtx.UseTheme(DefaultTheme)
+	resultApiKey := childCtx.Inject("apiKey", "default")
+	resultUserId := childCtx.Inject("userId", 0)
+
+	// Assert - All values should be available
+	assert.Equal(t, customTheme, resultTheme, "Theme should be available")
+	assert.Equal(t, "secret123", resultApiKey, "API key should be available")
+	assert.Equal(t, 42, resultUserId, "User ID should be available")
 }
