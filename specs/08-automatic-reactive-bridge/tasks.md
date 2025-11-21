@@ -3821,9 +3821,8 @@ func main() {
     bubbly.Run(app, bubbly.WithAltScreen())
 }
 ```
-
 Clean, simple, zero boilerplate! 🎉
-```
+
 
 **Documentation Content**:
 
