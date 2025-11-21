@@ -49,8 +49,7 @@ import (
 // main.go
 func main() {
     app, _ := CreateApp()
-    p := tea.NewProgram(bubbly.Wrap(app), tea.WithAltScreen())
-    p.Run()
+    bubbly.Run(app, bubbly.WithAltScreen())  // Zero boilerplate!
 }
 ```
 
@@ -2258,8 +2257,7 @@ router := csrouter.NewRouter().
 
 // Run
 component, _ := CreateApp()
-p := tea.NewProgram(bubbly.Wrap(component), tea.WithAltScreen())
-p.Run()
+bubbly.Run(component, bubbly.WithAltScreen())  // Zero boilerplate!
 ```
 
 ### Package Paths
@@ -2280,7 +2278,7 @@ import (
 1. composables/use_logic.go     # Reusable logic (UseState, etc.)
 2. components/X.go              # Factory functions with Props
 3. app.go                       # Compose everything
-4. main.go                      # bubbly.Wrap() & tea.NewProgram()
+4. main.go                      # bubbly.Run() - zero boilerplate!
 
 // State change → auto-cmd → re-render → View() called
 ```
