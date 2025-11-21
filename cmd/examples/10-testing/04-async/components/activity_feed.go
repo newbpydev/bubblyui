@@ -9,7 +9,7 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// ActivityFeedProps defines props for the activity feed component
+// ActivityFeedProps defines the properties for the ActivityFeed component
 type ActivityFeedProps struct {
 	Activity *bubbly.Ref[interface{}] // []composables.Activity
 	Loading  *bubbly.Ref[interface{}] // bool
@@ -59,7 +59,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 			warningColor := ctx.Get("warningColor").(lipgloss.Color)
 
 			loading := loadingRef.Get().(bool)
-			activities := activityRef.Get().([]composables.Activity)
+			activity := activityRef.Get().([]composables.Activity)
 
 			// Title style
 			titleStyle := lipgloss.NewStyle().
@@ -86,7 +86,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 			}
 
 			// Empty state
-			if len(activities) == 0 {
+			if len(activity) == 0 {
 				emptyStyle := lipgloss.NewStyle().
 					Foreground(mutedColor).
 					Italic(true)
@@ -96,7 +96,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 
 			// Render activities
 			var activityItems []string
-			for i, act := range activities {
+			for i, act := range activity {
 				// Activity type icon and color
 				var icon string
 				var typeColor lipgloss.Color
@@ -154,7 +154,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 				activityItems = append(activityItems, activityItem)
 
 				// Add separator between activities (not after last one)
-				if i < len(activities)-1 {
+				if i < len(activity)-1 {
 					separator := lipgloss.NewStyle().
 						Foreground(mutedColor).
 						Render(strings.Repeat("─", width-4))

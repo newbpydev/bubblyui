@@ -4,36 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 )
 
-// Repository represents a GitHub repository
-type Repository struct {
-	Name        string
-	Stars       int
-	Language    string
-	Description string
-	UpdatedAt   time.Time
-}
-
-// Activity represents a GitHub activity event
-type Activity struct {
-	Type      string // "push", "pr", "issue", "star"
-	Repo      string
-	Message   string
-	Timestamp time.Time
-}
-
-// GitHubAPI defines the interface for GitHub operations
-type GitHubAPI interface {
-	FetchRepositories(username string) tea.Cmd
-	FetchActivity(username string) tea.Cmd
-}
-
-// MockGitHubAPI provides a mock implementation for testing
+// MockGitHubAPI provides a synchronous mock implementation for testing
+// This follows the UseAsync pattern - synchronous functions that block
 type MockGitHubAPI struct {
-	repos      []Repository
-	activity   []Activity
+	repos      []composables.Repository
+	activity   []composables.Activity
 	repoDelay  time.Duration
 	actDelay   time.Duration
 	shouldFail bool
@@ -42,159 +20,86 @@ type MockGitHubAPI struct {
 // NewMockGitHubAPI creates a new mock API with default data
 func NewMockGitHubAPI() *MockGitHubAPI {
 	return &MockGitHubAPI{
-		repos: []Repository{
+		repos: []composables.Repository{
 			{
 				Name:        "bubblyui",
 				Stars:       142,
 				Language:    "Go",
 				Description: "Vue-inspired TUI framework for Go",
-				UpdatedAt:   time.Now().Add(-2 * time.Hour),
 			},
 			{
-				Name:        "awesome-tui",
+				Name:        "go-patterns",
 				Stars:       89,
 				Language:    "Go",
-				Description: "Collection of awesome TUI libraries",
-				UpdatedAt:   time.Now().Add(-5 * time.Hour),
+				Description: "Collection of Go design patterns",
 			},
 			{
-				Name:        "cli-tools",
+				Name:        "tui-toolkit",
 				Stars:       56,
 				Language:    "Go",
-				Description: "Useful CLI utilities",
-				UpdatedAt:   time.Now().Add(-1 * 24 * time.Hour),
+				Description: "Terminal UI component library",
 			},
 		},
-		activity: []Activity{
+		activity: []composables.Activity{
 			{
 				Type:      "push",
 				Repo:      "bubblyui",
-				Message:   "Add async testing utilities",
-				Timestamp: time.Now().Add(-30 * time.Minute),
+				Message:   "Added async composable support",
+				Timestamp: time.Now().Add(-1 * time.Hour).Format("2006-01-02 15:04"),
 			},
 			{
 				Type:      "pr",
-				Repo:      "awesome-tui",
-				Message:   "Merged PR #42: Add new library",
-				Timestamp: time.Now().Add(-2 * time.Hour),
+				Repo:      "go-patterns",
+				Message:   "Merged: Add observer pattern",
+				Timestamp: time.Now().Add(-3 * time.Hour).Format("2006-01-02 15:04"),
 			},
 			{
 				Type:      "issue",
-				Repo:      "bubblyui",
-				Message:   "Opened issue #15: Feature request",
-				Timestamp: time.Now().Add(-4 * time.Hour),
-			},
-			{
-				Type:      "star",
-				Repo:      "cli-tools",
-				Message:   "Starred repository",
-				Timestamp: time.Now().Add(-6 * time.Hour),
+				Repo:      "tui-toolkit",
+				Message:   "Opened: Add table component",
+				Timestamp: time.Now().Add(-5 * time.Hour).Format("2006-01-02 15:04"),
 			},
 		},
-		repoDelay:  100 * time.Millisecond,
-		actDelay:   100 * time.Millisecond,
-		shouldFail: false,
+		repoDelay: 0,
+		actDelay:  0,
 	}
 }
 
-// SetDelay sets the delay for API responses (for testing)
+// FetchRepositories fetches repositories synchronously (blocks with delay)
+func (m *MockGitHubAPI) FetchRepositories(username string) ([]composables.Repository, error) {
+	// Simulate network delay
+	if m.repoDelay > 0 {
+		time.Sleep(m.repoDelay)
+	}
+
+	if m.shouldFail {
+		return nil, fmt.Errorf("failed to fetch repositories")
+	}
+
+	return m.repos, nil
+}
+
+// FetchActivity fetches activity synchronously (blocks with delay)
+func (m *MockGitHubAPI) FetchActivity(username string) ([]composables.Activity, error) {
+	// Simulate network delay
+	if m.actDelay > 0 {
+		time.Sleep(m.actDelay)
+	}
+
+	if m.shouldFail {
+		return nil, fmt.Errorf("failed to fetch activity")
+	}
+
+	return m.activity, nil
+}
+
+// SetDelay sets the simulated network delay
 func (m *MockGitHubAPI) SetDelay(repoDelay, actDelay time.Duration) {
 	m.repoDelay = repoDelay
 	m.actDelay = actDelay
 }
 
-// SetShouldFail makes the API return errors (for testing)
+// SetShouldFail sets whether API calls should fail
 func (m *MockGitHubAPI) SetShouldFail(shouldFail bool) {
 	m.shouldFail = shouldFail
-}
-
-// SetRepositories sets custom repository data (for testing)
-func (m *MockGitHubAPI) SetRepositories(repos []Repository) {
-	m.repos = repos
-}
-
-// SetActivity sets custom activity data (for testing)
-func (m *MockGitHubAPI) SetActivity(activity []Activity) {
-	m.activity = activity
-}
-
-// ReposFetchedMsg is sent when repositories are fetched
-type ReposFetchedMsg struct {
-	Repos []Repository
-	Error error
-}
-
-// ActivityFetchedMsg is sent when activity is fetched
-type ActivityFetchedMsg struct {
-	Activity []Activity
-	Error    error
-}
-
-// FetchRepositories fetches repositories asynchronously
-func (m *MockGitHubAPI) FetchRepositories(username string) tea.Cmd {
-	return func() tea.Msg {
-		// Simulate network delay
-		time.Sleep(m.repoDelay)
-
-		if m.shouldFail {
-			return ReposFetchedMsg{
-				Error: fmt.Errorf("failed to fetch repositories for %s", username),
-			}
-		}
-
-		return ReposFetchedMsg{
-			Repos: m.repos,
-			Error: nil,
-		}
-	}
-}
-
-// FetchActivity fetches activity asynchronously
-func (m *MockGitHubAPI) FetchActivity(username string) tea.Cmd {
-	return func() tea.Msg {
-		// Simulate network delay
-		time.Sleep(m.actDelay)
-
-		if m.shouldFail {
-			return ActivityFetchedMsg{
-				Error: fmt.Errorf("failed to fetch activity for %s", username),
-			}
-		}
-
-		return ActivityFetchedMsg{
-			Activity: m.activity,
-			Error:    nil,
-		}
-	}
-}
-
-// RealGitHubAPI would implement actual GitHub API calls
-// This is a placeholder for production use
-type RealGitHubAPI struct {
-	token string
-}
-
-// NewRealGitHubAPI creates a real GitHub API client
-func NewRealGitHubAPI(token string) *RealGitHubAPI {
-	return &RealGitHubAPI{token: token}
-}
-
-// FetchRepositories would fetch real repositories
-func (r *RealGitHubAPI) FetchRepositories(username string) tea.Cmd {
-	return func() tea.Msg {
-		// TODO: Implement real GitHub API call
-		return ReposFetchedMsg{
-			Error: fmt.Errorf("real GitHub API not implemented yet"),
-		}
-	}
-}
-
-// FetchActivity would fetch real activity
-func (r *RealGitHubAPI) FetchActivity(username string) tea.Cmd {
-	return func() tea.Msg {
-		// TODO: Implement real GitHub API call
-		return ActivityFetchedMsg{
-			Error: fmt.Errorf("real GitHub API not implemented yet"),
-		}
-	}
 }

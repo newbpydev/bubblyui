@@ -9,7 +9,7 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// RepoListProps defines props for the repository list component
+// RepoListProps defines the properties for the RepoList component
 type RepoListProps struct {
 	Repositories *bubbly.Ref[interface{}] // []composables.Repository
 	Loading      *bubbly.Ref[interface{}] // bool

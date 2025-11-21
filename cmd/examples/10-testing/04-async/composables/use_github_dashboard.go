@@ -1,7 +1,6 @@
 package composables
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
@@ -22,29 +21,30 @@ type Activity struct {
 }
 
 // GitHubAPI defines the interface for GitHub operations
+// This is a synchronous interface - composables use goroutines, not tea.Cmd
 type GitHubAPI interface {
-	FetchRepositories(username string) tea.Cmd
-	FetchActivity(username string) tea.Cmd
+	FetchRepositories(username string) ([]Repository, error)
+	FetchActivity(username string) ([]Activity, error)
 }
 
 // GitHubDashboardComposable provides reactive GitHub dashboard management
 type GitHubDashboardComposable struct {
-	// State
+	// State - interface{} refs (from ctx.Ref) for auto-command tracking
 	Username        *bubbly.Ref[string]
-	Repositories    *bubbly.Ref[interface{}] // []Repository
-	Activity        *bubbly.Ref[interface{}] // []Activity
-	LoadingRepos    *bubbly.Ref[interface{}] // bool
-	LoadingActivity *bubbly.Ref[interface{}] // bool
-	Error           *bubbly.Ref[interface{}] // string
-	LastRefresh     *bubbly.Ref[interface{}] // time.Time
+	Repositories    *bubbly.Ref[interface{}] // []Repository - tracked by WithAutoCommands
+	Activity        *bubbly.Ref[interface{}] // []Activity - tracked by WithAutoCommands
+	LoadingRepos    *bubbly.Ref[interface{}] // bool - tracked by WithAutoCommands
+	LoadingActivity *bubbly.Ref[interface{}] // bool - tracked by WithAutoCommands
+	Error           *bubbly.Ref[interface{}] // string - tracked by WithAutoCommands
+	LastRefresh     *bubbly.Ref[interface{}] // time.Time - tracked by WithAutoCommands
 
 	// API client
 	api GitHubAPI
 
-	// Methods
-	FetchRepos        func() tea.Cmd
-	FetchActivity     func() tea.Cmd
-	Refresh           func() tea.Cmd
+	// Methods (no tea.Cmd - composables use goroutines)
+	FetchRepos        func()
+	FetchActivity     func()
+	Refresh           func()
 	HandleReposMsg    func(repos []Repository, err error)
 	HandleActivityMsg func(activity []Activity, err error)
 }
@@ -52,8 +52,8 @@ type GitHubDashboardComposable struct {
 // UseGitHubDashboard creates a GitHub dashboard composable
 // Manages async data fetching, loading states, and error handling
 func UseGitHubDashboard(ctx *bubbly.Context, username string, api GitHubAPI) *GitHubDashboardComposable {
-	// State refs - use bubbly.NewRef for typed refs
-	usernameRef := bubbly.NewRef(username)
+	// State refs - use ctx.Ref for tracked reactive state (triggers re-renders)
+	usernameRef := bubbly.NewRef(username) // Username doesn't change, standalone is fine
 	repositories := ctx.Ref(make([]Repository, 0))
 	activity := ctx.Ref(make([]Activity, 0))
 	loadingRepos := ctx.Ref(false)
@@ -61,23 +61,44 @@ func UseGitHubDashboard(ctx *bubbly.Context, username string, api GitHubAPI) *Gi
 	errorRef := ctx.Ref("")
 	lastRefresh := ctx.Ref(interface{}(nil))
 
-	// Fetch repositories
-	fetchRepos := func() tea.Cmd {
+	// Fetch repositories (uses goroutine like UseAsync)
+	fetchRepos := func() {
 		loadingRepos.Set(true)
 		errorRef.Set("")
-		return api.FetchRepositories(usernameRef.Get().(string))
+
+		go func() {
+			repos, err := api.FetchRepositories(usernameRef.Get().(string))
+			loadingRepos.Set(false)
+
+			if err != nil {
+				errorRef.Set(err.Error())
+			} else {
+				repositories.Set(repos)
+			}
+		}()
 	}
 
-	// Fetch activity
-	fetchActivity := func() tea.Cmd {
+	// Fetch activity (uses goroutine like UseAsync)
+	fetchActivity := func() {
 		loadingActivity.Set(true)
 		errorRef.Set("")
-		return api.FetchActivity(usernameRef.Get().(string))
+
+		go func() {
+			acts, err := api.FetchActivity(usernameRef.Get().(string))
+			loadingActivity.Set(false)
+
+			if err != nil {
+				errorRef.Set(err.Error())
+			} else {
+				activity.Set(acts)
+			}
+		}()
 	}
 
 	// Refresh all data
-	refresh := func() tea.Cmd {
-		return tea.Batch(fetchRepos(), fetchActivity())
+	refresh := func() {
+		fetchRepos()
+		fetchActivity()
 	}
 
 	// Handle repos message
