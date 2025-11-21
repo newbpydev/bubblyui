@@ -1,10 +1,10 @@
 # Master Tasks Checklist - BubblyUI
 
-**Last Updated:** October 29, 2025  
-**Total Features:** 12 (00-11)  
-**Specifications Complete:** 12/12 (100%)  
-**Implementation Complete:** 3/12 (25%)  
-**Total Estimated Effort:** ~750 hours
+**Last Updated:** November 21, 2025  
+**Total Features:** 13 (00-12)  
+**Specifications Complete:** 13/13 (100%)  
+**Implementation Complete:** 3/13 (23%)  
+**Total Estimated Effort:** ~770 hours
 
 ---
 
@@ -404,6 +404,76 @@
 
 ---
 
+### 13-adv-internal-package-automation
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
+**Prerequisites:** 08-automatic-reactive-bridge, 02-component-model, 04-composition-api  
+**Unlocks:** 170+ lines code reduction, cleaner examples, new architectural patterns (shared state)
+
+#### Requirements
+- [x] requirements.md complete (585 lines)
+- [x] designs.md complete (720 lines)
+- [x] user-workflow.md complete (850 lines)
+- [x] tasks.md complete (890 lines, 28 tasks)
+
+#### Implementation (28 tasks, ~19.75 hours)
+- [ ] Phase 1: Theme System Foundation (1.75 hours)
+  - [ ] Task 1.1: Theme Struct and Constants (30 min)
+  - [ ] Task 1.2: UseTheme Context Method (45 min)
+  - [ ] Task 1.3: ProvideTheme Context Method (30 min)
+- [ ] Phase 2: Multi-Key Binding Helper (0.75 hours)
+  - [ ] Task 2.1: WithKeyBindings Builder Method (45 min)
+- [ ] Phase 3: Shared Composable Pattern (1 hour)
+  - [ ] Task 3.1: CreateShared Factory Function (1 hour)
+- [ ] Phase 4: Integration Testing (4 hours)
+  - [ ] Task 4.1: Theme System Integration Tests (1.5 hours)
+  - [ ] Task 4.2: Multi-Key Binding Integration Tests (1 hour)
+  - [ ] Task 4.3: Shared Composable Integration Tests (1.5 hours)
+- [ ] Phase 5: Example Migrations (3.5 hours)
+  - [ ] Task 5.1: Migrate 04-async Example to UseTheme (1 hour)
+  - [ ] Task 5.2: Migrate 01-counter Example to WithKeyBindings (30 min)
+  - [ ] Task 5.3: Create Shared Counter Example (2 hours)
+- [ ] Phase 6: Performance Validation (1.75 hours)
+  - [ ] Task 6.1: Theme System Benchmarks (1 hour)
+  - [ ] Task 6.2: Shared Composable Benchmarks (45 min)
+- [ ] Phase 7: Documentation (5.5 hours)
+  - [ ] Task 7.1: Update AI Manual (2 hours)
+  - [ ] Task 7.2: Create Migration Guide (1.5 hours)
+  - [ ] Task 7.3: Update Component Reference Guide (1 hour)
+  - [ ] Task 7.4: Godoc and Package Documentation (1 hour)
+- [ ] Phase 8: Final Validation (1.5 hours)
+  - [ ] Task 8.1: Full Integration Test Suite (1 hour)
+  - [ ] Task 8.2: Update Master Tasks Checklist (30 min)
+
+#### Testing
+- [ ] Theme injection tests (3 levels deep)
+- [ ] Multi-key binding tests (all keys trigger event)
+- [ ] Shared composable tests (singleton verification)
+- [ ] Thread safety tests (race detector)
+- [ ] Performance benchmarks (vs manual patterns)
+- [ ] Migration tests (examples before/after)
+- [ ] Integration with existing features
+- [ ] Test coverage >80%
+
+#### Code Quality
+- [ ] UseTheme <200ns/op
+- [ ] WithKeyBindings O(n) registration
+- [ ] CreateShared <50ns/op (subsequent calls)
+- [ ] Zero memory leaks
+- [ ] Zero race conditions
+- [ ] Zero lint warnings
+- [ ] All godoc complete
+
+#### Value Delivered
+- [ ] 170+ lines eliminated across examples
+- [ ] 94% code reduction (theme: 15 lines → 1 line)
+- [ ] 67% code reduction (keys: 3 lines → 1 line)
+- [ ] New architectural pattern (shared composables)
+- [ ] VueUse-inspired patterns available
+- [ ] Backward compatible (zero breaking changes)
+
+---
+
 ## Integration Validation
 
 ### Cross-Feature Integration
@@ -417,6 +487,7 @@
 - [ ] Dev tools inspect all features (09 + 01-08)
 - [ ] Testing utilities test all features (10 + 01-08)
 - [ ] Profiler analyzes all features (11 + 01-08)
+- [ ] Internal automations reduce boilerplate (13 + 08, 02, 04)
 
 ### Bubbletea Integration
 - [ ] Components wrap Bubbletea models
@@ -618,18 +689,19 @@
 - [ ] Feature 09: Dev Tools (~93 hours)
 - [ ] Feature 10: Testing Utilities (~84 hours)
 - [ ] Feature 11: Performance Profiler (~84 hours)
+- [ ] Feature 13: Advanced Internal Package Automation (~20 hours)
 - [ ] Full tooling support
 - [ ] Developer experience optimized
 
 ### v0.5.x - Polish & Refinement
 - [ ] Performance optimization across all features
-- [ ] Documentation complete for all 12 features
+- [ ] Documentation complete for all 13 features
 - [ ] Migration guides
 - [ ] Production examples
 - [ ] Community feedback incorporated
 
 ### v1.0.0 - Production Ready
-- [ ] All 12 features complete (00-11)
+- [ ] All 13 features complete (00-12)
 - [ ] API stable and documented
 - [ ] Test coverage > 80% overall
 - [ ] Performance benchmarked
@@ -665,15 +737,15 @@
 - 🔄 Test coverage > 80% (currently 69%, target on track)
 - ✅ Performance targets met (Features 01-02)
 - ✅ Type safety enforced throughout
-- ✅ **All 12 features fully specified**
-- ✅ **~12,000 lines of specifications complete**
+- ✅ **All 13 features fully specified**
+- ✅ **~14,500 lines of specifications complete**
 
 ### Implementation Progress
-- ✅ Specifications: 12/12 (100%)
-- 🔄 Implementation: 3/12 (25%)
-- ⬜ Testing: 3/12 complete
-- ⬜ Documentation: 3/12 API docs complete
-- 📊 Estimated remaining: ~750 hours
+- ✅ Specifications: 13/13 (100%)
+- 🔄 Implementation: 3/13 (23%)
+- ⬜ Testing: 3/13 complete
+- ⬜ Documentation: 3/13 API docs complete
+- 📊 Estimated remaining: ~770 hours
 
 ### Community (Post-Release)
 - ⬜ GitHub stars: 0/1000 (target year 1)
@@ -698,12 +770,16 @@
 - 2025-10-29: **Completed all feature specifications (00-11)**
 - 2025-10-29: Added Phase 4 features (router, bridge, dev tools, testing, profiler)
 - 2025-10-29: Total roadmap: ~750 hours across 12 features
+- 2025-11-21: **Added Feature 13** (advanced internal package automation)
+- 2025-11-21: Systematic codebase audit identified 170+ lines of boilerplate to eliminate
+- 2025-11-21: VueUse-inspired patterns (theme system, shared composables) added
+- 2025-11-21: Total roadmap: ~770 hours across 13 features
 
 ### Blockers
 - None currently
 
 ### Risks
-- Time estimation may be optimistic (~750 hours planned)
+- Time estimation may be optimistic (~770 hours planned)
 - API design may need iteration during Phase 2-3
 - Performance tuning may take longer than estimated
 - Feature interdependencies may cause scheduling challenges
@@ -743,14 +819,14 @@ make bench
 
 ### 🎉 Major Milestone: Complete Specification Phase
 
-**All 12 BubblyUI features are now fully specified!**
+**All 13 BubblyUI features are now fully specified!**
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Total Features | 12 (00-11) | 📋 Complete |
-| Specification Files | 48 (4 per feature) | ✅ Done |
-| Total Spec Lines | ~12,000 | ✅ High Quality |
-| Planned Implementation | ~750 hours | 📊 Detailed |
+| Total Features | 13 (00-12) | 📋 Complete |
+| Specification Files | 52 (4 per feature) | ✅ Done |
+| Total Spec Lines | ~14,500 | ✅ High Quality |
+| Planned Implementation | ~770 hours | 📊 Detailed |
 | Currently Implemented | 3 features | ✅ Foundation Solid |
 
 ### Feature Roadmap
@@ -774,6 +850,9 @@ make bench
 - 📋 09-dev-tools (~93 hours) - **Debugging & inspection**
 - 📋 10-testing-utilities (~84 hours) - **TDD support**
 - 📋 11-performance-profiler (~84 hours) - **2-10x optimizations**
+
+**Phase 5: Advanced Automation** (Fully Specified)
+- 📋 13-adv-internal-package-automation (~20 hours) - **170+ lines eliminated, VueUse patterns**
 
 ### Timeline to v1.0
 
@@ -802,5 +881,5 @@ make bench
 ---
 
 **Document Status**: Complete ✅  
-**Last Major Update**: October 29, 2025 - Added Features 07-11  
-**Next Review**: After Feature 03 completion
+**Last Major Update**: November 21, 2025 - Added Feature 13 (Advanced Internal Package Automation)  
+**Next Review**: After Feature 03 completion or Feature 13 implementation begins
