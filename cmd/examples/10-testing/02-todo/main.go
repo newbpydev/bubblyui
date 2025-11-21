@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
@@ -16,13 +15,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Wrap and run with Bubbletea
-	p := tea.NewProgram(
-		bubbly.Wrap(app),
-		tea.WithAltScreen(),
-	)
-
-	if _, err := p.Run(); err != nil {
+	// Run with bubbly.Run() - zero Bubbletea boilerplate!
+	if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
 		fmt.Printf("Error running app: %v\n", err)
 		os.Exit(1)
 	}

@@ -4,69 +4,24 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// model wraps the counter component
-type model struct {
-	counter bubbly.Component
-}
-
-func (m model) Init() tea.Cmd {
-	return m.counter.Init()
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k", "+":
-			m.counter.Emit("increment", nil)
-		case "down", "j", "-":
-			m.counter.Emit("decrement", nil)
-		case "r":
-			m.counter.Emit("reset", nil)
-		case "d":
-			m.counter.Emit("double", nil)
-		case "h":
-			m.counter.Emit("halve", nil)
-		}
-	}
-
-	updatedComponent, cmd := m.counter.Update(msg)
-	m.counter = updatedComponent.(bubbly.Component)
-	return m, cmd
-}
-
-func (m model) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
-
-	title := titleStyle.Render("🔢 Counter Component - State Management")
-
-	componentView := m.counter.View()
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(2)
-
-	help := helpStyle.Render(
-		"↑/k/+: increment • ↓/j/-: decrement • d: double • h: halve • r: reset • q: quit",
-	)
-
-	return fmt.Sprintf("%s\n\n%s\n%s\n", title, componentView, help)
-}
-
 // createCounter creates a counter component with advanced state management
 func createCounter() (bubbly.Component, error) {
 	return bubbly.NewComponent("Counter").
+		WithKeyBinding("up", "increment", "Increment counter").
+		WithKeyBinding("k", "increment", "Increment counter").
+		WithKeyBinding("+", "increment", "Increment counter").
+		WithKeyBinding("down", "decrement", "Decrement counter").
+		WithKeyBinding("j", "decrement", "Decrement counter").
+		WithKeyBinding("-", "decrement", "Decrement counter").
+		WithKeyBinding("r", "reset", "Reset to zero").
+		WithKeyBinding("d", "double", "Double the count").
+		WithKeyBinding("h", "halve", "Halve the count").
+		WithKeyBinding("q", "quit", "Quit application").
 		Setup(func(ctx *bubbly.Context) {
 			// Reactive state
 			count := ctx.Ref(0)
@@ -135,6 +90,17 @@ func createCounter() (bubbly.Component, error) {
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
+			// Get component for help text
+			comp := ctx.Component()
+
+			// Title
+			titleStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("205")).
+				MarginBottom(1)
+
+			title := titleStyle.Render("🔢 Counter Component - State Management")
+
 			// Get state
 			count := ctx.Get("count").(*bubbly.Ref[interface{}])
 			history := ctx.Get("history").(*bubbly.Ref[interface{}])
@@ -196,13 +162,24 @@ func createCounter() (bubbly.Component, error) {
 
 			historyBox := historyStyle.Render(historyStr)
 
+			// Help text
+			helpStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				MarginTop(2)
+
+			help := helpStyle.Render(comp.HelpText())
+
 			return lipgloss.JoinVertical(
 				lipgloss.Left,
+				title,
+				"",
 				counterBox,
 				"",
 				computedBox,
 				"",
 				historyBox,
+				"",
+				help,
 			)
 		}).
 		Build()
@@ -215,12 +192,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	counter.Init()
-
-	m := model{counter: counter}
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	// Run with bubbly.Run() - zero boilerplate!
+	// No manual model, no manual key routing, auto-generated help text
+	if err := bubbly.Run(counter, bubbly.WithAltScreen()); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}

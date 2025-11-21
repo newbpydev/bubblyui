@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -18,91 +17,6 @@ type User struct {
 	Name  string
 	Email string
 	Role  string
-}
-
-// tickMsg is sent periodically to trigger UI updates while loading
-// This is necessary because UseAsync updates Refs in a goroutine,
-// but Bubbletea only redraws when Update() is called
-type tickMsg time.Time
-
-// tickCmd returns a command that ticks periodically
-func tickCmd() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
-
-// model wraps the async data component
-type model struct {
-	component bubbly.Component
-	loading   bool // Track loading state to control ticking
-}
-
-func (m model) Init() tea.Cmd {
-	// CRITICAL: Let Bubbletea call Init, don't call it manually
-	// Start with a tick to handle initial loading
-	return tea.Batch(m.component.Init(), tickCmd())
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "r":
-			// Trigger refetch
-			m.component.Emit("refetch", nil)
-			m.loading = true
-			cmds = append(cmds, tickCmd())
-		}
-	case tickMsg:
-		// Continue ticking while loading
-		// This ensures UI updates while the goroutine is running
-		if m.loading {
-			cmds = append(cmds, tickCmd())
-		}
-	}
-
-	updatedComponent, cmd := m.component.Update(msg)
-	m.component = updatedComponent.(bubbly.Component)
-
-	if cmd != nil {
-		cmds = append(cmds, cmd)
-	}
-
-	return m, tea.Batch(cmds...)
-}
-
-func (m model) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
-
-	title := titleStyle.Render("📡 Composables - Async Data Example")
-
-	subtitleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginBottom(1)
-
-	subtitle := subtitleStyle.Render(
-		"Demonstrates: UseAsync composable for data fetching with loading/error states",
-	)
-
-	componentView := m.component.View()
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(2)
-
-	help := helpStyle.Render(
-		"r: refetch data • q: quit",
-	)
-
-	return fmt.Sprintf("%s\n%s\n\n%s\n%s\n", title, subtitle, componentView, help)
 }
 
 // fetchUser simulates an async API call
@@ -123,6 +37,9 @@ func fetchUser() (*User, error) {
 // createAsyncDataDemo creates a component demonstrating UseAsync
 func createAsyncDataDemo() (bubbly.Component, error) {
 	return bubbly.NewComponent("AsyncDataDemo").
+		WithAutoCommands(true). // Enable auto commands for async support
+		WithKeyBinding("r", "refetch", "Refetch data").
+		WithKeyBinding("q", "quit", "Quit").
 		Setup(func(ctx *bubbly.Context) {
 			// Use the UseAsync composable for data fetching
 			// This handles loading, error, and data state automatically
@@ -150,6 +67,9 @@ func createAsyncDataDemo() (bubbly.Component, error) {
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
+			// Get component for help text
+			comp := ctx.Component()
+
 			// Get state from UseAsync
 			user := ctx.Get("user").(*bubbly.Ref[*User])
 			loading := ctx.Get("loading").(*bubbly.Ref[bool])
@@ -159,6 +79,22 @@ func createAsyncDataDemo() (bubbly.Component, error) {
 			loadingVal := loading.GetTyped()
 			errorVal := errorRef.GetTyped()
 			fetchCountVal := fetchCount.GetTyped().(int)
+
+			// Title and subtitle
+			titleStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("205")).
+				MarginBottom(1)
+
+			title := titleStyle.Render("📡 Composables - Async Data Example")
+
+			subtitleStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				MarginBottom(1)
+
+			subtitle := subtitleStyle.Render(
+				"Demonstrates: UseAsync composable for data fetching with loading/error states",
+			)
 
 			// Status box
 			statusStyle := lipgloss.NewStyle().
@@ -245,13 +181,25 @@ func createAsyncDataDemo() (bubbly.Component, error) {
 					"• Tick triggers redraws",
 			)
 
+			// Help text
+			helpStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				MarginTop(2)
+
+			help := helpStyle.Render(comp.HelpText())
+
 			return lipgloss.JoinVertical(
 				lipgloss.Left,
+				title,
+				subtitle,
+				"",
 				statusBox,
 				"",
 				userBox,
 				"",
 				infoBox,
+				"",
+				help,
 			)
 		}).
 		Build()
@@ -264,13 +212,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// CRITICAL: Don't call component.Init() manually
-	// Bubbletea will call model.Init() which calls component.Init()
-
-	m := model{component: component, loading: true}
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	// Run with bubbly.Run() - async auto-detected, no tick wrapper needed!
+	// The framework automatically detects WithAutoCommands(true) and enables
+	// async refresh with 100ms interval. 80+ lines of boilerplate eliminated!
+	if err := bubbly.Run(component, bubbly.WithAltScreen()); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
