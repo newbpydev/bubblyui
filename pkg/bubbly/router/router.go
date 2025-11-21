@@ -223,3 +223,36 @@ func (r *Router) CurrentRoute() *Route {
 	defer r.mu.RUnlock()
 	return r.currentRoute
 }
+
+// GetHistoryEntries returns a copy of all history entries for testing.
+//
+// This method is primarily intended for testing utilities to inspect
+// the router's navigation history. It returns a defensive copy to prevent
+// external modification of the internal history state.
+//
+// Returns:
+//   - []*HistoryEntry: Copy of all history entries
+//
+// Thread Safety:
+// This method acquires the history mutex and is safe for concurrent use.
+//
+// Example:
+//
+//	entries := router.GetHistoryEntries()
+//	for _, entry := range entries {
+//		fmt.Printf("Path: %s\n", entry.Route.Path)
+//	}
+//
+// Use Cases:
+//   - Testing history management
+//   - Debugging navigation flows
+//   - History inspection in test utilities
+func (r *Router) GetHistoryEntries() []*HistoryEntry {
+	r.history.mu.Lock()
+	defer r.history.mu.Unlock()
+
+	// Return defensive copy
+	entries := make([]*HistoryEntry, len(r.history.entries))
+	copy(entries, r.history.entries)
+	return entries
+}

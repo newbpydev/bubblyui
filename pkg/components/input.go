@@ -240,20 +240,23 @@ func Input(props InputProps) bubbly.Component {
 				}
 			})
 
-			// Handle Bubbletea messages for cursor support
-			ctx.On("textInputUpdate", func(data interface{}) {
+			// Internal event handler for keyboard processing
+			// This is emitted from WithMessageHandler and processed here
+			// where we have access to the textinput state
+			ctx.On("__processKeyboard", func(data interface{}) {
 				if msg, ok := data.(tea.Msg); ok {
-					var cmd tea.Cmd
-					ti, cmd = ti.Update(msg)
+					// Only process if focused
+					if focusedRef.GetTyped() {
+						// Update textinput with the message
+						var cmd tea.Cmd
+						ti, cmd = ti.Update(msg)
 
-					// Sync value back to props.Value
-					newValue := ti.Value()
-					if newValue != props.Value.Get().(string) {
-						props.Value.Set(newValue)
-					}
+						// Sync value back to props.Value
+						newValue := ti.Value()
+						if newValue != props.Value.Get().(string) {
+							props.Value.Set(newValue)
+						}
 
-					// Execute command if any (for cursor blink, etc)
-					if cmd != nil {
 						// Commands are handled by Bubbletea
 						_ = cmd
 					}
@@ -265,6 +268,12 @@ func Input(props InputProps) bubbly.Component {
 			ctx.Expose("error", errorRef)
 			ctx.Expose("focused", focusedRef)
 			ctx.Expose("textInput", &ti)
+		}).
+		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+			// Forward keyboard input to internal event handler
+			// The event handler has access to the textinput state (ti)
+			comp.Emit("__processKeyboard", msg)
+			return nil
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			props := ctx.Props().(InputProps)

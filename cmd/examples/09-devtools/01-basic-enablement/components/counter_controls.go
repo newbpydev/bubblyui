@@ -49,7 +49,7 @@ func CreateCounterControls(props CounterControlsProps) (bubbly.Component, error)
 	builder = builder.Template(func(ctx bubbly.RenderContext) string {
 		// Display control hints using Text components
 		// The actual key bindings are handled by the parent App component
-		
+
 		helpText := components.Text(components.TextProps{
 			Content: "Controls: [i] Increment  [d] Decrement  [r] Reset  [F12] Toggle DevTools  [ctrl+c] Quit",
 			Color:   lipgloss.Color("240"), // Muted color

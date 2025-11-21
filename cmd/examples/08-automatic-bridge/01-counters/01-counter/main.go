@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -113,10 +112,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// One-line integration with bubbly.Wrap() - zero boilerplate!
-	// No manual model struct, no manual Init/Update/View methods
-	p := tea.NewProgram(bubbly.Wrap(component), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	// Run with bubbly.Run() - ultimate zero boilerplate!
+	// No Bubbletea imports, no manual model, no Wrap() call needed
+	if err := bubbly.Run(component, bubbly.WithAltScreen()); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}

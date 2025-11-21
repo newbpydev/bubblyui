@@ -73,7 +73,6 @@ type FrameworkHook interface {
 	//   - newValue: The new value
 	OnRefChange(id string, oldValue, newValue interface{})
 
-	
 	// OnEvent is called when a component emits an event.
 	//
 	// Parameters:
@@ -232,6 +231,23 @@ func IsHookRegistered() bool {
 	return globalHookRegistry.hook != nil
 }
 
+// GetRegisteredHook returns the currently registered framework hook.
+//
+// This is primarily used by testing utilities to save and restore
+// the hook state for test isolation.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Returns:
+//   - FrameworkHook: The currently registered hook, or nil if none registered
+func GetRegisteredHook() FrameworkHook {
+	globalHookRegistry.mu.RLock()
+	defer globalHookRegistry.mu.RUnlock()
+	return globalHookRegistry.hook
+}
+
 // notifyHookComponentMount calls the registered hook's OnComponentMount method.
 // This is an internal helper used by framework integration points.
 func notifyHookComponentMount(id, name string) {
@@ -267,7 +283,6 @@ func notifyHookComponentUnmount(id string) {
 		hook.OnComponentUnmount(id)
 	}
 }
-
 
 // notifyHookRefChange calls the registered hook's OnRefChange method.
 // This is an internal helper used by framework integration points.

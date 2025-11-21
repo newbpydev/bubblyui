@@ -648,6 +648,528 @@ func TestRender(t *testing.T) {
 
 ---
 
+## Workflow: Testing Commands & Auto-Bridge
+
+### Entry Point: Testing Command Queue
+
+**User Goal**: Verify commands are enqueued correctly
+
+#### Step 1: Mount Component with Auto-Commands
+```go
+func TestCommandQueue(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    component := harness.Mount(createAutoCommandComponent())
+    
+    // Get command queue inspector
+    queue := harness.GetCommandQueue()
+    assert.Equal(t, 0, queue.Len())
+}
+```
+
+#### Step 2: Trigger Command Generation
+```go
+    // Change state (triggers auto-command)
+    count := component.GetRef("count")
+    count.Set(42)
+    
+    // Verify command enqueued
+    assert.Equal(t, 1, queue.Len())
+    cmd := queue.Peek()
+    assert.NotNil(t, cmd)
+```
+
+#### Step 3: Verify Loop Detection
+```go
+    // Simulate rapid updates
+    for i := 0; i < 150; i++ {
+        count.Set(i)
+    }
+    
+    // Verify loop detected and blocked
+    loopDetector := harness.GetLoopDetector()
+    assert.True(t, loopDetector.WasDetected())
+```
+
+**Journey Milestone**: ✅ Command system tested!
+
+---
+
+## Workflow: Testing Composables
+
+### Entry Point: Testing useDebounce with Time Simulation
+
+**User Goal**: Test debounced values without real delays
+
+#### Step 1: Setup Time Simulator
+```go
+func TestUseDebounce(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    timeSim := testutil.NewTimeSimulator()
+    
+    component := harness.MountWithTime(createDebounceComponent(), timeSim)
+}
+```
+
+#### Step 2: Trigger Debounced Change
+```go
+    input := component.GetRef("input")
+    input.Set("test value")
+    
+    // Verify not debounced yet
+    debounced := component.GetRef("debounced")
+    assert.Equal(t, "", debounced.Get())
+```
+
+#### Step 3: Fast-Forward Time
+```go
+    // Advance time past debounce delay
+    timeSim.Advance(300 * time.Millisecond)
+    
+    // Now it should be debounced
+    assert.Equal(t, "test value", debounced.Get())
+```
+
+**Journey Milestone**: ✅ Composable tested without delays!
+
+### Alternative: Testing useLocalStorage
+
+#### Step 1: Setup Mock Storage
+```go
+func TestUseLocalStorage(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    storage := testutil.NewMockStorage()
+    
+    component := harness.MountWithStorage(createStorageComponent(), storage)
+}
+```
+
+#### Step 2: Verify Storage Operations
+```go
+    // Trigger save
+    data := component.GetRef("data")
+    data.Set("saved data")
+    
+    // Verify stored
+    storage.AssertSetCalled(t, "data", 1)
+    assert.Equal(t, "saved data", storage.Get("data"))
+```
+
+---
+
+## Workflow: Testing Directives
+
+### Entry Point: Testing ForEach Directive
+
+**User Goal**: Verify list rendering with ForEach
+
+#### Step 1: Mount Component with List
+```go
+func TestForEachDirective(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    component := harness.Mount(createListComponent())
+    
+    items := component.GetRef("items")
+    items.Set([]string{"apple", "banana", "cherry"})
+}
+```
+
+#### Step 2: Verify Rendering
+```go
+    output := component.View()
+    
+    // All items rendered
+    assert.Contains(t, output, "apple")
+    assert.Contains(t, output, "banana")
+    assert.Contains(t, output, "cherry")
+```
+
+#### Step 3: Update List and Verify
+```go
+    // Remove item
+    items.Set([]string{"apple", "cherry"})
+    output = component.View()
+    
+    assert.Contains(t, output, "apple")
+    assert.NotContains(t, output, "banana")
+    assert.Contains(t, output, "cherry")
+```
+
+**Journey Milestone**: ✅ Directive rendering verified!
+
+### Alternative: Testing Bind Directive
+
+#### Step 1: Setup Two-Way Binding Test
+```go
+func TestBindDirective(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    bindTester := testutil.NewBindTester()
+    
+    component := harness.MountWithBindings(createFormComponent(), bindTester)
+}
+```
+
+#### Step 2: Test Ref → Element
+```go
+    // Change ref value
+    name := component.GetRef("name")
+    name.Set("John Doe")
+    
+    // Verify element updated
+    bindTester.AssertElementValue(t, "nameInput", "John Doe")
+```
+
+#### Step 3: Test Element → Ref
+```go
+    // Simulate element change
+    bindTester.TriggerElementChange("nameInput", "Jane Smith")
+    
+    // Verify ref updated
+    assert.Equal(t, "Jane Smith", name.Get())
+```
+
+---
+
+## Workflow: Testing Router with Guards
+
+### Entry Point: Testing Route Guards
+
+**User Goal**: Verify navigation guards work correctly
+
+#### Step 1: Setup Router with Guards
+```go
+func TestRouteGuard(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    router := testutil.NewMockRouter()
+    
+    guardCalled := false
+    route := router.AddRoute("/protected").WithGuard(func() bool {
+        guardCalled = true
+        return false  // Block navigation
+    })
+}
+```
+
+#### Step 2: Attempt Navigation
+```go
+    // Try to navigate
+    router.Navigate("/protected")
+    
+    // Verify guard called
+    assert.True(t, guardCalled)
+```
+
+#### Step 3: Verify Navigation Blocked
+```go
+    // Should still be at previous route
+    assert.NotEqual(t, "/protected", router.CurrentPath())
+    assert.Equal(t, "/", router.CurrentPath())
+```
+
+**Journey Milestone**: ✅ Router guards tested!
+
+### Alternative: Testing Navigation History
+
+#### Step 1: Setup Navigation Simulator
+```go
+func TestNavigationHistory(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    navSim := testutil.NewNavigationSimulator()
+}
+```
+
+#### Step 2: Navigate Multiple Times
+```go
+    navSim.Navigate("/home")
+    navSim.Navigate("/profile")
+    navSim.Navigate("/settings")
+    
+    navSim.AssertCurrentPath(t, "/settings")
+    navSim.AssertHistoryLength(t, 3)
+```
+
+#### Step 3: Test Back/Forward
+```go
+    navSim.Back()
+    navSim.AssertCurrentPath(t, "/profile")
+    
+    navSim.Forward()
+    navSim.AssertCurrentPath(t, "/settings")
+```
+
+---
+
+## Workflow: Testing Advanced Watch Features
+
+### Entry Point: Testing WatchEffect
+
+**User Goal**: Test automatic dependency tracking
+
+#### Step 1: Setup WatchEffect
+```go
+func TestWatchEffect(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    effectTester := testutil.NewWatchEffectTester()
+    
+    count := harness.Ref(0)
+    doubled := harness.Ref(0)
+    
+    effect := effectTester.TrackEffect(func() {
+        doubled.Set(count.Get().(int) * 2)
+    })
+}
+```
+
+#### Step 2: Trigger Dependency
+```go
+    count.Set(5)
+    
+    // WatchEffect should auto-execute
+    effectTester.AssertExecuted(t, 1)
+    assert.Equal(t, 10, doubled.Get())
+```
+
+#### Step 3: Verify Multiple Triggers
+```go
+    count.Set(10)
+    effectTester.AssertExecuted(t, 2)
+    assert.Equal(t, 20, doubled.Get())
+```
+
+**Journey Milestone**: ✅ WatchEffect tested!
+
+### Alternative: Testing Flush Modes
+
+#### Step 1: Setup Flush Mode Controller
+```go
+func TestFlushMode(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    flushCtrl := testutil.NewFlushModeController("post")
+    
+    count := harness.Ref(0)
+    execOrder := []int{}
+}
+```
+
+#### Step 2: Register Multiple Watchers
+```go
+    flushCtrl.AddWatcher(count, func() {
+        execOrder = append(execOrder, 1)
+    })
+    flushCtrl.AddWatcher(count, func() {
+        execOrder = append(execOrder, 2)
+    })
+```
+
+#### Step 3: Trigger and Verify Order
+```go
+    count.Set(42)
+    flushCtrl.Flush()
+    
+    // Verify execution order
+    flushCtrl.AssertExecutionOrder(t, []int{1, 2})
+```
+
+---
+
+## Workflow: Testing Provide/Inject
+
+### Entry Point: Testing Injection Tree
+
+**User Goal**: Verify dependency injection works across component tree
+
+#### Step 1: Setup Provider
+```go
+func TestProvideInject(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    injector := testutil.NewProvideInjectTester()
+    
+    // Root provides theme
+    root := harness.Mount(createRootComponent())
+    injector.Provide("theme", darkTheme)
+}
+```
+
+#### Step 2: Create Child Components
+```go
+    // Child injects theme
+    child := harness.Mount(createChildComponent())
+    root.AddChild(child)
+    
+    // Verify injection
+    theme := injector.Inject(child, "theme")
+    assert.Equal(t, darkTheme, theme)
+```
+
+#### Step 3: Test Tree Traversal
+```go
+    // Deeply nested child
+    grandchild := harness.Mount(createGrandchildComponent())
+    child.AddChild(grandchild)
+    
+    // Should still inject from root
+    theme = injector.Inject(grandchild, "theme")
+    assert.Equal(t, darkTheme, theme)
+    injector.AssertTreeTraversal(t, 2)  // Traversed 2 levels
+```
+
+**Journey Milestone**: ✅ Provide/Inject tested!
+
+---
+
+## Workflow: Testing Key Bindings
+
+### Entry Point: Testing Key Binding Registration
+
+**User Goal**: Verify key bindings work and help text generates
+
+#### Step 1: Setup Component with Bindings
+```go
+func TestKeyBindings(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    kbTester := testutil.NewKeyBindingsTester()
+    
+    component := harness.Mount(createInteractiveComponent())
+    kbTester.RegisterBinding(" ", "increment", "Increment counter")
+    kbTester.RegisterBinding("r", "reset", "Reset counter")
+}
+```
+
+#### Step 2: Simulate Key Press
+```go
+    // Simulate space key
+    cmd := kbTester.SimulateKeyPress(" ")
+    
+    // Verify event emitted
+    assert.NotNil(t, cmd)
+    component.AssertEventEmitted(t, "increment")
+```
+
+#### Step 3: Verify Help Text
+```go
+    helpText := component.HelpText()
+    assert.Contains(t, helpText, "space: Increment counter")
+    assert.Contains(t, helpText, "r: Reset counter")
+```
+
+**Journey Milestone**: ✅ Key bindings tested!
+
+---
+
+## Workflow: Testing Children Management
+
+### Entry Point: Testing Child Cascade
+
+**User Goal**: Verify children receive Updates correctly
+
+#### Step 1: Setup Parent with Children
+```go
+func TestChildrenCascade(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    childTester := testutil.NewChildrenTester()
+    
+    parent := harness.Mount(createParentComponent())
+    child1 := harness.Mount(createChildComponent("child1"))
+    child2 := harness.Mount(createChildComponent("child2"))
+    
+    childTester.AddChild(parent, child1)
+    childTester.AddChild(parent, child2)
+}
+```
+
+#### Step 2: Trigger Parent Update
+```go
+    // Send message to parent
+    msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
+    childTester.TriggerUpdate(msg)
+```
+
+#### Step 3: Verify Cascade
+```go
+    // Verify children received update
+    childTester.AssertCascade(t)
+    childTester.AssertUpdateOrder(t, []string{"child1", "child2"})
+```
+
+**Journey Milestone**: ✅ Children cascade tested!
+
+---
+
+## Workflow: Testing Template Safety
+
+### Entry Point: Testing Mutation Prevention
+
+**User Goal**: Verify templates can't mutate state
+
+#### Step 1: Setup Safety Tester
+```go
+func TestTemplateSafety(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    safetyTester := testutil.NewTemplateSafetyTester()
+    
+    component := harness.Mount(createComponent())
+    count := component.GetRef("count")
+}
+```
+
+#### Step 2: Enter Template Context
+```go
+    safetyTester.EnterTemplate()
+    
+    // Attempt mutation in template
+    safetyTester.AttemptMutation(count, 42)
+```
+
+#### Step 3: Verify Panic
+```go
+    // Should panic with clear error
+    safetyTester.AssertPanics(t)
+    safetyTester.AssertErrorMessage(t, "Cannot Set() during template rendering")
+```
+
+**Journey Milestone**: ✅ Template safety verified!
+
+---
+
+## Workflow: Testing Observability Integration
+
+### Entry Point: Testing Error Reporting
+
+**User Goal**: Verify errors are reported to observability system
+
+#### Step 1: Setup Mock Reporter
+```go
+func TestErrorReporting(t *testing.T) {
+    harness := testutil.NewHarness(t)
+    mockReporter := testutil.NewMockErrorReporter()
+    observability.SetErrorReporter(mockReporter)
+    defer observability.SetErrorReporter(nil)
+}
+```
+
+#### Step 2: Trigger Error
+```go
+    component := harness.Mount(createComponent())
+    
+    // Trigger panic in event handler
+    component.Emit("triggerPanic", nil)
+```
+
+#### Step 3: Verify Error Reported
+```go
+    // Verify panic reported
+    mockReporter.AssertPanicReported(t)
+    
+    // Verify context captured
+    contexts := mockReporter.GetContexts()
+    assert.Len(t, contexts, 1)
+    assert.Equal(t, "triggerPanic", contexts[0].EventName)
+    assert.NotEmpty(t, contexts[0].StackTrace)
+```
+
+**Journey Milestone**: ✅ Observability tested!
+
+---
+
 ## Tips & Tricks
 
 ### Tip 1: Use Subtests for Organization
@@ -710,7 +1232,7 @@ func TestIntegration(t *testing.T) {
 
 The Testing Utilities framework provides a comprehensive testing solution for BubblyUI components through a test harness that mounts components in isolated environments (< 1ms setup), state and event inspection with type-safe assertions, snapshot testing with diff visualization, async testing helpers with timeout protection, and mock utilities for dependency isolation. Developers write tests using familiar Go testing conventions, table-driven test patterns, and testify assertions, achieving fast test execution, clear error messages, automatic cleanup, and reliable test isolation.
 
-**Key Success Factors**:
+**Core Testing Capabilities**:
 - ✅ Zero-boilerplate component mounting
 - ✅ Type-safe assertions with clear errors
 - ✅ Table-driven test support (Go idiom)
@@ -719,3 +1241,21 @@ The Testing Utilities framework provides a comprehensive testing solution for Bu
 - ✅ Mock utilities for isolation
 - ✅ TDD workflow supported
 - ✅ Fast execution (< 1s per test)
+
+**Advanced Testing Capabilities (New)**:
+- ✅ **Commands**: Queue inspection, batching verification, loop detection, auto-command testing
+- ✅ **Composables**: Time simulation (debounce/throttle), storage mocking (useLocalStorage), async testing (useAsync), form validation (useForm), all 9 composables covered
+- ✅ **Directives**: ForEach list rendering, Bind two-way binding, If conditionals, On event handlers, Show visibility, custom directives
+- ✅ **Router**: Guard testing (beforeEnter, beforeLeave), navigation simulation, history management, nested routes, query params, named routes
+- ✅ **Advanced Watch**: WatchEffect with auto-tracking, flush mode control (pre/post/sync), deep watching, custom comparators, invocation counting
+- ✅ **Provide/Inject**: Injection tree traversal, provider registration, default values, missing injection handling
+- ✅ **Key Bindings**: Binding registration, help text generation, conflict detection, key press simulation
+- ✅ **Message Handlers**: Custom message simulation, window resize/mouse events, command verification
+- ✅ **Children Management**: Cascade verification, init order testing, tree inspection, isolation testing
+- ✅ **Template Safety**: Mutation prevention, context detection, panic verification
+- ✅ **Computed Advanced**: Cache verification, recomputation testing, circular dependency detection, dependency chains
+- ✅ **Dependency Tracking**: Collection verification, invalidation testing, tracker inspection
+- ✅ **Observability**: Mock error reporters, panic reporting, breadcrumbs, context capture, Sentry/Console integration
+- ✅ **Error Handling**: All error types testable, panic recovery verification, comprehensive coverage
+
+**Coverage**: 95%+ of bubbly package features testable with professional-grade utilities

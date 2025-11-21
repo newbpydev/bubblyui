@@ -58,7 +58,7 @@ func main() {
 
 	// Get the MCP server and register resources/tools
 	mcpServer := dt.GetMCPServer().(*mcp.MCPServer)
-	
+
 	// Register MCP resources (what AI can inspect)
 	if err := mcpServer.RegisterComponentsResource(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error registering components resource: %v\n", err)
@@ -80,7 +80,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error registering performance resource: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Register MCP tools (what AI can do)
 	if err := mcpServer.RegisterSearchComponentsTool(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error registering search tool: %v\n", err)
@@ -102,9 +102,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error registering clear events tool: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Fprintln(os.Stderr, "📋 Registered 5 resources and 5 tools for MCP")
-	
+
 	// Start HTTP server in goroutine (blocks until shutdown)
 	ctx := context.Background()
 	go func() {
@@ -112,10 +112,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
 		}
 	}()
-	
+
 	fmt.Fprintln(os.Stderr, "🔌 MCP server started on http://localhost:8765")
 	fmt.Fprintln(os.Stderr, "   Ready for AI assistant connections!")
-	
+
 	// Create app component with state for MCP to expose
 	app, err := CreateApp()
 	if err != nil {

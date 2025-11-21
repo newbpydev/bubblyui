@@ -21,7 +21,8 @@ BubblyUI brings the familiar patterns of Vue.js to Go terminal applications, pro
 
 ### 🧩 Component System
 - **Vue-Inspired API**: Familiar component patterns for Go developers
-- **tea.Model Integration**: Seamless Bubbletea architecture integration
+- **Zero-Boilerplate Launch**: `bubbly.Run()` eliminates all Bubbletea setup (69-82% less code for async apps!)
+- **Async Auto-Detection**: No manual tick wrappers needed - framework handles it automatically
 - **Lifecycle Hooks**: onMounted, onUpdated, onUnmounted
 - **Composition API**: Composables and provide/inject patterns
 - **Auto-Initialization**: Automatic component initialization with `ctx.ExposeComponent()` (33% less boilerplate)
@@ -58,30 +59,33 @@ import (
 )
 
 func main() {
-    app := bubbly.NewApp()
-
-    counter := bubbly.NewComponent("Counter").
+    counter, _ := bubbly.NewComponent("Counter").
+        WithKeyBinding("up", "increment", "Increment").
+        WithKeyBinding("down", "decrement", "Decrement").
+        WithKeyBinding("q", "quit", "Quit").
         Setup(func(ctx *bubbly.Context) {
             count := ctx.Ref(0)
-
-            ctx.On("increment", func() {
-                count.Set(count.Get() + 1)
-            })
-
-            ctx.On("decrement", func() {
-                count.Set(count.Get() - 1)
-            })
-
             ctx.Expose("count", count)
+
+            ctx.On("increment", func(interface{}) {
+                count.Set(count.GetTyped().(int) + 1)
+            })
+
+            ctx.On("decrement", func(interface{}) {
+                count.Set(count.GetTyped().(int) - 1)
+            })
         }).
-        Template(func(ctx *bubbly.RenderContext) string {
-            count := ctx.Get("count").(*bubbly.Ref[int])
-            return fmt.Sprintf("Count: %d\n[↑] Increment [↓] Decrement [q] Quit",
-                count.Get())
+        Template(func(ctx bubbly.RenderContext) string {
+            count := ctx.Get("count").(*bubbly.Ref[interface{}])
+            comp := ctx.Component()
+            return fmt.Sprintf("Count: %d\n\n%s",
+                count.GetTyped().(int),
+                comp.HelpText())
         }).
         Build()
 
-    app.Mount(counter).Run()
+    // Clean, simple, zero boilerplate! 🎉
+    bubbly.Run(counter, bubbly.WithAltScreen())
 }
 ```
 
@@ -96,7 +100,9 @@ func main() {
 - **[Built-in Components](./specs/06-built-in-components/)** - Ready-to-use UI components
 
 ### Features & Guides
+- **[Framework Run API](./docs/features/framework-run-api.md)** - Zero-boilerplate application launcher (⭐ NEW!)
 - **[Auto-Initialization](./docs/features/auto-initialization.md)** - Automatic component initialization
+- **[Migration: Manual to Run API](./docs/migration/manual-to-run-api.md)** - Upgrade to bubbly.Run() (⭐ RECOMMENDED)
 - **[Migration: Manual to Auto-Init](./docs/migration/manual-to-auto-init.md)** - Upgrade to auto-initialization
 
 ### API Reference
