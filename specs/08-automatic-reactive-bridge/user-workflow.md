@@ -481,6 +481,276 @@ All State Changes Visible Together
 
 ---
 
+## Workflow 6: Zero-Bubbletea Migration with bubbly.Run()
+
+### Persona: Developer Seeking Ultimate Simplification
+
+**Background**: Developer wants the cleanest possible main.go, no Bubbletea boilerplate, just like modern web frameworks (Next.js, Vue CLI).
+
+**Current Pain Points**:
+- Three imports needed (`bubbly`, `tea`, `fmt`)
+- Manual `tea.NewProgram()` + `bubbly.Wrap()` calls
+- Program struct management
+- Different patterns for sync vs async apps
+
+**Goal**: One-line app launch like `npm run dev` or `flask run`
+
+### Step 1: Before - Manual Bubbletea Setup
+
+**Current Code (3-line minimum)**:
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    
+    tea "github.com/charmbracelet/bubbletea"  // Bubbletea dependency
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+)
+
+func main() {
+    app, err := CreateApp()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        os.Exit(1)
+    }
+    
+    // Manual Bubbletea setup
+    p := tea.NewProgram(bubbly.Wrap(app), tea.WithAltScreen())
+    if _, err := p.Run(); err != nil {
+        fmt.Printf("Error: %v\n", err)
+        os.Exit(1)
+    }
+}
+```
+
+**For Async Apps (97 lines with tick wrapper)**:
+```go
+// Even worse - manual tick wrapper model
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+    return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+        return tickMsg(t)
+    })
+}
+
+type model struct {
+    component bubbly.Component
+    loading   bool
+}
+// ... 80+ more lines of boilerplate
+```
+
+### Step 2: Learn About bubbly.Run()
+
+**User Action**: Read updated documentation
+
+**Key Discovery**:
+> "`bubbly.Run()` eliminates ALL Bubbletea code from your main.go. The framework handles wrapping, async detection, and program lifecycle automatically."
+
+**Mental Model Shift**:
+```
+Before: BubblyUI wraps Bubbletea (you see both layers)
+After:  BubblyUI IS the framework (Bubbletea hidden internally)
+```
+
+**Questions Answered**:
+- Q: "Do I need to import Bubbletea?" → A: **No!** Only `bubbly`
+- Q: "What about async apps?" → A: **Auto-detected!** No tick wrapper
+- Q: "Can I still use Wrap()?" → A: **Yes!** Fully backward compatible
+- Q: "How do I set options like AltScreen?" → A: `bubbly.WithAltScreen()`
+
+### Step 3: After - Clean bubbly.Run()
+
+**Sync App (15 lines total)**:
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    
+    "github.com/newbpydev/bubblyui/pkg/bubbly"  // Only BubblyUI!
+)
+
+func main() {
+    app, err := CreateApp()
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        os.Exit(1)
+    }
+    
+    // One line! 🎉
+    if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+        fmt.Printf("Error: %v\n", err)
+        os.Exit(1)
+    }
+}
+```
+
+**Async App (SAME 15 lines - auto-detected!)**:
+```go
+// Component with WithAutoCommands(true) → async auto-detected
+// No tick wrapper needed! Framework handles it internally
+if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+    log.Fatal(err)
+}
+```
+
+**Results**:
+- ✅ Zero Bubbletea imports
+- ✅ 97 lines → 15 lines (82% reduction!)
+- ✅ No tick wrapper for async
+- ✅ Clean like Vue/React/Next.js
+- ✅ Same code for sync and async apps
+
+### Step 4: Migration Path
+
+**Strategy: Progressive Enhancement**
+
+**Option A: Immediate Full Migration (Simple Apps)**
+```go
+// Replace these 3 lines:
+p := tea.NewProgram(bubbly.Wrap(app), tea.WithAltScreen())
+if _, err := p.Run(); err != nil { ... }
+
+// With this 1 line:
+if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil { ... }
+```
+
+**Option B: Gradual Migration (Complex Apps)**
+```go
+// Week 1: Keep existing code, add Run() to new features
+// Week 2: Migrate simple components to Run()
+// Week 3: Migrate async components (remove tick wrappers)
+// Week 4: Full migration complete
+```
+
+**Option C: Coexistence (Mixed Codebase)**
+```go
+// Main app uses Run()
+func main() {
+    bubbly.Run(mainApp, bubbly.WithAltScreen())
+}
+
+// Tests use Wrap() for fine control
+func TestComponent(t *testing.T) {
+    model := bubbly.Wrap(component)
+    // ... test with tea.Program
+}
+```
+
+### Step 5: Run Option Configuration
+
+**Common Configurations**:
+
+```go
+// Basic TUI
+bubbly.Run(app, bubbly.WithAltScreen())
+
+// Interactive with mouse
+bubbly.Run(app,
+    bubbly.WithAltScreen(),
+    bubbly.WithMouseAllMotion(),
+)
+
+// High-performance dashboard
+bubbly.Run(app,
+    bubbly.WithAltScreen(),
+    bubbly.WithFPS(120),
+    bubbly.WithAsyncRefresh(50*time.Millisecond), // 20 updates/sec
+)
+
+// Production with context
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+defer cancel()
+
+bubbly.Run(app,
+    bubbly.WithAltScreen(),
+    bubbly.WithContext(ctx),
+)
+
+// Debug mode (see panics)
+bubbly.Run(app,
+    bubbly.WithAltScreen(),
+    bubbly.WithoutCatchPanics(), // Panics visible in development
+)
+```
+
+### Step 6: Async Auto-Detection Deep Dive
+
+**How It Works Internally**:
+
+```go
+// Component signals async need via builder
+component := bubbly.NewComponent("Dashboard").
+    WithAutoCommands(true).  // This flag triggers auto-detection
+    Setup(func(ctx *bubbly.Context) {
+        // Goroutines update refs
+        go func() {
+            data := fetchData()
+            dataRef.Set(data) // Auto-generates command
+        }()
+    }).
+    Build()
+
+// bubbly.Run() detects the flag automatically
+bubbly.Run(component, bubbly.WithAltScreen())
+// → Internally wraps with asyncWrapperModel
+// → Starts 100ms ticker automatically
+// → No manual code needed!
+```
+
+**Override Auto-Detection**:
+```go
+// Force async ON (even if WithAutoCommands not set)
+bubbly.Run(app, 
+    bubbly.WithAltScreen(),
+    bubbly.WithAsyncRefresh(200*time.Millisecond),
+)
+
+// Force async OFF (even if WithAutoCommands set)
+bubbly.Run(app,
+    bubbly.WithAltScreen(),
+    bubbly.WithAsyncRefresh(0), // 0 = disable
+)
+```
+
+### Step 7: Before/After Comparison
+
+| Aspect | Before (Manual) | After (bubbly.Run) |
+|--------|----------------|-------------------|
+| Imports | 3 (bubbly, tea, fmt) | 2 (bubbly, fmt) |
+| Lines (sync) | ~25 | ~15 |
+| Lines (async) | ~97 | ~15 |
+| Tick wrapper | Manual (80 lines) | Auto (0 lines) |
+| Bubbletea visible | Yes | No (internal) |
+| Run options | tea.With* | bubbly.With* |
+| Error handling | Program struct | Direct error |
+| Async detection | Manual | Automatic |
+| Backward compat | N/A | 100% |
+
+### Success Criteria
+
+**Developer Knows They've Succeeded When**:
+1. ✅ No `tea` import in main.go
+2. ✅ Main function < 20 lines
+3. ✅ No custom wrapper model
+4. ✅ No tick message handling
+5. ✅ Async works without manual code
+6. ✅ Code looks like modern web framework
+
+**Framework Validation**:
+- Async apps update UI smoothly
+- All run options work correctly
+- Error messages are clear
+- Performance matches manual approach
+- Old `Wrap()` code still works
+
+---
+
 ## Integration Points Map
 
 ### Feature Cross-Reference

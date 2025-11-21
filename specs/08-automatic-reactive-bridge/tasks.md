@@ -3405,6 +3405,413 @@ Feature Complete! 🎉
 - [ ] Clear error messages
 - [ ] Example updated and working
 
+### Framework Run API
+- [ ] bubbly.Run() function implemented
+- [ ] Auto-detection works (checks WithAutoCommands flag)
+- [ ] asyncWrapperModel wraps async components automatically
+- [ ] All 15 RunOption builders implemented
+- [ ] Async ticker starts automatically when needed
+- [ ] No Bubbletea imports needed in user code
+- [ ] Error handling works correctly
+- [ ] All examples migrated (97 → 15 lines for async)
+- [ ] Documentation complete
+- [ ] Integration tests pass
+- [ ] Backward compatible with Wrap()
+- [ ] Performance matches manual approach
+
+---
+
+## Phase 11: Framework Run API (4 tasks, 10 hours)
+
+### Task 11.1: Runner Implementation
+**Description**: Implement `bubbly.Run()` function with auto-detection and option builders
+
+**Prerequisites**: Task 10.4 (Auto-initialization complete)
+
+**Unlocks**: Zero-Bubbletea user code, async auto-detection
+
+**Files**:
+- `pkg/bubbly/runner.go` (NEW) - Main Run() implementation
+- `pkg/bubbly/runner_test.go` (NEW) - Runner tests
+- `pkg/bubbly/runner_options.go` (NEW) - Option builders
+
+**Type Definitions**:
+```go
+// Run executes a BubblyUI component as a TUI application
+func Run(component Component, opts ...RunOption) error
+
+// RunOption configures how the application runs
+type RunOption func(*runConfig)
+
+// runConfig holds all configuration
+type runConfig struct {
+    // Bubbletea program options
+    altScreen          bool
+    mouseAllMotion     bool
+    mouseCellMotion    bool
+    fps                int
+    input              io.Reader
+    output             io.Writer
+    ctx                context.Context
+    withoutBracketedPaste bool
+    withoutSignalHandler  bool
+    withoutCatchPanics bool
+    reportFocus        bool
+    inputTTY           bool
+    environment        []string
+    
+    // BubblyUI-specific options
+    asyncRefreshInterval time.Duration // 0 = disable, > 0 = enable
+    autoDetectAsync      bool          // Auto-enable based on WithAutoCommands
+}
+
+// asyncWrapperModel wraps component with automatic async tick support
+type asyncWrapperModel struct {
+    component Component
+    loading   bool
+    interval  time.Duration
+}
+
+type tickMsg time.Time
+```
+
+**Implementation Details**:
+1. **Run() Function**:
+   - Parse options into runConfig
+   - Auto-detect async requirement from component.autoCommands flag
+   - Wrap with asyncWrapperModel if async, else use Wrap()
+   - Convert bubbly options to tea.ProgramOption
+   - Create and run tea.NewProgram
+   - Return error directly (no Program struct exposed)
+
+2. **Auto-Detection Logic**:
+   ```go
+   needsAsync := false
+   if cfg.autoDetectAsync {
+       if impl, ok := component.(*componentImpl); ok {
+           needsAsync = impl.autoCommands
+       }
+   }
+   // Override if explicit interval set
+   if cfg.asyncRefreshInterval > 0 {
+       needsAsync = true
+   } else if cfg.asyncRefreshInterval == 0 {
+       needsAsync = false
+   }
+   ```
+
+3. **asyncWrapperModel**:
+   - Implements tea.Model interface
+   - Init() batches component.Init() + tickCmd()
+   - Update() handles tickMsg and forwards to component
+   - tickCmd() creates periodic tick at configured interval
+   - Default interval: 100ms (10 updates/sec)
+
+**Option Builders** (15 total):
+```go
+func WithAltScreen() RunOption
+func WithMouseAllMotion() RunOption
+func WithMouseCellMotion() RunOption
+func WithFPS(fps int) RunOption
+func WithInput(r io.Reader) RunOption
+func WithOutput(w io.Writer) RunOption
+func WithContext(ctx context.Context) RunOption
+func WithoutBracketedPaste() RunOption
+func WithoutSignalHandler() RunOption
+func WithoutCatchPanics() RunOption
+func WithReportFocus() RunOption
+func WithInputTTY() RunOption
+func WithEnvironment(env []string) RunOption
+func WithAsyncRefresh(interval time.Duration) RunOption
+func WithoutAsyncAutoDetect() RunOption
+```
+
+**Tests**:
+```go
+func TestRun_SyncApp(t *testing.T)
+func TestRun_AsyncApp_AutoDetected(t *testing.T)
+func TestRun_AsyncApp_ExplicitInterval(t *testing.T)
+func TestRun_AsyncApp_DisabledExplicitly(t *testing.T)
+func TestRun_WithOptions(t *testing.T)
+func TestRun_ErrorHandling(t *testing.T)
+func TestAsyncWrapperModel_Init(t *testing.T)
+func TestAsyncWrapperModel_Update_TickMsg(t *testing.T)
+func TestAsyncWrapperModel_TickInterval(t *testing.T)
+func TestBuildTeaOptions(t *testing.T)
+```
+
+**Type Safety**:
+- All RunOption functions type-safe
+- runConfig fields properly typed
+- Component type assertion with safety check
+- tea.ProgramOption conversion verified
+
+**Actual Effort**: TBD
+
+**Estimated Effort**: 4 hours
+
+---
+
+### Task 11.2: Update Examples to Use bubbly.Run()
+**Description**: Migrate all examples from tea.NewProgram to bubbly.Run()
+
+**Prerequisites**: Task 11.1
+
+**Unlocks**: Clean example code, demonstration of best practices
+
+**Files to Update**:
+- `cmd/examples/10-testing/02-todo/main.go` - Already clean, validate pattern
+- `cmd/examples/10-testing/03-form/main.go` - Already clean, validate pattern
+- `cmd/examples/10-testing/04-async/main.go` - REMOVE 80 lines of tick wrapper!
+- `cmd/examples/08-automatic-bridge/01-counter/main.go` - Simplify
+- `cmd/examples/04-composables/async-data/main.go` - Remove tick wrapper
+- All other examples with manual Bubbletea setup
+
+**Migration Pattern**:
+```go
+// BEFORE (3+ lines):
+p := tea.NewProgram(bubbly.Wrap(app), tea.WithAltScreen())
+if _, err := p.Run(); err != nil {
+    fmt.Printf("Error: %v\n", err)
+    os.Exit(1)
+}
+
+// AFTER (1 line):
+if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+    fmt.Printf("Error: %v\n", err)
+    os.Exit(1)
+}
+```
+
+**Special Case - Async Apps**:
+```go
+// BEFORE (97 lines with tick wrapper):
+type tickMsg time.Time
+func tickCmd() tea.Cmd { ... }
+type model struct { ... }
+func (m model) Init() tea.Cmd { ... }
+func (m model) Update(...) { ... }
+// ... 80+ more lines
+
+// AFTER (1 line - auto-detected):
+if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+    log.Fatal(err)
+}
+```
+
+**Validation**:
+- Each example runs correctly
+- No Bubbletea imports (except for custom messages)
+- Async apps work without manual tick
+- Error handling preserved
+- All tests pass
+
+**Tests**:
+- Run each example manually
+- Verify no regressions
+- Check terminal output matches before/after
+- Validate async updates work smoothly
+
+**Actual Effort**: TBD
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 11.3: Documentation and Migration Guide
+**Description**: Document bubbly.Run() API and migration from manual setup
+
+**Prerequisites**: Task 11.2
+
+**Unlocks**: User adoption of new API
+
+**Files**:
+- `docs/features/framework-run-api.md` (NEW)
+- `docs/migration/manual-to-run-api.md` (NEW)
+- Update `README.md` - Add bubbly.Run() as primary pattern
+- Update `BUBBLY_AI_MANUAL_SYSTEMATIC.md` - Update run pattern
+- Update all example READMEs
+
+**framework-run-api.md Structure**:
+```markdown
+# Framework Run API
+
+## Overview
+`bubbly.Run()` is the recommended way to launch BubblyUI applications, eliminating all Bubbletea boilerplate from your code.
+
+## Philosophy
+BubblyUI IS the framework. Bubbletea is an internal dependency, not something users interact with.
+
+## Basic Usage
+[Simple example]
+
+## Run Options
+[All 15 option builders with examples]
+
+## Async Auto-Detection
+[How auto-detection works]
+
+## Advanced Configurations
+[Complex examples with multiple options]
+
+## FAQ
+- When to use Run() vs Wrap()?
+- Can I still use Bubbletea directly?
+- How does async detection work?
+- Can I override auto-detection?
+
+## Comparison with Manual Setup
+[Before/after table]
+```
+
+**migration/manual-to-run-api.md Structure**:
+```markdown
+# Migration Guide: Manual Setup to bubbly.Run()
+
+## Quick Start
+Replace 3 lines with 1 line
+
+## Benefits
+- 82% less code (async apps)
+- Zero Bubbletea imports
+- Auto async detection
+- Clean main.go
+
+## Step-by-Step Migration
+
+### Step 1: Remove Bubbletea Import
+### Step 2: Replace tea.NewProgram with bubbly.Run
+### Step 3: Convert Options
+### Step 4: Remove Tick Wrapper (Async Apps)
+### Step 5: Test
+
+## Migration Strategies
+- Immediate (simple apps)
+- Gradual (complex apps)
+- Coexistence (mixed)
+
+## Backward Compatibility
+Wrap() still works, no breaking changes
+
+## Examples
+[10+ before/after examples]
+```
+
+**README.md Updates**:
+```markdown
+## Quick Start
+
+```go
+package main
+
+import (
+    "github.com/newbpydev/bubblyui/pkg/bubbly"
+)
+
+func main() {
+    app, _ := CreateApp()
+    bubbly.Run(app, bubbly.WithAltScreen())
+}
+```
+
+Clean, simple, zero boilerplate! 🎉
+```
+
+**Tests**:
+- [ ] Documentation complete
+- [ ] Code examples run correctly
+- [ ] Migration guide tested
+- [ ] FAQ answers common questions
+- [ ] README updated with Run() as primary
+
+**Actual Effort**: TBD
+
+**Estimated Effort**: 2 hours
+
+---
+
+### Task 11.4: Integration Tests and Validation
+**Description**: Comprehensive end-to-end tests for bubbly.Run() API
+
+**Prerequisites**: Task 11.3
+
+**Unlocks**: Production-ready Run() API
+
+**Files**:
+- `tests/integration/run_api_test.go` (NEW)
+- `tests/integration/run_async_test.go` (NEW)
+- `tests/integration/run_options_test.go` (NEW)
+
+**Test Coverage**:
+
+**Basic Functionality**:
+```go
+func TestRun_SimpleApp(t *testing.T)
+func TestRun_WithAltScreen(t *testing.T)
+func TestRun_ErrorPropagation(t *testing.T)
+func TestRun_ComponentInit(t *testing.T)
+func TestRun_ComponentUpdate(t *testing.T)
+func TestRun_ComponentView(t *testing.T)
+```
+
+**Async Detection**:
+```go
+func TestRun_AsyncAutoDetect_Enabled(t *testing.T)
+func TestRun_AsyncAutoDetect_Disabled(t *testing.T)
+func TestRun_AsyncExplicit_Enabled(t *testing.T)
+func TestRun_AsyncExplicit_Disabled(t *testing.T)
+func TestRun_AsyncDetectOverride(t *testing.T)
+func TestRun_AsyncInterval_Custom(t *testing.T)
+```
+
+**Run Options**:
+```go
+func TestRun_AllOptionsSupported(t *testing.T)
+func TestRun_MultipleOptions(t *testing.T)
+func TestRun_OptionPriority(t *testing.T)
+func TestRun_ContextCancellation(t *testing.T)
+func TestRun_MouseSupport(t *testing.T)
+func TestRun_CustomFPS(t *testing.T)
+```
+
+**Backward Compatibility**:
+```go
+func TestRun_Coexistence_WithWrap(t *testing.T)
+func TestRun_Migration_FromManual(t *testing.T)
+func TestRun_OldCodeStillWorks(t *testing.T)
+```
+
+**Error Scenarios**:
+```go
+func TestRun_InvalidComponent(t *testing.T)
+func TestRun_ComponentPanic(t *testing.T)
+func TestRun_ContextTimeout(t *testing.T)
+```
+
+**Performance Validation**:
+```go
+func BenchmarkRun_SyncApp(b *testing.B)
+func BenchmarkRun_AsyncApp(b *testing.B)
+func BenchmarkRun_TickOverhead(b *testing.B)
+```
+
+**Tests**:
+- [ ] All integration tests pass
+- [ ] Async detection works correctly
+- [ ] All options function properly
+- [ ] Error handling robust
+- [ ] Performance acceptable (no regression)
+- [ ] Race detector clean (`go test -race`)
+
+**Type Safety**:
+- All tests use type-safe APIs
+- No unsafe type assertions
+- Proper error type checking
+
+**Actual Effort**: TBD
+
+**Estimated Effort**: 2 hours
+
 ---
 
 ## Estimated Total Effort
@@ -3416,8 +3823,12 @@ Feature Complete! 🎉
 - Phase 5: 12 hours
 - Phase 6: 9 hours
 - Phase 7: 9 hours
+- Phase 8: 12 hours
+- Phase 9: 16 hours
+- Phase 10: 8 hours
+- Phase 11: 10 hours
 
-**Total**: ~72 hours (approximately 2 weeks)
+**Total**: ~118 hours (approximately 3 weeks)
 
 ---
 
@@ -3435,3 +3846,8 @@ Feature Complete! 🎉
 - Foundation for future DX improvements
 - Auto-initialization prevents runtime panics (Phase 10)
 - Component composition with zero boilerplate (Phase 10)
+- Zero Bubbletea in user code (Phase 11)
+- Async apps without manual tick wrapper (Phase 11)
+- 82% code reduction for async apps (97 → 15 lines)
+- Clean main.go matching modern web frameworks (Phase 11)
+- BubblyUI as the framework, Bubbletea as internal dependency (Phase 11)

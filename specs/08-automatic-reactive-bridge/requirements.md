@@ -108,6 +108,18 @@ Implement automatic command generation from reactive state changes, eliminating 
 12.7. Clear error messages if component initialization fails  
 12.8. Type-safe component exposure API  
 
+### 13. Framework-Level Run API
+13.1. `bubbly.Run()` function eliminates Bubbletea imports from user code  
+13.2. Accepts component and variadic run options  
+13.3. Run options mirror Bubbletea's `tea.ProgramOption` interface  
+13.4. Auto-detects async requirements from `WithAutoCommands()` flag  
+13.5. Automatically enables async ticker when needed (no manual tick wrapper)  
+13.6. Returns error directly (no Program struct to manage)  
+13.7. Supports all Bubbletea program options (`WithAltScreen`, `WithMouseSupport`, etc.)  
+13.8. Maintains backward compatibility with `bubbly.Wrap()` + `tea.NewProgram()`  
+13.9. Default async refresh interval: 100ms (configurable via `WithAsyncRefresh`)  
+13.10. Graceful error handling and cleanup  
+
 ## Non-Functional Requirements
 
 ### Performance
@@ -195,6 +207,17 @@ Implement automatic command generation from reactive state changes, eliminating 
 - [ ] No runtime panics from uninitialized state
 - [ ] Backward compatible with manual Init() calls
 - [ ] Clear error messages on init failures
+
+### Framework Run API
+- [ ] `bubbly.Run()` function works with all components
+- [ ] Zero Bubbletea imports needed in user code (except tea.Msg for custom messages)
+- [ ] Auto-detects async needs from `WithAutoCommands()`
+- [ ] Async ticker starts automatically when needed
+- [ ] All run options supported (WithAltScreen, WithMouseSupport, etc.)
+- [ ] Error handling works correctly
+- [ ] Backward compatible with `bubbly.Wrap()` + `tea.NewProgram()`
+- [ ] Simple apps work in < 15 lines of main.go
+- [ ] Async apps work without manual tick wrapper
 
 ## Dependencies
 
@@ -313,19 +336,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 ```
 
-### After (Automatic Bridge)
+### After (Automatic Bridge + bubbly.Run)
 ```go
-// Option 1: Automatic wrapper
+// Option 1: Zero Bubbletea with bubbly.Run() (RECOMMENDED)
+func main() {
+    app, _ := createCounterComponent()
+    
+    if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+        fmt.Printf("Error: %v\n", err)
+        os.Exit(1)
+    }
+}
+// Zero Bubbletea imports! Clean main.go like Vue/React!
+
+// Option 2: Backward compatible - Wrap() still available
 func main() {
     component, _ := createCounterComponent()
-    tea.NewProgram(bubbly.Wrap(component)).Run() // One line!
+    tea.NewProgram(bubbly.Wrap(component)).Run() // Still works
 }
 
-// Option 2: Still works manually if needed
+// Option 3: Manual wrapper if needed (advanced use cases)
 type model struct {
     component bubbly.Component
 }
-// ... same as before, both patterns work
+// ... same as before, all patterns coexist
 ```
 
 ### Component Code (Same for Both)

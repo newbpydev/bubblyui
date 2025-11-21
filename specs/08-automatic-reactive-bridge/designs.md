@@ -410,6 +410,352 @@ func (m *autoWrapperModel) View() string {
 
 ---
 
+## Framework Run API
+
+### Overview
+
+The `bubbly.Run()` function provides a single-function API to run BubblyUI applications without any Bubbletea imports in user code. It automatically handles:
+- Component wrapping
+- Async operation detection and ticker setup
+- Program option configuration
+- Error handling and cleanup
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  User Code: bubbly.Run(app, bubbly.WithAltScreen())         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────┐
+│  bubbly.Run() - Framework Entry Point                       │
+├─────────────────────────────────────────────────────────────┤
+│  1. Parse run options                                        │
+│  2. Detect async requirement (check WithAutoCommands flag)   │
+│  3. Wrap component:                                          │
+│     - If async needed: asyncWrapperModel with ticker         │
+│     - If sync: autoWrapperModel (bubbly.Wrap)               │
+│  4. Convert BubblyUI options to tea.ProgramOption           │
+│  5. Create tea.NewProgram with options                       │
+│  6. Run program and return error                            │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────┐
+│  Bubbletea Framework (internal, hidden from user)           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Type Definitions
+
+```go
+// Run executes a BubblyUI component as a TUI application
+// Returns error directly - no Program struct to manage
+func Run(component Component, opts ...RunOption) error
+
+// RunOption configures how the application runs
+type RunOption func(*runConfig)
+
+// runConfig holds all configuration for running the app
+type runConfig struct {
+    // Bubbletea program options
+    altScreen          bool
+    mouseAllMotion     bool
+    mouseCellMotion    bool
+    fps                int
+    input              io.Reader
+    output             io.Writer
+    ctx                context.Context
+    withoutBracketedPaste bool
+    withoutSignalHandler  bool
+    withoutCatchPanics bool
+    reportFocus        bool
+    inputTTY           bool
+    environment        []string
+    
+    // BubblyUI-specific options
+    asyncRefreshInterval time.Duration // 0 = disable, > 0 = enable with interval
+    autoDetectAsync      bool          // Auto-enable async based on WithAutoCommands
+}
+
+// Run option builders
+func WithAltScreen() RunOption
+func WithMouseAllMotion() RunOption
+func WithMouseCellMotion() RunOption
+func WithFPS(fps int) RunOption
+func WithInput(r io.Reader) RunOption
+func WithOutput(w io.Writer) RunOption
+func WithContext(ctx context.Context) RunOption
+func WithoutBracketedPaste() RunOption
+func WithoutSignalHandler() RunOption
+func WithoutCatchPanics() RunOption
+func WithReportFocus() RunOption
+func WithInputTTY() RunOption
+func WithEnvironment(env []string) RunOption
+
+// BubblyUI-specific options
+func WithAsyncRefresh(interval time.Duration) RunOption
+func WithoutAsyncAutoDetect() RunOption // Disable auto-detection
+```
+
+### Implementation
+
+**File: `pkg/bubbly/runner.go` (NEW)**
+
+```go
+package bubbly
+
+import (
+    "context"
+    "fmt"
+    "io"
+    "time"
+    
+    tea "github.com/charmbracelet/bubbletea"
+)
+
+// Run executes a BubblyUI component as a TUI application
+func Run(component Component, opts ...RunOption) error {
+    // Default configuration
+    cfg := &runConfig{
+        asyncRefreshInterval: 100 * time.Millisecond, // Default 100ms for async
+        autoDetectAsync:      true,                    // Auto-detect by default
+    }
+    
+    // Apply options
+    for _, opt := range opts {
+        opt(cfg)
+    }
+    
+    // Auto-detect async requirement
+    needsAsync := false
+    if cfg.autoDetectAsync {
+        if impl, ok := component.(*componentImpl); ok {
+            needsAsync = impl.autoCommands // Check WithAutoCommands flag
+        }
+    }
+    
+    // Override if explicit async interval set
+    if cfg.asyncRefreshInterval > 0 {
+        needsAsync = true
+    } else if cfg.asyncRefreshInterval == 0 {
+        needsAsync = false // Explicitly disabled
+    }
+    
+    // Wrap component appropriately
+    var model tea.Model
+    if needsAsync {
+        model = &asyncWrapperModel{
+            component: component,
+            loading:   true, // Start in loading state
+            interval:  cfg.asyncRefreshInterval,
+        }
+    } else {
+        model = Wrap(component) // Use existing Wrap for sync apps
+    }
+    
+    // Build Bubbletea program options
+    teaOpts := buildTeaOptions(cfg)
+    
+    // Create and run program
+    p := tea.NewProgram(model, teaOpts...)
+    if _, err := p.Run(); err != nil {
+        return fmt.Errorf("bubbly: application error: %w", err)
+    }
+    
+    return nil
+}
+
+// buildTeaOptions converts BubblyUI options to Bubbletea options
+func buildTeaOptions(cfg *runConfig) []tea.ProgramOption {
+    var opts []tea.ProgramOption
+    
+    if cfg.altScreen {
+        opts = append(opts, tea.WithAltScreen())
+    }
+    if cfg.mouseAllMotion {
+        opts = append(opts, tea.WithMouseAllMotion())
+    }
+    if cfg.mouseCellMotion {
+        opts = append(opts, tea.WithMouseCellMotion())
+    }
+    if cfg.fps > 0 {
+        opts = append(opts, tea.WithFPS(cfg.fps))
+    }
+    if cfg.input != nil {
+        opts = append(opts, tea.WithInput(cfg.input))
+    }
+    if cfg.output != nil {
+        opts = append(opts, tea.WithOutput(cfg.output))
+    }
+    if cfg.ctx != nil {
+        opts = append(opts, tea.WithContext(cfg.ctx))
+    }
+    if cfg.withoutBracketedPaste {
+        opts = append(opts, tea.WithoutBracketedPaste())
+    }
+    if cfg.withoutSignalHandler {
+        opts = append(opts, tea.WithoutSignalHandler())
+    }
+    if cfg.withoutCatchPanics {
+        opts = append(opts, tea.WithoutCatchPanics())
+    }
+    if cfg.reportFocus {
+        opts = append(opts, tea.WithReportFocus())
+    }
+    if cfg.inputTTY {
+        opts = append(opts, tea.WithInputTTY())
+    }
+    if len(cfg.environment) > 0 {
+        opts = append(opts, tea.WithEnvironment(cfg.environment...))
+    }
+    
+    return opts
+}
+
+// asyncWrapperModel wraps component with automatic async tick support
+type asyncWrapperModel struct {
+    component Component
+    loading   bool
+    interval  time.Duration
+}
+
+func (m asyncWrapperModel) Init() tea.Cmd {
+    return tea.Batch(m.component.Init(), m.tickCmd())
+}
+
+func (m asyncWrapperModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var cmds []tea.Cmd
+    
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        // Handle quit keys
+        switch msg.String() {
+        case "ctrl+c", "q":
+            // Forward to component first, let it handle
+            // Component's key bindings take precedence
+        }
+    case tickMsg:
+        // Continue ticking while loading
+        if m.loading {
+            cmds = append(cmds, m.tickCmd())
+        }
+    }
+    
+    // Update component
+    updated, cmd := m.component.Update(msg)
+    m.component = updated.(Component)
+    
+    if cmd != nil {
+        cmds = append(cmds, cmd)
+    }
+    
+    return m, tea.Batch(cmds...)
+}
+
+func (m asyncWrapperModel) View() string {
+    return m.component.View()
+}
+
+func (m asyncWrapperModel) tickCmd() tea.Cmd {
+    return tea.Tick(m.interval, func(t time.Time) tea.Msg {
+        return tickMsg(t)
+    })
+}
+
+type tickMsg time.Time
+
+// Run option implementations
+func WithAltScreen() RunOption {
+    return func(cfg *runConfig) {
+        cfg.altScreen = true
+    }
+}
+
+func WithAsyncRefresh(interval time.Duration) RunOption {
+    return func(cfg *runConfig) {
+        cfg.asyncRefreshInterval = interval
+    }
+}
+
+// ... (rest of option builders follow same pattern)
+```
+
+### Usage Examples
+
+**Simple Counter (No Async)**
+```go
+func main() {
+    app, _ := CreateCounter()
+    
+    if err := bubbly.Run(app, bubbly.WithAltScreen()); err != nil {
+        log.Fatal(err)
+    }
+}
+// Async auto-detection: WithAutoCommands not used → sync mode → no ticker
+```
+
+**Async Dashboard (Auto-Detected)**
+```go
+func main() {
+    app, _ := CreateDashboard()
+    
+    if err := bubbly.Run(app, 
+        bubbly.WithAltScreen(),
+        bubbly.WithAsyncRefresh(100*time.Millisecond),
+    ); err != nil {
+        log.Fatal(err)
+    }
+}
+// Component uses WithAutoCommands(true) → async auto-detected → ticker enabled
+```
+
+**Custom Options**
+```go
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+    defer cancel()
+    
+    app, _ := CreateApp()
+    
+    if err := bubbly.Run(app,
+        bubbly.WithAltScreen(),
+        bubbly.WithMouseAllMotion(),
+        bubbly.WithFPS(120),
+        bubbly.WithContext(ctx),
+    ); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### Async Detection Logic
+
+```go
+// Auto-detection flow:
+1. Check if autoDetectAsync is enabled (default: true)
+2. If yes, inspect component:
+   - component.(*componentImpl).autoCommands == true? → needs async
+3. Check if explicit asyncRefreshInterval set:
+   - interval > 0? → needs async (override detection)
+   - interval == 0? → no async (explicit disable)
+4. Wrap accordingly:
+   - needsAsync? → asyncWrapperModel with ticker
+   - else → autoWrapperModel (existing Wrap)
+```
+
+### Benefits
+
+1. **Zero Bubbletea Imports**: User code only imports `bubbly`
+2. **Clean main.go**: 10-15 lines like 02-todo/03-form examples
+3. **Automatic Async**: No manual tick wrapper for async apps
+4. **All Options Supported**: Full parity with `tea.NewProgram`
+5. **Backward Compatible**: `bubbly.Wrap()` still works
+6. **Type Safe**: Compile-time option validation
+7. **Explicit When Needed**: Can override auto-detection
+8. **Production Ready**: Error handling and cleanup
+
+---
+
 ## Context Configuration
 
 ### Automatic Mode Configuration
