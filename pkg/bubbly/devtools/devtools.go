@@ -34,11 +34,13 @@ package devtools
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // DevTools is the main dev tools instance that manages the entire debugging system.
@@ -211,7 +213,23 @@ func Enable() *DevTools {
 		hook := &frameworkHookAdapter{store: store}
 		if err := bubbly.RegisterHook(hook); err != nil {
 			// Log error but don't fail devtools initialization - devtools is optional
-			// In production, this would be reported to observability
+			// Report to observability system for production monitoring
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				reporter.ReportError(err, &observability.ErrorContext{
+					ComponentName: "DevTools",
+					EventName:     "RegisterHook",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"error_type": "hook_registration_failed",
+						"component":  "devtools",
+					},
+					Extra: map[string]interface{}{
+						"error_message": err.Error(),
+					},
+				})
+			}
+			// Also log to stderr for visibility when observability is not configured
 			fmt.Printf("Warning: Failed to register devtools hook: %v\n", err)
 		}
 	})
