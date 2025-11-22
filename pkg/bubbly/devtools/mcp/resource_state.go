@@ -115,26 +115,20 @@ func (s *MCPServer) RegisterStateResource() error {
 	defer s.mu.RUnlock()
 
 	// Register refs resource
-	s.server.AddResource(
-		&mcp.Resource{
-			URI:         "bubblyui://state/refs",
-			Name:        "state-refs",
-			Description: "All reactive references across components",
-			MIMEType:    "application/json",
-		},
+	s.registerResource(
+		"bubblyui://state/refs",
+		"state-refs",
+		"All reactive references across components",
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			return s.readStateRefsResource(ctx, req)
 		},
 	)
 
 	// Register history resource
-	s.server.AddResource(
-		&mcp.Resource{
-			URI:         "bubblyui://state/history",
-			Name:        "state-history",
-			Description: "State change history",
-			MIMEType:    "application/json",
-		},
+	s.registerResource(
+		"bubblyui://state/history",
+		"state-history",
+		"State change history",
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			return s.readStateHistoryResource(ctx, req)
 		},

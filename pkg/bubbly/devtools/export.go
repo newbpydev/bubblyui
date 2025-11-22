@@ -10,6 +10,45 @@ import (
 	"time"
 )
 
+// writeWithCompression writes data to a file with optional gzip compression.
+// This helper function is used by both Export and ExportFormat to avoid code duplication.
+func writeWithCompression(file *os.File, data []byte, opts ExportOptions) error {
+	if opts.Compress {
+		// Set default compression level if not specified
+		level := opts.CompressionLevel
+		if level == 0 {
+			level = gzip.DefaultCompression
+		}
+
+		// Create gzip writer
+		gzWriter, err := gzip.NewWriterLevel(file, level)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip writer: %w", err)
+		}
+		defer gzWriter.Close()
+
+		// Write compressed data
+		_, err = gzWriter.Write(data)
+		if err != nil {
+			return fmt.Errorf("failed to write compressed data: %w", err)
+		}
+
+		// Flush to ensure all data is written
+		err = gzWriter.Flush()
+		if err != nil {
+			return fmt.Errorf("failed to flush gzip writer: %w", err)
+		}
+	} else {
+		// Write uncompressed data
+		_, err := file.Write(data)
+		if err != nil {
+			return fmt.Errorf("failed to write export file: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ExportData represents the complete debug data export format.
 //
 // This structure is serialized to JSON when exporting dev tools data.
@@ -204,41 +243,8 @@ func (dt *DevTools) Export(filename string, opts ExportOptions) error {
 	}
 	defer file.Close()
 
-	// Write data (compressed or uncompressed)
-	if opts.Compress {
-		// Set default compression level if not specified
-		level := opts.CompressionLevel
-		if level == 0 && opts.Compress {
-			level = gzip.DefaultCompression
-		}
-
-		// Create gzip writer
-		gzWriter, err := gzip.NewWriterLevel(file, level)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip writer: %w", err)
-		}
-		defer gzWriter.Close()
-
-		// Write compressed data
-		_, err = gzWriter.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write compressed data: %w", err)
-		}
-
-		// Flush to ensure all data is written
-		err = gzWriter.Flush()
-		if err != nil {
-			return fmt.Errorf("failed to flush gzip writer: %w", err)
-		}
-	} else {
-		// Write uncompressed data
-		_, err = file.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write export file: %w", err)
-		}
-	}
-
-	return nil
+	// Write data with optional compression
+	return writeWithCompression(file, jsonData, opts)
 }
 
 // ExportFormat writes dev tools debug data to a file using the specified format.
@@ -336,41 +342,8 @@ func (dt *DevTools) ExportFormat(filename, formatName string, opts ExportOptions
 	}
 	defer file.Close()
 
-	// Write data (compressed or uncompressed)
-	if opts.Compress {
-		// Set default compression level if not specified
-		level := opts.CompressionLevel
-		if level == 0 && opts.Compress {
-			level = gzip.DefaultCompression
-		}
-
-		// Create gzip writer
-		gzWriter, err := gzip.NewWriterLevel(file, level)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip writer: %w", err)
-		}
-		defer gzWriter.Close()
-
-		// Write compressed data
-		_, err = gzWriter.Write(bytes)
-		if err != nil {
-			return fmt.Errorf("failed to write compressed data: %w", err)
-		}
-
-		// Flush to ensure all data is written
-		err = gzWriter.Flush()
-		if err != nil {
-			return fmt.Errorf("failed to flush gzip writer: %w", err)
-		}
-	} else {
-		// Write uncompressed data
-		_, err = file.Write(bytes)
-		if err != nil {
-			return fmt.Errorf("failed to write export file: %w", err)
-		}
-	}
-
-	return nil
+	// Write data with optional compression
+	return writeWithCompression(file, bytes, opts)
 }
 
 // ExportStream writes dev tools debug data to a file using streaming mode.

@@ -213,25 +213,9 @@ func (d *StateChangeDetector) HandleRefChange(refID string, oldValue, newValue i
 	}
 }
 
-// HandleComponentMount processes a component mount event and notifies subscribed clients.
-//
-// This method:
-//   - Finds all subscriptions interested in component changes
-//   - Checks if the mount event matches each subscription's filters
-//   - Queues notifications for matching subscriptions
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-//
-// Example:
-//
-//	detector.HandleComponentMount("comp-1", "Counter")
-//
-// Parameters:
-//   - componentID: The unique identifier of the mounted component
-//   - componentName: The name of the mounted component
-func (d *StateChangeDetector) HandleComponentMount(componentID, componentName string) {
+// handleComponentLifecycleEvent is a helper function that processes component lifecycle events.
+// It checks subscriptions and notifies clients whose filters match the component.
+func (d *StateChangeDetector) handleComponentLifecycleEvent(componentID, componentName, eventType string) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -258,11 +242,37 @@ func (d *StateChangeDetector) HandleComponentMount(componentID, componentName st
 			notificationData := map[string]interface{}{
 				"component_id":   componentID,
 				"component_name": componentName,
-				"event_type":     "mount",
+				"event_type":     eventType,
 			}
 			d.notifier.QueueNotification(sub.ClientID, sub.ResourceURI, notificationData)
 		}
 	}
+}
+
+// HandleComponentMount processes a component mount event and notifies subscribed clients.
+//
+// This method is called when a component is mounted in the application.
+// It checks all active subscriptions for the components resource and notifies
+// clients whose filters match the mounted component.
+//
+// The notification includes:
+//   - component_id: Unique identifier of the mounted component
+//   - component_name: Name/type of the mounted component
+//   - event_type: "mount"
+//
+// Thread Safety:
+//
+//	This method acquires a read lock and is safe for concurrent use.
+//
+// Parameters:
+//   - componentID: Unique identifier of the mounted component
+//   - componentName: Name/type of the mounted component
+//
+// Example:
+//
+//	detector.HandleComponentMount("btn-123", "Button")
+func (d *StateChangeDetector) HandleComponentMount(componentID, componentName string) {
+	d.handleComponentLifecycleEvent(componentID, componentName, "mount")
 }
 
 // HandleComponentUnmount processes a component unmount event and notifies subscribed clients.
@@ -284,37 +294,7 @@ func (d *StateChangeDetector) HandleComponentMount(componentID, componentName st
 //   - componentID: The unique identifier of the unmounted component
 //   - componentName: The name of the unmounted component
 func (d *StateChangeDetector) HandleComponentUnmount(componentID, componentName string) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	allSubs := d.getAllSubscriptions()
-
-	for _, sub := range allSubs {
-		// Check if subscription is for components
-		if !strings.HasPrefix(sub.ResourceURI, "bubblyui://components") {
-			continue
-		}
-
-		// Check if filters match
-		data := map[string]interface{}{
-			"component_id":   componentID,
-			"component_name": componentName,
-		}
-
-		if !matchesFilter(sub.Filters, data) {
-			continue
-		}
-
-		// Queue notification
-		if d.notifier != nil {
-			notificationData := map[string]interface{}{
-				"component_id":   componentID,
-				"component_name": componentName,
-				"event_type":     "unmount",
-			}
-			d.notifier.QueueNotification(sub.ClientID, sub.ResourceURI, notificationData)
-		}
-	}
+	d.handleComponentLifecycleEvent(componentID, componentName, "unmount")
 }
 
 // HandleEventEmit processes an event emission and notifies subscribed clients.

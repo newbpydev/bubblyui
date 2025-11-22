@@ -12,6 +12,32 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
+// recoverToolRegistration provides panic recovery with observability integration for tool registration.
+// This helper function is used by all tool registration methods to avoid code duplication.
+func recoverToolRegistration(eventName, toolName string) {
+	if r := recover(); r != nil {
+		if reporter := observability.GetErrorReporter(); reporter != nil {
+			panicErr := &observability.HandlerPanicError{
+				ComponentName: "MCPServer",
+				EventName:     eventName,
+				PanicValue:    r,
+			}
+
+			ctx := &observability.ErrorContext{
+				ComponentName: "MCPServer",
+				EventName:     eventName,
+				Timestamp:     time.Now(),
+				StackTrace:    debug.Stack(),
+				Tags: map[string]string{
+					"tool": toolName,
+				},
+			}
+
+			reporter.ReportPanic(panicErr, ctx)
+		}
+	}
+}
+
 // ClearStateHistoryParams defines the parameters for the clear_state_history tool.
 //
 // This structure is used by AI agents to specify options when clearing state history.
@@ -81,29 +107,7 @@ type ClearResult struct {
 //   - error: nil on success, error describing the failure otherwise
 func (s *MCPServer) RegisterClearStateHistoryTool() error {
 	// Panic recovery with observability integration
-	defer func() {
-		if r := recover(); r != nil {
-			if reporter := observability.GetErrorReporter(); reporter != nil {
-				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
-					EventName:     "RegisterClearStateHistoryTool",
-					PanicValue:    r,
-				}
-
-				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
-					EventName:     "RegisterClearStateHistoryTool",
-					Timestamp:     time.Now(),
-					StackTrace:    debug.Stack(),
-					Tags: map[string]string{
-						"tool": "clear_state_history",
-					},
-				}
-
-				reporter.ReportPanic(panicErr, ctx)
-			}
-		}
-	}()
+	defer recoverToolRegistration("RegisterClearStateHistoryTool", "clear_state_history")
 
 	// Define tool metadata
 	tool := &mcp.Tool{
@@ -150,29 +154,7 @@ func (s *MCPServer) RegisterClearStateHistoryTool() error {
 //   - error: nil on success, error describing the failure otherwise
 func (s *MCPServer) RegisterClearEventLogTool() error {
 	// Panic recovery with observability integration
-	defer func() {
-		if r := recover(); r != nil {
-			if reporter := observability.GetErrorReporter(); reporter != nil {
-				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
-					EventName:     "RegisterClearEventLogTool",
-					PanicValue:    r,
-				}
-
-				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
-					EventName:     "RegisterClearEventLogTool",
-					Timestamp:     time.Now(),
-					StackTrace:    debug.Stack(),
-					Tags: map[string]string{
-						"tool": "clear_event_log",
-					},
-				}
-
-				reporter.ReportPanic(panicErr, ctx)
-			}
-		}
-	}()
+	defer recoverToolRegistration("RegisterClearEventLogTool", "clear_event_log")
 
 	// Define tool metadata
 	tool := &mcp.Tool{

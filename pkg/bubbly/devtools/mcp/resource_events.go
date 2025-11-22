@@ -12,6 +12,20 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
+// registerResource is a helper function to register a resource with the MCP server.
+// It reduces code duplication in resource registration methods.
+func (s *MCPServer) registerResource(uri, name, description string, handler func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error)) {
+	s.server.AddResource(
+		&mcp.Resource{
+			URI:         uri,
+			Name:        name,
+			Description: description,
+			MIMEType:    "application/json",
+		},
+		handler,
+	)
+}
+
 // EventsResource represents the events log resource.
 //
 // This structure is returned by the bubblyui://events/log resource
@@ -71,13 +85,10 @@ func (s *MCPServer) RegisterEventsResource() error {
 	defer s.mu.RUnlock()
 
 	// Register events log resource
-	s.server.AddResource(
-		&mcp.Resource{
-			URI:         "bubblyui://events/log",
-			Name:        "events-log",
-			Description: "All event records",
-			MIMEType:    "application/json",
-		},
+	s.registerResource(
+		"bubblyui://events/log",
+		"events-log",
+		"All event records",
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			return s.readEventsLogResource(ctx, req)
 		},
