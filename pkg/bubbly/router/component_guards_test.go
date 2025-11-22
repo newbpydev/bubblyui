@@ -335,10 +335,10 @@ func TestComponentGuards_CancelNavigation(t *testing.T) {
 
 	tracker.reset()
 
-	// Try to navigate to second route - should be cancelled by component1's BeforeRouteLeave
+	// Try to navigate to second route - should be canceled by component1's BeforeRouteLeave
 	router.Push(&NavigationTarget{Path: "/test2"})()
 
-	// Navigation should be cancelled (error or still on first route)
+	// Navigation should be canceled (error or still on first route)
 	currentRoute = router.CurrentRoute()
 	require.NotNil(t, currentRoute)
 	// Should still be on first route
@@ -346,7 +346,7 @@ func TestComponentGuards_CancelNavigation(t *testing.T) {
 
 	// BeforeRouteLeave should have been called
 	assert.Contains(t, tracker.calls, "BeforeRouteLeave")
-	// BeforeRouteEnter should NOT have been called (navigation cancelled)
+	// BeforeRouteEnter should NOT have been called (navigation canceled)
 	assert.NotContains(t, tracker.calls, "BeforeRouteEnter")
 }
 
@@ -554,7 +554,7 @@ func TestDebug_CancelFlow(t *testing.T) {
 	msg1 := router.Push(&NavigationTarget{Path: "/test1"})()
 	t.Logf("First navigation: %T", msg1)
 
-	// Try to navigate away (should be cancelled)
+	// Try to navigate away (should be canceled)
 	msg2 := router.Push(&NavigationTarget{Path: "/test2"})()
 	t.Logf("Second navigation: %T", msg2)
 

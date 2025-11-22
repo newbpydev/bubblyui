@@ -129,7 +129,7 @@ func TestRouter_Guards_CancelNavigation(t *testing.T) {
 	msg := cmd()
 
 	// Should return error message
-	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be cancelled")
+	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be canceled")
 
 	// Verify route was NOT changed
 	assert.Nil(t, router.CurrentRoute(), "Route should not change")
@@ -301,7 +301,7 @@ func TestRouter_AfterHooks_NotCalledOnCancel(t *testing.T) {
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
-	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be cancelled")
+	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be canceled")
 	assert.False(t, hookCalled, "After hook should NOT be called on cancel")
 }
 

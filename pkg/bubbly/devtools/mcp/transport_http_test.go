@@ -46,7 +46,7 @@ func TestStartHTTPServer_Success(t *testing.T) {
 	// Wait for server to stop
 	select {
 	case err := <-errCh:
-		// Server should stop gracefully (context cancelled)
+		// Server should stop gracefully (context canceled)
 		assert.NoError(t, err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Server did not stop within timeout")

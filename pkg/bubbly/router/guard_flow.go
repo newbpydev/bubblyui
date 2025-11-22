@@ -117,7 +117,7 @@ func (r *Router) pushWithTracking(target *NavigationTarget, tracker *redirectTra
 	switch guardResult.action {
 	case guardCancel:
 		return NavigationErrorMsg{
-			Error: ErrNavigationCancelled,
+			Error: ErrNavigationCanceled,
 			From:  oldRoute,
 			To:    target,
 		}
@@ -210,7 +210,7 @@ func (r *Router) replaceWithTracking(target *NavigationTarget, tracker *redirect
 	switch guardResult.action {
 	case guardCancel:
 		return NavigationErrorMsg{
-			Error: ErrNavigationCancelled,
+			Error: ErrNavigationCanceled,
 			From:  oldRoute,
 			To:    target,
 		}

@@ -68,7 +68,7 @@ func TestStartStdioServer_Success(t *testing.T) {
 	}
 }
 
-// TestStartStdioServer_ContextCancellation verifies that cancelling the context
+// TestStartStdioServer_ContextCancellation verifies that canceling the context
 // causes the server to shut down gracefully.
 func TestStartStdioServer_ContextCancellation(t *testing.T) {
 	dt := devtools.Enable()
@@ -300,8 +300,8 @@ func TestStartStdioServer_DirectCall_WithMockTransport(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	cancel() // Cancel immediately
 
-	// StartStdioServer should handle the cancelled context gracefully
-	// It may succeed (if Connect happens before cancel) or fail (if cancelled first)
+	// StartStdioServer should handle the canceled context gracefully
+	// It may succeed (if Connect happens before cancel) or fail (if canceled first)
 	_ = mcpServer.StartStdioServer(ctx)
 
 	// The key is that it doesn't panic and returns properly
@@ -318,7 +318,7 @@ func TestStartStdioServer_CodeCoverage(t *testing.T) {
 		expectPanic bool
 	}{
 		{
-			name: "normal server with cancelled context",
+			name: "normal server with canceled context",
 			setupServer: func() (*MCPServer, error) {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
@@ -475,7 +475,7 @@ func TestStartStdioServer_AllPaths(t *testing.T) {
 		mcpServer, err := NewMCPServer(cfg, dt)
 		require.NoError(t, err)
 
-		// Create context that will be cancelled
+		// Create context that will be canceled
 		ctx, cancel := context.WithCancel(context.Background())
 
 		// Start server in background
@@ -510,7 +510,7 @@ func TestStartStdioServer_AllPaths(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		// Should handle cancelled context gracefully
+		// Should handle canceled context gracefully
 		_ = mcpServer.StartStdioServer(ctx)
 	})
 }

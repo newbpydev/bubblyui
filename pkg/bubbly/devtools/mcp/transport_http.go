@@ -33,7 +33,7 @@ type httpServerState struct {
 //   - Handle graceful shutdown on context cancellation
 //
 // The method starts the HTTP server in a goroutine and blocks until:
-//   - Context is cancelled (graceful shutdown)
+//   - Context is canceled (graceful shutdown)
 //   - Server encounters a fatal error
 //
 // Thread Safety:
@@ -58,7 +58,7 @@ type httpServerState struct {
 //	    log.Fatal(err)
 //	}
 //
-//	// Start HTTP server (blocks until context cancelled)
+//	// Start HTTP server (blocks until context canceled)
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
 //
@@ -185,7 +185,7 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 	// Wait for context cancellation or server error
 	select {
 	case <-ctx.Done():
-		// Context cancelled - perform graceful shutdown
+		// Context canceled - perform graceful shutdown
 		return s.shutdownHTTPServer(state)
 	case err := <-errCh:
 		// Server error

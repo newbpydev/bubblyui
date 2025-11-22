@@ -20,11 +20,11 @@ import (
 //   - Complete the initialization handshake with the client
 //   - Negotiate protocol version (2025-06-18)
 //   - Declare server capabilities (resources, tools, subscriptions)
-//   - Block until the client disconnects or context is cancelled
+//   - Block until the client disconnects or context is canceled
 //
 // The method blocks until one of the following occurs:
 //   - Client disconnects gracefully
-//   - Context is cancelled
+//   - Context is canceled
 //   - Transport error occurs
 //
 // Thread Safety:
@@ -101,7 +101,7 @@ func (s *MCPServer) StartStdioServer(ctx context.Context) error {
 	// Wait for session to complete
 	// This blocks until:
 	// - Client disconnects
-	// - Context is cancelled
+	// - Context is canceled
 	// - Transport error occurs
 	err = session.Wait()
 	if err != nil {

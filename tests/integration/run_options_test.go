@@ -167,7 +167,7 @@ func TestRun_ContextCancellation(t *testing.T) {
 		bubbly.WithContext(ctx),
 	)
 
-	// Should get context cancelled error
+	// Should get context canceled error
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }

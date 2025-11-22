@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// ErrNavigationCancelled is returned when navigation is cancelled by a guard
-	ErrNavigationCancelled = errors.New("navigation cancelled by guard")
+	// ErrNavigationCanceled is returned when navigation is canceled by a guard
+	ErrNavigationCanceled = errors.New("navigation canceled by guard")
 )
 
 // getPathOrEmpty returns the path from a route or empty string if route is nil
