@@ -734,19 +734,80 @@ var UseSharedCounter = composables.CreateShared(
 ```
 
 **Tests**:
-- [ ] Example compiles and runs
-- [ ] State shared between components
-- [ ] Visual demonstration works
-- [ ] README explains pattern clearly
+- [x] Example compiles and runs
+- [x] State shared between components
+- [x] Visual demonstration works
+- [x] README explains pattern clearly
 
 **Estimated Effort**: 2 hours
 
 **Priority**: MEDIUM (educational value)
 
 **Completion Criteria**:
-- Working example with clear demonstration
-- README with VueUse comparison
-- Comments explain pattern
+- [x] Working example with clear demonstration
+- [x] README with VueUse comparison
+- [x] Comments explain pattern
+
+**Implementation Notes** (Completed - CORRECTED):
+- Created complete example in `cmd/examples/11-advanced-patterns/01-shared-state/`
+- **File Structure** (Following Manual Pattern):
+  - `main.go`: Uses `bubbly.Run()` - ZERO BUBBLETEA manual code
+  - `app.go`: Root component with ExposeComponent pattern
+  - `app_test.go`: Comprehensive tests using testutil harness (5 tests, all passing with -race)
+  - `composables/use_counter.go`: Counter composable (uses ctx.Ref for interface{} refs)
+  - `composables/shared_counter.go`: UseSharedCounter wrapper using CreateShared
+  - `components/counter_display.go`: Display component using Card component
+  - `components/counter_controls.go`: Controls component using Card component
+  - `README.md`: Comprehensive documentation with VueUse comparison
+- **CRITICAL CORRECTIONS APPLIED**:
+  - ✅ Uses `bubbly.Run()` NOT `tea.NewProgram` (zero Bubbletea)
+  - ✅ Uses `ctx.Ref()` returning `*bubbly.Ref[interface{}]` (not `bubbly.NewRef[int]`)
+  - ✅ Uses BubblyUI Card component (not raw Lipgloss)
+  - ✅ Uses `ctx.ExposeComponent()` for child components
+  - ✅ Comprehensive tests with testutil harness (NOT manual component.Init())
+  - ✅ Follows composables/components/app.go pattern from manual
+- **Test Coverage** (testutil harness):
+  - `TestApp_Creation`: Component creation and naming
+  - `TestApp_SharedStateSync`: State synchronization across components
+  - `TestApp_HistoryTracking`: History tracking with arrows
+  - `TestApp_ComputedValues`: Computed values (Doubled, IsEven) with reset handling
+  - `TestApp_KeyBindings`: Multi-key bindings verification
+  - All tests pass with race detector: `go test -v -race .` (1.070s)
+- **Key Features Demonstrated**:
+  - CreateShared pattern for singleton composables (inspired by VueUse)
+  - State synchronization across two independent components
+  - WithMultiKeyBindings for flexible keyboard shortcuts (↑/k/+, ↓/j/-, r)
+  - Reactive updates with Ref[interface{}] and Computed[interface{}]
+  - Zero Bubbletea - framework handles all Model/Update/View
+  - BubblyUI components (Card) instead of raw Lipgloss
+- **Visual Layout**: Side-by-side display (📊 Counter Display) and controls (🎮 Counter Controls)
+- **State Sharing**: Both components call `UseSharedCounter(ctx)` and get the SAME instance
+- **Quality Checks**:
+  - Example compiles successfully: `go build .` (exit code 0)
+  - All tests pass with race detector: `go test -v -race .` (exit code 0)
+  - Zero vet warnings: `go vet ./...` (clean)
+  - Zero format issues: `gofmt -l .` (clean)
+  - Follows BubblyUI manual patterns exactly
+- **Pattern Validation**:
+  - Uses factory pattern: `CreateCounterDisplay(props)`, `CreateCounterControls(props)`
+  - Uses ExposeComponent for parent-child relationships
+  - Uses testutil.NewHarness for all tests
+  - Uses bubbly.Run() for zero-boilerplate execution
+  - Uses ctx.Ref() for reactive state (not bubbly.NewRef)
+  - Uses Card component (not manual Lipgloss styling)
+- **Educational Value**:
+  - Clear demonstration of when/why to use shared composables
+  - Shows correct BubblyUI patterns from manual
+  - VueUse inspiration documented
+  - Best practices and anti-patterns explained
+  - Comprehensive test examples with testutil
+- **Integration**:
+  - Uses multi-key bindings (Task 2.1)
+  - Demonstrates CreateShared (Task 3.1)
+  - Follows patterns from integration tests (Task 4.3)
+  - Follows manual patterns exactly (zero Bubbletea, testutil, components)
+- Actual effort: 3 hours (including corrections to follow manual)
+- Zero tech debt: All quality gates pass
 
 ---
 
