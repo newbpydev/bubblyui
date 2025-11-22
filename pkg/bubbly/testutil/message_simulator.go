@@ -79,89 +79,55 @@ func (ct *ComponentTest) SendMouseClick(x, y int) tea.Cmd {
 
 // createKeyMsg creates a KeyMsg from a key string.
 // This handles the conversion from string representation to Bubbletea KeyMsg.
-func createKeyMsg(key string) tea.KeyMsg {
-	// Handle special keys
-	switch key {
-	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
-	case "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}
-	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
-	case "backspace":
-		return tea.KeyMsg{Type: tea.KeyBackspace}
-	case "delete":
-		return tea.KeyMsg{Type: tea.KeyDelete}
-	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
-	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
-	case "left":
-		return tea.KeyMsg{Type: tea.KeyLeft}
-	case "right":
-		return tea.KeyMsg{Type: tea.KeyRight}
-	case "home":
-		return tea.KeyMsg{Type: tea.KeyHome}
-	case "end":
-		return tea.KeyMsg{Type: tea.KeyEnd}
-	case "pgup":
-		return tea.KeyMsg{Type: tea.KeyPgUp}
-	case "pgdown":
-		return tea.KeyMsg{Type: tea.KeyPgDown}
-	case "ctrl+c":
-		return tea.KeyMsg{Type: tea.KeyCtrlC}
-	case "ctrl+d":
-		return tea.KeyMsg{Type: tea.KeyCtrlD}
-	case "ctrl+a":
-		return tea.KeyMsg{Type: tea.KeyCtrlA}
-	case "ctrl+e":
-		return tea.KeyMsg{Type: tea.KeyCtrlE}
-	case "ctrl+k":
-		return tea.KeyMsg{Type: tea.KeyCtrlK}
-	case "ctrl+u":
-		return tea.KeyMsg{Type: tea.KeyCtrlU}
-	case "ctrl+w":
-		return tea.KeyMsg{Type: tea.KeyCtrlW}
-	case "ctrl+l":
-		return tea.KeyMsg{Type: tea.KeyCtrlL}
-	case "ctrl+n":
-		return tea.KeyMsg{Type: tea.KeyCtrlN}
-	case "ctrl+p":
-		return tea.KeyMsg{Type: tea.KeyCtrlP}
-	case "ctrl+b":
-		return tea.KeyMsg{Type: tea.KeyCtrlB}
-	case "ctrl+f":
-		return tea.KeyMsg{Type: tea.KeyCtrlF}
-	}
+// keyTypeMap maps key strings to their corresponding tea.KeyType.
+// This reduces cyclomatic complexity by replacing a large switch statement with a map lookup.
+var keyTypeMap = map[string]tea.KeyType{
+	// Special keys
+	"enter":     tea.KeyEnter,
+	"esc":       tea.KeyEsc,
+	"tab":       tea.KeyTab,
+	"backspace": tea.KeyBackspace,
+	"delete":    tea.KeyDelete,
+	"up":        tea.KeyUp,
+	"down":      tea.KeyDown,
+	"left":      tea.KeyLeft,
+	"right":     tea.KeyRight,
+	"home":      tea.KeyHome,
+	"end":       tea.KeyEnd,
+	"pgup":      tea.KeyPgUp,
+	"pgdown":    tea.KeyPgDown,
+	// Control keys
+	"ctrl+c": tea.KeyCtrlC,
+	"ctrl+d": tea.KeyCtrlD,
+	"ctrl+a": tea.KeyCtrlA,
+	"ctrl+e": tea.KeyCtrlE,
+	"ctrl+k": tea.KeyCtrlK,
+	"ctrl+u": tea.KeyCtrlU,
+	"ctrl+w": tea.KeyCtrlW,
+	"ctrl+l": tea.KeyCtrlL,
+	"ctrl+n": tea.KeyCtrlN,
+	"ctrl+p": tea.KeyCtrlP,
+	"ctrl+b": tea.KeyCtrlB,
+	"ctrl+f": tea.KeyCtrlF,
+	// Function keys
+	"f1":  tea.KeyF1,
+	"f2":  tea.KeyF2,
+	"f3":  tea.KeyF3,
+	"f4":  tea.KeyF4,
+	"f5":  tea.KeyF5,
+	"f6":  tea.KeyF6,
+	"f7":  tea.KeyF7,
+	"f8":  tea.KeyF8,
+	"f9":  tea.KeyF9,
+	"f10": tea.KeyF10,
+	"f11": tea.KeyF11,
+	"f12": tea.KeyF12,
+}
 
-	// Handle function keys
-	if len(key) >= 2 && key[0] == 'f' {
-		switch key {
-		case "f1":
-			return tea.KeyMsg{Type: tea.KeyF1}
-		case "f2":
-			return tea.KeyMsg{Type: tea.KeyF2}
-		case "f3":
-			return tea.KeyMsg{Type: tea.KeyF3}
-		case "f4":
-			return tea.KeyMsg{Type: tea.KeyF4}
-		case "f5":
-			return tea.KeyMsg{Type: tea.KeyF5}
-		case "f6":
-			return tea.KeyMsg{Type: tea.KeyF6}
-		case "f7":
-			return tea.KeyMsg{Type: tea.KeyF7}
-		case "f8":
-			return tea.KeyMsg{Type: tea.KeyF8}
-		case "f9":
-			return tea.KeyMsg{Type: tea.KeyF9}
-		case "f10":
-			return tea.KeyMsg{Type: tea.KeyF10}
-		case "f11":
-			return tea.KeyMsg{Type: tea.KeyF11}
-		case "f12":
-			return tea.KeyMsg{Type: tea.KeyF12}
-		}
+func createKeyMsg(key string) tea.KeyMsg {
+	// Check if key is in the map
+	if keyType, ok := keyTypeMap[key]; ok {
+		return tea.KeyMsg{Type: keyType}
 	}
 
 	// Default: treat as runes (character input)

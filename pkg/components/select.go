@@ -117,6 +117,63 @@ type SelectProps[T any] struct {
 //   - Highlighted selection in dropdown
 //   - Disabled state clearly indicated
 //   - Keyboard accessible
+//
+// selectHandleToggle handles the toggle event for opening/closing the dropdown.
+func selectHandleToggle[T any](props SelectProps[T], isOpen *bubbly.Ref[bool]) func(interface{}) {
+	return func(data interface{}) {
+		if !props.Disabled {
+			isOpen.Set(!isOpen.GetTyped())
+		}
+	}
+}
+
+// selectHandleNavigation handles up/down navigation in the dropdown.
+func selectHandleNavigation[T any](props SelectProps[T], isOpen *bubbly.Ref[bool], selectedIndex *bubbly.Ref[int], delta int) func(interface{}) {
+	return func(data interface{}) {
+		if !props.Disabled && isOpen.GetTyped() && len(props.Options) > 0 {
+			currentIdx := selectedIndex.GetTyped()
+			newIdx := currentIdx + delta
+			if newIdx < 0 {
+				newIdx = len(props.Options) - 1 // Wrap to bottom
+			} else if newIdx >= len(props.Options) {
+				newIdx = 0 // Wrap to top
+			}
+			selectedIndex.Set(newIdx)
+		}
+	}
+}
+
+// selectHandleSelect handles the select event for confirming selection.
+func selectHandleSelect[T any](props SelectProps[T], isOpen *bubbly.Ref[bool], selectedIndex *bubbly.Ref[int]) func(interface{}) {
+	return func(data interface{}) {
+		if !props.Disabled && isOpen.GetTyped() && len(props.Options) > 0 {
+			idx := selectedIndex.GetTyped()
+			if idx >= 0 && idx < len(props.Options) {
+				selectedValue := props.Options[idx]
+				props.Value.Set(selectedValue)
+
+				// Call OnChange callback if provided
+				if props.OnChange != nil {
+					props.OnChange(selectedValue)
+				}
+
+				// Close dropdown after selection
+				isOpen.Set(false)
+			}
+		}
+	}
+}
+
+// selectFindInitialIndex finds the initial selected index based on current value.
+func selectFindInitialIndex[T any](options []T, currentValue T) int {
+	for i, opt := range options {
+		if fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue) {
+			return i
+		}
+	}
+	return 0
+}
+
 func Select[T any](props SelectProps[T]) bubbly.Component {
 	component, _ := bubbly.NewComponent("Select").
 		Props(props).
@@ -131,65 +188,13 @@ func Select[T any](props SelectProps[T]) bubbly.Component {
 
 			// Create internal state
 			isOpen := bubbly.NewRef(false)
-			selectedIndex := bubbly.NewRef(0)
+			selectedIndex := bubbly.NewRef(selectFindInitialIndex(props.Options, props.Value.GetTyped()))
 
-			// Find initial selected index based on current value
-			currentValue := props.Value.GetTyped()
-			for i, opt := range props.Options {
-				if fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue) {
-					selectedIndex.Set(i)
-					break
-				}
-			}
-
-			// Register toggle event handler (open/close dropdown)
-			ctx.On("toggle", func(data interface{}) {
-				if !props.Disabled {
-					isOpen.Set(!isOpen.GetTyped())
-				}
-			})
-
-			// Register up navigation event
-			ctx.On("up", func(data interface{}) {
-				if !props.Disabled && isOpen.GetTyped() && len(props.Options) > 0 {
-					currentIdx := selectedIndex.GetTyped()
-					newIdx := currentIdx - 1
-					if newIdx < 0 {
-						newIdx = len(props.Options) - 1 // Wrap to bottom
-					}
-					selectedIndex.Set(newIdx)
-				}
-			})
-
-			// Register down navigation event
-			ctx.On("down", func(data interface{}) {
-				if !props.Disabled && isOpen.GetTyped() && len(props.Options) > 0 {
-					currentIdx := selectedIndex.GetTyped()
-					newIdx := (currentIdx + 1) % len(props.Options) // Wrap to top
-					selectedIndex.Set(newIdx)
-				}
-			})
-
-			// Register select event (confirm selection)
-			ctx.On("select", func(data interface{}) {
-				if !props.Disabled && isOpen.GetTyped() && len(props.Options) > 0 {
-					idx := selectedIndex.GetTyped()
-					if idx >= 0 && idx < len(props.Options) {
-						selectedValue := props.Options[idx]
-						props.Value.Set(selectedValue)
-
-						// Call OnChange callback if provided
-						if props.OnChange != nil {
-							props.OnChange(selectedValue)
-						}
-
-						// Close dropdown after selection
-						isOpen.Set(false)
-					}
-				}
-			})
-
-			// Register close event (close without selecting)
+			// Register event handlers using extracted functions
+			ctx.On("toggle", selectHandleToggle(props, isOpen))
+			ctx.On("up", selectHandleNavigation(props, isOpen, selectedIndex, -1))
+			ctx.On("down", selectHandleNavigation(props, isOpen, selectedIndex, 1))
+			ctx.On("select", selectHandleSelect(props, isOpen, selectedIndex))
 			ctx.On("close", func(data interface{}) {
 				isOpen.Set(false)
 			})
