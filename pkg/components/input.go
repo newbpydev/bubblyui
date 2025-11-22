@@ -152,6 +152,52 @@ type InputProps struct {
 //   - Clear visual distinction between focused/unfocused states
 //   - Error messages displayed inline
 //   - High contrast colors for error states
+//
+// inputSetupValidationWatch sets up validation watcher for input value changes.
+func inputSetupValidationWatch(props InputProps, errorRef *bubbly.Ref[error]) {
+	if props.Validate != nil {
+		bubbly.Watch(props.Value, func(newVal, oldVal string) {
+			err := props.Validate(newVal)
+			errorRef.Set(err)
+
+			// Call OnChange callback if provided
+			if props.OnChange != nil {
+				props.OnChange(newVal)
+			}
+		})
+	} else if props.OnChange != nil {
+		// If no validation but OnChange provided, still watch for changes
+		bubbly.Watch(props.Value, func(newVal, oldVal string) {
+			props.OnChange(newVal)
+		})
+	}
+}
+
+// inputSetupTextInputSync sets up synchronization between value ref and textinput.
+func inputSetupTextInputSync(props InputProps, ti *textinput.Model) {
+	bubbly.Watch(props.Value, func(newVal, oldVal string) {
+		if ti.Value() != newVal {
+			ti.SetValue(newVal)
+		}
+	})
+}
+
+// inputCreateTextInput creates and configures a new textinput model.
+func inputCreateTextInput(props InputProps) textinput.Model {
+	ti := textinput.New()
+	ti.Placeholder = props.Placeholder
+	ti.Width = props.Width
+	if props.CharLimit > 0 {
+		ti.CharLimit = props.CharLimit
+	}
+	if props.Type == InputPassword {
+		ti.EchoMode = textinput.EchoPassword
+		ti.EchoCharacter = '*'
+	}
+	ti.SetValue(props.Value.Get().(string))
+	return ti
+}
+
 func Input(props InputProps) bubbly.Component {
 	// Default to text type if not specified
 	if props.Type == "" {
@@ -175,47 +221,15 @@ func Input(props InputProps) bubbly.Component {
 			}
 
 			// Create Bubbles textinput for cursor support
-			ti := textinput.New()
-			ti.Placeholder = props.Placeholder
-			ti.Width = props.Width
-			if props.CharLimit > 0 {
-				ti.CharLimit = props.CharLimit
-			}
-			if props.Type == InputPassword {
-				ti.EchoMode = textinput.EchoPassword
-				ti.EchoCharacter = '*'
-			}
-			// Set initial value
-			ti.SetValue(props.Value.Get().(string))
+			ti := inputCreateTextInput(props)
 
 			// Create internal state with typed refs
 			errorRef := bubbly.NewRef[error](nil)
 			focusedRef := bubbly.NewRef(false)
 
-			// Watch value changes for validation
-			if props.Validate != nil {
-				bubbly.Watch(props.Value, func(newVal, oldVal string) {
-					err := props.Validate(newVal)
-					errorRef.Set(err)
-
-					// Call OnChange callback if provided
-					if props.OnChange != nil {
-						props.OnChange(newVal)
-					}
-				})
-			} else if props.OnChange != nil {
-				// If no validation but OnChange provided, still watch for changes
-				bubbly.Watch(props.Value, func(newVal, oldVal string) {
-					props.OnChange(newVal)
-				})
-			}
-
-			// Sync textinput value with props.Value
-			bubbly.Watch(props.Value, func(newVal, oldVal string) {
-				if ti.Value() != newVal {
-					ti.SetValue(newVal)
-				}
-			})
+			// Setup validation and value sync watchers
+			inputSetupValidationWatch(props, errorRef)
+			inputSetupTextInputSync(props, &ti)
 
 			// Register event handlers
 			ctx.On("input", func(data interface{}) {

@@ -159,6 +159,99 @@ type TableProps[T any] struct {
 //
 // The table uses reflection to extract field values from generic type T,
 // supporting string, int, float, bool, and other types with fmt.Sprintf formatting.
+// tableSelectRow selects a row and triggers callback if provided.
+func tableSelectRow[T any](props TableProps[T], selectedRow *bubbly.Ref[int], index int) {
+	items := props.Data.Get().([]T)
+	if index >= 0 && index < len(items) {
+		selectedRow.Set(index)
+		if props.OnRowClick != nil {
+			props.OnRowClick(items[index], index)
+		}
+	}
+}
+
+// tableHandleKeyUp handles the keyUp event for moving selection up.
+func tableHandleKeyUp[T any](props TableProps[T], selectedRow *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		currentRow := selectedRow.Get().(int)
+		items := props.Data.Get().([]T)
+
+		if len(items) == 0 {
+			return
+		}
+
+		if currentRow == -1 {
+			selectedRow.Set(len(items) - 1)
+		} else if currentRow > 0 {
+			selectedRow.Set(currentRow - 1)
+		}
+	}
+}
+
+// tableHandleKeyDown handles the keyDown event for moving selection down.
+func tableHandleKeyDown[T any](props TableProps[T], selectedRow *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		currentRow := selectedRow.Get().(int)
+		items := props.Data.Get().([]T)
+
+		if len(items) == 0 {
+			return
+		}
+
+		if currentRow == -1 {
+			selectedRow.Set(0)
+		} else if currentRow < len(items)-1 {
+			selectedRow.Set(currentRow + 1)
+		}
+	}
+}
+
+// tableHandleSort handles the sort event for sorting table data.
+func tableHandleSort[T any](props TableProps[T], sortColumn *bubbly.Ref[string], sortAsc *bubbly.Ref[bool]) func(interface{}) {
+	return func(data interface{}) {
+		if !props.Sortable {
+			return
+		}
+
+		fieldName := data.(string)
+		currentSortColumn := sortColumn.Get().(string)
+
+		// Toggle direction if same column, otherwise set new column ascending
+		if currentSortColumn == fieldName {
+			sortAsc.Set(!sortAsc.Get().(bool))
+		} else {
+			sortColumn.Set(fieldName)
+			sortAsc.Set(true)
+		}
+
+		// Get current data
+		items := props.Data.Get().([]T)
+		if len(items) == 0 {
+			return
+		}
+
+		// Create a copy to sort
+		sortedItems := make([]T, len(items))
+		copy(sortedItems, items)
+
+		// Sort the copy
+		ascending := sortAsc.Get().(bool)
+		sort.Slice(sortedItems, func(i, j int) bool {
+			valI := getFieldValueForSort(sortedItems[i], fieldName)
+			valJ := getFieldValueForSort(sortedItems[j], fieldName)
+
+			cmp := compareValues(valI, valJ)
+			if ascending {
+				return cmp < 0
+			}
+			return cmp > 0
+		})
+
+		// Update the data ref with sorted data
+		props.Data.Set(sortedItems)
+	}
+}
+
 func Table[T any](props TableProps[T]) bubbly.Component {
 	comp, err := bubbly.NewComponent("Table").
 		Props(props).
@@ -173,108 +266,19 @@ func Table[T any](props TableProps[T]) bubbly.Component {
 			sortColumn := bubbly.NewRef("")
 			sortAsc := bubbly.NewRef(true)
 
-			// Helper function to select a row
-			selectRow := func(index int) {
-				items := props.Data.Get().([]T)
-				if index >= 0 && index < len(items) {
-					selectedRow.Set(index)
-					if props.OnRowClick != nil {
-						props.OnRowClick(items[index], index)
-					}
-				}
-			}
-
-			// Row click handler
+			// Register event handlers using extracted functions
 			ctx.On("rowClick", func(data interface{}) {
-				index := data.(int)
-				selectRow(index)
+				tableSelectRow(props, selectedRow, data.(int))
 			})
-
-			// Keyboard navigation: Up arrow or 'k' (vim-style)
-			ctx.On("keyUp", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				items := props.Data.Get().([]T)
-
-				if len(items) == 0 {
-					return
-				}
-
-				// If no row selected, select the last row
-				if currentRow == -1 {
-					selectedRow.Set(len(items) - 1)
-				} else if currentRow > 0 {
-					selectedRow.Set(currentRow - 1)
-				}
-			})
-
-			// Keyboard navigation: Down arrow or 'j' (vim-style)
-			ctx.On("keyDown", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				items := props.Data.Get().([]T)
-
-				if len(items) == 0 {
-					return
-				}
-
-				// If no row selected, select the first row
-				if currentRow == -1 {
-					selectedRow.Set(0)
-				} else if currentRow < len(items)-1 {
-					selectedRow.Set(currentRow + 1)
-				}
-			})
-
-			// Keyboard navigation: Enter or Space to confirm selection
+			ctx.On("keyUp", tableHandleKeyUp(props, selectedRow))
+			ctx.On("keyDown", tableHandleKeyDown(props, selectedRow))
 			ctx.On("keyEnter", func(_ interface{}) {
 				currentRow := selectedRow.Get().(int)
 				if currentRow >= 0 {
-					selectRow(currentRow)
+					tableSelectRow(props, selectedRow, currentRow)
 				}
 			})
-
-			// Sorting: Sort by column
-			ctx.On("sort", func(data interface{}) {
-				if !props.Sortable {
-					return
-				}
-
-				fieldName := data.(string)
-				currentSortColumn := sortColumn.Get().(string)
-
-				// Toggle direction if same column, otherwise set new column ascending
-				if currentSortColumn == fieldName {
-					sortAsc.Set(!sortAsc.Get().(bool))
-				} else {
-					sortColumn.Set(fieldName)
-					sortAsc.Set(true)
-				}
-
-				// Get current data
-				items := props.Data.Get().([]T)
-				if len(items) == 0 {
-					return
-				}
-
-				// Create a copy to sort
-				sortedItems := make([]T, len(items))
-				copy(sortedItems, items)
-
-				// Sort the copy
-				ascending := sortAsc.Get().(bool)
-				sort.Slice(sortedItems, func(i, j int) bool {
-					valI := getFieldValueForSort(sortedItems[i], fieldName)
-					valJ := getFieldValueForSort(sortedItems[j], fieldName)
-
-					cmp := compareValues(valI, valJ)
-					if ascending {
-						return cmp < 0
-					}
-					return cmp > 0
-				})
-
-				// Update the data ref with sorted data
-				props.Data.Set(sortedItems)
-			})
+			ctx.On("sort", tableHandleSort(props, sortColumn, sortAsc))
 
 			// Expose state
 			ctx.Expose("selectedRow", selectedRow)
@@ -516,6 +520,39 @@ func getFieldValueForSort[T any](row T, fieldName string) interface{} {
 // compareValues compares two values for sorting.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.
 // Handles string, int, int64, float64, and bool types.
+// compareNumerics compares numeric values and returns -1, 0, or 1.
+func compareNumerics[T int | int64 | float64](a, b T) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
+// compareBools compares boolean values (false < true).
+func compareBools(a, b bool) int {
+	if !a && b {
+		return -1
+	}
+	if a && !b {
+		return 1
+	}
+	return 0
+}
+
+// compareStrings compares string values.
+func compareStrings(a, b string) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
 func compareValues(a, b interface{}) int {
 	// Handle nil values
 	if a == nil && b == nil {
@@ -528,79 +565,30 @@ func compareValues(a, b interface{}) int {
 		return 1
 	}
 
-	// Try string comparison
-	if aStr, ok := a.(string); ok {
-		if bStr, ok := b.(string); ok {
-			if aStr < bStr {
-				return -1
-			}
-			if aStr > bStr {
-				return 1
-			}
-			return 0
+	// Use type switch for comparison
+	switch aVal := a.(type) {
+	case string:
+		if bVal, ok := b.(string); ok {
+			return compareStrings(aVal, bVal)
 		}
-	}
-
-	// Try int comparison
-	if aInt, ok := a.(int); ok {
-		if bInt, ok := b.(int); ok {
-			if aInt < bInt {
-				return -1
-			}
-			if aInt > bInt {
-				return 1
-			}
-			return 0
+	case int:
+		if bVal, ok := b.(int); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try int64 comparison
-	if aInt64, ok := a.(int64); ok {
-		if bInt64, ok := b.(int64); ok {
-			if aInt64 < bInt64 {
-				return -1
-			}
-			if aInt64 > bInt64 {
-				return 1
-			}
-			return 0
+	case int64:
+		if bVal, ok := b.(int64); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try float64 comparison
-	if aFloat, ok := a.(float64); ok {
-		if bFloat, ok := b.(float64); ok {
-			if aFloat < bFloat {
-				return -1
-			}
-			if aFloat > bFloat {
-				return 1
-			}
-			return 0
+	case float64:
+		if bVal, ok := b.(float64); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try bool comparison (false < true)
-	if aBool, ok := a.(bool); ok {
-		if bBool, ok := b.(bool); ok {
-			if !aBool && bBool {
-				return -1
-			}
-			if aBool && !bBool {
-				return 1
-			}
-			return 0
+	case bool:
+		if bVal, ok := b.(bool); ok {
+			return compareBools(aVal, bVal)
 		}
 	}
 
 	// Fallback to string comparison
-	aStr := fmt.Sprintf("%v", a)
-	bStr := fmt.Sprintf("%v", b)
-	if aStr < bStr {
-		return -1
-	}
-	if aStr > bStr {
-		return 1
-	}
-	return 0
+	return compareStrings(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
 }
