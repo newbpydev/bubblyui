@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
 	localComposables "github.com/newbpydev/bubblyui/cmd/examples/11-advanced-patterns/01-shared-state/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/components"

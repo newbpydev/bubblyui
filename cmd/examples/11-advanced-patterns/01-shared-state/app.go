@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/11-advanced-patterns/01-shared-state/components"
 	localComposables "github.com/newbpydev/bubblyui/cmd/examples/11-advanced-patterns/01-shared-state/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"

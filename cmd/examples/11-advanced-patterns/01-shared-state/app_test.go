@@ -3,9 +3,10 @@ package main
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
 )
 
 func TestApp_Creation(t *testing.T) {
