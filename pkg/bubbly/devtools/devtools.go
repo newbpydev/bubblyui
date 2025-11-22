@@ -33,6 +33,7 @@
 package devtools
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -208,7 +209,11 @@ func Enable() *DevTools {
 		// Register framework hook for automatic data collection
 		// This enables zero-config component/state/event tracking
 		hook := &frameworkHookAdapter{store: store}
-		bubbly.RegisterHook(hook)
+		if err := bubbly.RegisterHook(hook); err != nil {
+			// Log error but don't fail devtools initialization - devtools is optional
+			// In production, this would be reported to observability
+			fmt.Printf("Warning: Failed to register devtools hook: %v\n", err)
+		}
 	})
 
 	// If already created but disabled, re-enable it

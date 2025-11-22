@@ -195,5 +195,5 @@ func resetSingleton() {
 	globalDevToolsOnce = sync.Once{}
 
 	// Also unregister the hook from bubbly package
-	bubbly.UnregisterHook()
+	_ = bubbly.UnregisterHook()
 }

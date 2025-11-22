@@ -80,7 +80,7 @@ func TestSingleMigration(t *testing.T) {
 			return data, nil
 		},
 	}
-	RegisterMigration(migration)
+	_ = RegisterMigration(migration)
 	defer clearMigrationRegistry() // Clean up after test
 
 	tests := []struct {

@@ -22,8 +22,8 @@ func TestNewTestIsolation(t *testing.T) {
 func TestTestIsolation_Isolate_SavesGlobalHook(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// Create isolation and isolate
 	isolation := NewTestIsolation()
@@ -38,8 +38,8 @@ func TestTestIsolation_Isolate_SavesGlobalHook(t *testing.T) {
 func TestTestIsolation_Isolate_ClearsGlobalHook(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// Verify hook is registered
 	assert.True(t, bubbly.IsHookRegistered())
@@ -56,8 +56,8 @@ func TestTestIsolation_Isolate_ClearsGlobalHook(t *testing.T) {
 func TestTestIsolation_Restore_RestoresGlobalHook(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// Create isolation, isolate, then restore
 	isolation := NewTestIsolation()
@@ -76,7 +76,7 @@ func TestTestIsolation_Restore_RestoresGlobalHook(t *testing.T) {
 // TestTestIsolation_Restore_WithNoHook tests restoring when no hook was registered
 func TestTestIsolation_Restore_WithNoHook(t *testing.T) {
 	// Ensure no hook is registered
-	bubbly.UnregisterHook()
+	_ = bubbly.UnregisterHook()
 
 	// Create isolation and isolate
 	isolation := NewTestIsolation()
@@ -149,8 +149,8 @@ func TestTestIsolation_Restore_RestoresErrorReporter(t *testing.T) {
 func TestTestIsolation_AutomaticCleanup(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// Run in subtest to test cleanup
 	t.Run("subtest", func(t *testing.T) {
@@ -171,8 +171,8 @@ func TestTestIsolation_AutomaticCleanup(t *testing.T) {
 func TestTestIsolation_ParallelTests(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// Run parallel subtests
 	t.Run("test1", func(t *testing.T) {
@@ -200,8 +200,8 @@ func TestTestIsolation_ParallelTests(t *testing.T) {
 func TestTestIsolation_MultipleIsolations(t *testing.T) {
 	// Setup: Register a hook
 	testHook := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook)
-	defer bubbly.UnregisterHook()
+	_ = bubbly.RegisterHook(testHook)
+	defer func() { _ = bubbly.UnregisterHook() }()
 
 	// First isolation
 	isolation1 := NewTestIsolation()
@@ -209,7 +209,7 @@ func TestTestIsolation_MultipleIsolations(t *testing.T) {
 
 	// Register a different hook
 	testHook2 := &mockFrameworkHook{}
-	bubbly.RegisterHook(testHook2)
+	_ = bubbly.RegisterHook(testHook2)
 
 	// Second isolation
 	isolation2 := NewTestIsolation()

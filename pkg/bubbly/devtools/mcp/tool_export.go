@@ -379,7 +379,11 @@ func parseExportParams(args map[string]interface{}) (*ExportParams, error) {
 		Format:   "json", // Default
 		Compress: false,
 		Sanitize: false,
-		Include:  []string{"components", "state", "events", "performance"}, // Default: all
+	}
+
+	// Only set default include if not explicitly provided
+	if _, includeProvided := args["include"]; !includeProvided {
+		params.Include = []string{"components", "state", "events", "performance"} // Default: all
 	}
 
 	// Parse format

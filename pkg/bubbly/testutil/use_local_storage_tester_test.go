@@ -47,7 +47,7 @@ func TestUseLocalStorageTester_Persistence(t *testing.T) {
 	mockStorage := NewMockStorage()
 
 	// Pre-populate storage
-	mockStorage.Save("test-key", []byte(`"persisted value"`))
+	_ = mockStorage.Save("test-key", []byte(`"persisted value"`))
 
 	comp, err := bubbly.NewComponent("TestStorage").
 		Setup(func(ctx *bubbly.Context) {
@@ -222,16 +222,16 @@ func TestMockStorage_ClearAll(t *testing.T) {
 		{
 			name: "clear_single_key",
 			setup: func(ms *MockStorage) {
-				ms.Save("key1", []byte("value1"))
+				_ = ms.Save("key1", []byte("value1"))
 			},
 			verifyKeys: []string{"key1"},
 		},
 		{
 			name: "clear_multiple_keys",
 			setup: func(ms *MockStorage) {
-				ms.Save("key1", []byte("value1"))
-				ms.Save("key2", []byte("value2"))
-				ms.Save("key3", []byte("value3"))
+				_ = ms.Save("key1", []byte("value1"))
+				_ = ms.Save("key2", []byte("value2"))
+				_ = ms.Save("key3", []byte("value3"))
 			},
 			verifyKeys: []string{"key1", "key2", "key3"},
 		},
@@ -270,7 +270,7 @@ func TestMockStorage_ClearAll_ThreadSafety(t *testing.T) {
 
 	// Pre-populate
 	for i := 0; i < 100; i++ {
-		mockStorage.Save(string(rune(i)), []byte("data"))
+		_ = mockStorage.Save(string(rune(i)), []byte("data"))
 	}
 
 	// Concurrent operations
@@ -282,7 +282,7 @@ func TestMockStorage_ClearAll_ThreadSafety(t *testing.T) {
 	}()
 
 	go func() {
-		mockStorage.Save("concurrent", []byte("data"))
+		_ = mockStorage.Save("concurrent", []byte("data"))
 		done <- true
 	}()
 

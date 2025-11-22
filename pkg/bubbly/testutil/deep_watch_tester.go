@@ -276,7 +276,7 @@ func (dwt *DeepWatchTester) setNestedValue(value reflect.Value, path string, new
 			} else if current.Kind() == reflect.Slice || current.Kind() == reflect.Array {
 				// For slices/arrays
 				var index int
-				fmt.Sscanf(indexStr, "%d", &index)
+				_, _ = fmt.Sscanf(indexStr, "%d", &index)
 				if index >= 0 && index < current.Len() {
 					if isLast {
 						// Set the slice element
@@ -365,7 +365,7 @@ func (dwt *DeepWatchTester) navigateToField(value reflect.Value, path string) re
 			// Handle slice/array index
 			if current.Kind() == reflect.Slice || current.Kind() == reflect.Array {
 				var index int
-				fmt.Sscanf(indexStr, "%d", &index)
+				_, _ = fmt.Sscanf(indexStr, "%d", &index)
 				if index >= 0 && index < current.Len() {
 					current = current.Index(index)
 				} else {

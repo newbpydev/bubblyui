@@ -146,16 +146,16 @@ func setupMCPClientServer(t *testing.T, config *mcp.MCPConfig) *testMCPSetup {
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
 	// Register all resources and tools before connecting
-	mcpServer.RegisterComponentsResource()
-	mcpServer.RegisterComponentResource()
-	mcpServer.RegisterStateResource()
-	mcpServer.RegisterEventsResource()
-	mcpServer.RegisterPerformanceResource()
-	mcpServer.RegisterExportTool()
-	mcpServer.RegisterClearStateHistoryTool()
-	mcpServer.RegisterClearEventLogTool()
-	mcpServer.RegisterSearchComponentsTool()
-	mcpServer.RegisterFilterEventsTool()
+	_ = mcpServer.RegisterComponentsResource()
+	_ = mcpServer.RegisterComponentResource()
+	_ = mcpServer.RegisterStateResource()
+	_ = mcpServer.RegisterEventsResource()
+	_ = mcpServer.RegisterPerformanceResource()
+	_ = mcpServer.RegisterExportTool()
+	_ = mcpServer.RegisterClearStateHistoryTool()
+	_ = mcpServer.RegisterClearEventLogTool()
+	_ = mcpServer.RegisterSearchComponentsTool()
+	_ = mcpServer.RegisterFilterEventsTool()
 	if config.WriteEnabled {
 		err := mcpServer.RegisterSetRefValueTool()
 		if err != nil {
@@ -675,17 +675,20 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Create error channel for server connections
+	serverErrCh := make(chan error, 1)
+
 	// Register all resources (done once for the shared server)
-	mcpServer.RegisterComponentsResource()
-	mcpServer.RegisterComponentResource()
-	mcpServer.RegisterStateResource()
-	mcpServer.RegisterEventsResource()
-	mcpServer.RegisterPerformanceResource()
-	mcpServer.RegisterExportTool()
-	mcpServer.RegisterClearStateHistoryTool()
-	mcpServer.RegisterClearEventLogTool()
-	mcpServer.RegisterSearchComponentsTool()
-	mcpServer.RegisterFilterEventsTool()
+	_ = mcpServer.RegisterComponentsResource()
+	_ = mcpServer.RegisterComponentResource()
+	_ = mcpServer.RegisterStateResource()
+	_ = mcpServer.RegisterEventsResource()
+	_ = mcpServer.RegisterPerformanceResource()
+	_ = mcpServer.RegisterExportTool()
+	_ = mcpServer.RegisterClearStateHistoryTool()
+	_ = mcpServer.RegisterClearEventLogTool()
+	_ = mcpServer.RegisterSearchComponentsTool()
+	_ = mcpServer.RegisterFilterEventsTool()
 
 	// Create multiple clients
 	numClients := 3
@@ -696,7 +699,10 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 
 		// Each client needs its own server connection
 		go func() {
-			mcpServer.GetSDKServer().Connect(ctx, servTransport, nil)
+			_, err := mcpServer.GetSDKServer().Connect(ctx, servTransport, nil)
+			if err != nil {
+				serverErrCh <- err
+			}
 		}()
 
 		client := mcpsdk.NewClient(&mcpsdk.Implementation{

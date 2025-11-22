@@ -146,9 +146,12 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status": "healthy",
-		})
+		}); err != nil {
+			// If encoding fails, log but don't crash health check
+			fmt.Fprintf(w, `{"status":"error","message":"encoding failed"}`)
+		}
 	})
 
 	// Create HTTP server

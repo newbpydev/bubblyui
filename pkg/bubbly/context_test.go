@@ -1196,7 +1196,7 @@ func TestContext_ExposeComponent_ThreadSafe(t *testing.T) {
 						}).
 						Build()
 					if err == nil {
-						ctx.ExposeComponent(name, child)
+						_ = ctx.ExposeComponent(name, child)
 					}
 					done <- true
 				}(i)

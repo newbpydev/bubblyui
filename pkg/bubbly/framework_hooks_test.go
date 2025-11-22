@@ -152,7 +152,7 @@ func (m *mockHook) OnRefExposed(componentID, refID, refName string) {
 
 func TestRegisterHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
 	err := RegisterHook(hook)
@@ -163,10 +163,10 @@ func TestRegisterHook(t *testing.T) {
 
 func TestUnregisterHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 	assert.True(t, IsHookRegistered())
 
 	err := UnregisterHook()
@@ -176,7 +176,7 @@ func TestUnregisterHook(t *testing.T) {
 
 func TestRegisterHook_Replaces(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook1 := &mockHook{}
 	hook2 := &mockHook{}
@@ -195,12 +195,12 @@ func TestRegisterHook_Replaces(t *testing.T) {
 
 func TestIsHookRegistered(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	assert.False(t, IsHookRegistered())
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 	assert.True(t, IsHookRegistered())
 
 	UnregisterHook()
@@ -209,10 +209,10 @@ func TestIsHookRegistered(t *testing.T) {
 
 func TestNotifyHookComponentMount(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	notifyHookComponentMount("comp-123", "Counter")
 
@@ -225,10 +225,10 @@ func TestNotifyHookComponentMount(t *testing.T) {
 
 func TestNotifyHookComponentUpdate(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	msg := "test message"
 	notifyHookComponentUpdate("comp-456", msg)
@@ -242,10 +242,10 @@ func TestNotifyHookComponentUpdate(t *testing.T) {
 
 func TestNotifyHookComponentUnmount(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	notifyHookComponentUnmount("comp-789")
 
@@ -257,10 +257,10 @@ func TestNotifyHookComponentUnmount(t *testing.T) {
 
 func TestNotifyHookRefChange(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	notifyHookRefChange("ref-0x123", 10, 20)
 
@@ -274,10 +274,10 @@ func TestNotifyHookRefChange(t *testing.T) {
 
 func TestNotifyHookEvent(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	data := map[string]string{"key": "value"}
 	notifyHookEvent("comp-999", "click", data)
@@ -292,10 +292,10 @@ func TestNotifyHookEvent(t *testing.T) {
 
 func TestNotifyHookRenderComplete(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	duration := 100 * time.Millisecond
 	notifyHookRenderComplete("comp-111", duration)
@@ -309,7 +309,7 @@ func TestNotifyHookRenderComplete(t *testing.T) {
 
 func TestNotifyHooks_NoHookRegistered(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookComponentMount("comp-1", "Test")
@@ -324,10 +324,10 @@ func TestNotifyHooks_NoHookRegistered(t *testing.T) {
 
 func TestHooks_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent calls to notify functions
 	var wg sync.WaitGroup
@@ -390,7 +390,7 @@ func TestHooks_ThreadSafe(t *testing.T) {
 
 func TestHookRegistration_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Concurrent register/unregister operations
 	var wg sync.WaitGroup
@@ -402,7 +402,7 @@ func TestHookRegistration_ThreadSafe(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
 			hook := &mockHook{}
-			RegisterHook(hook)
+			_ = RegisterHook(hook)
 		}
 	}()
 
@@ -423,10 +423,10 @@ func TestHookRegistration_ThreadSafe(t *testing.T) {
 
 func TestNotifyHookComputedChange(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Notify computed change
 	notifyHookComputedChange("computed-0x123", 10, 20)
@@ -442,7 +442,7 @@ func TestNotifyHookComputedChange(t *testing.T) {
 
 func TestNotifyHookComputedChange_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookComputedChange("computed-0x123", 10, 20)
@@ -450,10 +450,10 @@ func TestNotifyHookComputedChange_NoHook(t *testing.T) {
 
 func TestNotifyHookComputedChange_MultipleValues(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	tests := []struct {
 		name     string
@@ -506,10 +506,10 @@ func TestNotifyHookComputedChange_MultipleValues(t *testing.T) {
 
 func TestNotifyHookComputedChange_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent computed change notifications
 	var wg sync.WaitGroup
@@ -533,10 +533,10 @@ func TestNotifyHookComputedChange_ThreadSafe(t *testing.T) {
 
 func TestNotifyHookWatchCallback(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Notify watch callback
 	notifyHookWatchCallback("watch-0x123", 20, 10)
@@ -552,7 +552,7 @@ func TestNotifyHookWatchCallback(t *testing.T) {
 
 func TestNotifyHookWatchCallback_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookWatchCallback("watch-0x123", 20, 10)
@@ -560,10 +560,10 @@ func TestNotifyHookWatchCallback_NoHook(t *testing.T) {
 
 func TestNotifyHookWatchCallback_MultipleValues(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	tests := []struct {
 		name     string
@@ -616,10 +616,10 @@ func TestNotifyHookWatchCallback_MultipleValues(t *testing.T) {
 
 func TestNotifyHookWatchCallback_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent watch callback notifications
 	var wg sync.WaitGroup
@@ -643,10 +643,10 @@ func TestNotifyHookWatchCallback_ThreadSafe(t *testing.T) {
 
 func TestNotifyHookEffectRun(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Notify effect run
 	notifyHookEffectRun("effect-0x123")
@@ -660,7 +660,7 @@ func TestNotifyHookEffectRun(t *testing.T) {
 
 func TestNotifyHookEffectRun_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookEffectRun("effect-0x123")
@@ -668,10 +668,10 @@ func TestNotifyHookEffectRun_NoHook(t *testing.T) {
 
 func TestNotifyHookEffectRun_MultipleEffects(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	tests := []struct {
 		name     string
@@ -708,10 +708,10 @@ func TestNotifyHookEffectRun_MultipleEffects(t *testing.T) {
 
 func TestNotifyHookEffectRun_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent effect run notifications
 	var wg sync.WaitGroup
@@ -735,10 +735,10 @@ func TestNotifyHookEffectRun_ThreadSafe(t *testing.T) {
 
 func TestNotifyHookChildAdded(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Notify child added
 	notifyHookChildAdded("parent-123", "child-456")
@@ -753,10 +753,10 @@ func TestNotifyHookChildAdded(t *testing.T) {
 
 func TestNotifyHookChildRemoved(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Notify child removed
 	notifyHookChildRemoved("parent-789", "child-012")
@@ -771,7 +771,7 @@ func TestNotifyHookChildRemoved(t *testing.T) {
 
 func TestNotifyHookChildAdded_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookChildAdded("parent-1", "child-1")
@@ -779,7 +779,7 @@ func TestNotifyHookChildAdded_NoHook(t *testing.T) {
 
 func TestNotifyHookChildRemoved_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookChildRemoved("parent-1", "child-1")
@@ -787,10 +787,10 @@ func TestNotifyHookChildRemoved_NoHook(t *testing.T) {
 
 func TestNotifyHookChildMutations_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent child mutation notifications
 	var wg sync.WaitGroup
@@ -823,7 +823,7 @@ func TestNotifyHookChildMutations_ThreadSafe(t *testing.T) {
 
 func TestContext_Expose_NotifiesHookForRef(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	tests := []struct {
 		name     string
@@ -851,8 +851,8 @@ func TestContext_Expose_NotifiesHookForRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Register mock hook
 			hook := &mockHook{}
-			RegisterHook(hook)
-			defer UnregisterHook()
+			_ = RegisterHook(hook)
+			defer func() { _ = UnregisterHook() }()
 
 			// Create component with context
 			component := newComponentImpl("TestComponent")
@@ -879,7 +879,7 @@ func TestContext_Expose_NotifiesHookForRef(t *testing.T) {
 
 func TestContext_Expose_DoesNotNotifyForNonRef(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	tests := []struct {
 		name  string
@@ -907,8 +907,8 @@ func TestContext_Expose_DoesNotNotifyForNonRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Register mock hook
 			hook := &mockHook{}
-			RegisterHook(hook)
-			defer UnregisterHook()
+			_ = RegisterHook(hook)
+			defer func() { _ = UnregisterHook() }()
 
 			// Create component with context
 			component := newComponentImpl("TestComponent")
@@ -926,10 +926,10 @@ func TestContext_Expose_DoesNotNotifyForNonRef(t *testing.T) {
 
 func TestNotifyHookRefExposed(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Call notifyHookRefExposed directly
 	notifyHookRefExposed("comp-123", "ref-0xABC", "myRef")
@@ -945,7 +945,7 @@ func TestNotifyHookRefExposed(t *testing.T) {
 
 func TestNotifyHookRefExposed_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Should not panic when no hook registered
 	notifyHookRefExposed("comp-1", "ref-1", "test")
@@ -953,10 +953,10 @@ func TestNotifyHookRefExposed_NoHook(t *testing.T) {
 
 func TestNotifyHookRefExposed_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Concurrent ref exposed notifications
 	var wg sync.WaitGroup
@@ -980,10 +980,10 @@ func TestNotifyHookRefExposed_ThreadSafe(t *testing.T) {
 
 func TestContext_ExposeComponent_NotifiesHookChildAdded(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent and child components
 	parent := newComponentImpl("Parent")
@@ -1008,7 +1008,7 @@ func TestContext_ExposeComponent_NotifiesHookChildAdded(t *testing.T) {
 
 func TestContext_ExposeComponent_EstablishesParentChildRelationship(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Create parent and child components
 	parent := newComponentImpl("Parent")
