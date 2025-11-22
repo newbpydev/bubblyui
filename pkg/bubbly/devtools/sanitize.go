@@ -9,6 +9,44 @@ import (
 	"time"
 )
 
+// sanitizeString applies all sanitization patterns to a string value.
+// This helper function is used by both SanitizeValue and SanitizeValueOptimized
+// to avoid code duplication.
+func (s *Sanitizer) sanitizeString(str string) string {
+	// Check if we're tracking stats (during Sanitize() call)
+	s.statsMu.RLock()
+	trackingStats := s.currentStats != nil
+	s.statsMu.RUnlock()
+
+	// Track bytes processed if we're in a Sanitize() call
+	if trackingStats {
+		s.statsMu.Lock()
+		if s.currentStats != nil {
+			s.currentStats.BytesProcessed += int64(len(str))
+		}
+		s.statsMu.Unlock()
+	}
+
+	for _, pattern := range s.patterns {
+		// Count matches if we're tracking stats
+		if trackingStats {
+			matches := pattern.Pattern.FindAllString(str, -1)
+			matchCount := len(matches)
+			if matchCount > 0 {
+				s.statsMu.Lock()
+				if s.currentStats != nil {
+					s.currentStats.RedactedCount += matchCount
+					s.currentStats.PatternMatches[pattern.Name] += matchCount
+				}
+				s.statsMu.Unlock()
+			}
+		}
+
+		str = pattern.Pattern.ReplaceAllString(str, pattern.Replacement)
+	}
+	return str
+}
+
 // Sanitizer provides regex-based sanitization of sensitive data in exports.
 //
 // It uses regular expression patterns to identify and redact sensitive
@@ -462,40 +500,7 @@ func (s *Sanitizer) SanitizeValue(val interface{}) interface{} {
 	switch v.Kind() {
 	case reflect.String:
 		// Apply all patterns to the string in priority order
-		str := v.String()
-
-		// Check if we're tracking stats (during Sanitize() call)
-		s.statsMu.RLock()
-		trackingStats := s.currentStats != nil
-		s.statsMu.RUnlock()
-
-		// Track bytes processed if we're in a Sanitize() call
-		if trackingStats {
-			s.statsMu.Lock()
-			if s.currentStats != nil {
-				s.currentStats.BytesProcessed += int64(len(str))
-			}
-			s.statsMu.Unlock()
-		}
-
-		for _, pattern := range s.patterns {
-			// Count matches if we're tracking stats
-			if trackingStats {
-				matches := pattern.Pattern.FindAllString(str, -1)
-				matchCount := len(matches)
-				if matchCount > 0 {
-					s.statsMu.Lock()
-					if s.currentStats != nil {
-						s.currentStats.RedactedCount += matchCount
-						s.currentStats.PatternMatches[pattern.Name] += matchCount
-					}
-					s.statsMu.Unlock()
-				}
-			}
-
-			str = pattern.Pattern.ReplaceAllString(str, pattern.Replacement)
-		}
-		return str
+		return s.sanitizeString(v.String())
 
 	case reflect.Map:
 		// Create a new map and sanitize all values
