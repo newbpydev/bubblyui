@@ -8,10 +8,11 @@ import (
 	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
 )
 
 // testMCPSetup holds the test MCP server and client setup

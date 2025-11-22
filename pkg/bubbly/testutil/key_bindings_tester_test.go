@@ -3,9 +3,10 @@ package testutil
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestNewKeyBindingsTester tests creating a new KeyBindingsTester

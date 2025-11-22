@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 

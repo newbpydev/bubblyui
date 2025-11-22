@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // Helper function to create a test component with a template for children tests

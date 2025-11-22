@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+
 	localcomponents "github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/components"
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"

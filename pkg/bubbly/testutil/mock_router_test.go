@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 )
 
 // TestNewMockRouter tests creating a new mock router.

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/directives"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestForEachTester_Creation tests basic tester creation

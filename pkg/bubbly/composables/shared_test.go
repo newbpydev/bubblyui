@@ -5,8 +5,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // Test helper: simple counter composable for testing

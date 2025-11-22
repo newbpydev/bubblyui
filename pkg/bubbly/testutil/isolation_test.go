@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestNewTestIsolation tests creating a new TestIsolation instance

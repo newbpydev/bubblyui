@@ -3,8 +3,9 @@ package main
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
 )
 
 // TestRegistrationForm_BasicMounting tests that the app component mounts successfully

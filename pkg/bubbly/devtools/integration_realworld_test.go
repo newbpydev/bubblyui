@@ -3,9 +3,10 @@ package devtools
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestDevTools_RealWorldAppFlow tests the EXACT flow from the example app:

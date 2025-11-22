@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
