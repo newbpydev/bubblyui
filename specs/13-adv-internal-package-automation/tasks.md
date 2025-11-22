@@ -216,21 +216,21 @@ func (ctx *Context) ProvideTheme(theme Theme) {
 
 ## Phase 2: Multi-Key Binding Helper
 
-### Task 2.1: WithKeyBindings Builder Method
-**Description**: Add WithKeyBindings method to ComponentBuilder that accepts variadic keys
+### Task 2.1: WithMultiKeyBindings Builder Method
+**Description**: Add WithMultiKeyBindings method to ComponentBuilder that accepts variadic keys
 
 **Prerequisites**: None (independent of Phase 1)
 
 **Unlocks**: Phase 3 (Example migrations)
 
 **Files**:
-- `pkg/bubbly/component_builder.go` (MODIFY - add method)
-- `pkg/bubbly/component_builder_test.go` (MODIFY - add tests)
+- `pkg/bubbly/builder.go` (MODIFY - add method)
+- `pkg/bubbly/builder_test.go` (MODIFY - add tests)
 
 **Type Safety**:
 ```go
-// WithKeyBindings registers multiple keys for same event
-func (b *ComponentBuilder) WithKeyBindings(event, description string, keys ...string) *ComponentBuilder {
+// WithMultiKeyBindings registers multiple keys for same event
+func (b *ComponentBuilder) WithMultiKeyBindings(event, description string, keys ...string) *ComponentBuilder {
     for _, key := range keys {
         b.WithKeyBinding(key, event, description)
     }
@@ -239,23 +239,45 @@ func (b *ComponentBuilder) WithKeyBindings(event, description string, keys ...st
 ```
 
 **Tests**:
-- [ ] Registers all keys correctly
-- [ ] Empty keys list is no-op
-- [ ] Single key works (equivalent to WithKeyBinding)
-- [ ] Multiple keys all emit same event
-- [ ] Description applies to all keys
-- [ ] Works with existing WithKeyBinding in same builder
-- [ ] Returns builder for chaining
+- [x] Registers all keys correctly
+- [x] Empty keys list is no-op
+- [x] Single key works (equivalent to WithKeyBinding)
+- [x] Multiple keys all emit same event
+- [x] Description applies to all keys
+- [x] Works with existing WithKeyBinding in same builder
+- [x] Returns builder for chaining
 
 **Estimated Effort**: 45 minutes
 
 **Priority**: HIGH
 
 **Completion Criteria**:
-- All keys trigger correct event
-- Help text generation works
-- Backward compatible with WithKeyBinding
-- Godoc with clear examples
+- [x] All keys trigger correct event
+- [x] Help text generation works
+- [x] Backward compatible with WithKeyBinding
+- [x] Godoc with clear examples
+
+**Implementation Notes** (Completed):
+- Implemented `WithMultiKeyBindings` method in `pkg/bubbly/builder.go` (lines 356-402)
+- Method signature: `func (b *ComponentBuilder) WithMultiKeyBindings(event, description string, keys ...string) *ComponentBuilder`
+- Simple implementation: loops over variadic keys and calls existing `WithKeyBinding` for each
+- Comprehensive godoc with usage examples showing before/after comparison
+- Created 3 test functions in `pkg/bubbly/builder_test.go`:
+  - `TestComponentBuilder_WithMultiKeyBindings`: Table-driven test with 4 scenarios
+    - Registers all keys correctly (3 keys)
+    - Single key works (equivalent to WithKeyBinding)
+    - Empty keys list is no-op
+    - Multiple keys all emit same event (3 keys)
+  - `TestComponentBuilder_WithMultiKeyBindings_ChainWithOthers`: Tests integration with WithKeyBinding
+  - `TestComponentBuilder_WithMultiKeyBindings_ReturnsBuilder`: Tests method chaining
+- All tests pass with race detector: `go test -race -v ./pkg/bubbly -run "^TestComponentBuilder_WithMultiKeyBindings"`
+- Code formatted with gofmt (zero changes needed)
+- go vet clean (zero warnings)
+- Builds successfully
+- Backward compatible: existing `WithKeyBinding` and map-based `WithKeyBindings` unchanged
+- Implementation matches designs.md specification exactly (lines 225-255)
+- Actual effort: 45 minutes (as estimated)
+- Zero tech debt: All quality gates pass
 
 ---
 

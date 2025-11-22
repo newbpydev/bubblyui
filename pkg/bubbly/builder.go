@@ -353,6 +353,54 @@ func (b *ComponentBuilder) WithKeyBinding(key, event, description string) *Compo
 	return b.WithConditionalKeyBinding(binding)
 }
 
+// WithMultiKeyBindings registers multiple keys for the same event (convenience method).
+// This eliminates repetitive WithKeyBinding calls when multiple keys should
+// trigger the same action (e.g., "up", "k", "+" all increment a counter).
+//
+// The description applies to all keys. If different descriptions are needed,
+// use separate WithKeyBinding calls.
+//
+// Example:
+//
+//	component := NewComponent("Counter").
+//	    WithMultiKeyBindings("increment", "Increment counter", "up", "k", "+").
+//	    WithMultiKeyBindings("decrement", "Decrement counter", "down", "j", "-").
+//	    Setup(func(ctx *Context) {
+//	        count := ctx.Ref(0)
+//	        ctx.On("increment", func(_ interface{}) {
+//	            count.Set(count.Get().(int) + 1)
+//	        })
+//	        ctx.On("decrement", func(_ interface{}) {
+//	            count.Set(count.Get().(int) - 1)
+//	        })
+//	    }).
+//	    Build()
+//
+// This is equivalent to:
+//
+//	component := NewComponent("Counter").
+//	    WithKeyBinding("up", "increment", "Increment counter").
+//	    WithKeyBinding("k", "increment", "Increment counter").
+//	    WithKeyBinding("+", "increment", "Increment counter").
+//	    WithKeyBinding("down", "decrement", "Decrement counter").
+//	    WithKeyBinding("j", "decrement", "Decrement counter").
+//	    WithKeyBinding("-", "decrement", "Decrement counter").
+//	    Build()
+//
+// Parameters:
+//   - event: The event name to emit when any of the keys is pressed
+//   - description: Help text shown for these keys
+//   - keys: Variadic list of keys that trigger this event
+//
+// Returns:
+//   - *ComponentBuilder: The builder for method chaining
+func (b *ComponentBuilder) WithMultiKeyBindings(event, description string, keys ...string) *ComponentBuilder {
+	for _, key := range keys {
+		b.WithKeyBinding(key, event, description)
+	}
+	return b
+}
+
 // WithConditionalKeyBinding registers a key binding with optional condition and data.
 // This is the full-featured method that supports all KeyBinding fields including
 // conditional activation and custom data.
