@@ -129,7 +129,7 @@ func TestStateHistory_Concurrent(t *testing.T) {
 	// Concurrent writes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
 				history.Record(StateChange{
@@ -282,7 +282,7 @@ func TestEventLog_Concurrent(t *testing.T) {
 	// Concurrent writes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
 				log.Append(EventRecord{
@@ -391,7 +391,7 @@ func TestPerformanceData_Concurrent(t *testing.T) {
 	// Concurrent writes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
 				perf.RecordRender("comp-1", "Counter", time.Duration(j)*time.Millisecond)

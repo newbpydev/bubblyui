@@ -203,7 +203,7 @@ func TestSubscriptionManager_Unsubscribe_Errors(t *testing.T) {
 			clientID:       "client-1",
 			subscriptionID: "sub-nonexistent",
 			setup: func(sm *SubscriptionManager) {
-				sm.Subscribe("client-1", "bubblyui://state/refs", nil)
+				_ = sm.Subscribe("client-1", "bubblyui://state/refs", nil)
 			},
 			wantErr: true,
 			errMsg:  "subscription not found",

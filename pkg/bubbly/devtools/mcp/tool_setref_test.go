@@ -38,7 +38,7 @@ func TestRegisterSetRefValueTool_WriteEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dt := devtools.Enable()
-			cfg := &MCPConfig{
+			cfg := &Config{
 				Transport:            MCPTransportStdio,
 				WriteEnabled:         tt.writeEnabled,
 				MaxClients:           5,
@@ -69,7 +69,7 @@ func TestRegisterSetRefValueTool_WriteEnabled(t *testing.T) {
 func TestSetRefValue_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupData     func(*devtools.DevToolsStore)
+		setupData     func(*devtools.Store)
 		params        map[string]interface{}
 		wantError     bool
 		wantContains  []string
@@ -78,7 +78,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 	}{
 		{
 			name: "successfully updates integer ref",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "Counter",
@@ -105,7 +105,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "successfully updates string ref",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "TextInput",
@@ -132,7 +132,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "dry-run validates without applying changes",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "Counter",
@@ -159,7 +159,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "type mismatch prevents update",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "Counter",
@@ -187,7 +187,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "ref not found",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No components
 			},
 			params: map[string]interface{}{
@@ -200,7 +200,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid JSON parameters",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params:        nil, // Will cause JSON unmarshal error
@@ -209,7 +209,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "missing ref_id parameter",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -220,7 +220,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "empty ref_id parameter",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -232,7 +232,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "missing new_value parameter",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -243,7 +243,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "updates boolean ref",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "Toggle",
@@ -270,7 +270,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "updates float ref",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				comp := &devtools.ComponentSnapshot{
 					ID:     "comp-1",
 					Name:   "Slider",
@@ -300,7 +300,7 @@ func TestSetRefValue_Comprehensive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dt := devtools.Enable()
-			cfg := &MCPConfig{
+			cfg := &Config{
 				Transport:            MCPTransportStdio,
 				WriteEnabled:         true, // Required for set_ref_value
 				MaxClients:           5,
@@ -400,7 +400,7 @@ func TestCheckTypeCompatibility(t *testing.T) {
 // TestSetRefValue_ThreadSafe tests concurrent ref updates.
 func TestSetRefValue_ThreadSafe(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         true,
 		MaxClients:           5,

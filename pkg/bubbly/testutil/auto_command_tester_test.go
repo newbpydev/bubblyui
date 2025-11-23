@@ -64,11 +64,9 @@ func TestAutoCommandTester_EnableAutoCommands(t *testing.T) {
 			tester := NewAutoCommandTester(tt.component)
 			tester.EnableAutoCommands()
 
-			// If component is not nil, verify auto-commands are enabled
-			if tt.component != nil {
-				// We'll need to verify this through the component's context
-				// For now, just verify the method doesn't panic
-			}
+			// If component is not nil, auto-commands are enabled
+			// Verify the method doesn't panic
+			_ = tt.component != nil
 		})
 	}
 }
@@ -103,7 +101,7 @@ func TestAutoCommandTester_TriggerStateChange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			component := createAutoTestComponentWithRef(tt.refName, 0)
+			component := createAutoTestComponentWithRef(tt.refName)
 			tester := NewAutoCommandTester(component)
 			tester.EnableAutoCommands()
 
@@ -123,7 +121,7 @@ func TestAutoCommandTester_TriggerStateChange(t *testing.T) {
 // TestAutoCommandTester_Integration tests integration with queue and detector
 func TestAutoCommandTester_Integration(t *testing.T) {
 	t.Run("commands enqueued on state change", func(t *testing.T) {
-		component := createAutoTestComponentWithRef("count", 0)
+		component := createAutoTestComponentWithRef("count")
 		tester := NewAutoCommandTester(component)
 
 		// Enable auto-commands
@@ -148,7 +146,7 @@ func TestAutoCommandTester_Integration(t *testing.T) {
 	})
 
 	t.Run("loop detector accessible and functional", func(t *testing.T) {
-		component := createAutoTestComponentWithRef("count", 0)
+		component := createAutoTestComponentWithRef("count")
 		tester := NewAutoCommandTester(component)
 
 		// Enable auto-commands
@@ -168,7 +166,7 @@ func TestAutoCommandTester_Integration(t *testing.T) {
 	})
 
 	t.Run("queue inspector tracks multiple commands", func(t *testing.T) {
-		component := createAutoTestComponentWithRef("count", 0)
+		component := createAutoTestComponentWithRef("count")
 		tester := NewAutoCommandTester(component)
 
 		// Enable auto-commands
@@ -232,11 +230,11 @@ func createAutoTestComponent() bubbly.Component {
 	return component
 }
 
-func createAutoTestComponentWithRef(refName string, initialValue interface{}) bubbly.Component {
+func createAutoTestComponentWithRef(refName string) bubbly.Component {
 	component, err := bubbly.NewComponent("TestComponent").
 		WithAutoCommands(true). // Enable auto-commands BEFORE setup
 		Setup(func(ctx *bubbly.Context) {
-			ref := ctx.Ref(initialValue)
+			ref := ctx.Ref(0)
 			ctx.Expose(refName, ref)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {

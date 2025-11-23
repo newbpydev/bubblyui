@@ -197,17 +197,6 @@ func (r *Router) matchTarget(target *NavigationTarget) (*Route, error) {
 		return nil, err
 	}
 
-	// Build full path with query and hash
-	fullPath := target.Path
-	if len(target.Query) > 0 {
-		parser := NewQueryParser()
-		queryString := parser.Build(target.Query)
-		fullPath += "?" + queryString
-	}
-	if target.Hash != "" {
-		fullPath += target.Hash
-	}
-
 	// Create Route object
 	route := NewRoute(
 		match.Route.Path, // Pattern path (e.g., "/user/:id")

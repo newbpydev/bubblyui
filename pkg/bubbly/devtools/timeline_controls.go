@@ -445,6 +445,7 @@ func (tc *TimelineControls) IsReplaying() bool {
 //
 // Returns:
 //   - string: The rendered timeline with Lipgloss styling
+//
 // renderStatusInfo returns status, position, and speed lines.
 func (tc *TimelineControls) renderStatusInfo(numCommands int) []string {
 	status := "Stopped"

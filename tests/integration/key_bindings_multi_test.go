@@ -270,7 +270,7 @@ func TestMultiKeyBinding_EmptyKeysList(t *testing.T) {
 
 	// Send a random key - should not trigger event
 	model, _ := component.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	component = model.(bubbly.Component)
+	_ = model.(bubbly.Component)
 
 	// Test passes if no error (event handler didn't fire)
 }

@@ -116,13 +116,13 @@ func TestRouterBuilder_BuildWithGuards(t *testing.T) {
 func TestRouterBuilder_Validation(t *testing.T) {
 	tests := []struct {
 		name        string
-		setup       func(*RouterBuilder)
+		setup       func(*Builder)
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "empty path",
-			setup: func(rb *RouterBuilder) {
+			setup: func(rb *Builder) {
 				rb.Route("", "empty")
 			},
 			expectError: true,
@@ -130,7 +130,7 @@ func TestRouterBuilder_Validation(t *testing.T) {
 		},
 		{
 			name: "duplicate paths",
-			setup: func(rb *RouterBuilder) {
+			setup: func(rb *Builder) {
 				rb.Route("/home", "home1")
 				rb.Route("/home", "home2")
 			},
@@ -139,7 +139,7 @@ func TestRouterBuilder_Validation(t *testing.T) {
 		},
 		{
 			name: "duplicate names",
-			setup: func(rb *RouterBuilder) {
+			setup: func(rb *Builder) {
 				rb.Route("/home", "home")
 				rb.Route("/about", "home")
 			},
@@ -148,7 +148,7 @@ func TestRouterBuilder_Validation(t *testing.T) {
 		},
 		{
 			name: "valid routes",
-			setup: func(rb *RouterBuilder) {
+			setup: func(rb *Builder) {
 				rb.Route("/home", "home")
 				rb.Route("/about", "about")
 			},

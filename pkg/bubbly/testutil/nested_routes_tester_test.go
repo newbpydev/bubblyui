@@ -84,7 +84,7 @@ func TestAssertActiveRoutes_NestedRoutes(t *testing.T) {
 	// Create nested route structure using Child() API
 	childStats := router.Child("/stats", router.WithName("dashboard-stats"))
 
-	// Create router with nested routes using RouterBuilder
+	// Create router with nested routes using Builder
 	rb := router.NewRouterBuilder()
 	rb.RouteWithOptions("/dashboard",
 		router.WithName("dashboard"),

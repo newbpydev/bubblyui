@@ -52,7 +52,7 @@ func TestAssertCommandEnqueued(t *testing.T) {
 			mockT := &mockTestingT{}
 
 			// Create test harness with component
-			component := createAutoTestComponentWithRef("count", 0)
+			component := createAutoTestComponentWithRef("count")
 			tester := NewAutoCommandTester(component)
 			tester.EnableAutoCommands()
 
@@ -165,7 +165,7 @@ func TestAssertCommandEnqueued_ErrorMessages(t *testing.T) {
 	mockT := &mockTestingT{}
 
 	// Create queue with 3 commands
-	component := createAutoTestComponentWithRef("count", 0)
+	component := createAutoTestComponentWithRef("count")
 	tester := NewAutoCommandTester(component)
 	tester.EnableAutoCommands()
 

@@ -38,6 +38,7 @@ import (
 //
 // Returns:
 //   - error: nil if valid, descriptive error otherwise
+//
 // validateURIBasics performs basic URI validation checks.
 func validateURIBasics(uri string) error {
 	if strings.TrimSpace(uri) == "" {

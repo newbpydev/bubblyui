@@ -37,7 +37,7 @@ func main() {
 	// Use HTTP transport (02-http-server) instead for working MCP integration
 
 	// Enable dev tools with MCP server (stdio transport - BROKEN with BubblyUI)
-	_, err := mcp.EnableWithMCP(&mcp.MCPConfig{
+	_, err := mcp.EnableWithMCP(&mcp.Config{
 		Transport:            mcp.MCPTransportStdio,
 		MaxClients:           5,
 		RateLimit:            60,

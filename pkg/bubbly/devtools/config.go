@@ -264,6 +264,7 @@ func LoadConfig(path string) (*Config, error) {
 //	cfg := devtools.DefaultConfig()
 //	cfg.ApplyEnvOverrides()
 //	// cfg.Enabled is now false
+//
 // applyEnvBool applies a boolean environment variable override.
 func applyEnvBool(envKey string, target *bool) {
 	if val := os.Getenv(envKey); val != "" {

@@ -18,7 +18,7 @@ type sharedCounterComposable struct {
 	Decrement func()
 }
 
-func newSharedCounterComposable(ctx *bubbly.Context, initCount *atomic.Int32) *sharedCounterComposable {
+func newSharedCounterComposable(_ *bubbly.Context, initCount *atomic.Int32) *sharedCounterComposable {
 	initCount.Add(1) // Track factory calls
 	count := &atomic.Int32{}
 

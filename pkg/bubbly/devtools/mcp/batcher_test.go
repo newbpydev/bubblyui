@@ -215,7 +215,7 @@ func TestUpdateBatcher_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(clientID int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < updatesPerGoroutine; j++ {
 				update := UpdateNotification{
@@ -384,7 +384,7 @@ func TestThrottler_ConcurrentAccess(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(clientID int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
 				if throttler.ShouldSend("client-1", "bubblyui://state/refs") {

@@ -34,8 +34,8 @@ func TestEnableWithMCP(t *testing.T) {
 	assert.NotNil(t, mcpServer, "MCP server should exist")
 
 	// Type assert to verify it's the right type
-	server, ok := mcpServer.(*MCPServer)
-	assert.True(t, ok, "MCP server should be *MCPServer type")
+	server, ok := mcpServer.(*Server)
+	assert.True(t, ok, "MCP server should be *Server type")
 	assert.NotNil(t, server, "Type-asserted server should not be nil")
 
 	// Verify MCP server has access to store
@@ -60,17 +60,17 @@ func TestEnableWithMCP_NilConfig(t *testing.T) {
 func TestEnableWithMCP_InvalidConfig(t *testing.T) {
 	tests := []struct {
 		name   string
-		config *MCPConfig
+		config *Config
 	}{
 		{
 			name: "No transport",
-			config: &MCPConfig{
+			config: &Config{
 				Transport: 0, // No transport
 			},
 		},
 		{
 			name: "Invalid HTTP port",
-			config: &MCPConfig{
+			config: &Config{
 				Transport: MCPTransportHTTP,
 				HTTPPort:  0, // Invalid port
 			},
@@ -89,7 +89,7 @@ func TestEnableWithMCP_InvalidConfig(t *testing.T) {
 	}
 }
 
-// TestMCPServer_AccessesDevToolsStore tests that MCP server can access DevToolsStore.
+// TestMCPServer_AccessesDevToolsStore tests that MCP server can access Store.
 func TestMCPServer_AccessesDevToolsStore(t *testing.T) {
 	// Enable with MCP
 	cfg := DefaultMCPConfig()
@@ -102,8 +102,8 @@ func TestMCPServer_AccessesDevToolsStore(t *testing.T) {
 	require.NotNil(t, mcpServer, "MCP server should exist")
 
 	// Type assert
-	server, ok := mcpServer.(*MCPServer)
-	require.True(t, ok, "Should be *MCPServer")
+	server, ok := mcpServer.(*Server)
+	require.True(t, ok, "Should be *Server")
 
 	// Get store from DevTools
 	dtStore := dt.GetStore()

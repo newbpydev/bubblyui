@@ -33,7 +33,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "")
 
 	// Enable dev tools with MCP server (HTTP transport)
-	dt, err := mcp.EnableWithMCP(&mcp.MCPConfig{
+	dt, err := mcp.EnableWithMCP(&mcp.Config{
 		Transport:            mcp.MCPTransportHTTP,
 		HTTPPort:             8765,
 		HTTPHost:             "localhost",
@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Get the MCP server and register resources/tools
-	mcpServer := dt.GetMCPServer().(*mcp.MCPServer)
+	mcpServer := dt.GetMCPServer().(*mcp.Server)
 
 	// Register MCP resources (what AI can inspect)
 	if err := mcpServer.RegisterComponentsResource(); err != nil {

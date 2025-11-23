@@ -81,7 +81,7 @@ func TestDevToolsUI_WindowSizeMsg_UpdatesDimensions(t *testing.T) {
 	assert.NotNil(t, updatedUI, "Update should return updated UI")
 
 	// Verify size was updated
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 	width, height := ui.layout.GetSize()
 	assert.Equal(t, 120, width, "width not updated")
 	assert.Equal(t, 40, height, "height not updated")
@@ -95,7 +95,7 @@ func TestDevToolsUI_ResponsiveLayout_Narrow(t *testing.T) {
 	// Send narrow WindowSizeMsg
 	msg := tea.WindowSizeMsg{Width: 70, Height: 40}
 	updatedUI, _ := ui.Update(msg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify vertical layout
 	mode := ui.GetLayoutMode()
@@ -113,7 +113,7 @@ func TestDevToolsUI_ResponsiveLayout_Medium(t *testing.T) {
 	// Send medium WindowSizeMsg
 	msg := tea.WindowSizeMsg{Width: 100, Height: 40}
 	updatedUI, _ := ui.Update(msg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify horizontal layout with 50/50 split
 	mode := ui.GetLayoutMode()
@@ -131,7 +131,7 @@ func TestDevToolsUI_ResponsiveLayout_Wide(t *testing.T) {
 	// Send wide WindowSizeMsg
 	msg := tea.WindowSizeMsg{Width: 150, Height: 40}
 	updatedUI, _ := ui.Update(msg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify horizontal layout with 40/60 split
 	mode := ui.GetLayoutMode()
@@ -152,7 +152,7 @@ func TestDevToolsUI_ManualLayoutOverride(t *testing.T) {
 	// Send narrow WindowSizeMsg that would normally trigger vertical
 	msg := tea.WindowSizeMsg{Width: 70, Height: 40}
 	updatedUI, _ := ui.Update(msg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify layout mode was NOT changed (manual override active)
 	mode := ui.GetLayoutMode()
@@ -174,7 +174,7 @@ func TestDevToolsUI_EnableAutoLayout(t *testing.T) {
 	// Send narrow WindowSizeMsg
 	msg := tea.WindowSizeMsg{Width: 70, Height: 40}
 	updatedUI, _ := ui.Update(msg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify auto layout is working again
 	mode := ui.GetLayoutMode()
@@ -189,7 +189,7 @@ func TestDevToolsUI_CachedSize_PreventsSameResize(t *testing.T) {
 	// Send first WindowSizeMsg
 	msg1 := tea.WindowSizeMsg{Width: 100, Height: 40}
 	updatedUI, _ := ui.Update(msg1)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Get current mode and ratio
 	initialMode := ui.GetLayoutMode()
@@ -198,7 +198,7 @@ func TestDevToolsUI_CachedSize_PreventsSameResize(t *testing.T) {
 	// Send same WindowSizeMsg again
 	msg2 := tea.WindowSizeMsg{Width: 100, Height: 40}
 	updatedUI, _ = ui.Update(msg2)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	// Verify mode and ratio unchanged (cached)
 	finalMode := ui.GetLayoutMode()
@@ -247,7 +247,7 @@ func TestDevToolsUI_InvalidDimensions(t *testing.T) {
 			// Send invalid WindowSizeMsg
 			msg := tea.WindowSizeMsg{Width: tt.width, Height: tt.height}
 			updatedUI, _ := ui.Update(msg)
-			ui = updatedUI.(*DevToolsUI)
+			ui = updatedUI.(*UI)
 
 			// Verify size unchanged
 			finalWidth, finalHeight := ui.layout.GetSize()
@@ -276,7 +276,7 @@ func TestDevToolsUI_ResizeSequence(t *testing.T) {
 	for _, resize := range resizes {
 		msg := tea.WindowSizeMsg{Width: resize.width, Height: 40}
 		updatedUI, _ := ui.Update(msg)
-		ui = updatedUI.(*DevToolsUI)
+		ui = updatedUI.(*UI)
 
 		mode := ui.GetLayoutMode()
 		assert.Equal(t, resize.expectedMode, mode, "mode should match for width %d", resize.width)

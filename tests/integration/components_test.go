@@ -549,7 +549,7 @@ func TestFullAppComposition(t *testing.T) {
 			OnSubmit: func(data FormData) {
 				// Add user to table
 				current := usersData.GetTyped()
-				usersData.Set(append(current, User{Name: data.Name, Email: data.Email}))
+				usersData.Set(append(current, User(data)))
 				modalVisible.Set(false)
 				nameRef.Set("")
 				emailRef.Set("")

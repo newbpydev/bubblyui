@@ -120,7 +120,7 @@ func (m model) View() string {
 		return "Loading..."
 	}
 
-	// Create RouterView to render current component
+	// Create View to render current component
 	routerView := router.NewRouterView(m.router, 0)
 
 	// Render header with current route badge
@@ -129,7 +129,7 @@ func (m model) View() string {
 	// Render navigation menu
 	nav := renderNavigation()
 
-	// Render component content via RouterView
+	// Render component content via View
 	content := routerView.View()
 	if content == "" {
 		content = "No component for route: " + route.Path

@@ -257,7 +257,7 @@ func TestMockErrorReporter_ThreadSafety(t *testing.T) {
 	// Run concurrent operations
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
-		go func(id int) {
+		go func(_ int) {
 			reporter.ReportError(errors.New("error"), nil)
 			reporter.ReportPanic(&observability.HandlerPanicError{}, nil)
 			_ = reporter.GetErrors()

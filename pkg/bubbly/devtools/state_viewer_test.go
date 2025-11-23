@@ -33,17 +33,17 @@ func TestNewStateViewer(t *testing.T) {
 func TestStateViewer_Render(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(*DevToolsStore)
+		setup    func(*Store)
 		contains []string
 	}{
 		{
 			name:     "empty state",
-			setup:    func(s *DevToolsStore) {},
+			setup:    func(s *Store) {},
 			contains: []string{"Reactive State", "No components"},
 		},
 		{
 			name: "single component with refs",
-			setup: func(s *DevToolsStore) {
+			setup: func(s *Store) {
 				s.AddComponent(&ComponentSnapshot{
 					ID:   "comp-1",
 					Name: "Counter",
@@ -56,7 +56,7 @@ func TestStateViewer_Render(t *testing.T) {
 		},
 		{
 			name: "multiple components",
-			setup: func(s *DevToolsStore) {
+			setup: func(s *Store) {
 				s.AddComponent(&ComponentSnapshot{
 					ID:   "comp-1",
 					Name: "Counter",
@@ -76,7 +76,7 @@ func TestStateViewer_Render(t *testing.T) {
 		},
 		{
 			name: "selected ref highlighted",
-			setup: func(s *DevToolsStore) {
+			setup: func(s *Store) {
 				s.AddComponent(&ComponentSnapshot{
 					ID:   "comp-1",
 					Name: "Counter",

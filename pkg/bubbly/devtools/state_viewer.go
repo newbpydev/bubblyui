@@ -12,7 +12,7 @@ import (
 //
 // It provides a view of all refs across all components with filtering,
 // selection, and value editing capabilities. The viewer integrates with
-// the DevToolsStore to access component snapshots and their refs.
+// the Store to access component snapshots and their refs.
 //
 // Thread Safety:
 //
@@ -27,7 +27,7 @@ import (
 //	output := viewer.Render()
 type StateViewer struct {
 	// store is the dev tools data store
-	store *DevToolsStore
+	store *Store
 
 	// selected is the currently selected ref
 	selected *RefSnapshot
@@ -53,7 +53,7 @@ type StateViewer struct {
 //
 // Returns:
 //   - *StateViewer: A new state viewer instance
-func NewStateViewer(store *DevToolsStore) *StateViewer {
+func NewStateViewer(store *Store) *StateViewer {
 	return &StateViewer{
 		store:    store,
 		selected: nil,

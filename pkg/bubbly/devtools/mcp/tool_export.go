@@ -100,19 +100,19 @@ type ExportResult struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterExportTool() error {
+func (s *Server) RegisterExportTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterExportTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterExportTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -178,19 +178,19 @@ func (s *MCPServer) RegisterExportTool() error {
 // Thread Safety:
 //
 //	Safe to call concurrently. Uses DevTools' thread-safe export methods.
-func (s *MCPServer) handleExportTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) handleExportTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleExportTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleExportTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),

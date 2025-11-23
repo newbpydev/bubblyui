@@ -231,6 +231,7 @@ func (dt *DevTools) ImportFormat(filename, formatName string) error {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
+//
 // parseAndMigrateData parses JSON data, checks version, and applies migrations.
 func parseAndMigrateData(data []byte) ([]byte, error) {
 	var genericData map[string]interface{}
@@ -320,6 +321,7 @@ func (dt *DevTools) ImportFromReader(reader io.Reader) error {
 //
 // Returns:
 //   - error: nil if valid, error describing the validation failure otherwise
+//
 // validateImportComponents validates the components slice in import data.
 func validateImportComponents(components []*ComponentSnapshot) error {
 	componentIDs := make(map[string]bool)

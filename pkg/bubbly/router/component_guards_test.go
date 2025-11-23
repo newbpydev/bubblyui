@@ -547,8 +547,8 @@ func TestDebug_CancelFlow(t *testing.T) {
 		Component: &mockComponent{name: "Test2", content: "Content2"},
 	}
 
-	router.matcher.AddRouteRecord(route1)
-	router.matcher.AddRouteRecord(route2)
+	_ = router.matcher.AddRouteRecord(route1)
+	_ = router.matcher.AddRouteRecord(route2)
 
 	// Navigate to first route
 	msg1 := router.Push(&NavigationTarget{Path: "/test1"})()
@@ -585,9 +585,9 @@ func TestDebug_RedirectFlow(t *testing.T) {
 	route2 := &RouteRecord{Path: "/test2", Name: "test2", Component: &mockComponent{name: "Test2", content: "Content2"}}
 	route3 := &RouteRecord{Path: "/test3", Name: "test3", Component: &mockComponent{name: "Test3", content: "Content3"}}
 
-	router.matcher.AddRouteRecord(route1)
-	router.matcher.AddRouteRecord(route2)
-	router.matcher.AddRouteRecord(route3)
+	_ = router.matcher.AddRouteRecord(route1)
+	_ = router.matcher.AddRouteRecord(route2)
+	_ = router.matcher.AddRouteRecord(route3)
 
 	// Navigate to first route
 	msg1 := router.Push(&NavigationTarget{Path: "/test1"})()

@@ -101,7 +101,7 @@ func accordionRenderItem(item AccordionItem, _ int, isExpanded bool, width int, 
 	var content strings.Builder
 
 	headerStyle := lipgloss.NewStyle().
-		Width(width - 4).
+		Width(width-4).
 		Padding(0, 1).
 		Bold(true).
 		Foreground(theme.Primary)
@@ -115,7 +115,7 @@ func accordionRenderItem(item AccordionItem, _ int, isExpanded bool, width int, 
 
 	if isExpanded {
 		contentStyle := lipgloss.NewStyle().
-			Width(width - 6).
+			Width(width-6).
 			Padding(0, 2).
 			Foreground(theme.Foreground)
 

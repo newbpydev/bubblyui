@@ -56,19 +56,19 @@ import (
 //
 // Returns:
 //   - error: Connection error, session error, or nil on clean shutdown
-func (s *MCPServer) StartStdioServer(ctx context.Context) error {
+func (s *Server) StartStdioServer(ctx context.Context) error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "StartStdioServer",
 					PanicValue:    r,
 				}
 
 				errCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					ComponentID:   "stdio-transport",
 					EventName:     "StartStdioServer",
 					Timestamp:     time.Now(),

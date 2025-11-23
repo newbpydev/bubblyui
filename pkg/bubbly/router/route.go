@@ -207,9 +207,7 @@ func copyRouteRecords(records []*RouteRecord) []*RouteRecord {
 	// Shallow copy of the slice - pointers are copied but structs are shared
 	// This prevents the slice itself from being modified, but the RouteRecords
 	// are still shared references (which is correct behavior)
-	copy := make([]*RouteRecord, len(records))
-	copy = append([]*RouteRecord{}, records...)
-	return copy
+	return append([]*RouteRecord{}, records...)
 }
 
 // generateFullPath constructs the complete path including query and hash.

@@ -75,7 +75,7 @@ var (
 // Fields:
 //   - Path: The original route pattern (e.g., "/users/:id")
 //   - Name: Human-readable identifier for the route (e.g., "user-detail")
-//   - Component: The component to render for this route (optional, for RouterView)
+//   - Component: The component to render for this route (optional, for View)
 //   - Meta: Optional metadata map for route-specific data (e.g., auth requirements)
 //   - Parent: Reference to parent route for nested routes (nil for top-level routes)
 //   - Children: Nested child routes for hierarchical routing
@@ -303,7 +303,7 @@ func (rm *RouteMatcher) addSingleRoute(record *RouteRecord) error {
 }
 
 // registerNestedRoute registers a child route with its full resolved path.
-func (rm *RouteMatcher) registerNestedRoute(parent, child *RouteRecord) error {
+func (rm *RouteMatcher) registerNestedRoute(_, child *RouteRecord) error {
 	// Build full path by walking up parent chain
 	// This handles deeply nested routes (grandchildren, etc.)
 	fullPath := buildFullPath(child)

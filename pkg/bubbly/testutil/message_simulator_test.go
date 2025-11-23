@@ -74,10 +74,9 @@ func TestSendMessage_SendsMessageToComponent(t *testing.T) {
 			// Verify command returned based on expectation
 			if tt.expectCmd {
 				assert.NotNil(t, cmd, "Command should be returned")
-			} else {
-				// Command can be nil or not nil depending on component logic
-				// Just verify no panic occurred
 			}
+			// Command can be nil or not nil depending on component logic
+			// Just verify no panic occurred
 		})
 	}
 }
@@ -231,8 +230,9 @@ func TestSendMouseClick_CreatesMouseMsg(t *testing.T) {
 			assert.Equal(t, tt.x, mouseMsg.X, "X coordinate should match")
 			assert.Equal(t, tt.y, mouseMsg.Y, "Y coordinate should match")
 
-			// Verify it's a left click
-			assert.Equal(t, tea.MouseLeft, mouseMsg.Type, "Should be left mouse button")
+			// Verify it's a left click using the modern API
+			assert.Equal(t, tea.MouseButtonLeft, mouseMsg.Button, "Should be left mouse button")
+			assert.Equal(t, tea.MouseActionPress, mouseMsg.Action, "Should be press action")
 
 			// Command can be nil or not nil
 			_ = cmd

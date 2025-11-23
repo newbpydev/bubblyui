@@ -18,7 +18,7 @@ import (
 // testMCPSetup holds the test MCP server and client setup
 type testMCPSetup struct {
 	devtools  *devtools.DevTools
-	mcpServer *mcp.MCPServer
+	mcpServer *mcp.Server
 	client    *mcpsdk.Client
 	session   *mcpsdk.ClientSession
 	cleanup   func()
@@ -27,7 +27,7 @@ type testMCPSetup struct {
 }
 
 // createTestMCPServer creates a test MCP server with populated data
-func createTestMCPServer(t *testing.T, config *mcp.MCPConfig) (*devtools.DevTools, *mcp.MCPServer) {
+func createTestMCPServer(t *testing.T, config *mcp.Config) (*devtools.DevTools, *mcp.Server) {
 	t.Helper()
 
 	// Ensure clean state - disable any existing DevTools instance
@@ -45,8 +45,8 @@ func createTestMCPServer(t *testing.T, config *mcp.MCPConfig) (*devtools.DevTool
 	mcpServerIface := dt.GetMCPServer()
 	require.NotNil(t, mcpServerIface, "MCP server should not be nil")
 
-	mcpServer, ok := mcpServerIface.(*mcp.MCPServer)
-	require.True(t, ok, "MCP server should be *mcp.MCPServer type")
+	mcpServer, ok := mcpServerIface.(*mcp.Server)
+	require.True(t, ok, "MCP server should be *mcp.Server type")
 
 	// Populate test data
 	populateTestData(t, dt)
@@ -134,7 +134,7 @@ func populateTestData(t *testing.T, dt *devtools.DevTools) {
 }
 
 // setupMCPClientServer creates a complete MCP client-server setup with in-memory transport
-func setupMCPClientServer(t *testing.T, config *mcp.MCPConfig) *testMCPSetup {
+func setupMCPClientServer(t *testing.T, config *mcp.Config) *testMCPSetup {
 	t.Helper()
 
 	// Create context with timeout

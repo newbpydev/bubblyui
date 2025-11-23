@@ -97,11 +97,7 @@ func (sw *SearchWidget) matchesQuery(component *ComponentSnapshot, queryLower st
 
 	// Match against type
 	typeLower := strings.ToLower(component.Type)
-	if strings.Contains(typeLower, queryLower) {
-		return true
-	}
-
-	return false
+	return strings.Contains(typeLower, queryLower)
 }
 
 // NextResult moves the cursor to the next result, wrapping around to

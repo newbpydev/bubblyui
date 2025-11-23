@@ -103,14 +103,6 @@ func (cmt *ChildrenManagementTester) AddChild(child bubbly.Component) {
 	// Add to our tracking list
 	cmt.children = append(cmt.children, child)
 
-	// Type assert to access internal children slice
-	// This is safe because we control the component creation
-	type componentWithChildren interface {
-		bubbly.Component
-		// We need to access the internal children field
-		// This is done via reflection-like access in the actual implementation
-	}
-
 	// For now, we'll use a simpler approach: just track the child
 	// and call its lifecycle methods directly
 	// The parent-child relationship in BubblyUI is managed through

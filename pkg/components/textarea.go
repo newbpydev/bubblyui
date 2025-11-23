@@ -120,6 +120,7 @@ type TextAreaProps struct {
 //   - Clear visual distinction for disabled state
 //   - Error messages clearly displayed
 //   - Keyboard accessible
+//
 // textareaApplyDefaults returns rows and width with defaults applied.
 func textareaApplyDefaults(props TextAreaProps) (int, int) {
 	rows := props.Rows
@@ -231,7 +232,7 @@ func TextArea(props TextAreaProps) bubbly.Component {
 
 			if err := validationError.GetTyped(); err != nil {
 				errorStyle := lipgloss.NewStyle().Foreground(theme.Danger).Italic(true)
-				output += "\n" + errorStyle.Render("✗ " + err.Error())
+				output += "\n" + errorStyle.Render("✗ "+err.Error())
 			}
 
 			return output

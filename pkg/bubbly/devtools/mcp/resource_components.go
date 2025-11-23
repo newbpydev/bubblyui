@@ -47,7 +47,7 @@ type ComponentsResource struct {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Resource reads use DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Resource reads use Store's thread-safe methods.
 //
 // Example Response:
 //
@@ -69,7 +69,7 @@ type ComponentsResource struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterComponentsResource() error {
+func (s *Server) RegisterComponentsResource() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -97,8 +97,8 @@ func (s *MCPServer) RegisterComponentsResource() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readComponentsResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readComponentsResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Get all components and roots from store
 	allComponents := s.store.GetAllComponents()
 	roots := s.store.GetRootComponents()
@@ -137,7 +137,7 @@ func (s *MCPServer) readComponentsResource(ctx context.Context, req *mcp.ReadRes
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Resource reads use DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Resource reads use Store's thread-safe methods.
 //
 // Example Request:
 //
@@ -157,7 +157,7 @@ func (s *MCPServer) readComponentsResource(ctx context.Context, req *mcp.ReadRes
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterComponentResource() error {
+func (s *Server) RegisterComponentResource() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -185,8 +185,8 @@ func (s *MCPServer) RegisterComponentResource() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readComponentResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readComponentResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Extract component ID from URI
 	componentID := extractComponentID(req.Params.URI)
 	if componentID == "" {

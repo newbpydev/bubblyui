@@ -106,13 +106,13 @@ func TestDevToolsUI_Update_TabSwitching(t *testing.T) {
 	// Press Tab to switch to next panel
 	keyMsg := tea.KeyMsg{Type: tea.KeyTab}
 	updatedUI, _ := ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 1, ui.GetActivePanel())
 
 	// Press Tab again
 	updatedUI, _ = ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 2, ui.GetActivePanel())
 }
@@ -128,7 +128,7 @@ func TestDevToolsUI_Update_ShiftTabSwitching(t *testing.T) {
 	// Press Shift+Tab to go back
 	keyMsg := tea.KeyMsg{Type: tea.KeyShiftTab}
 	updatedUI, _ := ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 1, ui.GetActivePanel())
 }
@@ -298,19 +298,19 @@ func TestDevToolsUI_KeyboardShortcuts(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      tea.KeyMsg
-		validate func(*testing.T, *DevToolsUI)
+		validate func(*testing.T, *UI)
 	}{
 		{
 			name: "tab switches panel",
 			key:  tea.KeyMsg{Type: tea.KeyTab},
-			validate: func(t *testing.T, ui *DevToolsUI) {
+			validate: func(t *testing.T, ui *UI) {
 				assert.Equal(t, 1, ui.GetActivePanel())
 			},
 		},
 		{
 			name: "shift+tab switches panel backward",
 			key:  tea.KeyMsg{Type: tea.KeyShiftTab},
-			validate: func(t *testing.T, ui *DevToolsUI) {
+			validate: func(t *testing.T, ui *UI) {
 				// From panel 0, shift+tab wraps to last panel
 				assert.Equal(t, 4, ui.GetActivePanel())
 			},
@@ -323,7 +323,7 @@ func TestDevToolsUI_KeyboardShortcuts(t *testing.T) {
 			ui := NewDevToolsUI(store)
 
 			updatedUI, _ := ui.Update(tt.key)
-			ui = updatedUI.(*DevToolsUI)
+			ui = updatedUI.(*UI)
 
 			tt.validate(t, ui)
 		})

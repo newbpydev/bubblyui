@@ -125,7 +125,7 @@ func TestFrameworkHooks_RefChange(t *testing.T) {
 // TestFrameworkHooks_NoHook verifies no panic when no hook registered
 func TestFrameworkHooks_NoHook(t *testing.T) {
 	// Ensure no hook is registered
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	// Create and use a component - should not panic
 	component, err := NewComponent("NoHookTest").
@@ -310,7 +310,7 @@ func TestFrameworkHooks_CompleteLifecycle(t *testing.T) {
 // TestFrameworkHooks_ZeroOverhead verifies no overhead when hook not registered
 func TestFrameworkHooks_ZeroOverhead(t *testing.T) {
 	// Unregister any hook
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	component, err := NewComponent("ZeroOverhead").
 		Template(func(ctx RenderContext) string {
@@ -1274,23 +1274,23 @@ func TestFrameworkHooks_DynamicComponentTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add children one by one
-	parent.(*componentImpl).AddChild(child1)
+	_ = parent.(*componentImpl).AddChild(child1)
 	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
 
-	parent.(*componentImpl).AddChild(child2)
+	_ = parent.(*componentImpl).AddChild(child2)
 	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
 
-	parent.(*componentImpl).AddChild(child3)
+	_ = parent.(*componentImpl).AddChild(child3)
 	assert.Equal(t, int32(3), hook.childAddedCalls.Load())
 
 	// Remove children one by one
-	parent.(*componentImpl).RemoveChild(child1)
+	_ = parent.(*componentImpl).RemoveChild(child1)
 	assert.Equal(t, int32(1), hook.childRemovedCalls.Load())
 
-	parent.(*componentImpl).RemoveChild(child2)
+	_ = parent.(*componentImpl).RemoveChild(child2)
 	assert.Equal(t, int32(2), hook.childRemovedCalls.Load())
 
-	parent.(*componentImpl).RemoveChild(child3)
+	_ = parent.(*componentImpl).RemoveChild(child3)
 	assert.Equal(t, int32(3), hook.childRemovedCalls.Load())
 
 	// Verify final state
@@ -1328,14 +1328,14 @@ func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Build tree from bottom up
-	parent.(*componentImpl).AddChild(child)
+	_ = parent.(*componentImpl).AddChild(child)
 	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
 	hook.mu.RLock()
 	assert.Equal(t, parent.ID(), hook.lastParentID)
 	assert.Equal(t, child.ID(), hook.lastChildID)
 	hook.mu.RUnlock()
 
-	root.(*componentImpl).AddChild(parent)
+	_ = root.(*componentImpl).AddChild(parent)
 	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
 	hook.mu.RLock()
 	assert.Equal(t, root.ID(), hook.lastParentID)
@@ -1351,7 +1351,7 @@ func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
 // TestFrameworkHooks_ChildMutations_NoHook verifies no panic when no hook registered
 func TestFrameworkHooks_ChildMutations_NoHook(t *testing.T) {
 	// Ensure no hook is registered
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	// Create parent and child components
 	parent, err := NewComponent("Parent").

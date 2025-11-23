@@ -214,7 +214,7 @@ func TestStartStdioServer_ThreadSafe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify concurrent access to server methods is safe
-	// This tests the mutex protection in MCPServer
+	// This tests the mutex protection in Server
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -313,13 +313,13 @@ func TestStartStdioServer_DirectCall_WithMockTransport(t *testing.T) {
 func TestStartStdioServer_CodeCoverage(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupServer func() (*MCPServer, error)
+		setupServer func() (*Server, error)
 		setupCtx    func() context.Context
 		expectPanic bool
 	}{
 		{
 			name: "normal server with canceled context",
-			setupServer: func() (*MCPServer, error) {
+			setupServer: func() (*Server, error) {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				return NewMCPServer(cfg, dt)
@@ -333,7 +333,7 @@ func TestStartStdioServer_CodeCoverage(t *testing.T) {
 		},
 		{
 			name: "normal server with timeout",
-			setupServer: func() (*MCPServer, error) {
+			setupServer: func() (*Server, error) {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				return NewMCPServer(cfg, dt)
@@ -450,7 +450,7 @@ func TestStartStdioServer_SessionError(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	_, err = client.Connect(ctx, t2, nil)
+	_, _ = client.Connect(ctx, t2, nil)
 	// May or may not connect depending on timing
 
 	// Wait for server to complete with error

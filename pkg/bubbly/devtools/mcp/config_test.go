@@ -31,7 +31,7 @@ func TestDefaultMCPConfig(t *testing.T) {
 func TestMCPConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name      string
-		config    *MCPConfig
+		config    *Config
 		wantError bool
 		errorMsg  string
 	}{
@@ -42,7 +42,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "valid stdio transport",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -58,7 +58,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "valid HTTP transport",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             9000,
 				HTTPHost:             "0.0.0.0",
@@ -74,7 +74,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "valid both transports",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio | MCPTransportHTTP,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -90,7 +90,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "valid HTTP port - zero (random port)",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             0, // Port 0 is valid (OS assigns random port)
 				HTTPHost:             "localhost",
@@ -106,7 +106,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid HTTP port - negative",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             -1,
 				HTTPHost:             "localhost",
@@ -123,7 +123,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid HTTP port - too high",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             70000,
 				HTTPHost:             "localhost",
@@ -140,7 +140,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid max clients - zero",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -157,7 +157,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid max clients - negative",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -174,7 +174,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid rate limit - zero",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -191,7 +191,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid subscription throttle - negative",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportStdio,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -208,7 +208,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "HTTP transport without auth token when auth enabled",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             8765,
 				HTTPHost:             "localhost",
@@ -225,7 +225,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "empty HTTP host",
-			config: &MCPConfig{
+			config: &Config{
 				Transport:            MCPTransportHTTP,
 				HTTPPort:             8765,
 				HTTPHost:             "",
@@ -260,7 +260,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 func TestMCPTransportType_String(t *testing.T) {
 	tests := []struct {
 		name      string
-		transport MCPTransportType
+		transport TransportType
 		want      string
 	}{
 		{

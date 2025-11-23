@@ -178,19 +178,19 @@ type FilterEventsResult struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterSearchComponentsTool() error {
+func (s *Server) RegisterSearchComponentsTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSearchComponentsTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSearchComponentsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -261,19 +261,19 @@ func (s *MCPServer) RegisterSearchComponentsTool() error {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterFilterEventsTool() error {
+func (s *Server) RegisterFilterEventsTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterFilterEventsTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterFilterEventsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -341,20 +341,20 @@ func (s *MCPServer) RegisterFilterEventsTool() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) handleSearchComponentsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) handleSearchComponentsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSearchComponentsTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSearchComponentsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -426,20 +426,20 @@ func (s *MCPServer) handleSearchComponentsTool(ctx context.Context, request *mcp
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) handleFilterEventsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) handleFilterEventsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleFilterEventsTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleFilterEventsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),

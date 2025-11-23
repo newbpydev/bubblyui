@@ -66,11 +66,12 @@ func (ct *ComponentTest) SendKey(key string) tea.Cmd {
 func (ct *ComponentTest) SendMouseClick(x, y int) tea.Cmd {
 	ct.harness.t.Helper()
 
-	// Create MouseMsg for left click
+	// Create MouseMsg for left click using the modern API
 	mouseMsg := tea.MouseMsg{
-		X:    x,
-		Y:    y,
-		Type: tea.MouseLeft,
+		X:      x,
+		Y:      y,
+		Button: tea.MouseButtonLeft,
+		Action: tea.MouseActionPress,
 	}
 
 	// Send the message

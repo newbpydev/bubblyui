@@ -167,7 +167,7 @@ func TestHistory_ThreadSafety(t *testing.T) {
 	// Concurrent pushes
 	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
-		go func(n int) {
+		go func(_ int) {
 			defer wg.Done()
 			route := NewRoute("/route", "route", nil, nil, "", nil, nil)
 			h.Push(route)

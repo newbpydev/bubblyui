@@ -64,7 +64,7 @@ func executeGuardSafe(guard NavigationGuard, to, from *Route, next NextFunc, res
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
-				routerErr := &RouterError{
+				routerErr := &Error{
 					Code:    ErrCodeGuardRejected,
 					Message: "Guard panicked during execution",
 					From:    from,
@@ -262,6 +262,7 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 //
 // Returns:
 //   - *guardResult: The result of component guard execution
+//
 // getLeafComponent returns the leaf component from a route's matched array.
 func getLeafComponent(route *Route) interface{} {
 	if route != nil && len(route.Matched) > 0 {

@@ -502,6 +502,7 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 //
 // Returns:
 //   - ExportData: Sanitized copy of the export data
+//
 // sanitizeMap sanitizes a map by redacting values matching patterns.
 func sanitizeMap(m map[string]interface{}, patterns []string) {
 	for key, val := range m {

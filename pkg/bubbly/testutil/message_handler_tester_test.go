@@ -85,7 +85,7 @@ func TestSendMessage_IdentifiesMessageTypes(t *testing.T) {
 		},
 		{
 			name:         "MouseMsg",
-			msg:          tea.MouseMsg{X: 10, Y: 5, Type: tea.MouseLeft},
+			msg:          tea.MouseMsg{X: 10, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress},
 			expectedType: "tea.MouseMsg",
 		},
 	}

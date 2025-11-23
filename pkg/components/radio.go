@@ -100,6 +100,7 @@ type RadioProps[T any] struct {
 //   - Highlighted selection
 //   - Disabled state clearly indicated
 //   - Keyboard accessible
+//
 // radioFindInitialIndex finds the initial highlighted index based on current value.
 func radioFindInitialIndex[T any](options []T, currentValue T) int {
 	for i, opt := range options {

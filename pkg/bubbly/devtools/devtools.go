@@ -82,11 +82,11 @@ type DevTools struct {
 
 	// store holds collected debug data in memory
 	// Implemented in Task 1.3
-	store *DevToolsStore
+	store *Store
 
 	// ui manages the dev tools user interface
 	// Implemented in Task 5.4
-	ui *DevToolsUI
+	ui *UI
 
 	// config holds dev tools configuration
 	// Implemented in Task 1.5
@@ -430,7 +430,7 @@ func (dt *DevTools) ToggleVisibility() {
 	dt.visible = !dt.visible
 }
 
-// GetStore returns the DevToolsStore instance.
+// GetStore returns the Store instance.
 //
 // This provides direct access to collected debug data. Used by the MCP server
 // to expose component tree, state, events, and performance data to AI agents.
@@ -447,8 +447,8 @@ func (dt *DevTools) ToggleVisibility() {
 //	fmt.Printf("Tracking %d components\n", len(components))
 //
 // Returns:
-//   - *DevToolsStore: The DevToolsStore instance
-func (dt *DevTools) GetStore() *DevToolsStore {
+//   - *Store: The Store instance
+func (dt *DevTools) GetStore() *Store {
 	dt.mu.RLock()
 	defer dt.mu.RUnlock()
 	return dt.store
@@ -555,7 +555,7 @@ func HandleUpdate(msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	// Forward message to DevToolsUI
+	// Forward message to UI
 	_, cmd := dt.ui.Update(msg)
 	return cmd
 }
@@ -563,9 +563,9 @@ func HandleUpdate(msg tea.Msg) tea.Cmd {
 // frameworkHookAdapter implements bubbly.FrameworkHook to bridge framework events to DevTools.
 //
 // This adapter automatically collects component lifecycle, state changes, and events
-// from the BubblyUI framework and stores them in the DevToolsStore for inspection.
+// from the BubblyUI framework and stores them in the Store for inspection.
 type frameworkHookAdapter struct {
-	store *DevToolsStore
+	store *Store
 }
 
 // OnComponentMount implements bubbly.FrameworkHook.
@@ -756,7 +756,7 @@ func (h *frameworkHookAdapter) OnRefExposed(componentID, refID, refName string) 
 //	Safe to call concurrently from multiple goroutines.
 //
 // Parameters:
-//   - server: The MCP server instance (should be *mcp.MCPServer)
+//   - server: The MCP server instance (should be *mcp.Server)
 func (dt *DevTools) SetMCPServer(server interface{}) {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
@@ -766,7 +766,7 @@ func (dt *DevTools) SetMCPServer(server interface{}) {
 // GetMCPServer returns the MCP server instance if MCP is enabled.
 //
 // Returns nil if MCP was not enabled via mcp.EnableWithMCP().
-// The returned interface{} should be type-asserted to *mcp.MCPServer.
+// The returned interface{} should be type-asserted to *mcp.Server.
 //
 // Thread Safety:
 //
@@ -776,7 +776,7 @@ func (dt *DevTools) SetMCPServer(server interface{}) {
 //
 //	dt := devtools.Enable()
 //	if server := dt.GetMCPServer(); server != nil {
-//	    mcpServer := server.(*mcp.MCPServer)
+//	    mcpServer := server.(*mcp.Server)
 //	    fmt.Println("MCP enabled and running")
 //	}
 //

@@ -414,7 +414,7 @@ func (c *componentImpl) HelpText() string {
 	defer c.keyBindingsMu.RUnlock()
 
 	// Early return if no bindings
-	if c.keyBindings == nil || len(c.keyBindings) == 0 {
+	if len(c.keyBindings) == 0 {
 		return ""
 	}
 

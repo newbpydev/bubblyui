@@ -233,7 +233,7 @@ func TestRoute_Immutability(t *testing.T) {
 		route := NewRoute("/dashboard/stats", "stats", nil, nil, "", nil, originalMatched)
 
 		// Append to original slice - this should not affect the route
-		originalMatched = append(originalMatched, &RouteRecord{Path: "/new", Name: "new"})
+		_ = append(originalMatched, &RouteRecord{Path: "/new", Name: "new"})
 
 		// Route matched slice should be unchanged (slice is copied)
 		assert.Len(t, route.Matched, 1)
@@ -574,10 +574,6 @@ func TestRoute_MetaTypeAssertions(t *testing.T) {
 			key:          "config",
 			expectedType: "struct",
 			assertionFunc: func(t *testing.T, value interface{}) {
-				type Config struct {
-					Timeout int
-					Retry   bool
-				}
 				configVal, ok := value.(struct {
 					Timeout int
 					Retry   bool

@@ -9,7 +9,7 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
-// MCPServer is the main MCP server instance that exposes BubblyUI devtools
+// Server is the main MCP server instance that exposes BubblyUI devtools
 // data and capabilities to AI agents via the Model Context Protocol.
 //
 // The server provides:
@@ -41,22 +41,22 @@ import (
 //	if err := server.StartStdioServer(ctx); err != nil {
 //	    log.Fatal(err)
 //	}
-type MCPServer struct {
+type Server struct {
 	// server is the MCP SDK server instance
 	// Handles JSON-RPC protocol, resource/tool registration, subscriptions
 	server *mcp.Server
 
 	// config holds MCP server configuration
 	// Immutable after creation
-	config *MCPConfig
+	config *Config
 
 	// devtools is a reference to the DevTools instance
 	// Used to access collected debug data
 	devtools *devtools.DevTools
 
-	// store is a reference to the DevToolsStore
+	// store is a reference to the Store
 	// Provides direct access to component/state/event data
-	store *devtools.DevToolsStore
+	store *devtools.Store
 
 	// mu protects concurrent access to server fields
 	// Currently only used for getters, but prepared for future state
@@ -93,9 +93,9 @@ type MCPServer struct {
 //   - dt: DevTools instance to expose via MCP
 //
 // Returns:
-//   - *MCPServer: Initialized server ready to start transport
+//   - *Server: Initialized server ready to start transport
 //   - error: Validation error, or nil on success
-func NewMCPServer(config *MCPConfig, dt *devtools.DevTools) (*MCPServer, error) {
+func NewMCPServer(config *Config, dt *devtools.DevTools) (*Server, error) {
 	// Validate inputs
 	if config == nil {
 		return nil, fmt.Errorf("config cannot be nil")
@@ -110,7 +110,7 @@ func NewMCPServer(config *MCPConfig, dt *devtools.DevTools) (*MCPServer, error) 
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	// Get DevToolsStore from DevTools
+	// Get Store from DevTools
 	// This is the data source for all MCP resources
 	store := dt.GetStore()
 	if store == nil {
@@ -135,8 +135,8 @@ func NewMCPServer(config *MCPConfig, dt *devtools.DevTools) (*MCPServer, error) 
 
 	mcpServer := mcp.NewServer(impl, opts)
 
-	// Create and return MCPServer wrapper
-	return &MCPServer{
+	// Create and return Server wrapper
+	return &Server{
 		server:   mcpServer,
 		config:   config,
 		devtools: dt,
@@ -159,8 +159,8 @@ func NewMCPServer(config *MCPConfig, dt *devtools.DevTools) (*MCPServer, error) 
 //	fmt.Printf("Transport: %s\n", cfg.Transport)
 //
 // Returns:
-//   - *MCPConfig: The server's configuration
-func (s *MCPServer) GetConfig() *MCPConfig {
+//   - *Config: The server's configuration
+func (s *Server) GetConfig() *Config {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.config
@@ -183,13 +183,13 @@ func (s *MCPServer) GetConfig() *MCPConfig {
 //
 // Returns:
 //   - *devtools.DevTools: The DevTools instance
-func (s *MCPServer) GetDevTools() *devtools.DevTools {
+func (s *Server) GetDevTools() *devtools.DevTools {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.devtools
 }
 
-// GetStore returns the DevToolsStore instance.
+// GetStore returns the Store instance.
 //
 // This provides direct access to collected debug data for resource handlers.
 // Used internally by resource/tool implementations (Task 2.x, 3.x).
@@ -205,8 +205,8 @@ func (s *MCPServer) GetDevTools() *devtools.DevTools {
 //	fmt.Printf("Tracking %d components\n", len(components))
 //
 // Returns:
-//   - *devtools.DevToolsStore: The DevToolsStore instance
-func (s *MCPServer) GetStore() *devtools.DevToolsStore {
+//   - *devtools.Store: The Store instance
+func (s *Server) GetStore() *devtools.Store {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.store
@@ -229,7 +229,7 @@ func (s *MCPServer) GetStore() *devtools.DevToolsStore {
 //
 // Returns:
 //   - *mcp.Server: The MCP SDK server instance
-func (s *MCPServer) GetSDKServer() *mcp.Server {
+func (s *Server) GetSDKServer() *mcp.Server {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.server

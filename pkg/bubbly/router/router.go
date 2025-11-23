@@ -176,7 +176,7 @@ type Router struct {
 //	fmt.Printf("Current route: %v\n", router.CurrentRoute()) // nil
 //
 // Note: This is a simple constructor for Task 2.1.
-// Task 2.5 will add a RouterBuilder for fluent route configuration.
+// Task 2.5 will add a Builder for fluent route configuration.
 func NewRouter() *Router {
 	return &Router{
 		registry:     NewRouteRegistry(),

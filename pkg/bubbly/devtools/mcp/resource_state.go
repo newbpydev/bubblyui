@@ -88,7 +88,7 @@ type ComputedInfo struct {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Resource reads use DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Resource reads use Store's thread-safe methods.
 //
 // Example Response (bubblyui://state/refs):
 //
@@ -110,7 +110,7 @@ type ComputedInfo struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterStateResource() error {
+func (s *Server) RegisterStateResource() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -144,8 +144,8 @@ func (s *MCPServer) RegisterStateResource() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readStateRefsResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readStateRefsResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Collect all refs from all components
 	refs := s.collectAllRefs()
 
@@ -176,13 +176,13 @@ func (s *MCPServer) readStateRefsResource(ctx context.Context, req *mcp.ReadReso
 
 // readStateHistoryResource handles reading the state history resource.
 //
-// This handler retrieves all state changes from the DevToolsStore
+// This handler retrieves all state changes from the Store
 // and returns them as a structured JSON response.
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readStateHistoryResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readStateHistoryResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Get state history from store
 	history := s.store.GetStateHistory().GetAll()
 
@@ -213,17 +213,17 @@ func (s *MCPServer) readStateHistoryResource(ctx context.Context, req *mcp.ReadR
 
 // collectAllRefs collects all refs from all components.
 //
-// This function iterates through all components in the DevToolsStore
+// This function iterates through all components in the Store
 // and extracts their refs, building a complete list of all reactive
 // references in the application.
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Uses Store's thread-safe methods.
 //
 // Returns:
 //   - []*RefInfo: List of all refs with their details
-func (s *MCPServer) collectAllRefs() []*RefInfo {
+func (s *Server) collectAllRefs() []*RefInfo {
 	// Get all components from store
 	components := s.store.GetAllComponents()
 

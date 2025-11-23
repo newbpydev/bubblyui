@@ -18,13 +18,13 @@ func recoverToolRegistration(eventName, toolName string) {
 	if r := recover(); r != nil {
 		if reporter := observability.GetErrorReporter(); reporter != nil {
 			panicErr := &observability.HandlerPanicError{
-				ComponentName: "MCPServer",
+				ComponentName: "Server",
 				EventName:     eventName,
 				PanicValue:    r,
 			}
 
 			ctx := &observability.ErrorContext{
-				ComponentName: "MCPServer",
+				ComponentName: "Server",
 				EventName:     eventName,
 				Timestamp:     time.Now(),
 				StackTrace:    debug.Stack(),
@@ -105,7 +105,7 @@ type ClearResult struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterClearStateHistoryTool() error {
+func (s *Server) RegisterClearStateHistoryTool() error {
 	// Panic recovery with observability integration
 	defer recoverToolRegistration("RegisterClearStateHistoryTool", "clear_state_history")
 
@@ -152,7 +152,7 @@ func (s *MCPServer) RegisterClearStateHistoryTool() error {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterClearEventLogTool() error {
+func (s *Server) RegisterClearEventLogTool() error {
 	// Panic recovery with observability integration
 	defer recoverToolRegistration("RegisterClearEventLogTool", "clear_event_log")
 
@@ -185,20 +185,20 @@ func (s *MCPServer) RegisterClearEventLogTool() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe Clear method.
-func (s *MCPServer) handleClearStateHistoryTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe Clear method.
+func (s *Server) handleClearStateHistoryTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleClearStateHistoryTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleClearStateHistoryTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -287,20 +287,20 @@ func (s *MCPServer) handleClearStateHistoryTool(ctx context.Context, request *mc
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe Clear method.
-func (s *MCPServer) handleClearEventLogTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe Clear method.
+func (s *Server) handleClearEventLogTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleClearEventLogTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleClearEventLogTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),

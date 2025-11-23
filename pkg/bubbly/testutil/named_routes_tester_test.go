@@ -329,7 +329,7 @@ func TestNamedRoutesTester_GetRouteURL(t *testing.T) {
 
 // TestNamedRoutesTester_NameUniqueness tests that duplicate names are handled
 func TestNamedRoutesTester_NameUniqueness(t *testing.T) {
-	// RouterBuilder should error on duplicate names
+	// Builder should error on duplicate names
 	rb := router.NewRouterBuilder()
 	rb.Route("/home", "home")
 	rb.Route("/other", "home") // Duplicate name

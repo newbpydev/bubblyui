@@ -181,13 +181,13 @@ func TestRegisterHook_Replaces(t *testing.T) {
 	hook1 := &mockHook{}
 	hook2 := &mockHook{}
 
-	RegisterHook(hook1)
+	_ = RegisterHook(hook1)
 	notifyHookComponentMount("comp-1", "Test")
 	assert.Equal(t, int32(1), hook1.mountCalls.Load())
 	assert.Equal(t, int32(0), hook2.mountCalls.Load())
 
 	// Replace with hook2
-	RegisterHook(hook2)
+	_ = RegisterHook(hook2)
 	notifyHookComponentMount("comp-2", "Test2")
 	assert.Equal(t, int32(1), hook1.mountCalls.Load()) // No new calls
 	assert.Equal(t, int32(1), hook2.mountCalls.Load()) // Gets the call
@@ -203,7 +203,7 @@ func TestIsHookRegistered(t *testing.T) {
 	_ = RegisterHook(hook)
 	assert.True(t, IsHookRegistered())
 
-	UnregisterHook()
+	_ = UnregisterHook()
 	assert.False(t, IsHookRegistered())
 }
 
@@ -409,7 +409,7 @@ func TestHookRegistration_ThreadSafe(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
-			UnregisterHook()
+			_ = UnregisterHook()
 			time.Sleep(time.Microsecond) // Small delay
 		}
 	}()

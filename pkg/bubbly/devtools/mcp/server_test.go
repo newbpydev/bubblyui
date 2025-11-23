@@ -32,7 +32,7 @@ func TestNewMCPServer_ValidConfig(t *testing.T) {
 	assert.NotNil(t, server.server, "MCP SDK server should be initialized")
 	assert.NotNil(t, server.config, "Config should be stored")
 	assert.NotNil(t, server.devtools, "DevTools reference should be stored")
-	assert.NotNil(t, server.store, "DevToolsStore reference should be stored")
+	assert.NotNil(t, server.store, "Store reference should be stored")
 	assert.Equal(t, cfg, server.config, "Config should match input")
 	assert.Equal(t, dt, server.devtools, "DevTools should match input")
 }
@@ -71,7 +71,7 @@ func TestNewMCPServer_InvalidConfig(t *testing.T) {
 	require.NotNil(t, dt, "DevTools should be created")
 
 	// Create config with invalid port (negative is invalid)
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportHTTP,
 		HTTPPort:             -1, // Invalid port (negative)
 		HTTPHost:             "localhost",

@@ -318,7 +318,7 @@ func TestCommandLogger_ThreadSafe(t *testing.T) {
 	wg.Add(goroutines)
 
 	for i := 0; i < goroutines; i++ {
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 
 			for j := 0; j < logsPerGoroutine; j++ {

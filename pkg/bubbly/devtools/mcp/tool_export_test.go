@@ -20,12 +20,12 @@ import (
 func TestRegisterExportTool(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func() *MCPServer
+		setup   func() *Server
 		wantErr bool
 	}{
 		{
 			name: "registers successfully with valid config",
-			setup: func() *MCPServer {
+			setup: func() *Server {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				server, _ := NewMCPServer(cfg, dt)
@@ -399,7 +399,7 @@ func TestExportTool_LargeExport(t *testing.T) {
 }
 
 // Helper function to call export tool (simulates MCP client call)
-func callExportTool(ctx context.Context, server *MCPServer, params map[string]interface{}) (interface{}, error) {
+func callExportTool(ctx context.Context, server *Server, params map[string]interface{}) (interface{}, error) {
 	// Create MCP request
 	paramsJSON, err := json.Marshal(params)
 	if err != nil {

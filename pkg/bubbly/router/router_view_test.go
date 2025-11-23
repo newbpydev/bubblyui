@@ -61,7 +61,7 @@ func (m *mockComponent) IsInitialized() bool {
 // Ensure mockComponent implements bubbly.Component
 var _ bubbly.Component = (*mockComponent)(nil)
 
-// TestNewRouterView tests RouterView creation
+// TestNewRouterView tests View creation
 func TestNewRouterView(t *testing.T) {
 	router := NewRouter()
 
@@ -102,7 +102,7 @@ func TestNewRouterView(t *testing.T) {
 	}
 }
 
-// TestRouterView_RendersCurrentComponent tests that RouterView renders the matched component
+// TestRouterView_RendersCurrentComponent tests that View renders the matched component
 func TestRouterView_RendersCurrentComponent(t *testing.T) {
 	router := NewRouter()
 
@@ -139,7 +139,7 @@ func TestRouterView_RendersCurrentComponent(t *testing.T) {
 	}
 	router.mu.Unlock()
 
-	// Create RouterView at depth 0
+	// Create View at depth 0
 	rv := NewRouterView(router, 0)
 
 	// Render should return the component's view
@@ -195,12 +195,12 @@ func TestRouterView_HandlesDepthForNesting(t *testing.T) {
 	}
 	router.mu.Unlock()
 
-	// RouterView at depth 0 should render parent
+	// View at depth 0 should render parent
 	rv0 := NewRouterView(router, 0)
 	output0 := rv0.View()
 	assert.Equal(t, "Dashboard Layout", output0)
 
-	// RouterView at depth 1 should render child
+	// View at depth 1 should render child
 	rv1 := NewRouterView(router, 1)
 	output1 := rv1.View()
 	assert.Equal(t, "Settings Page", output1)
@@ -254,12 +254,12 @@ func TestRouterView_HandlesDepthOutOfBounds(t *testing.T) {
 	}
 	router.mu.Unlock()
 
-	// RouterView at depth 0 should work
+	// View at depth 0 should work
 	rv0 := NewRouterView(router, 0)
 	output0 := rv0.View()
 	assert.Equal(t, "Home Page", output0)
 
-	// RouterView at depth 1 (out of bounds) should return empty
+	// View at depth 1 (out of bounds) should return empty
 	rv1 := NewRouterView(router, 1)
 	output1 := rv1.View()
 	assert.Equal(t, "", output1)
@@ -296,13 +296,13 @@ func TestRouterView_HandlesNoComponent(t *testing.T) {
 	}
 	router.mu.Unlock()
 
-	// RouterView should return empty string
+	// View should return empty string
 	rv := NewRouterView(router, 0)
 	output := rv.View()
 	assert.Equal(t, "", output)
 }
 
-// TestRouterView_UpdatesOnRouteChange tests that RouterView responds to route changes
+// TestRouterView_UpdatesOnRouteChange tests that View responds to route changes
 func TestRouterView_UpdatesOnRouteChange(t *testing.T) {
 	router := NewRouter()
 
@@ -352,7 +352,7 @@ func TestRouterView_UpdatesOnRouteChange(t *testing.T) {
 	}
 	router.mu.Unlock()
 
-	// Create RouterView
+	// Create View
 	rv := NewRouterView(router, 0)
 
 	// Should render home
@@ -437,7 +437,7 @@ func TestRouterView_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model, cmd := rv.Update(tt.msg)
-			assert.Equal(t, rv, model, "Update should return same RouterView")
+			assert.Equal(t, rv, model, "Update should return same View")
 			assert.Nil(t, cmd, "Update should return nil command")
 		})
 	}
@@ -449,7 +449,7 @@ func TestRouterView_Name(t *testing.T) {
 	rv := NewRouterView(router, 0)
 
 	name := rv.Name()
-	assert.Equal(t, "RouterView", name)
+	assert.Equal(t, "View", name)
 }
 
 // TestRouterView_ID tests the ID method
@@ -520,6 +520,6 @@ func TestRouterView_On(t *testing.T) {
 	rv.On("test-event", handler)
 	rv.On("", nil)
 
-	// Handler should never be called since RouterView doesn't handle events
+	// Handler should never be called since View doesn't handle events
 	assert.False(t, handlerCalled, "Handler should not be called")
 }

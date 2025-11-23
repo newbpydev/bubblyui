@@ -1802,11 +1802,11 @@ func TestContext_ProvideTheme_MixedWithOtherProvides(t *testing.T) {
 	// Child injects theme and other values
 	childCtx := &Context{component: child}
 	resultTheme := childCtx.UseTheme(DefaultTheme)
-	resultApiKey := childCtx.Inject("apiKey", "default")
-	resultUserId := childCtx.Inject("userId", 0)
+	resultAPIKey := childCtx.Inject("apiKey", "default")
+	resultUserID := childCtx.Inject("userId", 0)
 
 	// Assert - All values should be available
 	assert.Equal(t, customTheme, resultTheme, "Theme should be available")
-	assert.Equal(t, "secret123", resultApiKey, "API key should be available")
-	assert.Equal(t, 42, resultUserId, "User ID should be available")
+	assert.Equal(t, "secret123", resultAPIKey, "API key should be available")
+	assert.Equal(t, 42, resultUserID, "User ID should be available")
 }

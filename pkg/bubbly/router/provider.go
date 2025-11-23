@@ -38,7 +38,7 @@ import (
 //   - Only provide one router per component tree
 //   - Use UseRouter/UseRoute in children to access the router
 //
-// Example with RouterBuilder:
+// Example with Builder:
 //
 //	Setup(func(ctx *bubbly.Context) {
 //	    router, err := router.NewRouterBuilder().

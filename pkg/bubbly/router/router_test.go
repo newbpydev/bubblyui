@@ -175,9 +175,12 @@ func TestRouter_Initialization(t *testing.T) {
 
 	t.Run("mutex initialized", func(t *testing.T) {
 		// Mutex is initialized by default in Go, just verify we can lock/unlock
+		// Note: Empty critical sections are intentional - we're testing mutex init only
 		router.mu.Lock()
+		_ = struct{}{} //nolint:staticcheck // intentionally empty critical section
 		router.mu.Unlock()
 		router.mu.RLock()
+		_ = struct{}{} //nolint:staticcheck // intentionally empty critical section
 		router.mu.RUnlock()
 	})
 }

@@ -19,7 +19,7 @@ func TestRegisterEventsResource_Success(t *testing.T) {
 	dt := devtools.Enable()
 	defer devtools.Disable()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -45,7 +45,7 @@ func TestEventsResource_Empty(t *testing.T) {
 	// Clear any residual state
 	dt.GetStore().GetEventLog().Clear()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -113,7 +113,7 @@ func TestEventsResource_WithData(t *testing.T) {
 		Duration:  2 * time.Millisecond,
 	})
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -185,7 +185,7 @@ func TestEventResource_ByID(t *testing.T) {
 		Duration:  10 * time.Millisecond,
 	})
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -229,7 +229,7 @@ func TestEventResource_NotFound(t *testing.T) {
 	dt := devtools.Enable()
 	defer devtools.Disable()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -276,7 +276,7 @@ func TestEventsResource_JSONSchema(t *testing.T) {
 		Duration:  1 * time.Millisecond,
 	})
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -338,7 +338,7 @@ func TestEventsResource_ThreadSafe(t *testing.T) {
 		Duration:  1 * time.Millisecond,
 	})
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -402,7 +402,7 @@ func TestEventsResource_LargeLog(t *testing.T) {
 		})
 	}
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,

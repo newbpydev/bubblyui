@@ -67,9 +67,9 @@ func (e ErrorCode) String() string {
 	}
 }
 
-// RouterError represents a router-specific error with rich context.
+// Error represents a router-specific error with rich context.
 //
-// RouterError provides structured error information including:
+// Error provides structured error information including:
 //   - Error code for categorization
 //   - Human-readable message
 //   - Navigation context (from/to routes)
@@ -80,7 +80,7 @@ func (e ErrorCode) String() string {
 //
 // Example:
 //
-//	err := &RouterError{
+//	err := &Error{
 //		Code:    ErrRouteNotFound,
 //		Message: "No route matches '/invalid'",
 //		From:    currentRoute,
@@ -89,13 +89,13 @@ func (e ErrorCode) String() string {
 //	}
 //
 //	// Check error type
-//	if routerErr, ok := err.(*RouterError); ok {
+//	if routerErr, ok := err.(*Error); ok {
 //		switch routerErr.Code {
 //		case ErrRouteNotFound:
 //			// Handle 404
 //		}
 //	}
-type RouterError struct {
+type Error struct {
 	// Code categorizes the error type
 	Code ErrorCode
 
@@ -122,7 +122,7 @@ type RouterError struct {
 // Example output:
 //   - "[RouteNotFound] No route matches '/invalid' (from: /home, to: /invalid)"
 //   - "[GuardRejected] Authentication required (from: /public, to: /admin)"
-func (e *RouterError) Error() string {
+func (e *Error) Error() string {
 	msg := fmt.Sprintf("[%s] %s", e.Code, e.Message)
 
 	// Add navigation context if available
@@ -162,7 +162,7 @@ func (e *RouterError) Error() string {
 //
 // Example:
 //
-//	err := &RouterError{
+//	err := &Error{
 //		Code:  ErrRouteNotFound,
 //		Cause: ErrNoMatch,
 //	}
@@ -170,11 +170,11 @@ func (e *RouterError) Error() string {
 //	if errors.Is(err, ErrNoMatch) {
 //		// This works because Unwrap() returns ErrNoMatch
 //	}
-func (e *RouterError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.Cause
 }
 
-// NewRouteNotFoundError creates a RouterError for route not found.
+// NewRouteNotFoundError creates a Error for route not found.
 //
 // This is a convenience constructor for the common case of a route
 // not being found during navigation.
@@ -185,14 +185,14 @@ func (e *RouterError) Unwrap() error {
 //   - cause: The underlying error (typically ErrNoMatch)
 //
 // Returns:
-//   - *RouterError: A RouterError with ErrRouteNotFound code
+//   - *Error: A Error with ErrRouteNotFound code
 //
 // Example:
 //
 //	err := NewRouteNotFoundError("/invalid", currentRoute, ErrNoMatch)
 //	// Error: "[RouteNotFound] No route matches '/invalid' (from: /home, to: /invalid)"
-func NewRouteNotFoundError(path string, from *Route, cause error) *RouterError {
-	return &RouterError{
+func NewRouteNotFoundError(path string, from *Route, cause error) *Error {
+	return &Error{
 		Code:    ErrCodeRouteNotFound,
 		Message: fmt.Sprintf("No route matches '%s'", path),
 		From:    from,
@@ -201,7 +201,7 @@ func NewRouteNotFoundError(path string, from *Route, cause error) *RouterError {
 	}
 }
 
-// NewInvalidTargetError creates a RouterError for invalid navigation target.
+// NewInvalidTargetError creates a Error for invalid navigation target.
 //
 // This is used when the navigation target is nil or has neither path nor name.
 //
@@ -211,14 +211,14 @@ func NewRouteNotFoundError(path string, from *Route, cause error) *RouterError {
 //   - from: The route we were navigating from (nil if none)
 //
 // Returns:
-//   - *RouterError: A RouterError with ErrInvalidTarget code
+//   - *Error: A Error with ErrInvalidTarget code
 //
 // Example:
 //
 //	err := NewInvalidTargetError("target cannot be nil", nil, currentRoute)
 //	// Error: "[InvalidTarget] target cannot be nil (from: /home)"
-func NewInvalidTargetError(message string, target *NavigationTarget, from *Route) *RouterError {
-	return &RouterError{
+func NewInvalidTargetError(message string, target *NavigationTarget, from *Route) *Error {
+	return &Error{
 		Code:    ErrCodeInvalidTarget,
 		Message: message,
 		From:    from,
@@ -226,7 +226,7 @@ func NewInvalidTargetError(message string, target *NavigationTarget, from *Route
 	}
 }
 
-// NewGuardRejectedError creates a RouterError for guard rejection.
+// NewGuardRejectedError creates a Error for guard rejection.
 //
 // This is used when a navigation guard rejects navigation by calling
 // next() with an empty target or returning an error.
@@ -238,14 +238,14 @@ func NewInvalidTargetError(message string, target *NavigationTarget, from *Route
 //   - cause: The underlying error from the guard (optional)
 //
 // Returns:
-//   - *RouterError: A RouterError with ErrGuardRejected code
+//   - *Error: A Error with ErrGuardRejected code
 //
 // Example:
 //
 //	err := NewGuardRejectedError("authGuard", currentRoute, target, nil)
 //	// Error: "[GuardRejected] Navigation rejected by guard 'authGuard' (from: /public, to: /admin)"
-func NewGuardRejectedError(guardName string, from *Route, to *NavigationTarget, cause error) *RouterError {
-	return &RouterError{
+func NewGuardRejectedError(guardName string, from *Route, to *NavigationTarget, cause error) *Error {
+	return &Error{
 		Code:    ErrCodeGuardRejected,
 		Message: fmt.Sprintf("Navigation rejected by guard '%s'", guardName),
 		From:    from,
@@ -254,7 +254,7 @@ func NewGuardRejectedError(guardName string, from *Route, to *NavigationTarget, 
 	}
 }
 
-// NewCircularRedirectError creates a RouterError for circular redirects.
+// NewCircularRedirectError creates a Error for circular redirects.
 //
 // This is used when guards redirect in a loop, detected after a
 // configurable number of redirects (default: 10).
@@ -265,14 +265,14 @@ func NewGuardRejectedError(guardName string, from *Route, to *NavigationTarget, 
 //   - from: The route we started from
 //
 // Returns:
-//   - *RouterError: A RouterError with ErrCircularRedirect code
+//   - *Error: A Error with ErrCircularRedirect code
 //
 // Example:
 //
 //	err := NewCircularRedirectError(10, "/login", startRoute)
 //	// Error: "[CircularRedirect] Maximum redirects (10) exceeded at '/login' (from: /start, to: /login)"
-func NewCircularRedirectError(redirectCount int, path string, from *Route) *RouterError {
-	return &RouterError{
+func NewCircularRedirectError(redirectCount int, path string, from *Route) *Error {
+	return &Error{
 		Code:    ErrCodeCircularRedirect,
 		Message: fmt.Sprintf("Maximum redirects (%d) exceeded at '%s'", redirectCount, path),
 		From:    from,
