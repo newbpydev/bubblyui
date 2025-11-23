@@ -5,6 +5,9 @@ import (
 	"reflect"
 )
 
+// nilValueStr is the string representation for nil values in error messages.
+const nilValueStr = "<nil>"
+
 // AssertRefEquals asserts that a ref's value equals the expected value.
 // It uses reflect.DeepEqual for comparison, which works for all Go types including
 // slices, maps, and structs.
@@ -106,7 +109,7 @@ func (ct *ComponentTest) AssertRefType(name string, expectedType reflect.Type) {
 // It handles nil values and uses fmt.Sprintf for other values.
 func formatValue(v interface{}) string {
 	if v == nil {
-		return "<nil>"
+		return nilValueStr
 	}
 	// Use %v for general formatting, %q for strings
 	if _, ok := v.(string); ok {
@@ -119,7 +122,7 @@ func formatValue(v interface{}) string {
 // It handles nil types specially.
 func formatTypeName(t reflect.Type) string {
 	if t == nil {
-		return "<nil>"
+		return nilValueStr
 	}
 	return t.String()
 }

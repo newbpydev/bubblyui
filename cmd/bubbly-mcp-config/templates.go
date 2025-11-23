@@ -6,6 +6,21 @@ import (
 	"strings"
 )
 
+// mcpServerTemplate is the common MCP server configuration template.
+// All supported IDEs use the same JSON structure.
+const mcpServerTemplate = `{
+  "mcpServers": {
+    "{{APP_NAME}}": {
+      "command": "{{APP_PATH}}",
+      "args": [],
+      "env": {
+        "BUBBLY_DEVTOOLS_ENABLED": "true",
+        "BUBBLY_MCP_ENABLED": "true"
+      }
+    }
+  }
+}`
+
 // SupportedIDEs returns a list of supported IDE names.
 func SupportedIDEs() []string {
 	return []string{"vscode", "cursor", "windsurf", "claude"}
@@ -41,14 +56,8 @@ func GetTemplate(ide string) (string, error) {
 	ide = strings.ToLower(strings.TrimSpace(ide))
 
 	switch ide {
-	case "vscode":
-		return vscodeTemplate(), nil
-	case "cursor":
-		return cursorTemplate(), nil
-	case "windsurf":
-		return windsurfTemplate(), nil
-	case "claude":
-		return claudeTemplate(), nil
+	case "vscode", "cursor", "windsurf", "claude":
+		return mcpServerTemplate, nil
 	default:
 		return "", fmt.Errorf("unsupported IDE: %s (supported: %s)", ide, strings.Join(SupportedIDEs(), ", "))
 	}
@@ -76,68 +85,4 @@ func FormatTemplate(template, appPath, appName string) (string, error) {
 	}
 
 	return result, nil
-}
-
-// vscodeTemplate returns the VS Code mcp.json template.
-func vscodeTemplate() string {
-	return `{
-  "mcpServers": {
-    "{{APP_NAME}}": {
-      "command": "{{APP_PATH}}",
-      "args": [],
-      "env": {
-        "BUBBLY_DEVTOOLS_ENABLED": "true",
-        "BUBBLY_MCP_ENABLED": "true"
-      }
-    }
-  }
-}`
-}
-
-// cursorTemplate returns the Cursor IDE mcp.json template.
-func cursorTemplate() string {
-	return `{
-  "mcpServers": {
-    "{{APP_NAME}}": {
-      "command": "{{APP_PATH}}",
-      "args": [],
-      "env": {
-        "BUBBLY_DEVTOOLS_ENABLED": "true",
-        "BUBBLY_MCP_ENABLED": "true"
-      }
-    }
-  }
-}`
-}
-
-// windsurfTemplate returns the Windsurf IDE mcp.json template.
-func windsurfTemplate() string {
-	return `{
-  "mcpServers": {
-    "{{APP_NAME}}": {
-      "command": "{{APP_PATH}}",
-      "args": [],
-      "env": {
-        "BUBBLY_DEVTOOLS_ENABLED": "true",
-        "BUBBLY_MCP_ENABLED": "true"
-      }
-    }
-  }
-}`
-}
-
-// claudeTemplate returns the Claude Desktop mcp.json template.
-func claudeTemplate() string {
-	return `{
-  "mcpServers": {
-    "{{APP_NAME}}": {
-      "command": "{{APP_PATH}}",
-      "args": [],
-      "env": {
-        "BUBBLY_DEVTOOLS_ENABLED": "true",
-        "BUBBLY_MCP_ENABLED": "true"
-      }
-    }
-  }
-}`
 }

@@ -125,7 +125,7 @@ func (tv *TreeView) buildNodeLine(node *ComponentSnapshot, depth int) string {
 	// Selection indicator
 	selectionPrefix := " "
 	if tv.selected != nil && tv.selected.ID == node.ID {
-		selectionPrefix = "►"
+		selectionPrefix = selectionIndicator
 	}
 
 	// Component info

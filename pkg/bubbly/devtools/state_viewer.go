@@ -134,7 +134,7 @@ func (sv *StateViewer) Render() string {
 			indicator := " "
 			refStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")) // Light grey
 			if ref.ID == selectedID {
-				indicator = "►"
+				indicator = selectionIndicator
 				refStyle = lipgloss.NewStyle().
 					Bold(true).
 					Foreground(lipgloss.Color("99")) // Purple

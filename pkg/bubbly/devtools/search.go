@@ -321,7 +321,7 @@ func (sw *SearchWidget) renderResult(result *ComponentSnapshot, isSelected bool)
 	prefix := "  "
 
 	if isSelected {
-		prefix = "► "
+		prefix = selectionIndicatorPrefix
 		style = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("99")).
 			Bold(true)

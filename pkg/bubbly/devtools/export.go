@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// redactedValue is the replacement string for sanitized sensitive data.
+const redactedValue = "[REDACTED]"
+
 // writeWithCompression writes data to a file with optional gzip compression.
 // This helper function is used by both Export and ExportFormat to avoid code duplication.
 func writeWithCompression(file *os.File, data []byte, opts ExportOptions) error {
@@ -444,7 +447,7 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 		// Create sanitizer with patterns
 		sanitizer := NewSanitizer()
 		for _, pattern := range opts.RedactPatterns {
-			sanitizer.AddPattern(pattern, "[REDACTED]")
+			sanitizer.AddPattern(pattern, redactedValue)
 		}
 
 		// Create stream sanitizer
@@ -503,7 +506,7 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 func sanitizeMap(m map[string]interface{}, patterns []string) {
 	for key, val := range m {
 		if shouldRedact(key, patterns) || shouldRedactValue(val, patterns) {
-			m[key] = "[REDACTED]"
+			m[key] = redactedValue
 		}
 	}
 }
@@ -519,7 +522,7 @@ func sanitizeComponents(components []*ComponentSnapshot, patterns []string) {
 		}
 		for _, ref := range comp.Refs {
 			if shouldRedact(ref.Name, patterns) || shouldRedactValue(ref.Value, patterns) {
-				ref.Value = "[REDACTED]"
+				ref.Value = redactedValue
 			}
 		}
 	}
@@ -531,8 +534,8 @@ func sanitizeStateHistory(state []StateChange, patterns []string) {
 		if shouldRedact(state[i].RefName, patterns) ||
 			shouldRedactValue(state[i].OldValue, patterns) ||
 			shouldRedactValue(state[i].NewValue, patterns) {
-			state[i].OldValue = "[REDACTED]"
-			state[i].NewValue = "[REDACTED]"
+			state[i].OldValue = redactedValue
+			state[i].NewValue = redactedValue
 		}
 	}
 }
@@ -541,7 +544,7 @@ func sanitizeStateHistory(state []StateChange, patterns []string) {
 func sanitizeEvents(events []EventRecord, patterns []string) {
 	for i := range events {
 		if shouldRedact(events[i].Name, patterns) || shouldRedactValue(events[i].Payload, patterns) {
-			events[i].Payload = "[REDACTED]"
+			events[i].Payload = redactedValue
 		}
 	}
 }

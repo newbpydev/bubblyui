@@ -486,7 +486,7 @@ func (tc *TimelineControls) renderTimelineBar(cmd CommandRecord, index int, barW
 
 	indicator := " "
 	if index == tc.position {
-		indicator = "►"
+		indicator = selectionIndicator
 	}
 
 	bar := strings.Repeat(" ", offsetChars) + strings.Repeat("▬", durationChars)
