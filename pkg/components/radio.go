@@ -100,68 +100,99 @@ type RadioProps[T any] struct {
 //   - Highlighted selection
 //   - Disabled state clearly indicated
 //   - Keyboard accessible
+// radioFindInitialIndex finds the initial highlighted index based on current value.
+func radioFindInitialIndex[T any](options []T, currentValue T) int {
+	for i, opt := range options {
+		if fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue) {
+			return i
+		}
+	}
+	return 0
+}
+
+// radioHandleNavigation creates a navigation handler for up/down movement.
+func radioHandleNavigation[T any](props RadioProps[T], highlightedIndex *bubbly.Ref[int], delta int) func(interface{}) {
+	return func(_ interface{}) {
+		if props.Disabled || len(props.Options) == 0 {
+			return
+		}
+		currentIdx := highlightedIndex.GetTyped()
+		newIdx := currentIdx + delta
+		if newIdx < 0 {
+			newIdx = len(props.Options) - 1
+		} else if newIdx >= len(props.Options) {
+			newIdx = 0
+		}
+		highlightedIndex.Set(newIdx)
+	}
+}
+
+// radioHandleSelect creates a select handler for confirming selection.
+func radioHandleSelect[T any](props RadioProps[T], highlightedIndex *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		if props.Disabled || len(props.Options) == 0 {
+			return
+		}
+		idx := highlightedIndex.GetTyped()
+		if idx >= 0 && idx < len(props.Options) {
+			selectedValue := props.Options[idx]
+			props.Value.Set(selectedValue)
+			if props.OnChange != nil {
+				props.OnChange(selectedValue)
+			}
+		}
+	}
+}
+
+// radioGetOptionStyle returns the style for a radio option based on state.
+func radioGetOptionStyle[T any](opt T, index int, currentValue T, currentIdx int, props RadioProps[T], theme Theme) lipgloss.Style {
+	optionStyle := lipgloss.NewStyle()
+	isSelected := fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue)
+
+	if props.Disabled {
+		optionStyle = optionStyle.Foreground(theme.Muted)
+	} else if index == currentIdx {
+		optionStyle = optionStyle.Foreground(theme.Primary).Bold(true)
+	} else if isSelected {
+		optionStyle = optionStyle.Foreground(theme.Primary)
+	} else {
+		optionStyle = optionStyle.Foreground(theme.Foreground)
+	}
+
+	if props.Style != nil {
+		optionStyle = optionStyle.Inherit(*props.Style)
+	}
+	return optionStyle
+}
+
+// radioRenderOption renders a single radio option with indicator.
+func radioRenderOption[T any](opt T, _ int, currentValue T, props RadioProps[T]) string {
+	var optionText string
+	if props.RenderOption != nil {
+		optionText = props.RenderOption(opt)
+	} else {
+		optionText = fmt.Sprintf("%v", opt)
+	}
+
+	isSelected := fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue)
+	indicator := "( )"
+	if isSelected {
+		indicator = "(●)"
+	}
+	return indicator + " " + optionText
+}
+
 func Radio[T any](props RadioProps[T]) bubbly.Component {
 	component, _ := bubbly.NewComponent("Radio").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			theme := injectTheme(ctx)
+			highlightedIndex := bubbly.NewRef(radioFindInitialIndex(props.Options, props.Value.GetTyped()))
 
-			// Create internal state for highlighted index
-			highlightedIndex := bubbly.NewRef(0)
+			ctx.On("up", radioHandleNavigation(props, highlightedIndex, -1))
+			ctx.On("down", radioHandleNavigation(props, highlightedIndex, 1))
+			ctx.On("select", radioHandleSelect(props, highlightedIndex))
 
-			// Find initial highlighted index based on current value
-			currentValue := props.Value.GetTyped()
-			for i, opt := range props.Options {
-				if fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue) {
-					highlightedIndex.Set(i)
-					break
-				}
-			}
-
-			// Register up navigation event
-			ctx.On("up", func(data interface{}) {
-				if !props.Disabled && len(props.Options) > 0 {
-					currentIdx := highlightedIndex.GetTyped()
-					newIdx := currentIdx - 1
-					if newIdx < 0 {
-						newIdx = len(props.Options) - 1 // Wrap to bottom
-					}
-					highlightedIndex.Set(newIdx)
-				}
-			})
-
-			// Register down navigation event
-			ctx.On("down", func(data interface{}) {
-				if !props.Disabled && len(props.Options) > 0 {
-					currentIdx := highlightedIndex.GetTyped()
-					newIdx := (currentIdx + 1) % len(props.Options) // Wrap to top
-					highlightedIndex.Set(newIdx)
-				}
-			})
-
-			// Register select event (confirm selection)
-			ctx.On("select", func(data interface{}) {
-				if !props.Disabled && len(props.Options) > 0 {
-					idx := highlightedIndex.GetTyped()
-					if idx >= 0 && idx < len(props.Options) {
-						selectedValue := props.Options[idx]
-						props.Value.Set(selectedValue)
-
-						// Call OnChange callback if provided
-						if props.OnChange != nil {
-							props.OnChange(selectedValue)
-						}
-					}
-				}
-			})
-
-			// Expose internal state
 			ctx.Expose("theme", theme)
 			ctx.Expose("highlightedIndex", highlightedIndex)
 		}).
@@ -170,68 +201,19 @@ func Radio[T any](props RadioProps[T]) bubbly.Component {
 			theme := ctx.Get("theme").(Theme)
 			highlightedIndex := ctx.Get("highlightedIndex").(*bubbly.Ref[int])
 
-			// Get current state
+			if len(props.Options) == 0 {
+				return lipgloss.NewStyle().Foreground(theme.Muted).Render("No options available")
+			}
+
 			currentValue := props.Value.GetTyped()
 			currentIdx := highlightedIndex.GetTyped()
 
-			// Helper function to render an option
-			renderOption := func(opt T) string {
-				if props.RenderOption != nil {
-					return props.RenderOption(opt)
-				}
-				return fmt.Sprintf("%v", opt)
-			}
-
-			// Handle empty options
-			if len(props.Options) == 0 {
-				emptyStyle := lipgloss.NewStyle().Foreground(theme.Muted)
-				return emptyStyle.Render("No options available")
-			}
-
 			var output strings.Builder
-
-			// Render each option
 			for i, opt := range props.Options {
-				optionText := renderOption(opt)
-
-				// Determine if this option is selected
-				isSelected := fmt.Sprintf("%v", opt) == fmt.Sprintf("%v", currentValue)
-
-				// Determine indicator
-				var indicator string
-				if isSelected {
-					indicator = "(●)" // Selected (filled circle)
-				} else {
-					indicator = "( )" // Unselected (empty circle)
-				}
-
-				// Build option style
-				optionStyle := lipgloss.NewStyle()
-
-				if props.Disabled {
-					// Disabled state
-					optionStyle = optionStyle.Foreground(theme.Muted)
-				} else if i == currentIdx {
-					// Highlighted option
-					optionStyle = optionStyle.Foreground(theme.Primary).Bold(true)
-				} else if isSelected {
-					// Selected but not highlighted
-					optionStyle = optionStyle.Foreground(theme.Primary)
-				} else {
-					// Normal option
-					optionStyle = optionStyle.Foreground(theme.Foreground)
-				}
-
-				// Apply custom style if provided
-				if props.Style != nil {
-					optionStyle = optionStyle.Inherit(*props.Style)
-				}
-
-				// Build line
-				line := indicator + " " + optionText
+				line := radioRenderOption(opt, i, currentValue, props)
+				optionStyle := radioGetOptionStyle(opt, i, currentValue, currentIdx, props, theme)
 				output.WriteString(optionStyle.Render(line))
 
-				// Add newline except for last option
 				if i < len(props.Options)-1 {
 					output.WriteString("\n")
 				}

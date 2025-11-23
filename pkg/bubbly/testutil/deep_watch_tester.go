@@ -233,90 +233,141 @@ func (dwt *DeepWatchTester) deepCopy(value reflect.Value) reflect.Value {
 	return value
 }
 
+// parseIndexedPath parses a path like "Tags[0]" into field name and index string.
+func parseIndexedPath(part string) (fieldName, indexStr string, hasIndex bool) {
+	if !strings.Contains(part, "[") || !strings.Contains(part, "]") {
+		return part, "", false
+	}
+	openBracket := strings.Index(part, "[")
+	closeBracket := strings.Index(part, "]")
+	return part[:openBracket], part[openBracket+1 : closeBracket], true
+}
+
+// setValueSafe safely sets a value with type conversion.
+func setValueSafe(elem reflect.Value, newValue interface{}) {
+	if !elem.CanSet() {
+		return
+	}
+	newVal := reflect.ValueOf(newValue)
+	if newVal.Type().AssignableTo(elem.Type()) {
+		elem.Set(newVal)
+	} else if newVal.Type().ConvertibleTo(elem.Type()) {
+		elem.Set(newVal.Convert(elem.Type()))
+	}
+}
+
+// navigateToIndexedField navigates to a field by name and returns the value.
+func navigateToIndexedField(current reflect.Value, fieldName string) (reflect.Value, bool) {
+	if fieldName != "" {
+		current = current.FieldByName(fieldName)
+		if !current.IsValid() {
+			return reflect.Value{}, false
+		}
+	}
+	return current, true
+}
+
+// handleMapAccess handles map indexed access for setNestedValue.
+func handleMapAccess(current reflect.Value, indexStr string, isLast bool, newValue interface{}) (reflect.Value, bool) {
+	keyValue := reflect.ValueOf(indexStr)
+	if isLast {
+		current.SetMapIndex(keyValue, reflect.ValueOf(newValue))
+		return reflect.Value{}, true // done
+	}
+	next := current.MapIndex(keyValue)
+	return next, next.IsValid()
+}
+
+// handleSliceAccess handles slice/array indexed access for setNestedValue.
+func handleSliceAccess(current reflect.Value, indexStr string, isLast bool, newValue interface{}) (reflect.Value, bool) {
+	var index int
+	_, _ = fmt.Sscanf(indexStr, "%d", &index)
+	if index < 0 || index >= current.Len() {
+		return reflect.Value{}, false
+	}
+	if isLast {
+		setValueSafe(current.Index(index), newValue)
+		return reflect.Value{}, true // done
+	}
+	return current.Index(index), true
+}
+
 // setNestedValue sets a value in a nested structure, handling maps and slices specially
 func (dwt *DeepWatchTester) setNestedValue(value reflect.Value, path string, newValue interface{}) {
-	// Split path by dots
 	parts := strings.Split(path, ".")
 	current := value
 
-	// Navigate to the parent of the target
 	for i, part := range parts {
 		isLast := i == len(parts)-1
+		fieldName, indexStr, hasIndex := parseIndexedPath(part)
 
-		// Check for array/slice/map index: "Tags[0]" or "Settings[key]"
-		if strings.Contains(part, "[") && strings.Contains(part, "]") {
-			openBracket := strings.Index(part, "[")
-			closeBracket := strings.Index(part, "]")
-			fieldName := part[:openBracket]
-			indexStr := part[openBracket+1 : closeBracket]
-
-			// Navigate to field if there is one
-			if fieldName != "" {
-				current = current.FieldByName(fieldName)
-				if !current.IsValid() {
-					return
-				}
+		if hasIndex {
+			var ok bool
+			if current, ok = navigateToIndexedField(current, fieldName); !ok {
+				return
 			}
 
-			// Handle the indexed access
-			if current.Kind() == reflect.Map {
-				// For maps, we need to use SetMapIndex
-				keyValue := reflect.ValueOf(indexStr)
-				if isLast {
-					// Set the map value
-					current.SetMapIndex(keyValue, reflect.ValueOf(newValue))
+			switch current.Kind() {
+			case reflect.Map:
+				if next, done := handleMapAccess(current, indexStr, isLast, newValue); done || !next.IsValid() {
 					return
 				} else {
-					// Navigate deeper
-					current = current.MapIndex(keyValue)
-					if !current.IsValid() {
-						return
-					}
+					current = next
 				}
-			} else if current.Kind() == reflect.Slice || current.Kind() == reflect.Array {
-				// For slices/arrays
-				var index int
-				_, _ = fmt.Sscanf(indexStr, "%d", &index)
-				if index >= 0 && index < current.Len() {
-					if isLast {
-						// Set the slice element
-						elem := current.Index(index)
-						if elem.CanSet() {
-							newVal := reflect.ValueOf(newValue)
-							if newVal.Type().AssignableTo(elem.Type()) {
-								elem.Set(newVal)
-							} else if newVal.Type().ConvertibleTo(elem.Type()) {
-								elem.Set(newVal.Convert(elem.Type()))
-							}
-						}
-						return
-					} else {
-						// Navigate deeper
-						current = current.Index(index)
-					}
-				} else {
+			case reflect.Slice, reflect.Array:
+				if next, ok := handleSliceAccess(current, indexStr, isLast, newValue); !ok {
 					return
+				} else if isLast {
+					return
+				} else {
+					current = next
 				}
 			}
 		} else {
-			// Regular struct field
 			current = current.FieldByName(part)
 			if !current.IsValid() {
 				return
 			}
-
-			if isLast && current.CanSet() {
-				// Set the field value
-				newVal := reflect.ValueOf(newValue)
-				if newVal.Type().AssignableTo(current.Type()) {
-					current.Set(newVal)
-				} else if newVal.Type().ConvertibleTo(current.Type()) {
-					current.Set(newVal.Convert(current.Type()))
-				}
+			if isLast {
+				setValueSafe(current, newValue)
 				return
 			}
 		}
 	}
+}
+
+// unwrapValue unwraps interface and pointer types to get the underlying value.
+func unwrapValue(value reflect.Value) reflect.Value {
+	for value.Kind() == reflect.Interface {
+		if value.IsNil() {
+			return reflect.Value{}
+		}
+		value = value.Elem()
+	}
+	for value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return reflect.Value{}
+		}
+		value = value.Elem()
+	}
+	return value
+}
+
+// navigateIndexedRead handles indexed access (slice/array/map) for reading.
+func navigateIndexedRead(current reflect.Value, indexStr string) reflect.Value {
+	switch current.Kind() {
+	case reflect.Slice, reflect.Array:
+		var index int
+		_, _ = fmt.Sscanf(indexStr, "%d", &index)
+		if index >= 0 && index < current.Len() {
+			return current.Index(index)
+		}
+		return reflect.Value{}
+	case reflect.Map:
+		keyValue := reflect.ValueOf(indexStr)
+		return current.MapIndex(keyValue)
+	}
+	return current
 }
 
 // navigateToField navigates to a nested field using dot notation.
@@ -325,77 +376,37 @@ func (dwt *DeepWatchTester) setNestedValue(value reflect.Value, path string, new
 //   - Slice elements: "Tags[0]"
 //   - Map values: "Metadata[key]"
 func (dwt *DeepWatchTester) navigateToField(value reflect.Value, path string) reflect.Value {
-	// Handle interface{} wrapping
-	for value.Kind() == reflect.Interface {
-		if value.IsNil() {
-			return reflect.Value{}
-		}
-		value = value.Elem()
+	current := unwrapValue(value)
+	if !current.IsValid() {
+		return reflect.Value{}
 	}
 
-	// Handle pointer indirection
-	for value.Kind() == reflect.Ptr {
-		if value.IsNil() {
-			return reflect.Value{}
-		}
-		value = value.Elem()
-	}
-
-	// Split path by dots
 	parts := strings.Split(path, ".")
-	current := value
-
 	for _, part := range parts {
-		// Check for array/slice index: "Tags[0]"
-		if strings.Contains(part, "[") && strings.Contains(part, "]") {
-			// Parse field name and index
-			openBracket := strings.Index(part, "[")
-			closeBracket := strings.Index(part, "]")
-			fieldName := part[:openBracket]
-			indexStr := part[openBracket+1 : closeBracket]
+		fieldName, indexStr, hasIndex := parseIndexedPath(part)
 
-			// Navigate to field
+		if hasIndex {
 			if fieldName != "" {
 				current = current.FieldByName(fieldName)
 				if !current.IsValid() {
 					return reflect.Value{}
 				}
 			}
-
-			// Handle slice/array index
-			if current.Kind() == reflect.Slice || current.Kind() == reflect.Array {
-				var index int
-				_, _ = fmt.Sscanf(indexStr, "%d", &index)
-				if index >= 0 && index < current.Len() {
-					current = current.Index(index)
-				} else {
-					return reflect.Value{}
-				}
-			} else if current.Kind() == reflect.Map {
-				// Handle map key
-				keyValue := reflect.ValueOf(indexStr)
-				current = current.MapIndex(keyValue)
-				if !current.IsValid() {
-					return reflect.Value{}
-				}
+			current = navigateIndexedRead(current, indexStr)
+			if !current.IsValid() {
+				return reflect.Value{}
 			}
 		} else {
-			// Regular struct field
 			current = current.FieldByName(part)
 			if !current.IsValid() {
 				return reflect.Value{}
 			}
-
-			// Handle pointer indirection
-			for current.Kind() == reflect.Ptr {
-				if current.IsNil() {
-					return reflect.Value{}
-				}
-				current = current.Elem()
+			current = unwrapValue(current)
+			if !current.IsValid() {
+				return reflect.Value{}
 			}
 		}
 	}
-
 	return current
 }
 

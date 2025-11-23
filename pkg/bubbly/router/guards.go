@@ -36,6 +36,66 @@ type guardResult struct {
 	target *NavigationTarget
 }
 
+// createNextCallback creates a next callback function that updates the result.
+func createNextCallback(result *guardResult) NextFunc {
+	return func(target *NavigationTarget) {
+		if target == nil {
+			result.action = guardContinue
+		} else if target.Path == "" && target.Name == "" {
+			result.action = guardCancel
+		} else {
+			result.action = guardRedirect
+			result.target = target
+		}
+	}
+}
+
+// guardContext holds context for guard execution with panic recovery.
+type guardContext struct {
+	guardType string
+	index     int
+	routeName string
+	from      *Route
+	to        *Route
+}
+
+// executeGuardSafe executes a guard with panic recovery and error reporting.
+func executeGuardSafe(guard NavigationGuard, to, from *Route, next NextFunc, result *guardResult, ctx guardContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				routerErr := &RouterError{
+					Code:    ErrCodeGuardRejected,
+					Message: "Guard panicked during execution",
+					From:    from,
+					To:      &NavigationTarget{Path: to.Path},
+				}
+				tags := map[string]string{
+					"guard_type": ctx.guardType,
+					"from_path":  getPathOrEmpty(from),
+					"to_path":    to.Path,
+				}
+				if ctx.index >= 0 {
+					tags["guard_index"] = string(rune(ctx.index))
+				}
+				if ctx.routeName != "" {
+					tags["route_name"] = ctx.routeName
+				}
+				reporter.ReportError(routerErr, &observability.ErrorContext{
+					ComponentName: "router",
+					EventName:     "guard_execution",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags:          tags,
+					Extra:         map[string]interface{}{"panic_value": r},
+				})
+			}
+			result.action = guardCancel
+		}
+	}()
+	guard(to, from, next)
+}
+
 // BeforeEach registers a global before guard.
 //
 // Before guards execute before every navigation and can inspect the target
@@ -161,148 +221,31 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 	// Execute global guards sequentially
 	for i, guard := range guards {
 		result := &guardResult{action: guardContinue}
+		next := createNextCallback(result)
+		ctx := guardContext{guardType: "global_before", index: i, from: from, to: to}
+		executeGuardSafe(guard, to, from, next, result, ctx)
 
-		// Create next function that captures the result
-		next := func(target *NavigationTarget) {
-			if target == nil {
-				// Allow navigation
-				result.action = guardContinue
-			} else if target.Path == "" && target.Name == "" {
-				// Empty target = cancel
-				result.action = guardCancel
-			} else {
-				// Redirect
-				result.action = guardRedirect
-				result.target = target
-			}
+		if result.action != guardContinue {
+			return result
 		}
-
-		// Execute guard with panic recovery
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					// Report panic to observability system
-					if reporter := observability.GetErrorReporter(); reporter != nil {
-						routerErr := &RouterError{
-							Code:    ErrCodeGuardRejected,
-							Message: "Guard panicked during execution",
-							From:    from,
-							To:      &NavigationTarget{Path: to.Path},
-						}
-
-						reporter.ReportError(routerErr, &observability.ErrorContext{
-							ComponentName: "router",
-							EventName:     "guard_execution",
-							Timestamp:     time.Now(),
-							StackTrace:    debug.Stack(),
-							Tags: map[string]string{
-								"guard_type":  "global_before",
-								"guard_index": string(rune(i)),
-								"from_path":   getPathOrEmpty(from),
-								"to_path":     to.Path,
-							},
-							Extra: map[string]interface{}{
-								"panic_value": r,
-							},
-						})
-					}
-					// Cancel navigation on panic
-					result.action = guardCancel
-				}
-			}()
-
-			guard(to, from, next)
-		}()
-
-		// Check result
-		if result.action == guardCancel {
-			return &guardResult{action: guardCancel}
-		}
-
-		if result.action == guardRedirect {
-			return &guardResult{
-				action: guardRedirect,
-				target: result.target,
-			}
-		}
-
-		// Continue to next guard
 	}
 
 	// Execute route-specific beforeEnter guard if present
 	if to != nil && to.Meta != nil {
 		if beforeEnter, ok := to.Meta["beforeEnter"].(NavigationGuard); ok {
 			result := &guardResult{action: guardContinue}
+			next := createNextCallback(result)
+			ctx := guardContext{guardType: "route_before_enter", index: -1, routeName: to.Name, from: from, to: to}
+			executeGuardSafe(beforeEnter, to, from, next, result, ctx)
 
-			next := func(target *NavigationTarget) {
-				if target == nil {
-					result.action = guardContinue
-				} else if target.Path == "" && target.Name == "" {
-					result.action = guardCancel
-				} else {
-					result.action = guardRedirect
-					result.target = target
-				}
-			}
-
-			// Execute guard with panic recovery
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						// Report panic to observability system
-						if reporter := observability.GetErrorReporter(); reporter != nil {
-							routerErr := &RouterError{
-								Code:    ErrCodeGuardRejected,
-								Message: "Route guard panicked during execution",
-								From:    from,
-								To:      &NavigationTarget{Path: to.Path},
-							}
-
-							reporter.ReportError(routerErr, &observability.ErrorContext{
-								ComponentName: "router",
-								EventName:     "guard_execution",
-								Timestamp:     time.Now(),
-								StackTrace:    debug.Stack(),
-								Tags: map[string]string{
-									"guard_type": "route_before_enter",
-									"route_name": to.Name,
-									"from_path":  getPathOrEmpty(from),
-									"to_path":    to.Path,
-								},
-								Extra: map[string]interface{}{
-									"panic_value": r,
-								},
-							})
-						}
-						// Cancel navigation on panic
-						result.action = guardCancel
-					}
-				}()
-
-				beforeEnter(to, from, next)
-			}()
-
-			if result.action == guardCancel {
-				return &guardResult{action: guardCancel}
-			}
-
-			if result.action == guardRedirect {
-				return &guardResult{
-					action: guardRedirect,
-					target: result.target,
-				}
+			if result.action != guardContinue {
+				return result
 			}
 		}
 	}
 
 	// Execute component guards
-	componentGuardResult := r.executeComponentGuards(to, from)
-	if componentGuardResult.action != guardContinue {
-		return componentGuardResult
-	}
-
-	// All guards passed
-	return &guardResult{action: guardContinue}
+	return r.executeComponentGuards(to, from)
 }
 
 // executeComponentGuards executes component-level navigation guards.
@@ -319,90 +262,48 @@ func (r *Router) executeBeforeGuards(to, from *Route) *guardResult {
 //
 // Returns:
 //   - *guardResult: The result of component guard execution
+// getLeafComponent returns the leaf component from a route's matched array.
+func getLeafComponent(route *Route) interface{} {
+	if route != nil && len(route.Matched) > 0 {
+		return route.Matched[len(route.Matched)-1].Component
+	}
+	return nil
+}
+
+// executeComponentGuardMethod executes a component guard method and returns the result.
+func executeComponentGuardMethod(guardMethod func(*Route, *Route, NextFunc), to, from *Route) *guardResult {
+	result := &guardResult{action: guardContinue}
+	next := createNextCallback(result)
+	guardMethod(to, from, next)
+	return result
+}
+
 func (r *Router) executeComponentGuards(to, from *Route) *guardResult {
-	// Get old and new components
-	var oldComponent, newComponent interface{}
+	oldComponent := getLeafComponent(from)
+	newComponent := getLeafComponent(to)
 
-	if from != nil && len(from.Matched) > 0 {
-		// Get the leaf component (last in matched array)
-		oldComponent = from.Matched[len(from.Matched)-1].Component
-	}
-
-	if to != nil && len(to.Matched) > 0 {
-		// Get the leaf component (last in matched array)
-		newComponent = to.Matched[len(to.Matched)-1].Component
-	}
-
-	// Check if components implement ComponentGuards
 	oldGuards, oldHasGuards := hasComponentGuards(oldComponent)
 	newGuards, newHasGuards := hasComponentGuards(newComponent)
 
-	// Determine if component is being reused (same component instance, different params)
-	// Use pointer comparison for component reuse detection
 	componentReused := oldComponent != nil && newComponent != nil && oldComponent == newComponent
 
 	// Execute BeforeRouteLeave on old component
 	if oldHasGuards && oldComponent != newComponent {
-		result := &guardResult{action: guardContinue}
-
-		next := func(target *NavigationTarget) {
-			if target == nil {
-				result.action = guardContinue
-			} else if target.Path == "" && target.Name == "" {
-				result.action = guardCancel
-			} else {
-				result.action = guardRedirect
-				result.target = target
-			}
-		}
-
-		oldGuards.BeforeRouteLeave(to, from, next)
-
-		if result.action != guardContinue {
+		if result := executeComponentGuardMethod(oldGuards.BeforeRouteLeave, to, from); result.action != guardContinue {
 			return result
 		}
 	}
 
 	// Execute BeforeRouteUpdate if component is reused
 	if componentReused && newHasGuards {
-		result := &guardResult{action: guardContinue}
-
-		next := func(target *NavigationTarget) {
-			if target == nil {
-				result.action = guardContinue
-			} else if target.Path == "" && target.Name == "" {
-				result.action = guardCancel
-			} else {
-				result.action = guardRedirect
-				result.target = target
-			}
-		}
-
-		newGuards.BeforeRouteUpdate(to, from, next)
-
-		if result.action != guardContinue {
+		if result := executeComponentGuardMethod(newGuards.BeforeRouteUpdate, to, from); result.action != guardContinue {
 			return result
 		}
 	}
 
 	// Execute BeforeRouteEnter on new component (if not reused)
 	if newHasGuards && !componentReused {
-		result := &guardResult{action: guardContinue}
-
-		next := func(target *NavigationTarget) {
-			if target == nil {
-				result.action = guardContinue
-			} else if target.Path == "" && target.Name == "" {
-				result.action = guardCancel
-			} else {
-				result.action = guardRedirect
-				result.target = target
-			}
-		}
-
-		newGuards.BeforeRouteEnter(to, from, next)
-
-		if result.action != guardContinue {
+		if result := executeComponentGuardMethod(newGuards.BeforeRouteEnter, to, from); result.action != guardContinue {
 			return result
 		}
 	}

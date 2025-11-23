@@ -445,34 +445,8 @@ func (tc *TimelineControls) IsReplaying() bool {
 //
 // Returns:
 //   - string: The rendered timeline with Lipgloss styling
-func (tc *TimelineControls) Render(width int) string {
-	tc.mu.RLock()
-	defer tc.mu.RUnlock()
-
-	// Header style
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("99")).
-		MarginBottom(1)
-
-	// Get commands
-	commands := tc.timeline.GetCommands()
-
-	// Empty state
-	if len(commands) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Italic(true)
-
-		return headerStyle.Render("Timeline Controls") + "\n\n" +
-			emptyStyle.Render("No commands in timeline")
-	}
-
-	// Build output
-	var lines []string
-	lines = append(lines, headerStyle.Render("Timeline Controls"))
-
-	// Status line
+// renderStatusInfo returns status, position, and speed lines.
+func (tc *TimelineControls) renderStatusInfo(numCommands int) []string {
 	status := "Stopped"
 	if tc.replaying {
 		if tc.paused {
@@ -487,81 +461,90 @@ func (tc *TimelineControls) Render(width int) string {
 		statusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
 	}
 
-	lines = append(lines, fmt.Sprintf("Status: %s", statusStyle.Render(status)))
-
-	// Position line (1-indexed for display)
 	positionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
-	lines = append(lines, fmt.Sprintf("Position: %s", positionStyle.Render(fmt.Sprintf("%d/%d", tc.position+1, len(commands)))))
-
-	// Speed line
 	speedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("35"))
-	lines = append(lines, fmt.Sprintf("Speed: %s", speedStyle.Render(fmt.Sprintf("%.1fx", tc.speed))))
 
+	return []string{
+		fmt.Sprintf("Status: %s", statusStyle.Render(status)),
+		fmt.Sprintf("Position: %s", positionStyle.Render(fmt.Sprintf("%d/%d", tc.position+1, numCommands))),
+		fmt.Sprintf("Speed: %s", speedStyle.Render(fmt.Sprintf("%.1fx", tc.speed))),
+	}
+}
+
+// renderTimelineBar renders a single timeline bar for a command.
+func (tc *TimelineControls) renderTimelineBar(cmd CommandRecord, index int, barWidth int, startTime time.Time, totalDuration time.Duration) string {
+	offset := cmd.Generated.Sub(startTime)
+	offsetChars := clampInt(int(float64(barWidth)*offset.Seconds()/totalDuration.Seconds()), 0, barWidth-1)
+
+	durationChars := int(float64(barWidth) * cmd.Duration.Seconds() / totalDuration.Seconds())
+	if durationChars < 1 {
+		durationChars = 1
+	}
+	if offsetChars+durationChars > barWidth {
+		durationChars = barWidth - offsetChars
+	}
+
+	indicator := " "
+	if index == tc.position {
+		indicator = "►"
+	}
+
+	bar := strings.Repeat(" ", offsetChars) + strings.Repeat("▬", durationChars)
+
+	label := cmd.Type
+	if len(label) > 12 {
+		label = label[:9] + "..."
+	}
+
+	lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("35"))
+	if index == tc.position {
+		lineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
+	}
+
+	return indicator + " " + bar + " " + lineStyle.Render(label)
+}
+
+// clampInt clamps an integer value to the range [min, max].
+func clampInt(val, min, max int) int {
+	if val < min {
+		return min
+	}
+	if val > max {
+		return max
+	}
+	return val
+}
+
+func (tc *TimelineControls) Render(width int) string {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99")).MarginBottom(1)
+	commands := tc.timeline.GetCommands()
+
+	if len(commands) == 0 {
+		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+		return headerStyle.Render("Timeline Controls") + "\n\n" + emptyStyle.Render("No commands in timeline")
+	}
+
+	lines := []string{headerStyle.Render("Timeline Controls")}
+	lines = append(lines, tc.renderStatusInfo(len(commands))...)
 	lines = append(lines, "")
 
-	// Timeline visualization
-	if len(commands) > 0 {
-		// Calculate time span
-		startTime := commands[0].Generated
-		endTime := commands[len(commands)-1].Executed
-		totalDuration := endTime.Sub(startTime)
+	startTime := commands[0].Generated
+	endTime := commands[len(commands)-1].Executed
+	totalDuration := endTime.Sub(startTime)
+	if totalDuration == 0 {
+		totalDuration = 1 * time.Millisecond
+	}
 
-		// Handle single command or zero duration
-		if totalDuration == 0 {
-			totalDuration = 1 * time.Millisecond
-		}
+	barWidth := width - 30
+	if barWidth < 10 {
+		barWidth = 10
+	}
 
-		// Render timeline bars
-		barWidth := width - 30 // Reserve space for label and marker
-		if barWidth < 10 {
-			barWidth = 10
-		}
-
-		for i, cmd := range commands {
-			// Calculate offset from start
-			offset := cmd.Generated.Sub(startTime)
-			offsetChars := int(float64(barWidth) * offset.Seconds() / totalDuration.Seconds())
-			if offsetChars < 0 {
-				offsetChars = 0
-			}
-			if offsetChars >= barWidth {
-				offsetChars = barWidth - 1
-			}
-
-			// Calculate duration bar width
-			durationChars := int(float64(barWidth) * cmd.Duration.Seconds() / totalDuration.Seconds())
-			if durationChars < 1 {
-				durationChars = 1
-			}
-			if offsetChars+durationChars > barWidth {
-				durationChars = barWidth - offsetChars
-			}
-
-			// Position indicator
-			indicator := " "
-			if i == tc.position {
-				indicator = "►"
-			}
-
-			// Build bar
-			bar := strings.Repeat(" ", offsetChars) + strings.Repeat("▬", durationChars)
-
-			// Truncate label if needed
-			label := cmd.Type
-			maxLabelLen := 15
-			if len(label) > maxLabelLen {
-				label = label[:maxLabelLen-3] + "..."
-			}
-
-			// Style the line
-			lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("35"))
-			if i == tc.position {
-				lineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
-			}
-
-			line := indicator + " " + bar + " " + lineStyle.Render(label)
-			lines = append(lines, line)
-		}
+	for i, cmd := range commands {
+		lines = append(lines, tc.renderTimelineBar(cmd, i, barWidth, startTime, totalDuration))
 	}
 
 	return strings.Join(lines, "\n")

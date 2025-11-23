@@ -1,6 +1,10 @@
 package components
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
+)
 
 // ComponentID is a unique identifier for a component instance.
 type ComponentID string
@@ -108,3 +112,14 @@ type ValidateFunc func(value string) error
 // RenderFunc is a function that renders content to a string.
 // Used for custom rendering in components like List and Table.
 type RenderFunc func() string
+
+// injectTheme attempts to inject a theme from context, falling back to DefaultTheme.
+// This is a common helper used by all components that need theme support.
+func injectTheme(ctx *bubbly.Context) Theme {
+	if injected := ctx.Inject("theme", nil); injected != nil {
+		if t, ok := injected.(Theme); ok {
+			return t
+		}
+	}
+	return DefaultTheme
+}

@@ -499,68 +499,71 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 //
 // Returns:
 //   - ExportData: Sanitized copy of the export data
+// sanitizeMap sanitizes a map by redacting values matching patterns.
+func sanitizeMap(m map[string]interface{}, patterns []string) {
+	for key, val := range m {
+		if shouldRedact(key, patterns) || shouldRedactValue(val, patterns) {
+			m[key] = "[REDACTED]"
+		}
+	}
+}
+
+// sanitizeComponents sanitizes component data.
+func sanitizeComponents(components []*ComponentSnapshot, patterns []string) {
+	for _, comp := range components {
+		if comp.Props != nil {
+			sanitizeMap(comp.Props, patterns)
+		}
+		if comp.State != nil {
+			sanitizeMap(comp.State, patterns)
+		}
+		for _, ref := range comp.Refs {
+			if shouldRedact(ref.Name, patterns) || shouldRedactValue(ref.Value, patterns) {
+				ref.Value = "[REDACTED]"
+			}
+		}
+	}
+}
+
+// sanitizeStateHistory sanitizes state history entries.
+func sanitizeStateHistory(state []StateChange, patterns []string) {
+	for i := range state {
+		if shouldRedact(state[i].RefName, patterns) ||
+			shouldRedactValue(state[i].OldValue, patterns) ||
+			shouldRedactValue(state[i].NewValue, patterns) {
+			state[i].OldValue = "[REDACTED]"
+			state[i].NewValue = "[REDACTED]"
+		}
+	}
+}
+
+// sanitizeEvents sanitizes event entries.
+func sanitizeEvents(events []EventRecord, patterns []string) {
+	for i := range events {
+		if shouldRedact(events[i].Name, patterns) || shouldRedactValue(events[i].Payload, patterns) {
+			events[i].Payload = "[REDACTED]"
+		}
+	}
+}
+
 func sanitizeExportData(data ExportData, patterns []string) ExportData {
-	// If no patterns, return as-is
 	if len(patterns) == 0 {
 		return data
 	}
 
-	// Create lowercase patterns for case-insensitive matching
 	lowerPatterns := make([]string, len(patterns))
 	for i, p := range patterns {
 		lowerPatterns[i] = strings.ToLower(p)
 	}
 
-	// Sanitize components
 	if data.Components != nil {
-		for _, comp := range data.Components {
-			// Sanitize props
-			if comp.Props != nil {
-				for key, val := range comp.Props {
-					if shouldRedact(key, lowerPatterns) || shouldRedactValue(val, lowerPatterns) {
-						comp.Props[key] = "[REDACTED]"
-					}
-				}
-			}
-
-			// Sanitize state
-			if comp.State != nil {
-				for key, val := range comp.State {
-					if shouldRedact(key, lowerPatterns) || shouldRedactValue(val, lowerPatterns) {
-						comp.State[key] = "[REDACTED]"
-					}
-				}
-			}
-
-			// Sanitize refs
-			for _, ref := range comp.Refs {
-				if shouldRedact(ref.Name, lowerPatterns) || shouldRedactValue(ref.Value, lowerPatterns) {
-					ref.Value = "[REDACTED]"
-				}
-			}
-		}
+		sanitizeComponents(data.Components, lowerPatterns)
 	}
-
-	// Sanitize state history
 	if data.State != nil {
-		for i := range data.State {
-			if shouldRedact(data.State[i].RefName, lowerPatterns) ||
-				shouldRedactValue(data.State[i].OldValue, lowerPatterns) ||
-				shouldRedactValue(data.State[i].NewValue, lowerPatterns) {
-				data.State[i].OldValue = "[REDACTED]"
-				data.State[i].NewValue = "[REDACTED]"
-			}
-		}
+		sanitizeStateHistory(data.State, lowerPatterns)
 	}
-
-	// Sanitize events
 	if data.Events != nil {
-		for i := range data.Events {
-			if shouldRedact(data.Events[i].Name, lowerPatterns) ||
-				shouldRedactValue(data.Events[i].Payload, lowerPatterns) {
-				data.Events[i].Payload = "[REDACTED]"
-			}
-		}
+		sanitizeEvents(data.Events, lowerPatterns)
 	}
 
 	return data

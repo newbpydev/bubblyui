@@ -264,15 +264,36 @@ func LoadConfig(path string) (*Config, error) {
 //	cfg := devtools.DefaultConfig()
 //	cfg.ApplyEnvOverrides()
 //	// cfg.Enabled is now false
-func (c *Config) ApplyEnvOverrides() {
-	// Override enabled
-	if val := os.Getenv("BUBBLY_DEVTOOLS_ENABLED"); val != "" {
-		if enabled, err := strconv.ParseBool(val); err == nil {
-			c.Enabled = enabled
+// applyEnvBool applies a boolean environment variable override.
+func applyEnvBool(envKey string, target *bool) {
+	if val := os.Getenv(envKey); val != "" {
+		if parsed, err := strconv.ParseBool(val); err == nil {
+			*target = parsed
 		}
 	}
+}
 
-	// Override layout mode
+// applyEnvInt applies an integer environment variable override with min constraint.
+func applyEnvInt(envKey string, target *int, minVal int) {
+	if val := os.Getenv(envKey); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil && parsed >= minVal {
+			*target = parsed
+		}
+	}
+}
+
+// applyEnvFloat applies a float environment variable override with range constraint.
+func applyEnvFloat(envKey string, target *float64, minVal, maxVal float64) {
+	if val := os.Getenv(envKey); val != "" {
+		if parsed, err := strconv.ParseFloat(val, 64); err == nil && parsed >= minVal && parsed <= maxVal {
+			*target = parsed
+		}
+	}
+}
+
+func (c *Config) ApplyEnvOverrides() {
+	applyEnvBool("BUBBLY_DEVTOOLS_ENABLED", &c.Enabled)
+
 	if val := os.Getenv("BUBBLY_DEVTOOLS_LAYOUT_MODE"); val != "" {
 		if mode, err := strconv.Atoi(val); err == nil {
 			if mode >= int(LayoutHorizontal) && mode <= int(LayoutHidden) {
@@ -281,48 +302,9 @@ func (c *Config) ApplyEnvOverrides() {
 		}
 	}
 
-	// Override split ratio
-	if val := os.Getenv("BUBBLY_DEVTOOLS_SPLIT_RATIO"); val != "" {
-		if ratio, err := strconv.ParseFloat(val, 64); err == nil {
-			if ratio >= 0.1 && ratio <= 0.9 {
-				c.SplitRatio = ratio
-			}
-		}
-	}
-
-	// Override max components
-	if val := os.Getenv("BUBBLY_DEVTOOLS_MAX_COMPONENTS"); val != "" {
-		if max, err := strconv.Atoi(val); err == nil {
-			if max > 0 {
-				c.MaxComponents = max
-			}
-		}
-	}
-
-	// Override max events
-	if val := os.Getenv("BUBBLY_DEVTOOLS_MAX_EVENTS"); val != "" {
-		if max, err := strconv.Atoi(val); err == nil {
-			if max > 0 {
-				c.MaxEvents = max
-			}
-		}
-	}
-
-	// Override max state history
-	if val := os.Getenv("BUBBLY_DEVTOOLS_MAX_STATE_HISTORY"); val != "" {
-		if max, err := strconv.Atoi(val); err == nil {
-			if max > 0 {
-				c.MaxStateHistory = max
-			}
-		}
-	}
-
-	// Override sampling rate
-	if val := os.Getenv("BUBBLY_DEVTOOLS_SAMPLING_RATE"); val != "" {
-		if rate, err := strconv.ParseFloat(val, 64); err == nil {
-			if rate >= 0.0 && rate <= 1.0 {
-				c.SamplingRate = rate
-			}
-		}
-	}
+	applyEnvFloat("BUBBLY_DEVTOOLS_SPLIT_RATIO", &c.SplitRatio, 0.1, 0.9)
+	applyEnvInt("BUBBLY_DEVTOOLS_MAX_COMPONENTS", &c.MaxComponents, 1)
+	applyEnvInt("BUBBLY_DEVTOOLS_MAX_EVENTS", &c.MaxEvents, 1)
+	applyEnvInt("BUBBLY_DEVTOOLS_MAX_STATE_HISTORY", &c.MaxStateHistory, 1)
+	applyEnvFloat("BUBBLY_DEVTOOLS_SAMPLING_RATE", &c.SamplingRate, 0.0, 1.0)
 }

@@ -174,32 +174,86 @@ func selectFindInitialIndex[T any](options []T, currentValue T) int {
 	return 0
 }
 
+// selectRenderOptionText renders an option as text.
+func selectRenderOptionText[T any](opt T, props SelectProps[T]) string {
+	if props.RenderOption != nil {
+		return props.RenderOption(opt)
+	}
+	return fmt.Sprintf("%v", opt)
+}
+
+// selectGetDisplayValue determines the display value for the select.
+func selectGetDisplayValue[T any](props SelectProps[T]) string {
+	if len(props.Options) == 0 {
+		if props.Placeholder != "" {
+			return props.Placeholder
+		}
+		return "No options"
+	}
+
+	currentValue := props.Value.GetTyped()
+	valueStr := fmt.Sprintf("%v", currentValue)
+	for _, opt := range props.Options {
+		if fmt.Sprintf("%v", opt) == valueStr {
+			return selectRenderOptionText(currentValue, props)
+		}
+	}
+
+	if props.Placeholder != "" {
+		return props.Placeholder
+	}
+	return selectRenderOptionText(currentValue, props)
+}
+
+// selectApplyBorderColor applies border color based on state.
+func selectApplyBorderColor[T any](style lipgloss.Style, props SelectProps[T], isOpen bool, theme Theme) lipgloss.Style {
+	if props.NoBorder {
+		return style
+	}
+	if props.Disabled {
+		return style.BorderForeground(theme.Muted)
+	}
+	if isOpen {
+		return style.BorderForeground(theme.Primary)
+	}
+	return style.BorderForeground(theme.Secondary)
+}
+
+// selectRenderOptions renders the dropdown options list.
+func selectRenderOptions[T any](props SelectProps[T], currentIdx int, theme Theme) string {
+	var output strings.Builder
+	for i, opt := range props.Options {
+		optionText := selectRenderOptionText(opt, props)
+		optionStyle := lipgloss.NewStyle().Padding(0, 1)
+
+		if i == currentIdx {
+			optionStyle = optionStyle.Foreground(theme.Primary).Bold(true)
+			optionText = "> " + optionText
+		} else {
+			optionStyle = optionStyle.Foreground(theme.Foreground)
+			optionText = "  " + optionText
+		}
+
+		output.WriteString(optionStyle.Render(optionText))
+		output.WriteString("\n")
+	}
+	return output.String()
+}
+
 func Select[T any](props SelectProps[T]) bubbly.Component {
 	component, _ := bubbly.NewComponent("Select").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
-
-			// Create internal state
+			theme := injectTheme(ctx)
 			isOpen := bubbly.NewRef(false)
 			selectedIndex := bubbly.NewRef(selectFindInitialIndex(props.Options, props.Value.GetTyped()))
 
-			// Register event handlers using extracted functions
 			ctx.On("toggle", selectHandleToggle(props, isOpen))
 			ctx.On("up", selectHandleNavigation(props, isOpen, selectedIndex, -1))
 			ctx.On("down", selectHandleNavigation(props, isOpen, selectedIndex, 1))
 			ctx.On("select", selectHandleSelect(props, isOpen, selectedIndex))
-			ctx.On("close", func(data interface{}) {
-				isOpen.Set(false)
-			})
+			ctx.On("close", func(_ interface{}) { isOpen.Set(false) })
 
-			// Expose internal state
 			ctx.Expose("theme", theme)
 			ctx.Expose("isOpen", isOpen)
 			ctx.Expose("selectedIndex", selectedIndex)
@@ -210,112 +264,35 @@ func Select[T any](props SelectProps[T]) bubbly.Component {
 			isOpen := ctx.Get("isOpen").(*bubbly.Ref[bool])
 			selectedIndex := ctx.Get("selectedIndex").(*bubbly.Ref[int])
 
-			// Get current state
 			isOpenState := isOpen.GetTyped()
-			currentValue := props.Value.GetTyped()
 			currentIdx := selectedIndex.GetTyped()
+			displayValue := selectGetDisplayValue(props)
 
-			// Helper function to render an option
-			renderOption := func(opt T) string {
-				if props.RenderOption != nil {
-					return props.RenderOption(opt)
-				}
-				return fmt.Sprintf("%v", opt)
-			}
-
-			// Determine display value
-			var displayValue string
-			if len(props.Options) == 0 {
-				displayValue = props.Placeholder
-				if displayValue == "" {
-					displayValue = "No options"
-				}
-			} else {
-				// Check if current value is in options
-				valueStr := fmt.Sprintf("%v", currentValue)
-				found := false
-				for _, opt := range props.Options {
-					if fmt.Sprintf("%v", opt) == valueStr {
-						displayValue = renderOption(currentValue)
-						found = true
-						break
-					}
-				}
-				if !found && props.Placeholder != "" {
-					displayValue = props.Placeholder
-				} else if !found {
-					displayValue = renderOption(currentValue)
-				}
-			}
-
-			// Determine width (default to 30 if not specified)
 			width := props.Width
 			if width <= 0 {
 				width = 30
 			}
 
-			// Build select style
-			selectStyle := lipgloss.NewStyle().
-				Padding(0, 1).
-				Width(width)
-
-			// Add border unless NoBorder is true
+			selectStyle := lipgloss.NewStyle().Padding(0, 1).Width(width)
 			if !props.NoBorder {
 				selectStyle = selectStyle.Border(theme.GetBorderStyle())
 			}
-
-			// Set color based on state
 			if props.Disabled {
 				selectStyle = selectStyle.Foreground(theme.Muted)
-				if !props.NoBorder {
-					selectStyle = selectStyle.BorderForeground(theme.Muted)
-				}
-			} else if isOpenState {
-				if !props.NoBorder {
-					selectStyle = selectStyle.BorderForeground(theme.Primary)
-				}
-			} else {
-				if !props.NoBorder {
-					selectStyle = selectStyle.BorderForeground(theme.Secondary)
-				}
 			}
+			selectStyle = selectApplyBorderColor(selectStyle, props, isOpenState, theme)
 
-			// Apply custom style if provided
 			if props.Style != nil {
 				selectStyle = selectStyle.Inherit(*props.Style)
 			}
 
 			var output strings.Builder
-
 			if isOpenState && !props.Disabled && len(props.Options) > 0 {
-				// Open state: show options list
-				indicator := "▲"
-				output.WriteString(selectStyle.Render(indicator + " " + displayValue))
+				output.WriteString(selectStyle.Render("▲ " + displayValue))
 				output.WriteString("\n")
-
-				// Render options
-				for i, opt := range props.Options {
-					optionText := renderOption(opt)
-					optionStyle := lipgloss.NewStyle().Padding(0, 1)
-
-					if i == currentIdx {
-						// Highlighted option
-						optionStyle = optionStyle.
-							Foreground(theme.Primary).
-							Bold(true)
-						optionText = "> " + optionText
-					} else {
-						optionStyle = optionStyle.Foreground(theme.Foreground)
-						optionText = "  " + optionText
-					}
-
-					output.WriteString(optionStyle.Render(optionText))
-					output.WriteString("\n")
-				}
+				output.WriteString(selectRenderOptions(props, currentIdx, theme))
 			} else {
-				// Closed state: show selected value
-				indicator := "▼"
-				output.WriteString(selectStyle.Render(indicator + " " + displayValue))
+				output.WriteString(selectStyle.Render("▼ " + displayValue))
 			}
 
 			return output.String()

@@ -240,94 +240,81 @@ func (ui *DevToolsUI) SetFocusMode(enabled bool) {
 // Returns:
 //   - tea.Model: The updated UI (cast to *DevToolsUI)
 //   - tea.Cmd: Optional command to execute
+// handleFocusModeToggle handles focus mode toggle keys.
+// Returns (handled, cmd) - if handled is true, the key was consumed.
+func (ui *DevToolsUI) handleFocusModeToggle(msg tea.KeyMsg) (bool, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyRunes:
+		if string(msg.Runes) == "/" {
+			ui.mu.Lock()
+			ui.focusMode = true
+			ui.mu.Unlock()
+			return true, nil
+		}
+	case tea.KeyEsc:
+		ui.mu.Lock()
+		wasFocused := ui.focusMode
+		ui.focusMode = false
+		ui.mu.Unlock()
+		if wasFocused {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// handlePanelUpdate routes keyboard input to the active panel.
+func (ui *DevToolsUI) handlePanelUpdate(msg tea.KeyMsg) tea.Cmd {
+	ui.mu.RLock()
+	activePanel := ui.activePanel
+	inFocusMode := ui.focusMode
+	ui.mu.RUnlock()
+
+	if !inFocusMode || activePanel != 0 {
+		return nil
+	}
+
+	ui.mu.Lock()
+	cmd := ui.inspector.Update(msg)
+	ui.mu.Unlock()
+	return cmd
+}
+
+// handleWindowResize handles window resize messages.
+func (ui *DevToolsUI) handleWindowResize(msg tea.WindowSizeMsg) {
+	if msg.Width <= 0 || msg.Height <= 0 {
+		return
+	}
+	if msg.Width == ui.lastWidth && msg.Height == ui.lastHeight {
+		return
+	}
+
+	ui.lastWidth = msg.Width
+	ui.lastHeight = msg.Height
+	ui.layout.SetSize(msg.Width, msg.Height)
+
+	if !ui.manualLayoutOverride {
+		mode, ratio := CalculateResponsiveLayout(msg.Width)
+		ui.layout.SetMode(mode)
+		ui.layout.SetRatio(ratio)
+	}
+}
+
 func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle focus mode toggle keys FIRST (before any other processing)
-		switch msg.Type {
-		case tea.KeyRunes:
-			// '/' enters focus mode
-			if string(msg.Runes) == "/" {
-				ui.mu.Lock()
-				ui.focusMode = true
-				ui.mu.Unlock()
-				return ui, nil
-			}
-		case tea.KeyEsc:
-			// ESC exits focus mode
-			ui.mu.Lock()
-			wasFocused := ui.focusMode
-			ui.focusMode = false
-			ui.mu.Unlock()
-
-			// If we were in focus mode, ESC consumed (exit focus only)
-			// If we weren't in focus mode, let it pass through
-			if wasFocused {
-				return ui, nil
-			}
-		}
-
-		// Try keyboard handler for global shortcuts (Tab, Shift+Tab)
-		cmd := ui.keyboard.Handle(msg)
-		if cmd != nil {
+		if handled, cmd := ui.handleFocusModeToggle(msg); handled {
 			return ui, cmd
 		}
-
-		// Route to active panel's Update() ONLY if in focus mode
-		ui.mu.RLock()
-		activePanel := ui.activePanel
-		inFocusMode := ui.focusMode
-		ui.mu.RUnlock()
-
-		// Only route keyboard input to panels when in focus mode
-		if !inFocusMode {
-			return ui, nil
+		if cmd := ui.keyboard.Handle(msg); cmd != nil {
+			return ui, cmd
 		}
-
-		switch activePanel {
-		case 0: // Inspector
-			ui.mu.Lock()
-			cmd := ui.inspector.Update(msg) // CRITICAL: Capture return value!
-			ui.mu.Unlock()
-			return ui, cmd // Return cmd so updates trigger redraws
-		case 1: // State viewer doesn't have Update()
-			return ui, nil
-		case 2: // Event tracker doesn't have Update()
-			return ui, nil
-		case 3: // Performance monitor doesn't have Update()
-			return ui, nil
-		case 4: // Timeline doesn't have Update()
-			return ui, nil
-		}
+		return ui, ui.handlePanelUpdate(msg)
 
 	case tea.WindowSizeMsg:
 		ui.mu.Lock()
 		defer ui.mu.Unlock()
-
-		// Validate dimensions (ignore invalid sizes)
-		if msg.Width <= 0 || msg.Height <= 0 {
-			return ui, nil
-		}
-
-		// Check if size actually changed (use cache to avoid redundant updates)
-		if msg.Width == ui.lastWidth && msg.Height == ui.lastHeight {
-			return ui, nil
-		}
-
-		// Update cached size
-		ui.lastWidth = msg.Width
-		ui.lastHeight = msg.Height
-
-		// Update layout manager size
-		ui.layout.SetSize(msg.Width, msg.Height)
-
-		// Apply responsive layout if auto mode is enabled
-		if !ui.manualLayoutOverride {
-			mode, ratio := CalculateResponsiveLayout(msg.Width)
-			ui.layout.SetMode(mode)
-			ui.layout.SetRatio(ratio)
-		}
-
+		ui.handleWindowResize(msg)
 		return ui, nil
 	}
 

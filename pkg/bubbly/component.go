@@ -575,15 +575,80 @@ func (c *componentImpl) Init() tea.Cmd {
 //   - StateChangedMsg triggers lifecycle hooks when component ID matches
 //   - Command queue is drained and commands are batched with child commands
 //   - All commands are returned via tea.Batch for execution by Bubbletea runtime
+
+// handleKeyBindings processes key bindings and returns a quit flag and whether binding was found.
+func (c *componentImpl) handleKeyBindings(keyMsg tea.KeyMsg) (shouldQuit bool) {
+	if c.keyBindings == nil {
+		return false
+	}
+
+	c.keyBindingsMu.RLock()
+	bindings, found := c.keyBindings[keyMsg.String()]
+	c.keyBindingsMu.RUnlock()
+
+	if !found {
+		return false
+	}
+
+	for _, binding := range bindings {
+		if binding.Condition != nil && !binding.Condition() {
+			continue
+		}
+		if binding.Event == "quit" {
+			return true
+		}
+		c.Emit(binding.Event, binding.Data)
+		break
+	}
+	return false
+}
+
+// handleStateChangedMsg processes StateChangedMsg for this component.
+func (c *componentImpl) handleStateChangedMsg(msg StateChangedMsg) {
+	if msg.ComponentID == c.id && c.lifecycle != nil {
+		c.lifecycle.executeUpdated()
+	}
+}
+
+// updateChildren updates all child components and returns their commands.
+func (c *componentImpl) updateChildren(msg tea.Msg) []tea.Cmd {
+	childCmds := make([]tea.Cmd, len(c.children))
+	for i, child := range c.children {
+		updatedChild, cmd := child.Update(msg)
+		if impl, ok := updatedChild.(*componentImpl); ok {
+			c.children[i] = impl
+		}
+		childCmds[i] = cmd
+	}
+	return childCmds
+}
+
+// executeNonStateUpdatedHooks executes onUpdated hooks for non-StateChangedMsg.
+func (c *componentImpl) executeNonStateUpdatedHooks(msg tea.Msg) {
+	if _, isStateChanged := msg.(StateChangedMsg); !isStateChanged {
+		if c.lifecycle != nil {
+			c.lifecycle.executeUpdated()
+		}
+	}
+}
+
+// resetUpdateState resets lifecycle and loop detector after update cycle.
+func (c *componentImpl) resetUpdateState() {
+	if c.lifecycle != nil {
+		c.lifecycle.resetUpdateCount()
+	}
+	if c.loopDetector != nil {
+		c.loopDetector.reset()
+	}
+}
+
 func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	// Notify framework hooks that component is updating
 	notifyHookComponentUpdate(c.id, msg)
 
-	// [NEW] Call message handler first (Automatic Reactive Bridge - Task 8.4)
-	// Handler is called BEFORE key bindings to allow complex message processing
-	// Handler can return nil (no command) or a tea.Cmd to be batched
+	// Call message handler first (Automatic Reactive Bridge - Task 8.4)
 	if c.messageHandler != nil {
 		if cmd := c.messageHandler(c, msg); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -591,115 +656,38 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Process key bindings (Automatic Reactive Bridge - Phase 8)
-	// This allows declarative key-to-event mapping without manual Update() logic
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if c.keyBindings != nil {
-			c.keyBindingsMu.RLock()
-			bindings, found := c.keyBindings[keyMsg.String()]
-			c.keyBindingsMu.RUnlock()
-
-			if found {
-				// Iterate through bindings for this key
-				for _, binding := range bindings {
-					// Check condition if set (for mode-based input)
-					if binding.Condition != nil && !binding.Condition() {
-						continue // Skip this binding, try next
-					}
-
-					// Special handling for "quit" event
-					if binding.Event == "quit" {
-						return c, tea.Quit
-					}
-
-					// Emit the bound event with optional data
-					c.Emit(binding.Event, binding.Data)
-
-					// First matching binding wins (break after first match)
-					// This allows multiple conditional bindings per key
-					break
-				}
-			}
+		if c.handleKeyBindings(keyMsg) {
+			return c, tea.Quit
 		}
 	}
 
 	// Handle StateChangedMsg from automatic reactive bridge
-	switch msg := msg.(type) {
-	case StateChangedMsg:
-		// Only process if this message is for this component
-		if msg.ComponentID == c.id {
-			// State already updated synchronously by Ref.Set()
-			// Execute onUpdated hooks to trigger side effects
-			if c.lifecycle != nil {
-				c.lifecycle.executeUpdated()
-			}
-		}
+	if stateMsg, ok := msg.(StateChangedMsg); ok {
+		c.handleStateChangedMsg(stateMsg)
 	}
 
 	// Update child components
 	if len(c.children) > 0 {
-		childCmds := make([]tea.Cmd, len(c.children))
-		for i, child := range c.children {
-			updatedChild, cmd := child.Update(msg)
-			// Update the child in the slice
-			if impl, ok := updatedChild.(*componentImpl); ok {
-				c.children[i] = impl
-			}
-			childCmds[i] = cmd
-		}
-
-		// Collect child commands
-		cmds = append(cmds, childCmds...)
-
-		// Execute onUpdated hooks after child updates (for non-StateChangedMsg)
-		// StateChangedMsg already executed hooks above
-		if _, isStateChanged := msg.(StateChangedMsg); !isStateChanged {
-			if c.lifecycle != nil {
-				c.lifecycle.executeUpdated()
-			}
-		}
-
-		// Reset update counter after each Update() cycle completes
-		if c.lifecycle != nil {
-			c.lifecycle.resetUpdateCount()
-		}
-
-		// Reset loop detector after each Update() cycle completes
-		if c.loopDetector != nil {
-			c.loopDetector.reset()
-		}
-	} else {
-		// Execute onUpdated hooks for components without children (for non-StateChangedMsg)
-		// StateChangedMsg already executed hooks above
-		if _, isStateChanged := msg.(StateChangedMsg); !isStateChanged {
-			if c.lifecycle != nil {
-				c.lifecycle.executeUpdated()
-			}
-		}
-
-		// Reset update counter after each Update() cycle completes
-		if c.lifecycle != nil {
-			c.lifecycle.resetUpdateCount()
-		}
-
-		// Reset loop detector after each Update() cycle completes
-		if c.loopDetector != nil {
-			c.loopDetector.reset()
-		}
+		cmds = append(cmds, c.updateChildren(msg)...)
 	}
 
-	// Drain pending commands from command queue (automatic reactive bridge)
+	// Execute onUpdated hooks for non-StateChangedMsg
+	c.executeNonStateUpdatedHooks(msg)
+
+	// Reset lifecycle and loop detector after update cycle
+	c.resetUpdateState()
+
+	// Drain pending commands from command queue
 	if c.commandQueue != nil {
-		pendingCmds := c.commandQueue.DrainAll()
-		if len(pendingCmds) > 0 {
+		if pendingCmds := c.commandQueue.DrainAll(); len(pendingCmds) > 0 {
 			cmds = append(cmds, pendingCmds...)
 		}
 	}
 
-	// Return batched commands (or nil if no commands)
 	if len(cmds) == 0 {
 		return c, nil
 	}
-
 	return c, tea.Batch(cmds...)
 }
 

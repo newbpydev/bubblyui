@@ -38,130 +38,121 @@ import (
 //
 // Returns:
 //   - error: nil if valid, descriptive error otherwise
-func ValidateResourceURI(uri string) error {
-	// Check for empty/whitespace
-	trimmed := strings.TrimSpace(uri)
-	if trimmed == "" {
+// validateURIBasics performs basic URI validation checks.
+func validateURIBasics(uri string) error {
+	if strings.TrimSpace(uri) == "" {
 		return fmt.Errorf("resource URI cannot be empty")
 	}
 
-	// Check length limit (prevent DoS)
 	const maxURILength = 1024
 	if len(uri) > maxURILength {
 		return fmt.Errorf("resource URI too long (max %d characters)", maxURILength)
 	}
 
-	// Check for null bytes
 	if strings.Contains(uri, "\x00") {
 		return fmt.Errorf("resource URI contains null byte")
 	}
 
-	// Check for control characters
 	for _, r := range uri {
 		if unicode.IsControl(r) && r != '\t' {
 			return fmt.Errorf("resource URI contains control character: %U", r)
 		}
 	}
 
-	// Check for backslash (Windows path traversal) - before URL parsing
 	if strings.Contains(uri, "\\") {
 		return fmt.Errorf("path traversal attempt detected (backslash)")
 	}
 
-	// Parse URI
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return fmt.Errorf("invalid URI format: %w", err)
-	}
+	return nil
+}
 
-	// Validate scheme
-	if parsed.Scheme != "bubblyui" {
-		return fmt.Errorf("invalid scheme: expected 'bubblyui', got '%s'", parsed.Scheme)
-	}
-
-	// Get resource path (host + path in URI)
-	resourcePath := parsed.Host + parsed.Path
-
-	// Check for empty resource
+// validateURIPath validates the resource path for traversal and format.
+func validateURIPath(resourcePath, uri string) error {
 	if resourcePath == "" {
 		return fmt.Errorf("empty resource path")
 	}
 
-	// Check for path traversal attempts
 	if strings.Contains(resourcePath, "..") {
 		return fmt.Errorf("path traversal attempt detected")
 	}
 
-	// Check for encoded path traversal
-	if strings.Contains(strings.ToLower(uri), "%2e%2e") || strings.Contains(strings.ToLower(uri), "%2f") {
+	lowerURI := strings.ToLower(uri)
+	if strings.Contains(lowerURI, "%2e%2e") || strings.Contains(lowerURI, "%2f") {
 		return fmt.Errorf("encoded path traversal attempt detected")
 	}
 
-	// Check for absolute path
 	if strings.HasPrefix(resourcePath, "/") && !strings.HasPrefix(resourcePath, "//") {
-		// Allow // for empty host, but not single / (absolute path)
 		if len(resourcePath) > 1 && resourcePath[1] != '/' {
 			return fmt.Errorf("absolute path not allowed")
 		}
 	}
 
-	// Validate resource path against allowed resources
+	return nil
+}
+
+// validateResourceBase validates that the base resource is allowed.
+func validateResourceBase(baseResource string) error {
+	validBases := []string{"components", "state", "events", "performance", "commands", "debug"}
+	for _, valid := range validBases {
+		if baseResource == valid {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid resource path: %s (must start with components, state, events, performance, commands, or debug)", baseResource)
+}
+
+// validateMultiSegmentPath validates paths with multiple segments.
+func validateMultiSegmentPath(parts []string) error {
 	validResources := []string{
-		"components",
-		"state/refs",
-		"state/history",
-		"events/log",
-		"events",
-		"performance/metrics",
-		"performance/flamegraph",
-		"commands/timeline",
-		"debug/snapshot",
+		"components", "state/refs", "state/history", "events/log", "events",
+		"performance/metrics", "performance/flamegraph", "commands/timeline", "debug/snapshot",
 	}
 
-	// Extract base resource (first segment)
+	fullPath := strings.Join(parts[:2], "/")
+	for _, valid := range validResources {
+		if strings.HasPrefix(fullPath, valid) {
+			return nil
+		}
+	}
+
+	if len(parts) == 2 {
+		if !isValidID(parts[1]) {
+			return fmt.Errorf("invalid resource ID: %s", parts[1])
+		}
+	}
+	return nil
+}
+
+func ValidateResourceURI(uri string) error {
+	if err := validateURIBasics(uri); err != nil {
+		return err
+	}
+
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return fmt.Errorf("invalid URI format: %w", err)
+	}
+
+	if parsed.Scheme != "bubblyui" {
+		return fmt.Errorf("invalid scheme: expected 'bubblyui', got '%s'", parsed.Scheme)
+	}
+
+	resourcePath := parsed.Host + parsed.Path
+	if err := validateURIPath(resourcePath, uri); err != nil {
+		return err
+	}
+
 	parts := strings.Split(strings.Trim(resourcePath, "/"), "/")
 	if len(parts) == 0 {
 		return fmt.Errorf("empty resource path")
 	}
 
-	baseResource := parts[0]
-
-	// Check if base resource is valid
-	validBase := false
-	for _, valid := range []string{"components", "state", "events", "performance", "commands", "debug"} {
-		if baseResource == valid {
-			validBase = true
-			break
-		}
+	if err := validateResourceBase(parts[0]); err != nil {
+		return err
 	}
 
-	if !validBase {
-		return fmt.Errorf("invalid resource path: %s (must start with components, state, events, performance, commands, or debug)", baseResource)
-	}
-
-	// For multi-segment paths, validate full path or allow IDs
 	if len(parts) > 1 {
-		fullPath := strings.Join(parts[:2], "/")
-		validPath := false
-
-		// Check against known multi-segment paths
-		for _, valid := range validResources {
-			if strings.HasPrefix(fullPath, valid) {
-				validPath = true
-				break
-			}
-		}
-
-		// If not a known path, check if it's an ID pattern (e.g., components/comp-123)
-		if !validPath {
-			// Allow alphanumeric IDs with hyphens and underscores
-			if len(parts) == 2 {
-				id := parts[1]
-				if !isValidID(id) {
-					return fmt.Errorf("invalid resource ID: %s", id)
-				}
-			}
-		}
+		return validateMultiSegmentPath(parts)
 	}
 
 	return nil
@@ -352,111 +343,123 @@ func validateExportSessionParams(params map[string]interface{}) error {
 	return nil
 }
 
+// validateAllowedValues checks if all values in a slice are in the allowed set.
+func validateAllowedValues(raw interface{}, fieldName string, allowed map[string]bool) error {
+	if slice, ok := raw.([]interface{}); ok {
+		for _, item := range slice {
+			if s, ok := item.(string); ok {
+				if !allowed[s] {
+					return fmt.Errorf("invalid %s: %s", fieldName, s)
+				}
+			}
+		}
+	} else if strSlice, ok := raw.([]string); ok {
+		for _, s := range strSlice {
+			if !allowed[s] {
+				return fmt.Errorf("invalid %s: %s", fieldName, s)
+			}
+		}
+	}
+	return nil
+}
+
+// validateMaxResults validates the max_results parameter.
+func validateMaxResults(params map[string]interface{}, min, max int) error {
+	if maxResults, ok := params["max_results"].(float64); ok {
+		if maxResults < float64(min) || maxResults > float64(max) {
+			return fmt.Errorf("max_results must be between %d and %d, got %.0f", min, max, maxResults)
+		}
+	} else if maxResults, ok := params["max_results"].(int); ok {
+		if maxResults < min || maxResults > max {
+			return fmt.Errorf("max_results must be between %d and %d, got %d", min, max, maxResults)
+		}
+	}
+	return nil
+}
+
 // validateSearchComponentsParams validates search_components tool parameters.
 func validateSearchComponentsParams(params map[string]interface{}) error {
-	// Validate query
 	if query, ok := params["query"].(string); ok {
 		if containsDangerousChars(query) {
 			return fmt.Errorf("query contains invalid characters")
 		}
 	}
 
-	// Validate fields
 	if fieldsRaw, ok := params["fields"]; ok {
-		if fieldsSlice, ok := fieldsRaw.([]interface{}); ok {
-			validFields := map[string]bool{"name": true, "type": true, "id": true}
-
-			for _, item := range fieldsSlice {
-				if field, ok := item.(string); ok {
-					if !validFields[field] {
-						return fmt.Errorf("invalid field: %s (must be name, type, or id)", field)
-					}
-				}
-			}
-		} else if fieldsStrSlice, ok := fieldsRaw.([]string); ok {
-			// Handle []string type
-			validFields := map[string]bool{"name": true, "type": true, "id": true}
-
-			for _, field := range fieldsStrSlice {
-				if !validFields[field] {
-					return fmt.Errorf("invalid field: %s (must be name, type, or id)", field)
-				}
-			}
+		validFields := map[string]bool{"name": true, "type": true, "id": true}
+		if err := validateAllowedValues(fieldsRaw, "field", validFields); err != nil {
+			return fmt.Errorf("%v (must be name, type, or id)", err)
 		}
 	}
 
-	// Validate max_results
-	if maxResults, ok := params["max_results"].(float64); ok {
-		if maxResults < 1 || maxResults > 1000 {
-			return fmt.Errorf("max_results must be between 1 and 1000, got %.0f", maxResults)
+	return validateMaxResults(params, 1, 1000)
+}
+
+// validateStringSlice validates a slice parameter, checking each string with a validator.
+func validateStringSlice(raw interface{}, validator func(string) error) error {
+	if slice, ok := raw.([]interface{}); ok {
+		for _, item := range slice {
+			if s, ok := item.(string); ok {
+				if err := validator(s); err != nil {
+					return err
+				}
+			}
 		}
-	} else if maxResults, ok := params["max_results"].(int); ok {
-		if maxResults < 1 || maxResults > 1000 {
-			return fmt.Errorf("max_results must be between 1 and 1000, got %d", maxResults)
+	} else if strSlice, ok := raw.([]string); ok {
+		for _, s := range strSlice {
+			if err := validator(s); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
+}
 
+// validateSourceID validates a source_id string for path traversal and dangerous chars.
+func validateSourceID(id string) error {
+	if strings.Contains(id, "..") {
+		return fmt.Errorf("path traversal attempt in source_id: %s", id)
+	}
+	if containsDangerousChars(id) {
+		return fmt.Errorf("source_id contains invalid characters: %s", id)
+	}
+	return nil
+}
+
+// validateLimit validates a limit parameter is within the allowed range.
+func validateLimit(params map[string]interface{}, min, max int) error {
+	if limit, ok := params["limit"].(float64); ok {
+		if limit < float64(min) || limit > float64(max) {
+			return fmt.Errorf("limit must be between %d and %d, got %.0f", min, max, limit)
+		}
+	} else if limit, ok := params["limit"].(int); ok {
+		if limit < min || limit > max {
+			return fmt.Errorf("limit must be between %d and %d, got %d", min, max, limit)
+		}
+	}
 	return nil
 }
 
 // validateFilterEventsParams validates filter_events tool parameters.
 func validateFilterEventsParams(params map[string]interface{}) error {
-	// Validate event_names
 	if eventNamesRaw, ok := params["event_names"]; ok {
-		if eventNamesSlice, ok := eventNamesRaw.([]interface{}); ok {
-			for _, item := range eventNamesSlice {
-				if name, ok := item.(string); ok {
-					if containsDangerousChars(name) {
-						return fmt.Errorf("event_name contains invalid characters: %s", name)
-					}
-				}
+		if err := validateStringSlice(eventNamesRaw, func(s string) error {
+			if containsDangerousChars(s) {
+				return fmt.Errorf("event_name contains invalid characters: %s", s)
 			}
-		} else if eventNamesStrSlice, ok := eventNamesRaw.([]string); ok {
-			for _, name := range eventNamesStrSlice {
-				if containsDangerousChars(name) {
-					return fmt.Errorf("event_name contains invalid characters: %s", name)
-				}
-			}
+			return nil
+		}); err != nil {
+			return err
 		}
 	}
 
-	// Validate source_ids
 	if sourceIDsRaw, ok := params["source_ids"]; ok {
-		if sourceIDsSlice, ok := sourceIDsRaw.([]interface{}); ok {
-			for _, item := range sourceIDsSlice {
-				if id, ok := item.(string); ok {
-					if strings.Contains(id, "..") {
-						return fmt.Errorf("path traversal attempt in source_id: %s", id)
-					}
-					if containsDangerousChars(id) {
-						return fmt.Errorf("source_id contains invalid characters: %s", id)
-					}
-				}
-			}
-		} else if sourceIDsStrSlice, ok := sourceIDsRaw.([]string); ok {
-			for _, id := range sourceIDsStrSlice {
-				if strings.Contains(id, "..") {
-					return fmt.Errorf("path traversal attempt in source_id: %s", id)
-				}
-				if containsDangerousChars(id) {
-					return fmt.Errorf("source_id contains invalid characters: %s", id)
-				}
-			}
+		if err := validateStringSlice(sourceIDsRaw, validateSourceID); err != nil {
+			return err
 		}
 	}
 
-	// Validate limit
-	if limit, ok := params["limit"].(float64); ok {
-		if limit < 1 || limit > 10000 {
-			return fmt.Errorf("limit must be between 1 and 10000, got %.0f", limit)
-		}
-	} else if limit, ok := params["limit"].(int); ok {
-		if limit < 1 || limit > 10000 {
-			return fmt.Errorf("limit must be between 1 and 10000, got %d", limit)
-		}
-	}
-
-	return nil
+	return validateLimit(params, 1, 10000)
 }
 
 // validateSetRefValueParams validates set_ref_value tool parameters.

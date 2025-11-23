@@ -35,6 +35,82 @@ type GridLayoutProps struct {
 	CommonProps
 }
 
+// gridLayoutApplyDefaults sets default values for GridLayoutProps.
+func gridLayoutApplyDefaults(props *GridLayoutProps) {
+	if props.Columns == 0 {
+		props.Columns = 1
+	}
+	if props.Gap == 0 {
+		props.Gap = 1
+	}
+	if props.CellWidth == 0 {
+		props.CellWidth = 20
+	}
+}
+
+// gridLayoutJoinWithGaps joins items with gap spacing.
+func gridLayoutJoinWithGaps(items []string, gap string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(items)*2-1)
+	for i, item := range items {
+		result = append(result, item)
+		if i < len(items)-1 {
+			result = append(result, gap)
+		}
+	}
+	return result
+}
+
+// gridLayoutBuildRows builds all grid rows from items.
+func gridLayoutBuildRows(items []bubbly.Component, columns, gap int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+
+	gapSpacer := lipgloss.NewStyle().Width(gap).Render("")
+	var rows []string
+	itemIndex := 0
+
+	for itemIndex < len(items) {
+		rowCells := make([]string, 0, columns)
+		for col := 0; col < columns && itemIndex < len(items); col++ {
+			rowCells = append(rowCells, items[itemIndex].View())
+			itemIndex++
+		}
+
+		if len(rowCells) > 0 {
+			rowWithGaps := gridLayoutJoinWithGaps(rowCells, gapSpacer)
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, rowWithGaps...))
+		}
+	}
+
+	return rows
+}
+
+// gridLayoutRender renders the complete grid layout.
+func gridLayoutRender(p GridLayoutProps) string {
+	rows := gridLayoutBuildRows(p.Items, p.Columns, p.Gap)
+	if len(rows) == 0 {
+		return ""
+	}
+
+	vGapSpacer := ""
+	if p.Gap > 0 {
+		vGapSpacer = strings.Repeat("\n", p.Gap)
+	}
+
+	rowsWithGaps := gridLayoutJoinWithGaps(rows, vGapSpacer)
+	result := lipgloss.JoinVertical(lipgloss.Left, rowsWithGaps...)
+
+	if p.Style != nil {
+		result = lipgloss.NewStyle().Inherit(*p.Style).Render(result)
+	}
+
+	return result
+}
+
 // GridLayout creates a grid-based layout template component.
 // The layout arranges items in a grid with configurable columns, gaps, and cell dimensions.
 //
@@ -68,105 +144,17 @@ type GridLayoutProps struct {
 //	    CellWidth: 25,
 //	})
 func GridLayout(props GridLayoutProps) bubbly.Component {
-	// Set defaults
-	if props.Columns == 0 {
-		props.Columns = 1
-	}
-	if props.Gap == 0 {
-		props.Gap = 1
-	}
-	if props.CellWidth == 0 {
-		props.CellWidth = 20
-	}
+	gridLayoutApplyDefaults(&props)
 
 	component, _ := bubbly.NewComponent("GridLayout").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			theme := injectTheme(ctx)
 			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			p := ctx.Props().(GridLayoutProps)
-
-			if len(p.Items) == 0 {
-				return ""
-			}
-
-			// Build grid row by row
-			var rows []string
-			itemIndex := 0
-
-			for itemIndex < len(p.Items) {
-				// Build one row
-				var rowCells []string
-
-				for col := 0; col < p.Columns && itemIndex < len(p.Items); col++ {
-					item := p.Items[itemIndex]
-
-					// Render cell content directly without width constraint
-					// This allows bordered components like cards to render properly
-					cellContent := item.View()
-					rowCells = append(rowCells, cellContent)
-
-					itemIndex++
-				}
-
-				// Join cells in row horizontally with gap
-				if len(rowCells) > 0 {
-					// Create gap spacer
-					gapSpacer := lipgloss.NewStyle().
-						Width(p.Gap).
-						Render("")
-
-					// Join row cells with gaps
-					var rowWithGaps []string
-					for i, cell := range rowCells {
-						rowWithGaps = append(rowWithGaps, cell)
-						if i < len(rowCells)-1 {
-							rowWithGaps = append(rowWithGaps, gapSpacer)
-						}
-					}
-
-					row := lipgloss.JoinHorizontal(lipgloss.Top, rowWithGaps...)
-					rows = append(rows, row)
-				}
-			}
-
-			// Join rows vertically with gap
-			if len(rows) == 0 {
-				return ""
-			}
-
-			// Create vertical gap spacer
-			vGapSpacer := ""
-			if p.Gap > 0 {
-				vGapSpacer = strings.Repeat("\n", p.Gap)
-			}
-
-			// Join rows with vertical gaps
-			var rowsWithGaps []string
-			for i, row := range rows {
-				rowsWithGaps = append(rowsWithGaps, row)
-				if i < len(rows)-1 {
-					rowsWithGaps = append(rowsWithGaps, vGapSpacer)
-				}
-			}
-
-			result := lipgloss.JoinVertical(lipgloss.Left, rowsWithGaps...)
-
-			// Apply custom style if provided
-			if p.Style != nil {
-				containerStyle := lipgloss.NewStyle().Inherit(*p.Style)
-				result = containerStyle.Render(result)
-			}
-
-			return result
+			return gridLayoutRender(p)
 		}).
 		Build()
 

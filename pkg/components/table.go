@@ -252,35 +252,131 @@ func tableHandleSort[T any](props TableProps[T], sortColumn *bubbly.Ref[string],
 	}
 }
 
+// tableRenderSortableHeader renders a sortable column header with sort indicator.
+func tableRenderSortableHeader[T any](col TableColumn[T], width int, currentSortColumn string, ascending bool) string {
+	const sortIndicatorWidth = 2
+	maxHeaderWidth := width - sortIndicatorWidth
+	if maxHeaderWidth < 1 {
+		maxHeaderWidth = 1
+	}
+
+	headerText := col.Header
+	if runeCount := utf8.RuneCountInString(headerText); runeCount > maxHeaderWidth {
+		runes := []rune(headerText)
+		if maxHeaderWidth <= 3 {
+			headerText = string(runes[:maxHeaderWidth])
+		} else {
+			headerText = string(runes[:maxHeaderWidth-3]) + "..."
+		}
+	}
+
+	indicator := "  "
+	if currentSortColumn == col.Field {
+		if ascending {
+			indicator = " ↑"
+		} else {
+			indicator = " ↓"
+		}
+	}
+
+	combined := headerText + indicator
+	if paddingNeeded := width - utf8.RuneCountInString(combined); paddingNeeded > 0 {
+		return combined + strings.Repeat(" ", paddingNeeded)
+	}
+	return combined
+}
+
+// tableRenderHeaderRow renders the complete header row.
+func tableRenderHeaderRow[T any](columns []TableColumn[T], sortable bool, currentSortColumn string, ascending bool, theme Theme) string {
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Primary).
+		Padding(0, 1)
+
+	headerParts := make([]string, 0, len(columns))
+	for _, col := range columns {
+		var finalHeader string
+		if sortable && col.Sortable {
+			finalHeader = tableRenderSortableHeader(col, col.Width, currentSortColumn, ascending)
+		} else {
+			finalHeader = padString(col.Header, col.Width)
+		}
+		headerParts = append(headerParts, finalHeader)
+	}
+
+	borderStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(theme.Secondary)
+
+	return borderStyle.Render(headerStyle.Render(strings.Join(headerParts, " ")))
+}
+
+// tableRenderDataRow renders a single data row.
+func tableRenderDataRow[T any](row T, rowIndex int, columns []TableColumn[T], selectedIndex int, theme Theme) string {
+	rowParts := make([]string, 0, len(columns))
+	for _, col := range columns {
+		var cellValue string
+		if col.Render != nil {
+			cellValue = col.Render(row)
+		} else {
+			cellValue = getFieldValue(row, col.Field)
+		}
+		rowParts = append(rowParts, padString(cellValue, col.Width))
+	}
+
+	rowText := strings.Join(rowParts, " ")
+	rowStyle := lipgloss.NewStyle().Padding(0, 1)
+
+	if rowIndex == selectedIndex {
+		rowStyle = rowStyle.Background(theme.Primary).Foreground(lipgloss.Color("230")).Bold(true)
+	} else if rowIndex%2 == 0 {
+		rowStyle = rowStyle.Foreground(theme.Foreground)
+	} else {
+		rowStyle = rowStyle.Foreground(theme.Muted)
+	}
+
+	return rowStyle.Render(rowText)
+}
+
+// tableRenderBody renders all data rows or empty state.
+func tableRenderBody[T any](data []T, columns []TableColumn[T], selectedIndex int, theme Theme) string {
+	if len(data) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(theme.Muted).
+			Italic(true).
+			Padding(1, 2)
+		return emptyStyle.Render("No data available")
+	}
+
+	var output strings.Builder
+	for i, row := range data {
+		output.WriteString(tableRenderDataRow(row, i, columns, selectedIndex, theme))
+		output.WriteString("\n")
+	}
+	return output.String()
+}
+
 func Table[T any](props TableProps[T]) bubbly.Component {
 	comp, err := bubbly.NewComponent("Table").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
 			theme := ctx.Inject("theme", DefaultTheme).(Theme)
-
-			// Create reactive state for selected row (-1 = none)
 			selectedRow := bubbly.NewRef(-1)
-
-			// Create reactive state for sorting
 			sortColumn := bubbly.NewRef("")
 			sortAsc := bubbly.NewRef(true)
 
-			// Register event handlers using extracted functions
 			ctx.On("rowClick", func(data interface{}) {
 				tableSelectRow(props, selectedRow, data.(int))
 			})
 			ctx.On("keyUp", tableHandleKeyUp(props, selectedRow))
 			ctx.On("keyDown", tableHandleKeyDown(props, selectedRow))
 			ctx.On("keyEnter", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				if currentRow >= 0 {
+				if currentRow := selectedRow.Get().(int); currentRow >= 0 {
 					tableSelectRow(props, selectedRow, currentRow)
 				}
 			})
 			ctx.On("sort", tableHandleSort(props, sortColumn, sortAsc))
 
-			// Expose state
 			ctx.Expose("selectedRow", selectedRow)
 			ctx.Expose("sortColumn", sortColumn)
 			ctx.Expose("sortAsc", sortAsc)
@@ -298,139 +394,16 @@ func Table[T any](props TableProps[T]) bubbly.Component {
 			ascending := sortAsc.Get().(bool)
 
 			var output strings.Builder
-
-			// Header row style
-			headerStyle := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(theme.Primary).
-				Padding(0, 1)
-
-			// Build header row with sort indicators
-			const sortIndicatorWidth = 2
-
-			var headerParts []string
-			for _, col := range p.Columns {
-				var finalHeader string
-
-				if p.Sortable && col.Sortable {
-					// For sortable columns, ensure header + indicator fits in width
-					// Calculate space needed for header text
-					maxHeaderWidth := col.Width - sortIndicatorWidth
-					if maxHeaderWidth < 1 {
-						maxHeaderWidth = 1
-					}
-
-					// Truncate header if needed (using rune count for visual width)
-					headerText := col.Header
-					headerRuneCount := utf8.RuneCountInString(headerText)
-					if headerRuneCount > maxHeaderWidth {
-						// Convert to runes for proper truncation
-						runes := []rune(headerText)
-						if maxHeaderWidth <= 3 {
-							headerText = string(runes[:maxHeaderWidth])
-						} else {
-							headerText = string(runes[:maxHeaderWidth-3]) + "..."
-						}
-					}
-
-					// Build the indicator string
-					var indicator string
-					if currentSortColumn == col.Field {
-						if ascending {
-							indicator = " ↑"
-						} else {
-							indicator = " ↓"
-						}
-					} else {
-						// Reserve space but leave invisible
-						indicator = "  "
-					}
-
-					// Combine header + indicator, then manually pad to exact width
-					// CRITICAL: Use RuneCountInString() to count visual characters, not bytes!
-					// The arrow "↑" is 3 bytes but displays as 1 character
-					combined := headerText + indicator
-					combinedRuneCount := utf8.RuneCountInString(combined)
-					paddingNeeded := col.Width - combinedRuneCount
-					if paddingNeeded > 0 {
-						finalHeader = combined + strings.Repeat(" ", paddingNeeded)
-					} else {
-						finalHeader = combined
-					}
-				} else {
-					// Non-sortable columns: use padString for full width
-					finalHeader = padString(col.Header, col.Width)
-				}
-
-				headerParts = append(headerParts, finalHeader)
-			}
-			headerRow := headerStyle.Render(strings.Join(headerParts, " "))
-
-			// Border style
-			borderStyle := lipgloss.NewStyle().
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderForeground(theme.Secondary)
-
-			output.WriteString(borderStyle.Render(headerRow))
+			output.WriteString(tableRenderHeaderRow(p.Columns, p.Sortable, currentSortColumn, ascending, theme))
 			output.WriteString("\n")
-
-			// Data rows
-			if len(data) == 0 {
-				// Empty state
-				emptyStyle := lipgloss.NewStyle().
-					Foreground(theme.Muted).
-					Italic(true).
-					Padding(1, 2)
-				output.WriteString(emptyStyle.Render("No data available"))
-			} else {
-				for i, row := range data {
-					var rowParts []string
-
-					// Build row cells
-					for _, col := range p.Columns {
-						var cellValue string
-
-						// Use custom render function if provided
-						if col.Render != nil {
-							cellValue = col.Render(row)
-						} else {
-							// Extract field value via reflection
-							cellValue = getFieldValue(row, col.Field)
-						}
-
-						rowParts = append(rowParts, padString(cellValue, col.Width))
-					}
-
-					rowText := strings.Join(rowParts, " ")
-
-					// Style based on selection
-					rowStyle := lipgloss.NewStyle().Padding(0, 1)
-
-					if i == selectedRow.Get().(int) {
-						// Selected row
-						rowStyle = rowStyle.
-							Background(theme.Primary).
-							Foreground(lipgloss.Color("230")).
-							Bold(true)
-					} else if i%2 == 0 {
-						// Even row
-						rowStyle = rowStyle.Foreground(theme.Foreground)
-					} else {
-						// Odd row
-						rowStyle = rowStyle.Foreground(theme.Muted)
-					}
-
-					output.WriteString(rowStyle.Render(rowText))
-					output.WriteString("\n")
-				}
-			}
+			output.WriteString(tableRenderBody(data, p.Columns, selectedRow.Get().(int), theme))
 
 			return output.String()
 		}).
 		Build()
 
 	if err != nil {
-		panic(err) // Should never happen with valid setup
+		panic(err)
 	}
 
 	return comp

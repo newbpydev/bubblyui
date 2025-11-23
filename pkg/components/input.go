@@ -198,40 +198,77 @@ func inputCreateTextInput(props InputProps) textinput.Model {
 	return ti
 }
 
-func Input(props InputProps) bubbly.Component {
-	// Default to text type if not specified
+// inputApplyDefaults sets default values for InputProps.
+func inputApplyDefaults(props *InputProps) {
 	if props.Type == "" {
 		props.Type = InputText
 	}
-
-	// Default width if not specified
 	if props.Width == 0 {
 		props.Width = 30
 	}
+}
+
+// inputApplyThemeColors applies theme colors to textinput based on state.
+func inputApplyThemeColors(ti *textinput.Model, theme Theme, hasError, isFocused bool) {
+	if hasError {
+		ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Danger)
+		ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Danger)
+	} else if isFocused {
+		ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Primary)
+		ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Foreground)
+	} else {
+		ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Secondary)
+		ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Muted)
+	}
+}
+
+// inputGetBorderColor returns the appropriate border color based on state.
+func inputGetBorderColor(theme Theme, hasError, isFocused bool) lipgloss.TerminalColor {
+	if hasError {
+		return theme.Danger
+	}
+	if isFocused {
+		return theme.Primary
+	}
+	return theme.Secondary
+}
+
+// inputRenderWithBorder renders the input with a border.
+func inputRenderWithBorder(inputView string, props InputProps, theme Theme, hasError, isFocused bool) string {
+	borderStyle := lipgloss.NewStyle().
+		Border(theme.GetBorderStyle()).
+		Padding(0, 1).
+		BorderForeground(inputGetBorderColor(theme, hasError, isFocused))
+
+	if props.Style != nil {
+		borderStyle = borderStyle.Inherit(*props.Style)
+	}
+	return borderStyle.Render(inputView)
+}
+
+// inputRenderNoBorder renders the input without a border.
+func inputRenderNoBorder(inputView string, props InputProps) string {
+	noBorderStyle := lipgloss.NewStyle().Padding(0, 1)
+	if props.Style != nil {
+		noBorderStyle = noBorderStyle.Inherit(*props.Style)
+	}
+	return noBorderStyle.Render(inputView)
+}
+
+func Input(props InputProps) bubbly.Component {
+	inputApplyDefaults(&props)
 
 	component, _ := bubbly.NewComponent("Input").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
-
-			// Create Bubbles textinput for cursor support
+			theme := injectTheme(ctx)
 			ti := inputCreateTextInput(props)
-
-			// Create internal state with typed refs
 			errorRef := bubbly.NewRef[error](nil)
 			focusedRef := bubbly.NewRef(false)
 
-			// Setup validation and value sync watchers
 			inputSetupValidationWatch(props, errorRef)
 			inputSetupTextInputSync(props, &ti)
 
-			// Register event handlers
 			ctx.On("input", func(data interface{}) {
 				if newValue, ok := data.(string); ok {
 					props.Value.Set(newValue)
@@ -247,45 +284,28 @@ func Input(props InputProps) bubbly.Component {
 			ctx.On("blur", func(_ interface{}) {
 				focusedRef.Set(false)
 				ti.Blur()
-
-				// Call OnBlur callback if provided
 				if props.OnBlur != nil {
 					props.OnBlur()
 				}
 			})
 
-			// Internal event handler for keyboard processing
-			// This is emitted from WithMessageHandler and processed here
-			// where we have access to the textinput state
 			ctx.On("__processKeyboard", func(data interface{}) {
-				if msg, ok := data.(tea.Msg); ok {
-					// Only process if focused
-					if focusedRef.GetTyped() {
-						// Update textinput with the message
-						var cmd tea.Cmd
-						ti, cmd = ti.Update(msg)
-
-						// Sync value back to props.Value
-						newValue := ti.Value()
-						if newValue != props.Value.Get().(string) {
-							props.Value.Set(newValue)
-						}
-
-						// Commands are handled by Bubbletea
-						_ = cmd
+				if msg, ok := data.(tea.Msg); ok && focusedRef.GetTyped() {
+					var cmd tea.Cmd
+					ti, cmd = ti.Update(msg)
+					if newValue := ti.Value(); newValue != props.Value.Get().(string) {
+						props.Value.Set(newValue)
 					}
+					_ = cmd
 				}
 			})
 
-			// Expose internal state
 			ctx.Expose("theme", theme)
 			ctx.Expose("error", errorRef)
 			ctx.Expose("focused", focusedRef)
 			ctx.Expose("textInput", &ti)
 		}).
 		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-			// Forward keyboard input to internal event handler
-			// The event handler has access to the textinput state (ti)
 			comp.Emit("__processKeyboard", msg)
 			return nil
 		}).
@@ -296,27 +316,13 @@ func Input(props InputProps) bubbly.Component {
 			focusedRef := ctx.Get("focused").(*bubbly.Ref[bool])
 			ti := ctx.Get("textInput").(*textinput.Model)
 
-			// Get current state
 			currentError := errorRef.GetTyped()
 			hasError := currentError != nil
 			isFocused := focusedRef.GetTyped()
 
-			// Apply theme colors to textinput
-			if hasError {
-				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Danger)
-				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Danger)
-			} else if isFocused {
-				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Primary)
-				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Foreground)
-			} else {
-				ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Secondary)
-				ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Muted)
-			}
-
-			// Render textinput with cursor
+			inputApplyThemeColors(ti, theme, hasError, isFocused)
 			inputView := ti.View()
 
-			// Add cursor position indicator if enabled
 			if props.ShowCursorPosition && isFocused {
 				pos := ti.Position()
 				length := len(ti.Value())
@@ -327,47 +333,14 @@ func Input(props InputProps) bubbly.Component {
 			}
 
 			var result string
-
-			// Apply border unless NoBorder is true
-			if !props.NoBorder {
-				// Wrap in border
-				borderStyle := lipgloss.NewStyle().
-					Border(theme.GetBorderStyle()).
-					Padding(0, 1)
-
-				// Set border color based on state
-				if hasError {
-					borderStyle = borderStyle.BorderForeground(theme.Danger)
-				} else if isFocused {
-					borderStyle = borderStyle.BorderForeground(theme.Primary)
-				} else {
-					borderStyle = borderStyle.BorderForeground(theme.Secondary)
-				}
-
-				// Apply custom style if provided
-				if props.Style != nil {
-					borderStyle = borderStyle.Inherit(*props.Style)
-				}
-
-				result = borderStyle.Render(inputView)
+			if props.NoBorder {
+				result = inputRenderNoBorder(inputView, props)
 			} else {
-				// No border, just apply padding and custom style
-				noBorderStyle := lipgloss.NewStyle().
-					Padding(0, 1)
-
-				// Apply custom style if provided
-				if props.Style != nil {
-					noBorderStyle = noBorderStyle.Inherit(*props.Style)
-				}
-
-				result = noBorderStyle.Render(inputView)
+				result = inputRenderWithBorder(inputView, props, theme, hasError, isFocused)
 			}
 
-			// Add error message if present
 			if currentError != nil {
-				errorStyle := lipgloss.NewStyle().
-					Foreground(theme.Danger).
-					Italic(true)
+				errorStyle := lipgloss.NewStyle().Foreground(theme.Danger).Italic(true)
 				result += "\n" + errorStyle.Render(currentError.Error())
 			}
 

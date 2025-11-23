@@ -598,50 +598,52 @@ func parseFilterEventsParams(args map[string]interface{}) (*FilterEventsParams, 
 	return params, nil
 }
 
+// checkFieldMatch checks if a field matches the query and updates best score.
+func checkFieldMatch(fieldValue, query, fieldName string, currentScore float64, currentField string) (float64, string) {
+	if strings.Contains(strings.ToLower(fieldValue), query) {
+		score := calculateMatchScore(fieldValue, query)
+		if score > currentScore {
+			return score, fieldName
+		}
+	}
+	return currentScore, currentField
+}
+
+// sortMatchesByScore sorts matches in descending order by score.
+func sortMatchesByScore(matches []ComponentMatch) {
+	for i := 0; i < len(matches)-1; i++ {
+		for j := i + 1; j < len(matches); j++ {
+			if matches[j].MatchScore > matches[i].MatchScore {
+				matches[i], matches[j] = matches[j], matches[i]
+			}
+		}
+	}
+}
+
 // searchComponents performs fuzzy search on components.
 func searchComponents(components []*devtools.ComponentSnapshot, params *SearchComponentsParams) []ComponentMatch {
 	matches := make([]ComponentMatch, 0)
 	query := strings.ToLower(params.Query)
 
-	// Determine which fields to search
 	searchAll := len(params.Fields) == 0
 	searchName := searchAll || contains(params.Fields, "name")
 	searchType := searchAll || contains(params.Fields, "type")
 	searchID := searchAll || contains(params.Fields, "id")
 
-	// Search each component
 	for _, comp := range components {
 		var matchScore float64
 		var matchedField string
 
-		// Check name field
-		if searchName && strings.Contains(strings.ToLower(comp.Name), query) {
-			score := calculateMatchScore(comp.Name, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "name"
-			}
+		if searchName {
+			matchScore, matchedField = checkFieldMatch(comp.Name, query, "name", matchScore, matchedField)
+		}
+		if searchType {
+			matchScore, matchedField = checkFieldMatch(comp.Type, query, "type", matchScore, matchedField)
+		}
+		if searchID {
+			matchScore, matchedField = checkFieldMatch(comp.ID, query, "id", matchScore, matchedField)
 		}
 
-		// Check type field
-		if searchType && strings.Contains(strings.ToLower(comp.Type), query) {
-			score := calculateMatchScore(comp.Type, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "type"
-			}
-		}
-
-		// Check ID field
-		if searchID && strings.Contains(strings.ToLower(comp.ID), query) {
-			score := calculateMatchScore(comp.ID, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "id"
-			}
-		}
-
-		// Add to matches if score > 0
 		if matchScore > 0 {
 			matches = append(matches, ComponentMatch{
 				ID:           comp.ID,
@@ -654,16 +656,8 @@ func searchComponents(components []*devtools.ComponentSnapshot, params *SearchCo
 		}
 	}
 
-	// Sort by match score (descending)
-	for i := 0; i < len(matches)-1; i++ {
-		for j := i + 1; j < len(matches); j++ {
-			if matches[j].MatchScore > matches[i].MatchScore {
-				matches[i], matches[j] = matches[j], matches[i]
-			}
-		}
-	}
+	sortMatchesByScore(matches)
 
-	// Limit results
 	if len(matches) > params.MaxResults {
 		matches = matches[:params.MaxResults]
 	}
