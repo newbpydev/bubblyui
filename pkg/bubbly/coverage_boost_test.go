@@ -248,9 +248,9 @@ func TestSetGlobalKeyInterceptor(t *testing.T) {
 	defer func() { globalKeyInterceptor = original }()
 
 	tests := []struct {
-		name           string
-		interceptor    func(tea.KeyMsg) bool
-		keyMsg         tea.KeyMsg
+		name            string
+		interceptor     func(tea.KeyMsg) bool
+		keyMsg          tea.KeyMsg
 		shouldIntercept bool
 	}{
 		{
@@ -258,7 +258,7 @@ func TestSetGlobalKeyInterceptor(t *testing.T) {
 			interceptor: func(key tea.KeyMsg) bool {
 				return key.Type == tea.KeyF12
 			},
-			keyMsg:         tea.KeyMsg{Type: tea.KeyF12},
+			keyMsg:          tea.KeyMsg{Type: tea.KeyF12},
 			shouldIntercept: true,
 		},
 		{
@@ -266,7 +266,7 @@ func TestSetGlobalKeyInterceptor(t *testing.T) {
 			interceptor: func(key tea.KeyMsg) bool {
 				return key.Type == tea.KeyF12
 			},
-			keyMsg:         tea.KeyMsg{Type: tea.KeySpace},
+			keyMsg:          tea.KeyMsg{Type: tea.KeySpace},
 			shouldIntercept: false,
 		},
 	}

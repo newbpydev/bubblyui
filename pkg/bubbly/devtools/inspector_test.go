@@ -611,16 +611,16 @@ func TestComponentInspector_SearchMode_AllKeys(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		setup     func(*ComponentInspector)
-		key       tea.KeyMsg
-		check     func(*testing.T, *ComponentInspector)
+		name  string
+		setup func(*ComponentInspector)
+		key   tea.KeyMsg
+		check func(*testing.T, *ComponentInspector)
 	}{
 		{
 			name: "Enter selects current search result",
 			setup: func(ci *ComponentInspector) {
 				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF}) // Enter search mode
-				ci.search.Search("Button")               // Search for Button
+				ci.search.Search("Button")                // Search for Button
 			},
 			key: tea.KeyMsg{Type: tea.KeyEnter},
 			check: func(t *testing.T, ci *ComponentInspector) {

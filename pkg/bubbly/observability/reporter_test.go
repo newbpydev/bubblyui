@@ -480,9 +480,9 @@ func TestErrorReporter_Flush(t *testing.T) {
 // TestHandlerPanicError_Error tests the Error method of HandlerPanicError
 func TestHandlerPanicError_Error(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        *HandlerPanicError
-		wantParts  []string
+		name      string
+		err       *HandlerPanicError
+		wantParts []string
 	}{
 		{
 			name: "error message contains all fields",
@@ -541,9 +541,9 @@ func TestHandlerPanicError_Error(t *testing.T) {
 // TestCommandGenerationError_Error tests the Error method of CommandGenerationError
 func TestCommandGenerationError_Error(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        *CommandGenerationError
-		wantParts  []string
+		name      string
+		err       *CommandGenerationError
+		wantParts []string
 	}{
 		{
 			name: "error message contains all fields",

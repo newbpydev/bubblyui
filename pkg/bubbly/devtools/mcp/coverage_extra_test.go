@@ -411,7 +411,6 @@ func TestParseFilterEventsParams(t *testing.T) {
 	}
 }
 
-
 // TestGetRefValueAndOwner tests ref value and owner retrieval.
 func TestGetRefValueAndOwner(t *testing.T) {
 	dt := devtools.Enable()
