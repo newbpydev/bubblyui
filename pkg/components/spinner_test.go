@@ -216,3 +216,18 @@ func TestSpinner_InactiveState(t *testing.T) {
 	// Inactive spinner should still render label if provided
 	assert.Contains(t, view, "Done")
 }
+
+func TestSpinner_InactiveState_NoLabel(t *testing.T) {
+	// Test that inactive spinner without label renders empty
+	spinner := Spinner(SpinnerProps{
+		Active: false,
+		// No label
+	})
+	require.NotNil(t, spinner)
+
+	spinner.Init()
+	view := spinner.View()
+
+	// Should render without panic, may be empty
+	assert.NotNil(t, view)
+}

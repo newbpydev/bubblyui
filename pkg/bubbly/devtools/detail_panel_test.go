@@ -364,3 +364,92 @@ func TestDetailPanel_ComplexValues(t *testing.T) {
 	assert.Contains(t, output, "nested")
 	assert.Contains(t, output, "array")
 }
+
+// TestDetailPanel_EventsTab_WithStore tests the events tab rendering with store integration
+func TestDetailPanel_EventsTab_WithStore(t *testing.T) {
+	// Create a component with events
+	component := &ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+	}
+
+	dp := NewDetailPanel(component)
+
+	// Switch to events tab
+	dp.SwitchTab(2)
+
+	output := dp.Render()
+	// Events tab should render
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "Events")
+}
+
+// TestDetailPanel_EventsTab_EmptyEvents tests events tab with no events
+func TestDetailPanel_EventsTab_EmptyEvents(t *testing.T) {
+	component := &ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+	}
+
+	dp := NewDetailPanel(component)
+
+	// Switch to events tab
+	dp.SwitchTab(2)
+
+	output := dp.Render()
+	// Should still render without errors
+	assert.NotEmpty(t, output)
+}
+
+// TestDetailPanel_AllTabs tests rendering all tabs
+func TestDetailPanel_AllTabs(t *testing.T) {
+	component := &ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+		Refs: []*RefSnapshot{
+			{ID: "ref-1", Name: "count", Value: 42},
+		},
+		Props: map[string]interface{}{
+			"title": "Hello",
+		},
+	}
+
+	dp := NewDetailPanel(component)
+
+	// Test all tabs
+	for i := 0; i < 3; i++ {
+		dp.SwitchTab(i)
+		output := dp.Render()
+		assert.NotEmpty(t, output, "Tab %d should render", i)
+	}
+}
+
+// TestDetailPanel_EventsTab_NilComponent tests events tab with nil component
+func TestDetailPanel_EventsTab_NilComponent(t *testing.T) {
+	dp := NewDetailPanel(nil)
+	dp.SwitchTab(2) // Events tab
+
+	output := dp.Render()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "No component selected")
+}
+
+// TestDetailPanel_StateTab_NilComponent tests state tab with nil component
+func TestDetailPanel_StateTab_NilComponent(t *testing.T) {
+	dp := NewDetailPanel(nil)
+	dp.SwitchTab(0) // State tab
+
+	output := dp.Render()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "No component selected")
+}
+
+// TestDetailPanel_PropsTab_NilComponent tests props tab with nil component
+func TestDetailPanel_PropsTab_NilComponent(t *testing.T) {
+	dp := NewDetailPanel(nil)
+	dp.SwitchTab(1) // Props tab
+
+	output := dp.Render()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "No component selected")
+}

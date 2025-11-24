@@ -37,6 +37,7 @@ func TestComponentsResource_FullTree(t *testing.T) {
 	defer devtools.Disable()
 
 	store := dt.GetStore()
+	store.Clear() // Clear any leftover data from other tests
 
 	// Add test components
 	comp1 := &devtools.ComponentSnapshot{
@@ -232,6 +233,7 @@ func TestComponentsResource_LargeTree(t *testing.T) {
 	defer devtools.Disable()
 
 	store := dt.GetStore()
+	store.Clear() // Clear any leftover data from other tests
 
 	// Add 1000 components (scaled down from 10,000 for test speed)
 	for i := 0; i < 1000; i++ {

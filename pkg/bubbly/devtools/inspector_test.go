@@ -546,3 +546,295 @@ func TestComponentInspector_SetRoot_FallsBackToRootIfSelectionLost(t *testing.T)
 	assert.NotNil(t, selected, "Should fall back to root when selected component is removed")
 	assert.Equal(t, "root", selected.ID, "Should select root when previous selection is lost")
 }
+
+// TestComponentInspector_Update_DownKey tests down key navigation
+func TestComponentInspector_Update_DownKey(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "First"},
+			{ID: "child2", Name: "Second"},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	inspector.tree.Expand("root")
+	inspector.tree.Select("root")
+
+	// Press down key
+	_ = inspector.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	// Selection should move to first child
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected)
+	assert.Equal(t, "child1", selected.ID, "Down key should move selection down")
+}
+
+// TestComponentInspector_Update_UpKey tests up key navigation
+func TestComponentInspector_Update_UpKey(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "First"},
+			{ID: "child2", Name: "Second"},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	inspector.tree.Expand("root")
+	inspector.tree.Select("child1")
+
+	// Press up key
+	_ = inspector.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	// Selection should move to root
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected)
+	assert.Equal(t, "root", selected.ID, "Up key should move selection up")
+}
+
+// TestComponentInspector_SearchMode_AllKeys tests all key handlers in search mode
+func TestComponentInspector_SearchMode_AllKeys(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "button1", Name: "Button", Type: "Button"},
+			{ID: "input1", Name: "Input", Type: "Input"},
+			{ID: "label1", Name: "Label", Type: "Label"},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		setup     func(*ComponentInspector)
+		key       tea.KeyMsg
+		check     func(*testing.T, *ComponentInspector)
+	}{
+		{
+			name: "Enter selects current search result",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF}) // Enter search mode
+				ci.search.Search("Button")               // Search for Button
+			},
+			key: tea.KeyMsg{Type: tea.KeyEnter},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.False(t, ci.searchMode, "Search mode should exit on Enter")
+				// Should have selected the search result
+			},
+		},
+		{
+			name: "Down navigates to next search result",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("") // Empty search shows all
+			},
+			key: tea.KeyMsg{Type: tea.KeyDown},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.True(t, ci.searchMode, "Should stay in search mode")
+			},
+		},
+		{
+			name: "Up navigates to previous search result",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("")
+				ci.search.NextResult() // Move to second result first
+			},
+			key: tea.KeyMsg{Type: tea.KeyUp},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.True(t, ci.searchMode, "Should stay in search mode")
+			},
+		},
+		{
+			name: "Backspace removes last character from query",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("test")
+			},
+			key: tea.KeyMsg{Type: tea.KeyBackspace},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.Equal(t, "tes", ci.search.GetQuery(), "Should remove last char")
+			},
+		},
+		{
+			name: "Backspace on empty query does nothing",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("")
+			},
+			key: tea.KeyMsg{Type: tea.KeyBackspace},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.Equal(t, "", ci.search.GetQuery(), "Query should remain empty")
+			},
+		},
+		{
+			name: "Runes append to query",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("te")
+			},
+			key: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("st")},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.Equal(t, "test", ci.search.GetQuery(), "Should append runes")
+			},
+		},
+		{
+			name: "Esc exits search mode and clears query",
+			setup: func(ci *ComponentInspector) {
+				ci.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+				ci.search.Search("test")
+			},
+			key: tea.KeyMsg{Type: tea.KeyEsc},
+			check: func(t *testing.T, ci *ComponentInspector) {
+				assert.False(t, ci.searchMode, "Should exit search mode")
+				assert.Equal(t, "", ci.search.GetQuery(), "Query should be cleared")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inspector := NewComponentInspector(root)
+			inspector.tree.Expand("root")
+
+			if tt.setup != nil {
+				tt.setup(inspector)
+			}
+
+			// Send the key
+			_ = inspector.Update(tt.key)
+
+			// Run checks
+			tt.check(t, inspector)
+		})
+	}
+}
+
+// TestComponentInspector_SearchMode_EnterWithNoResult tests Enter with no search result selected
+func TestComponentInspector_SearchMode_EnterWithNoResult(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+	}
+
+	inspector := NewComponentInspector(root)
+
+	// Enter search mode
+	inspector.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+
+	// Search for something that doesn't exist
+	inspector.search.Search("nonexistent")
+
+	// Press Enter - should exit search mode even with no result
+	inspector.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	assert.False(t, inspector.searchMode, "Should exit search mode on Enter even with no result")
+}
+
+// TestComponentInspector_HandleKeyMsg_ArrowKeys tests arrow key navigation
+func TestComponentInspector_HandleKeyMsg_ArrowKeys(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "Child1"},
+			{ID: "child2", Name: "Child2"},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+	inspector.tree.Expand("root")
+
+	// Test Right arrow (next tab)
+	initialTab := inspector.detail.GetActiveTab()
+	inspector.Update(tea.KeyMsg{Type: tea.KeyRight})
+	assert.NotEqual(t, initialTab, inspector.detail.GetActiveTab(), "Right arrow should change tab")
+
+	// Test Left arrow (previous tab)
+	inspector.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	assert.Equal(t, initialTab, inspector.detail.GetActiveTab(), "Left arrow should go back to previous tab")
+}
+
+// TestComponentInspector_HandleKeyMsg_EnterWithNoSelection tests Enter with no component selected
+func TestComponentInspector_HandleKeyMsg_EnterWithNoSelection(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "Child1"},
+		},
+	}
+
+	// Create inspector with nil root first, then set root without auto-select
+	inspector := NewComponentInspector(nil)
+
+	// Set root directly to tree (bypassing SetRoot which auto-selects)
+	inspector.tree = NewTreeView(root)
+
+	// Verify nothing is selected
+	assert.Nil(t, inspector.tree.GetSelected())
+
+	// Press Enter - should select and expand root
+	inspector.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Now root should be selected and expanded
+	selected := inspector.tree.GetSelected()
+	assert.NotNil(t, selected, "Enter should select root when nothing is selected")
+	assert.Equal(t, "root", selected.ID, "Root should be selected")
+	assert.True(t, inspector.tree.IsExpanded("root"), "Root should be expanded")
+}
+
+// TestComponentInspector_HandleKeyMsg_CtrlF tests Ctrl+F to enter search mode
+func TestComponentInspector_HandleKeyMsg_CtrlF(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+	}
+
+	inspector := NewComponentInspector(root)
+
+	// Initially not in search mode
+	assert.False(t, inspector.searchMode)
+
+	// Press Ctrl+F
+	inspector.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+
+	// Should be in search mode
+	assert.True(t, inspector.searchMode, "Ctrl+F should enable search mode")
+}
+
+// TestComponentInspector_HandleKeyMsg_EnterTogglesExpansion tests Enter to toggle node expansion
+func TestComponentInspector_HandleKeyMsg_EnterTogglesExpansion(t *testing.T) {
+	root := &ComponentSnapshot{
+		ID:   "root",
+		Name: "App",
+		Type: "Component",
+		Children: []*ComponentSnapshot{
+			{ID: "child1", Name: "Child1"},
+		},
+	}
+
+	inspector := NewComponentInspector(root)
+
+	// Root should be auto-expanded and selected
+	assert.True(t, inspector.tree.IsExpanded("root"))
+	assert.Equal(t, "root", inspector.tree.GetSelected().ID)
+
+	// Press Enter to collapse root
+	inspector.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.False(t, inspector.tree.IsExpanded("root"), "Enter should collapse root")
+
+	// Press Enter again to expand root
+	inspector.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.True(t, inspector.tree.IsExpanded("root"), "Enter should expand root again")
+}

@@ -3,10 +3,58 @@ package directives
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
+
+// mockReporter is a test implementation of ErrorReporter for directive tests
+type mockReporter struct {
+	panicCalls []mockPanicCall
+	errorCalls []mockErrorCall
+	flushCalls int
+	flushError error
+	mu         sync.Mutex
+}
+
+type mockPanicCall struct {
+	err *observability.HandlerPanicError
+	ctx *observability.ErrorContext
+}
+
+type mockErrorCall struct {
+	err error
+	ctx *observability.ErrorContext
+}
+
+func (m *mockReporter) ReportPanic(err *observability.HandlerPanicError, ctx *observability.ErrorContext) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.panicCalls = append(m.panicCalls, mockPanicCall{err: err, ctx: ctx})
+}
+
+func (m *mockReporter) ReportError(err error, ctx *observability.ErrorContext) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.errorCalls = append(m.errorCalls, mockErrorCall{err: err, ctx: ctx})
+}
+
+func (m *mockReporter) Flush(timeout time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.flushCalls++
+	return m.flushError
+}
+
+func (m *mockReporter) getErrorCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.errorCalls)
+}
 
 // TestForEachDirective_BasicIteration tests basic iteration over a slice
 func TestForEachDirective_BasicIteration(t *testing.T) {
@@ -441,4 +489,150 @@ func BenchmarkForEachNested(b *testing.B) {
 			return header + items
 		}).Render()
 	}
+}
+
+// TestForEachDirective_PanicRecovery tests that ForEach recovers from panics in render functions
+func TestForEachDirective_PanicRecovery(t *testing.T) {
+	t.Run("panic in render function is recovered", func(t *testing.T) {
+		items := []string{"A", "B", "C"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 1 {
+				panic("test panic")
+			}
+			return item
+		}).Render()
+
+		// The directive should not crash, but return partial results
+		// The panicking item returns empty string
+		assert.Equal(t, "AC", result)
+	})
+
+	t.Run("panic at first index is recovered", func(t *testing.T) {
+		items := []string{"A", "B", "C"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 0 {
+				panic("panic at first")
+			}
+			return item
+		}).Render()
+
+		assert.Equal(t, "BC", result)
+	})
+
+	t.Run("panic at last index is recovered", func(t *testing.T) {
+		items := []string{"A", "B", "C"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 2 {
+				panic("panic at last")
+			}
+			return item
+		}).Render()
+
+		assert.Equal(t, "AB", result)
+	})
+
+	t.Run("all items panic returns empty strings", func(t *testing.T) {
+		items := []string{"A", "B", "C"}
+		result := ForEach(items, func(item string, index int) string {
+			panic("always panic")
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("nil pointer panic is recovered", func(t *testing.T) {
+		items := []string{"A", "B"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 0 {
+				var ptr *string
+				return *ptr // nil pointer dereference
+			}
+			return item
+		}).Render()
+
+		assert.Equal(t, "B", result)
+	})
+
+	t.Run("panic with non-string value is recovered", func(t *testing.T) {
+		items := []int{1, 2, 3}
+		result := ForEach(items, func(item int, index int) string {
+			if index == 1 {
+				panic(42) // panic with int value
+			}
+			return fmt.Sprintf("%d", item)
+		}).Render()
+
+		assert.Equal(t, "13", result)
+	})
+}
+
+// TestForEachDirective_PanicRecoveryWithReporter tests panic recovery with error reporter
+func TestForEachDirective_PanicRecoveryWithReporter(t *testing.T) {
+	t.Run("panic is reported when reporter is set", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &mockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		items := []string{"A", "B", "C"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 1 {
+				panic("test panic for reporter")
+			}
+			return item
+		}).Render()
+
+		// Directive should still recover and continue
+		assert.Equal(t, "AC", result)
+
+		// Verify the error was reported
+		assert.Equal(t, 1, reporter.getErrorCallCount(), "panic should be reported to error reporter")
+	})
+
+	t.Run("multiple panics are all reported", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &mockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		items := []string{"A", "B", "C", "D"}
+		result := ForEach(items, func(item string, index int) string {
+			if index == 1 || index == 3 {
+				panic(fmt.Sprintf("panic at index %d", index))
+			}
+			return item
+		}).Render()
+
+		// Directive should still recover
+		assert.Equal(t, "AC", result)
+
+		// Verify both errors were reported
+		assert.Equal(t, 2, reporter.getErrorCallCount(), "all panics should be reported")
+	})
+
+	t.Run("error context contains directive info", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &mockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		items := []string{"A", "B"}
+		_ = ForEach(items, func(item string, index int) string {
+			if index == 0 {
+				panic("panic for context check")
+			}
+			return item
+		}).Render()
+
+		// Verify context was set correctly
+		assert.Equal(t, 1, reporter.getErrorCallCount())
+		reporter.mu.Lock()
+		defer reporter.mu.Unlock()
+		if len(reporter.errorCalls) > 0 {
+			ctx := reporter.errorCalls[0].ctx
+			assert.Equal(t, "ForEach", ctx.ComponentName)
+			assert.Contains(t, ctx.Tags, "directive_type")
+			assert.Equal(t, "ForEach", ctx.Tags["directive_type"])
+		}
+	})
 }

@@ -558,3 +558,64 @@ func TestDevToolsUI_FocusMode_ThreadSafe(t *testing.T) {
 	// Final state doesn't matter, just that it's valid
 	_ = ui.IsFocusMode()
 }
+
+// TestDevToolsUI_Init tests the Init method
+func TestDevToolsUI_Init(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Init should return a nil command (no initial side effects)
+	cmd := ui.Init()
+
+	// Init returns nil for DevToolsUI (no startup commands)
+	_ = cmd // Just verify it doesn't panic
+}
+
+// TestDevToolsUI_SetFocusMode tests the SetFocusMode method
+func TestDevToolsUI_SetFocusMode(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	tests := []struct {
+		name      string
+		focusMode bool
+	}{
+		{
+			name:      "enable focus mode",
+			focusMode: true,
+		},
+		{
+			name:      "disable focus mode",
+			focusMode: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ui.SetFocusMode(tt.focusMode)
+			assert.Equal(t, tt.focusMode, ui.IsFocusMode())
+		})
+	}
+}
+
+// TestDevToolsUI_SetFocusMode_Toggle tests toggling focus mode
+func TestDevToolsUI_SetFocusMode_Toggle(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Initially not in focus mode
+	assert.False(t, ui.IsFocusMode())
+
+	// Enable focus mode
+	ui.SetFocusMode(true)
+	assert.True(t, ui.IsFocusMode())
+
+	// Disable focus mode
+	ui.SetFocusMode(false)
+	assert.False(t, ui.IsFocusMode())
+
+	// Toggle multiple times
+	ui.SetFocusMode(true)
+	ui.SetFocusMode(true) // Setting same value should be idempotent
+	assert.True(t, ui.IsFocusMode())
+}

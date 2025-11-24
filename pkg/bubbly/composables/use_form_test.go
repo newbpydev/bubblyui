@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/newbpydev/bubblyui/pkg/bubbly/composables/reflectcache"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
@@ -388,4 +389,145 @@ func (r *testErrorReporter) ReportPanic(panicErr *observability.HandlerPanicErro
 
 func (r *testErrorReporter) Flush(timeout time.Duration) error {
 	return nil
+}
+
+func TestUseForm_SetField_WithReflectionCache(t *testing.T) {
+	// Enable the global reflection cache for this test
+	reflectcache.EnableGlobalCache()
+	defer func() {
+		// Reset global cache after test
+		reflectcache.GlobalCache = nil
+	}()
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// First SetField call will populate the cache
+	form.SetField("Email", "first@example.com")
+
+	values := form.Values.GetTyped()
+	assert.Equal(t, "first@example.com", values.Email, "Email should be updated via cache miss")
+
+	// Second SetField call should use the cache hit path
+	form.SetField("Email", "second@example.com")
+
+	values = form.Values.GetTyped()
+	assert.Equal(t, "second@example.com", values.Email, "Email should be updated via cache hit")
+
+	// Verify cache has entries
+	stats := reflectcache.GlobalCache.Stats()
+	assert.Greater(t, stats.TypesCached, 0, "Cache should have cached the form type")
+	assert.Greater(t, stats.Hits, int64(0), "Cache should have hits after second call")
+}
+
+func TestUseForm_SetField_WithReflectionCache_MultipleFields(t *testing.T) {
+	// Enable the global reflection cache for this test
+	reflectcache.EnableGlobalCache()
+	defer func() {
+		// Reset global cache after test
+		reflectcache.GlobalCache = nil
+	}()
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// Set multiple fields to exercise cache for different field lookups
+	form.SetField("Email", "test@example.com")
+	form.SetField("Password", "securepassword123")
+	form.SetField("Age", 25)
+
+	// Verify all fields updated correctly
+	values := form.Values.GetTyped()
+	assert.Equal(t, "test@example.com", values.Email)
+	assert.Equal(t, "securepassword123", values.Password)
+	assert.Equal(t, 25, values.Age)
+
+	// Verify cache stats
+	stats := reflectcache.GlobalCache.Stats()
+	assert.Equal(t, 1, stats.TypesCached, "Should cache one type (TestForm)")
+}
+
+func TestUseForm_SetField_WithReflectionCache_InvalidField(t *testing.T) {
+	// Enable the global reflection cache for this test
+	reflectcache.EnableGlobalCache()
+	defer func() {
+		// Reset global cache after test
+		reflectcache.GlobalCache = nil
+	}()
+
+	// Setup error reporter to capture errors
+	var capturedError error
+	customReporter := &testErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// First call to valid field to populate cache
+	form.SetField("Email", "test@example.com")
+
+	// Try to set invalid field - should fall back to FieldByName and fail
+	form.SetField("NonExistent", "value")
+
+	// Error should be reported
+	assert.NotNil(t, capturedError, "Error should be reported for invalid field with cache enabled")
+	assert.Contains(t, capturedError.Error(), "does not exist")
+}
+
+func TestUseForm_SetField_NoErrorReporter(t *testing.T) {
+	// Ensure no error reporter is set
+	observability.SetErrorReporter(nil)
+
+	ctx := createTestContext()
+	initial := TestForm{Email: "", Password: "", Age: 0}
+	form := UseForm(ctx, initial, validateTestForm)
+
+	// These should not panic even without an error reporter
+	assert.NotPanics(t, func() {
+		form.SetField("NonExistent", "value")
+	}, "Should not panic for invalid field without error reporter")
+
+	assert.NotPanics(t, func() {
+		form.SetField("Age", "not an int")
+	}, "Should not panic for type mismatch without error reporter")
+
+	// Verify form state unchanged
+	assert.Equal(t, initial, form.Values.GetTyped())
+}
+
+func TestUseForm_SetField_UnexportedField_NoErrorReporter(t *testing.T) {
+	// Ensure no error reporter is set
+	observability.SetErrorReporter(nil)
+
+	type FormWithUnexported struct {
+		Public  string
+		private string //nolint:unused // unexported for testing
+	}
+
+	ctx := createTestContext()
+	initial := FormWithUnexported{Public: "test"}
+
+	form := UseForm(ctx, initial, func(f FormWithUnexported) map[string]string {
+		return make(map[string]string)
+	})
+
+	// This should not panic even without error reporter
+	assert.NotPanics(t, func() {
+		form.SetField("private", "hacked")
+	}, "Should not panic for unexported field without error reporter")
+
+	// Public field should still work
+	form.SetField("Public", "updated")
+	assert.Equal(t, "updated", form.Values.GetTyped().Public)
 }

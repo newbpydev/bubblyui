@@ -815,3 +815,71 @@ func TestTimelineControls_ScrubWhileReplaying(t *testing.T) {
 	assert.Equal(t, 3, controls.GetPosition())
 	assert.True(t, controls.IsReplaying())
 }
+
+// TestClampInt tests the clampInt helper function
+func TestClampInt(t *testing.T) {
+	tests := []struct {
+		name     string
+		val      int
+		min      int
+		max      int
+		expected int
+	}{
+		{
+			name:     "value within range",
+			val:      5,
+			min:      0,
+			max:      10,
+			expected: 5,
+		},
+		{
+			name:     "value below minimum",
+			val:      -5,
+			min:      0,
+			max:      10,
+			expected: 0,
+		},
+		{
+			name:     "value above maximum",
+			val:      15,
+			min:      0,
+			max:      10,
+			expected: 10,
+		},
+		{
+			name:     "value equals minimum",
+			val:      0,
+			min:      0,
+			max:      10,
+			expected: 0,
+		},
+		{
+			name:     "value equals maximum",
+			val:      10,
+			min:      0,
+			max:      10,
+			expected: 10,
+		},
+		{
+			name:     "negative range",
+			val:      -5,
+			min:      -10,
+			max:      -1,
+			expected: -5,
+		},
+		{
+			name:     "zero width range",
+			val:      10,
+			min:      5,
+			max:      5,
+			expected: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := clampInt(tt.val, tt.min, tt.max)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -239,3 +239,68 @@ func TestPageLayout_ComplexChildren(t *testing.T) {
 	assert.Contains(t, output, "Details", "Should render content card")
 	assert.Contains(t, output, "Edit Profile", "Should render action button")
 }
+
+// ============================================================================
+// PAGE LAYOUT ADDITIONAL TESTS - Edge Cases
+// ============================================================================
+
+func TestPageLayout_TitleOnly(t *testing.T) {
+	title := Text(TextProps{Content: "Page Title"})
+	title.Init()
+
+	layout := PageLayout(PageLayoutProps{
+		Title: title,
+		// No content or actions
+	})
+
+	layout.Init()
+	output := layout.View()
+
+	assert.Contains(t, output, "Page Title", "Should render title only")
+}
+
+func TestPageLayout_ContentOnly(t *testing.T) {
+	content := Text(TextProps{Content: "Page Content"})
+	content.Init()
+
+	layout := PageLayout(PageLayoutProps{
+		Content: content,
+		// No title or actions
+	})
+
+	layout.Init()
+	output := layout.View()
+
+	assert.Contains(t, output, "Page Content", "Should render content only")
+}
+
+func TestPageLayout_ActionsOnly(t *testing.T) {
+	actions := Button(ButtonProps{Label: "Action"})
+	actions.Init()
+
+	layout := PageLayout(PageLayoutProps{
+		Actions: actions,
+		// No title or content
+	})
+
+	layout.Init()
+	output := layout.View()
+
+	assert.Contains(t, output, "Action", "Should render actions only")
+}
+
+func TestPageLayout_EmptyLayout_NoPanic(t *testing.T) {
+	layout := PageLayout(PageLayoutProps{
+		// No children at all
+	})
+
+	layout.Init()
+	output := layout.View()
+
+	// Should render empty without panic
+	assert.NotPanics(t, func() {
+		_ = layout.View()
+	})
+	// Empty layout may produce empty or whitespace-only output
+	_ = output // Just ensure it doesn't panic
+}

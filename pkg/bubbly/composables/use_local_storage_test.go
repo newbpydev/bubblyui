@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestUseLocalStorage_LoadsFromStorage tests that values are loaded from storage on mount
@@ -261,3 +263,241 @@ func TestUseLocalStorage_MultipleInstances(t *testing.T) {
 	assert.Equal(t, 100, state1.Get())
 	assert.Equal(t, 200, state2.Get())
 }
+
+// mockFailingSaveStorage is a storage that fails on Save operations
+type mockFailingSaveStorage struct {
+	loadData []byte
+	loadErr  error
+	saveErr  error
+}
+
+func (m *mockFailingSaveStorage) Load(_ string) ([]byte, error) {
+	if m.loadErr != nil {
+		return nil, m.loadErr
+	}
+	return m.loadData, nil
+}
+
+func (m *mockFailingSaveStorage) Save(_ string, _ []byte) error {
+	return m.saveErr
+}
+
+// TestUseLocalStorage_SaveError_ReportsError tests that save errors are reported
+func TestUseLocalStorage_SaveError_ReportsError(t *testing.T) {
+	// Arrange - storage that fails on save
+	storage := &mockFailingSaveStorage{
+		loadErr: os.ErrNotExist,
+		saveErr: os.ErrPermission,
+	}
+
+	ctx := createTestContext()
+
+	// Act - should not panic
+	state := UseLocalStorage(ctx, "test-key", "initial", storage)
+
+	// Change value - save should fail but not panic
+	assert.NotPanics(t, func() {
+		state.Set("new value")
+		// Give watch callback time to execute
+		time.Sleep(50 * time.Millisecond)
+	})
+
+	// Value should still be updated locally
+	assert.Equal(t, "new value", state.Get())
+}
+
+// TestUseLocalStorage_LoadError_NotFileNotExist tests error reporting for non-NotExist errors
+func TestUseLocalStorage_LoadError_NotFileNotExist(t *testing.T) {
+	// Arrange - storage that returns permission error on load
+	storage := &mockFailingSaveStorage{
+		loadErr: os.ErrPermission, // Not ErrNotExist
+	}
+
+	ctx := createTestContext()
+
+	// Act - should not panic and use initial value
+	state := UseLocalStorage(ctx, "test-key", "initial", storage)
+
+	// Assert - should use initial value
+	assert.Equal(t, "initial", state.Get())
+}
+
+// mockUnmarshalableValue is a type that fails JSON marshal
+type mockUnmarshalableValue struct {
+	Ch chan int // channels cannot be marshaled to JSON
+}
+
+// TestUseLocalStorage_MarshalError_ReportsError tests that marshal errors are reported
+func TestUseLocalStorage_MarshalError_ReportsError(t *testing.T) {
+	// Arrange
+	tempDir := t.TempDir()
+	storage := NewFileStorage(tempDir)
+
+	ctx := createTestContext()
+
+	// Create with a marshalable initial value
+	state := UseLocalStorage(ctx, "test-key", mockUnmarshalableValue{}, storage)
+
+	// Act - try to save value with unmarshable type
+	assert.NotPanics(t, func() {
+		state.Set(mockUnmarshalableValue{Ch: make(chan int)})
+		// Give watch callback time to execute
+		time.Sleep(50 * time.Millisecond)
+	})
+}
+
+// TestUseLocalStorage_SaveError_WithErrorReporter tests save error with reporter
+func TestUseLocalStorage_SaveError_WithErrorReporter(t *testing.T) {
+	// Setup custom error reporter
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testStorageErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	// Arrange - storage that fails on save
+	storage := &mockFailingSaveStorage{
+		loadErr: os.ErrNotExist,
+		saveErr: os.ErrPermission,
+	}
+
+	ctx := createTestContext()
+
+	// Act
+	state := UseLocalStorage(ctx, "test-key", "initial", storage)
+	state.Set("new value")
+
+	// Give watch callback time to execute
+	time.Sleep(100 * time.Millisecond)
+
+	// Assert - error should be reported
+	assert.NotNil(t, capturedError, "Error should be reported for save failure")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseLocalStorage", capturedContext.ComponentName)
+	assert.Equal(t, "save_failed", capturedContext.EventName)
+	assert.Equal(t, "storage_save", capturedContext.Tags["error_type"])
+}
+
+// TestUseLocalStorage_MarshalError_WithErrorReporter tests marshal error with reporter
+func TestUseLocalStorage_MarshalError_WithErrorReporter(t *testing.T) {
+	// Setup custom error reporter
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testStorageErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	// Arrange
+	tempDir := t.TempDir()
+	storage := NewFileStorage(tempDir)
+
+	ctx := createTestContext()
+
+	// Act - create with unmarshable type
+	state := UseLocalStorage(ctx, "test-key", mockUnmarshalableValue{}, storage)
+	state.Set(mockUnmarshalableValue{Ch: make(chan int)})
+
+	// Give watch callback time to execute
+	time.Sleep(100 * time.Millisecond)
+
+	// Assert - error should be reported
+	assert.NotNil(t, capturedError, "Error should be reported for marshal failure")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseLocalStorage", capturedContext.ComponentName)
+	assert.Equal(t, "marshal_failed", capturedContext.EventName)
+	assert.Equal(t, "json_marshal", capturedContext.Tags["error_type"])
+}
+
+// TestUseLocalStorage_UnmarshalError_WithErrorReporter tests unmarshal error with reporter
+func TestUseLocalStorage_UnmarshalError_WithErrorReporter(t *testing.T) {
+	// Setup custom error reporter
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testStorageErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	// Arrange - storage with invalid JSON
+	tempDir := t.TempDir()
+	storage := NewFileStorage(tempDir)
+	key := "bad-json"
+
+	// Pre-populate with invalid JSON
+	err := storage.Save(key, []byte("{invalid json}"))
+	require.NoError(t, err)
+
+	ctx := createTestContext()
+
+	// Act
+	state := UseLocalStorage(ctx, key, "default", storage)
+
+	// Assert - error should be reported
+	assert.NotNil(t, capturedError, "Error should be reported for unmarshal failure")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseLocalStorage", capturedContext.ComponentName)
+	assert.Equal(t, "unmarshal_failed", capturedContext.EventName)
+	assert.Equal(t, "json_unmarshal", capturedContext.Tags["error_type"])
+
+	// Should use default value
+	assert.Equal(t, "default", state.Get())
+}
+
+// TestUseLocalStorage_LoadError_WithErrorReporter tests load error with reporter
+func TestUseLocalStorage_LoadError_WithErrorReporter(t *testing.T) {
+	// Setup custom error reporter
+	var capturedError error
+	var capturedContext *observability.ErrorContext
+
+	customReporter := &testStorageErrorReporter{
+		onError: func(err error, ctx *observability.ErrorContext) {
+			capturedError = err
+			capturedContext = ctx
+		},
+	}
+
+	observability.SetErrorReporter(customReporter)
+	defer observability.SetErrorReporter(nil)
+
+	// Arrange - storage that returns error on load
+	storage := &mockFailingSaveStorage{
+		loadErr: os.ErrPermission, // Not ErrNotExist, so it should be reported
+	}
+
+	ctx := createTestContext()
+
+	// Act
+	state := UseLocalStorage(ctx, "test-key", "default", storage)
+
+	// Assert - error should be reported
+	assert.NotNil(t, capturedError, "Error should be reported for load failure")
+	assert.NotNil(t, capturedContext, "Error context should be provided")
+	assert.Equal(t, "UseLocalStorage", capturedContext.ComponentName)
+	assert.Equal(t, "load_failed", capturedContext.EventName)
+	assert.Equal(t, "storage_load", capturedContext.Tags["error_type"])
+
+	// Should use default value
+	assert.Equal(t, "default", state.Get())
+}
+
+// testStorageErrorReporter is defined in storage_coverage_test.go

@@ -725,3 +725,349 @@ func BenchmarkStateHistory_Concurrent(b *testing.B) {
 		}
 	})
 }
+
+// TestStore_RemoveComponentChild tests removing a child from a component
+func TestStore_RemoveComponentChild(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add parent and children
+	store.AddComponent(&ComponentSnapshot{ID: "parent-1", Name: "Parent"})
+	store.AddComponent(&ComponentSnapshot{ID: "child-1", Name: "Child1"})
+	store.AddComponent(&ComponentSnapshot{ID: "child-2", Name: "Child2"})
+
+	// Add children to parent
+	store.AddComponentChild("parent-1", "child-1")
+	store.AddComponentChild("parent-1", "child-2")
+
+	// Verify children are added
+	children := store.GetComponentChildren("parent-1")
+	assert.Equal(t, 2, len(children))
+	assert.Contains(t, children, "child-1")
+	assert.Contains(t, children, "child-2")
+
+	// Remove one child
+	store.RemoveComponentChild("parent-1", "child-1")
+
+	// Verify child was removed
+	children = store.GetComponentChildren("parent-1")
+	assert.Equal(t, 1, len(children))
+	assert.NotContains(t, children, "child-1")
+	assert.Contains(t, children, "child-2")
+}
+
+// TestStore_RemoveComponentChild_NonExistentParent tests removing child from non-existent parent
+func TestStore_RemoveComponentChild_NonExistentParent(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Should not panic when removing child from non-existent parent
+	assert.NotPanics(t, func() {
+		store.RemoveComponentChild("non-existent", "child-1")
+	})
+}
+
+// TestStore_RemoveComponentChild_NonExistentChild tests removing non-existent child
+func TestStore_RemoveComponentChild_NonExistentChild(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add parent
+	store.AddComponent(&ComponentSnapshot{ID: "parent-1", Name: "Parent"})
+	store.AddComponentChild("parent-1", "child-1")
+
+	// Should not panic when removing non-existent child
+	assert.NotPanics(t, func() {
+		store.RemoveComponentChild("parent-1", "non-existent-child")
+	})
+
+	// Original child should still be there
+	children := store.GetComponentChildren("parent-1")
+	assert.Contains(t, children, "child-1")
+}
+
+// TestStore_RemoveComponentChild_UpdatesChildrenSnapshot tests that parent's Children field is updated
+func TestStore_RemoveComponentChild_UpdatesChildrenSnapshot(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add parent with children in snapshot
+	childSnapshot := &ComponentSnapshot{ID: "child-1", Name: "Child1"}
+	store.AddComponent(&ComponentSnapshot{
+		ID:       "parent-1",
+		Name:     "Parent",
+		Children: []*ComponentSnapshot{childSnapshot},
+	})
+
+	store.AddComponentChild("parent-1", "child-1")
+
+	// Remove child
+	store.RemoveComponentChild("parent-1", "child-1")
+
+	// Verify Children field in snapshot is also updated
+	parent := store.GetComponent("parent-1")
+	assert.NotNil(t, parent)
+	for _, child := range parent.Children {
+		assert.NotEqual(t, "child-1", child.ID, "Child should be removed from parent's Children")
+	}
+}
+
+// TestStore_GetComponentChildren tests getting children of a component
+func TestStore_GetComponentChildren(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupChildren []string
+		wantCount     int
+	}{
+		{
+			name:          "no children",
+			setupChildren: []string{},
+			wantCount:     0,
+		},
+		{
+			name:          "one child",
+			setupChildren: []string{"child-1"},
+			wantCount:     1,
+		},
+		{
+			name:          "multiple children",
+			setupChildren: []string{"child-1", "child-2", "child-3"},
+			wantCount:     3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := NewDevToolsStore(100, 100, 1000)
+
+			store.AddComponent(&ComponentSnapshot{ID: "parent-1", Name: "Parent"})
+			for _, childID := range tt.setupChildren {
+				store.AddComponentChild("parent-1", childID)
+			}
+
+			children := store.GetComponentChildren("parent-1")
+			assert.Equal(t, tt.wantCount, len(children))
+
+			for _, childID := range tt.setupChildren {
+				assert.Contains(t, children, childID)
+			}
+		})
+	}
+}
+
+// TestStore_GetComponentChildren_ReturnsCopy tests that returned slice is a copy
+func TestStore_GetComponentChildren_ReturnsCopy(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	store.AddComponent(&ComponentSnapshot{ID: "parent-1", Name: "Parent"})
+	store.AddComponentChild("parent-1", "child-1")
+
+	children := store.GetComponentChildren("parent-1")
+
+	// Modify the returned slice
+	children[0] = "modified"
+
+	// Original should be unchanged
+	originalChildren := store.GetComponentChildren("parent-1")
+	assert.Equal(t, "child-1", originalChildren[0])
+}
+
+// TestStore_GetComponentChildren_NonExistentParent tests getting children of non-existent parent
+func TestStore_GetComponentChildren_NonExistentParent(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	children := store.GetComponentChildren("non-existent")
+	assert.Equal(t, 0, len(children))
+	assert.NotNil(t, children) // Should return empty slice, not nil
+}
+
+// TestExtractRefName tests extracting simple name from ref ID
+func TestExtractRefName(t *testing.T) {
+	tests := []struct {
+		name     string
+		refID    string
+		wantName string
+	}{
+		{
+			name:     "ref with -ref- pattern",
+			refID:    "counter-ref-0x123abc",
+			wantName: "counter",
+		},
+		{
+			name:     "ref with -0x pattern",
+			refID:    "count-0x456def",
+			wantName: "count",
+		},
+		{
+			name:     "ref without pattern",
+			refID:    "simpleRef",
+			wantName: "simpleRef",
+		},
+		{
+			name:     "complex ref name with -ref-",
+			refID:    "my-complex-name-ref-0x789",
+			wantName: "my-complex-name",
+		},
+		{
+			name:     "short ref name",
+			refID:    "x-0x1",
+			wantName: "x",
+		},
+		{
+			name:     "empty string",
+			refID:    "",
+			wantName: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractRefName(tt.refID)
+			assert.Equal(t, tt.wantName, result)
+		})
+	}
+}
+
+// TestStore_RegisterRefOwner tests registering ref ownership
+func TestStore_RegisterRefOwner(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add a component
+	store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+		Refs: []*RefSnapshot{},
+	})
+
+	// Register ref owner
+	store.RegisterRefOwner("comp-1", "ref-1")
+
+	// Verify by updating the ref
+	ownerID, updated := store.UpdateRefValue("ref-1", 42)
+	assert.True(t, updated)
+	assert.Equal(t, "comp-1", ownerID)
+
+	// Verify ref was added to component's Refs
+	comp := store.GetComponent("comp-1")
+	assert.NotNil(t, comp)
+	assert.GreaterOrEqual(t, len(comp.Refs), 1)
+}
+
+// TestStore_RegisterRefOwner_DuplicateRef tests registering same ref twice
+func TestStore_RegisterRefOwner_DuplicateRef(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+		Refs: []*RefSnapshot{},
+	})
+
+	// Register same ref twice
+	store.RegisterRefOwner("comp-1", "ref-1")
+	store.RegisterRefOwner("comp-1", "ref-1")
+
+	// Should not add duplicate
+	comp := store.GetComponent("comp-1")
+	refCount := 0
+	for _, ref := range comp.Refs {
+		if ref.ID == "ref-1" {
+			refCount++
+		}
+	}
+	assert.Equal(t, 1, refCount, "Should not add duplicate ref")
+}
+
+// TestStore_RegisterRefOwner_NonExistentComponent tests registering ref for non-existent component
+func TestStore_RegisterRefOwner_NonExistentComponent(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Should not panic
+	assert.NotPanics(t, func() {
+		store.RegisterRefOwner("non-existent", "ref-1")
+	})
+}
+
+// TestStore_UpdateRefValue tests updating ref values
+func TestStore_UpdateRefValue(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add component and register ref
+	store.AddComponent(&ComponentSnapshot{
+		ID:   "comp-1",
+		Name: "TestComponent",
+		Refs: []*RefSnapshot{},
+	})
+	store.RegisterRefOwner("comp-1", "ref-1")
+
+	// Update ref value
+	ownerID, updated := store.UpdateRefValue("ref-1", "new-value")
+
+	assert.True(t, updated)
+	assert.Equal(t, "comp-1", ownerID)
+
+	// Verify the ref was updated in component's Refs
+	comp := store.GetComponent("comp-1")
+	assert.NotNil(t, comp)
+	for _, ref := range comp.Refs {
+		if ref.ID == "ref-1" {
+			assert.Equal(t, "new-value", ref.Value)
+			break
+		}
+	}
+}
+
+// TestStore_UpdateRefValue_UnregisteredRef tests updating unregistered ref
+func TestStore_UpdateRefValue_UnregisteredRef(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Try to update unregistered ref
+	ownerID, updated := store.UpdateRefValue("unregistered-ref", "value")
+
+	assert.False(t, updated)
+	assert.Empty(t, ownerID)
+}
+
+// TestStore_GetSince tests getting data since a checkpoint
+func TestStore_GetSince(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	// Add component
+	store.AddComponent(&ComponentSnapshot{
+		ID:        "comp-1",
+		Name:      "TestComponent",
+		Timestamp: time.Now(),
+	})
+
+	// Record state change
+	store.GetStateHistory().Record(StateChange{
+		RefID:     "ref-1",
+		OldValue:  0,
+		NewValue:  1,
+		Timestamp: time.Now(),
+	})
+
+	// Record event
+	store.GetEventLog().Append(EventRecord{
+		ID:        "evt-1",
+		Name:      "click",
+		Timestamp: time.Now(),
+	})
+
+	// Get data since checkpoint with ID 0
+	checkpoint := &ExportCheckpoint{
+		LastEventID: 0,
+		LastStateID: 0,
+		Timestamp:   time.Now().Add(-1 * time.Hour),
+	}
+	data, err := store.GetSince(checkpoint)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, data)
+}
+
+// TestStore_GetSince_NilCheckpoint tests GetSince with nil checkpoint
+func TestStore_GetSince_NilCheckpoint(t *testing.T) {
+	store := NewDevToolsStore(100, 100, 1000)
+
+	data, err := store.GetSince(nil)
+
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}

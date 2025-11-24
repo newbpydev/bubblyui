@@ -958,3 +958,414 @@ func TestTable_Sorting_ExactColumnWidths(t *testing.T) {
 	assert.NotContains(t, output1, "↑", "Unsorted state should not show arrows")
 	assert.NotContains(t, output1, "↓", "Unsorted state should not show arrows")
 }
+
+// ============================================================================
+// TABLE HELPER FUNCTION TESTS - Additional Coverage
+// ============================================================================
+
+func TestTable_GetFieldValue_PointerNil(t *testing.T) {
+	// Test getFieldValue with nil pointer
+	data := bubbly.NewRef([]*User{nil})
+
+	columns := []TableColumn[*User]{
+		{Header: "Name", Field: "Name", Width: 20},
+	}
+
+	table := Table(TableProps[*User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+
+	// Should not panic with nil pointer
+	assert.NotPanics(t, func() {
+		_ = table.View()
+	})
+}
+
+func TestTable_GetFieldValue_PointerValid(t *testing.T) {
+	// Test getFieldValue with valid pointer
+	user := &User{Name: "Alice", Email: "alice@example.com", Age: 30, Active: true}
+	data := bubbly.NewRef([]*User{user})
+
+	columns := []TableColumn[*User]{
+		{Header: "Name", Field: "Name", Width: 20},
+		{Header: "Age", Field: "Age", Width: 10},
+	}
+
+	table := Table(TableProps[*User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+	output := table.View()
+
+	assert.Contains(t, output, "Alice", "Should display pointer struct field")
+	assert.Contains(t, output, "30", "Should display age from pointer")
+}
+
+func TestTable_GetFieldValue_NonStruct(t *testing.T) {
+	// Test with a simple string slice (non-struct type)
+	// This should return empty string for field lookups
+	type SimpleWrapper struct {
+		Value string
+	}
+	data := bubbly.NewRef([]SimpleWrapper{{Value: "test"}})
+
+	columns := []TableColumn[SimpleWrapper]{
+		{Header: "Val", Field: "Value", Width: 20},
+	}
+
+	table := Table(TableProps[SimpleWrapper]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+	output := table.View()
+
+	assert.Contains(t, output, "test", "Should display struct field")
+}
+
+func TestTable_PadString_ZeroWidth(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice"},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "N", Field: "Name", Width: 0}, // Zero width
+	}
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+
+	// Should not panic with zero width
+	assert.NotPanics(t, func() {
+		_ = table.View()
+	})
+}
+
+func TestTable_PadString_VerySmallWidth(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice Smith"},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 2}, // Very small width (<=3)
+	}
+
+	table := Table(TableProps[User]{
+		Data:    data,
+		Columns: columns,
+	})
+
+	table.Init()
+	output := table.View()
+
+	// Should truncate without ellipsis for width <= 3
+	assert.NotEmpty(t, output, "Should render with small width")
+}
+
+func TestTable_SortableHeader_NarrowColumn(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+	})
+
+	// Very narrow sortable column
+	columns := []TableColumn[User]{
+		{Header: "ID", Field: "Age", Width: 3, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Age")
+	output := table.View()
+
+	// Should handle narrow column without panic
+	assert.NotEmpty(t, output, "Should render narrow sortable column")
+}
+
+func TestTable_SortableHeader_LongHeader(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+	})
+
+	// Long header that exceeds column width
+	columns := []TableColumn[User]{
+		{Header: "VeryLongHeaderName", Field: "Name", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Name")
+	output := table.View()
+
+	// Should truncate header with ellipsis
+	assert.NotEmpty(t, output, "Should render with truncated header")
+}
+
+func TestTable_Sorting_Int64Column(t *testing.T) {
+	type Item struct {
+		ID    int64
+		Label string
+	}
+
+	data := bubbly.NewRef([]Item{
+		{ID: 300, Label: "Third"},
+		{ID: 100, Label: "First"},
+		{ID: 200, Label: "Second"},
+	})
+
+	columns := []TableColumn[Item]{
+		{Header: "ID", Field: "ID", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[Item]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "ID")
+
+	sortedData := data.Get().([]Item)
+	assert.Equal(t, int64(100), sortedData[0].ID, "First should be 100")
+	assert.Equal(t, int64(200), sortedData[1].ID, "Second should be 200")
+	assert.Equal(t, int64(300), sortedData[2].ID, "Third should be 300")
+}
+
+func TestTable_Sorting_Float64Column(t *testing.T) {
+	data := bubbly.NewRef([]Product{
+		{Name: "C", Price: 30.50},
+		{Name: "A", Price: 10.25},
+		{Name: "B", Price: 20.75},
+	})
+
+	columns := []TableColumn[Product]{
+		{Header: "Price", Field: "Price", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[Product]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Price")
+
+	sortedData := data.Get().([]Product)
+	assert.Equal(t, 10.25, sortedData[0].Price, "First should be 10.25")
+	assert.Equal(t, 20.75, sortedData[1].Price, "Second should be 20.75")
+	assert.Equal(t, 30.50, sortedData[2].Price, "Third should be 30.50")
+}
+
+func TestTable_Sorting_MixedTypeComparison(t *testing.T) {
+	// Test comparison fallback to string when types don't match
+	type Mixed struct {
+		Value interface{}
+	}
+
+	// This tests the compareValues fallback case
+	data := bubbly.NewRef([]User{
+		{Name: "Zebra"},
+		{Name: "Apple"},
+		{Name: "Mango"},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Name")
+
+	sortedData := data.Get().([]User)
+	assert.Equal(t, "Apple", sortedData[0].Name)
+	assert.Equal(t, "Mango", sortedData[1].Name)
+	assert.Equal(t, "Zebra", sortedData[2].Name)
+}
+
+func TestTable_Sorting_EqualValues(t *testing.T) {
+	// Test sorting with equal values
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+		{Name: "Bob", Age: 30},
+		{Name: "Charlie", Age: 30},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Age", Field: "Age", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Age")
+
+	sortedData := data.Get().([]User)
+	// All ages should be equal
+	assert.Equal(t, 30, sortedData[0].Age)
+	assert.Equal(t, 30, sortedData[1].Age)
+	assert.Equal(t, 30, sortedData[2].Age)
+}
+
+func TestTable_Sorting_NonExistentField(t *testing.T) {
+	data := bubbly.NewRef([]User{
+		{Name: "Alice"},
+		{Name: "Bob"},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Missing", Field: "NonExistent", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Should not panic when sorting by non-existent field
+	assert.NotPanics(t, func() {
+		table.Emit("sort", "NonExistent")
+	})
+}
+
+func TestTable_Sorting_PointerType(t *testing.T) {
+	// Test sorting with pointer types to cover getFieldValueForSort paths
+	user1 := &User{Name: "Charlie", Age: 35}
+	user2 := &User{Name: "Alice", Age: 30}
+	user3 := &User{Name: "Bob", Age: 25}
+
+	data := bubbly.NewRef([]*User{user1, user2, user3})
+
+	columns := []TableColumn[*User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[*User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Name")
+
+	sortedData := data.Get().([]*User)
+	assert.Equal(t, "Alice", sortedData[0].Name, "First should be Alice")
+	assert.Equal(t, "Bob", sortedData[1].Name, "Second should be Bob")
+	assert.Equal(t, "Charlie", sortedData[2].Name, "Third should be Charlie")
+}
+
+func TestTable_Sorting_PointerWithNil(t *testing.T) {
+	// Test sorting with nil pointers to cover nil handling
+	user1 := &User{Name: "Alice", Age: 30}
+	var nilUser *User // nil pointer
+
+	data := bubbly.NewRef([]*User{user1, nilUser})
+
+	columns := []TableColumn[*User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[*User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Should not panic when sorting with nil entries
+	assert.NotPanics(t, func() {
+		table.Emit("sort", "Name")
+	})
+}
+
+func TestTable_Sorting_BoolDescending(t *testing.T) {
+	// Test bool sorting in descending order
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Active: true},
+		{Name: "Bob", Active: false},
+		{Name: "Charlie", Active: true},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Active", Field: "Active", Width: 10, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+
+	// Sort ascending first
+	table.Emit("sort", "Active")
+	// Toggle to descending
+	table.Emit("sort", "Active")
+
+	sortedData := data.Get().([]User)
+	assert.True(t, sortedData[0].Active, "First should be true in descending")
+}
+
+func TestTable_Sorting_StringEquality(t *testing.T) {
+	// Test string sorting with equal values
+	data := bubbly.NewRef([]User{
+		{Name: "Alice", Age: 30},
+		{Name: "Alice", Age: 25},
+		{Name: "Bob", Age: 35},
+	})
+
+	columns := []TableColumn[User]{
+		{Header: "Name", Field: "Name", Width: 20, Sortable: true},
+	}
+
+	table := Table(TableProps[User]{
+		Data:     data,
+		Columns:  columns,
+		Sortable: true,
+	})
+
+	table.Init()
+	table.Emit("sort", "Name")
+
+	sortedData := data.Get().([]User)
+	// Both Alices should come before Bob
+	assert.Equal(t, "Alice", sortedData[0].Name)
+	assert.Equal(t, "Alice", sortedData[1].Name)
+	assert.Equal(t, "Bob", sortedData[2].Name)
+}

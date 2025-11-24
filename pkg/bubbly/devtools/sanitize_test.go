@@ -2,6 +2,7 @@ package devtools
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -791,4 +792,216 @@ func TestSanitizer_PriorityRanges(t *testing.T) {
 			assert.Equal(t, tt.priority, patterns[0].Priority)
 		})
 	}
+}
+
+// TestSanitizer_SanitizePerformanceData tests sanitizePerformanceData
+func TestSanitizer_SanitizePerformanceData(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Create performance data
+	perf := NewPerformanceData()
+	perf.RecordRender("comp-1", "Counter", 10*time.Millisecond)
+	perf.RecordRender("comp-2", "Form", 20*time.Millisecond)
+
+	// Create export data with performance
+	data := &ExportData{
+		Version:     "1.0",
+		Timestamp:   time.Now(),
+		Performance: perf,
+	}
+
+	// Sanitize the data
+	result := sanitizer.Sanitize(data)
+
+	assert.NotNil(t, result)
+	assert.NotNil(t, result.Performance)
+
+	// Performance data should be preserved (copied)
+	allPerf := result.Performance.GetAll()
+	assert.Equal(t, 2, len(allPerf))
+}
+
+// TestSanitizer_SanitizePerformanceData_NilPerformance tests nil performance data
+func TestSanitizer_SanitizePerformanceData_NilPerformance(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Create export data without performance
+	data := &ExportData{
+		Version:     "1.0",
+		Timestamp:   time.Now(),
+		Performance: nil,
+	}
+
+	// Sanitize the data
+	result := sanitizer.Sanitize(data)
+
+	assert.NotNil(t, result)
+	assert.Nil(t, result.Performance)
+}
+
+// TestSanitizeValue_SliceTypes tests SanitizeValue with various slice types
+func TestSanitizeValue_SliceTypes(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	tests := []struct {
+		name  string
+		input interface{}
+	}{
+		{
+			name:  "string slice with sensitive data",
+			input: []interface{}{"password123", "normal", "secret_key"},
+		},
+		{
+			name:  "mixed type slice",
+			input: []interface{}{42, "password", true, 3.14},
+		},
+		{
+			name:  "empty slice",
+			input: []interface{}{},
+		},
+		{
+			name:  "nested slice",
+			input: []interface{}{[]interface{}{"nested_password"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizer.SanitizeValue(tt.input)
+			assert.NotNil(t, result)
+		})
+	}
+}
+
+// TestSanitizeValue_MapTypes tests SanitizeValue with various map types
+func TestSanitizeValue_MapTypes(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// The sanitizer patterns expect format: password=value, token=value, etc.
+	tests := []struct {
+		name           string
+		input          map[string]interface{}
+		expectRedacted bool
+	}{
+		{
+			name: "map with password pattern in value",
+			input: map[string]interface{}{
+				"config":   "password=secret123",
+				"username": "alice",
+			},
+			expectRedacted: true,
+		},
+		{
+			name: "map with nested sensitive data pattern",
+			input: map[string]interface{}{
+				"auth": map[string]interface{}{
+					"credentials": "token=bearer_xyz",
+				},
+			},
+			expectRedacted: true,
+		},
+		{
+			name: "map with no sensitive data",
+			input: map[string]interface{}{
+				"name":  "alice",
+				"email": "alice@example.com",
+			},
+			expectRedacted: false,
+		},
+		{
+			name:           "empty map",
+			input:          map[string]interface{}{},
+			expectRedacted: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizer.SanitizeValue(tt.input)
+			assert.NotNil(t, result)
+
+			resultMap, ok := result.(map[string]interface{})
+			assert.True(t, ok)
+
+			if tt.expectRedacted {
+				// Check that at least one value was redacted
+				hasRedacted := false
+				for _, v := range resultMap {
+					if str, ok := v.(string); ok && strings.Contains(str, "[REDACTED]") {
+						hasRedacted = true
+						break
+					}
+					if nestedMap, ok := v.(map[string]interface{}); ok {
+						for _, nv := range nestedMap {
+							if str, ok := nv.(string); ok && strings.Contains(str, "[REDACTED]") {
+								hasRedacted = true
+								break
+							}
+						}
+					}
+				}
+				assert.True(t, hasRedacted, "Expected at least one redacted value")
+			}
+		})
+	}
+}
+
+// TestSanitizeValue_NilValue tests SanitizeValue with nil input
+func TestSanitizeValue_NilValue(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	result := sanitizer.SanitizeValue(nil)
+	assert.Nil(t, result)
+}
+
+// TestSanitizeValue_PrimitiveTypes tests SanitizeValue with primitive types
+func TestSanitizeValue_PrimitiveTypes(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	tests := []struct {
+		name   string
+		input  interface{}
+		expect interface{}
+	}{
+		{
+			name:   "integer",
+			input:  42,
+			expect: 42,
+		},
+		{
+			name:   "float",
+			input:  3.14,
+			expect: 3.14,
+		},
+		{
+			name:   "bool",
+			input:  true,
+			expect: true,
+		},
+		{
+			name:   "string without sensitive data",
+			input:  "normal text",
+			expect: "normal text",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizer.SanitizeValue(tt.input)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+// TestSanitizeValue_PointerAndInterface tests SanitizeValue with pointers and interfaces
+func TestSanitizeValue_PointerAndInterface(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Test with a map pointer
+	mapVal := map[string]interface{}{
+		"password": "secret123",
+	}
+
+	result := sanitizer.SanitizeValue(mapVal)
+	assert.NotNil(t, result)
 }

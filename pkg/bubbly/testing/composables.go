@@ -110,6 +110,23 @@ func AssertComposableCleanup(t *testing.T, cleanup func()) {
 	}
 }
 
+// assertCleanupWithRecovery is an internal helper that performs cleanup with panic recovery.
+// It returns true if cleanup executed without panicking, false otherwise.
+// This is exported for testing purposes only.
+func assertCleanupWithRecovery(cleanup func()) (executed bool, panicValue interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicValue = r
+		}
+	}()
+
+	if cleanup != nil {
+		cleanup()
+	}
+	executed = true
+	return
+}
+
 // TriggerMount simulates the component mount lifecycle event for testing.
 // This executes any onMounted hooks registered on the context.
 //

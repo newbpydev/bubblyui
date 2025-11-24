@@ -498,3 +498,582 @@ func TestMatchLocation_Fields(t *testing.T) {
 	assert.NotEmpty(t, match.Redacted, "Redacted should be populated")
 	assert.Contains(t, match.Redacted, "[REDACTED]", "Redacted should contain redaction marker")
 }
+
+// TestCollectMatches_SliceValues tests collectMatchesSlice for slice traversal
+func TestCollectMatches_SliceValues(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Use strings that match the sanitizer patterns (password=value format)
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "TestComponent",
+				Props: map[string]interface{}{
+					"config": []interface{}{"password=secret1", "token=abc123", "normal"},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Password and token patterns should be detected
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 1,
+		"Should detect sensitive data in slice elements")
+}
+
+// TestCollectMatches_NestedSlice tests nested slice traversal
+func TestCollectMatches_NestedSlice(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Use strings with pattern format: key=value or key:value
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		State: []StateChange{
+			{
+				RefID:     "ref-1",
+				RefName:   "tokens",
+				OldValue:  nil,
+				NewValue:  "token=abc123xyz",
+				Timestamp: time.Now(),
+			},
+			{
+				RefID:     "ref-2",
+				RefName:   "apiKey",
+				OldValue:  nil,
+				NewValue:  "apikey=sk_live_xyz",
+				Timestamp: time.Now(),
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Should detect token and apiKey patterns
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 2,
+		"Should detect sensitive data in multiple slice elements")
+}
+
+// TestCollectMatches_StructFields tests struct field traversal via collectMatchesStruct
+func TestCollectMatches_StructFields(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Test with ComponentSnapshot which has various struct fields
+	// Use values in pattern format: key=value or key:value
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "TestComponent",
+				State: map[string]interface{}{
+					"auth": "password=secret123",
+				},
+				Props: map[string]interface{}{
+					"config": "apikey=sk_live_test",
+				},
+				Refs: []*RefSnapshot{
+					{
+						ID:    "ref-1",
+						Name:  "auth",
+						Value: "token=bearer_xyz",
+					},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Should detect password, apiKey, and token patterns across struct fields
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 3,
+		"Should detect sensitive data across struct fields")
+}
+
+// TestCollectMatches_GenericStruct tests generic struct traversal
+func TestCollectMatches_GenericStruct(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Test with nested events that have map payloads
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Events: []EventRecord{
+			{
+				ID:        "evt-1",
+				Name:      "auth",
+				SourceID:  "form-1",
+				Timestamp: time.Now(),
+				Payload: map[string]interface{}{
+					"username": "alice",
+					"password": "secret456",
+					"nested": map[string]interface{}{
+						"token": "jwt_token_value",
+					},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Should detect both password and token in nested structures
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 1,
+		"Should detect sensitive data in nested map structures")
+}
+
+// TestBuildPath tests the buildPath helper function indirectly
+func TestBuildPath_IndirectVerification(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "TestComponent",
+				Props: map[string]interface{}{
+					"config": map[string]interface{}{
+						"auth": map[string]interface{}{
+							"password": "nested_secret",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	require.GreaterOrEqual(t, len(dryRunResult.Matches), 1, "Should have at least one match")
+
+	// Verify the path contains the nested structure
+	foundNestedPath := false
+	for _, match := range dryRunResult.Matches {
+		if match.Path != "" && len(match.Path) > 10 {
+			foundNestedPath = true
+			break
+		}
+	}
+	assert.True(t, foundNestedPath, "Should have found a nested path")
+}
+
+// TestCollectMatches_ComponentSnapshot tests collectMatchesComponent
+func TestCollectMatches_ComponentSnapshot(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "LoginForm",
+				Props: map[string]interface{}{
+					"password": "user_password",
+				},
+				State: map[string]interface{}{
+					"token": "session_token",
+				},
+				Children: []*ComponentSnapshot{
+					{
+						ID:   "comp-2",
+						Name: "PasswordField",
+						Props: map[string]interface{}{
+							"value": "child_password",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Should detect passwords and tokens in parent and child components
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 2,
+		"Should detect sensitive data in component hierarchy")
+}
+
+// TestCollectMatches_EventRecord tests collectMatchesEventRecord
+func TestCollectMatches_EventRecord(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Events: []EventRecord{
+			{
+				ID:        "evt-1",
+				Name:      "login",
+				SourceID:  "form-1",
+				Timestamp: time.Now(),
+				Payload: map[string]interface{}{
+					"password": "event_password",
+				},
+			},
+			{
+				ID:        "evt-2",
+				Name:      "api_call",
+				SourceID:  "service-1",
+				Timestamp: time.Now(),
+				Payload: map[string]interface{}{
+					"apiKey": "sk_test_key",
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 2,
+		"Should detect sensitive data in event records")
+}
+
+// TestCollectMatches_StateChange tests collectMatchesStateChange
+func TestCollectMatches_StateChange(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	// Use values with pattern format
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		State: []StateChange{
+			{
+				RefID:     "ref-1",
+				RefName:   "authState",
+				OldValue:  "password=old_secret",
+				NewValue:  "password=new_secret",
+				Timestamp: time.Now(),
+				Source:    "user_input",
+			},
+		},
+	}
+
+	opts := SanitizeOptions{
+		DryRun: true,
+	}
+
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	// Should detect password patterns in both old and new values
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 1,
+		"Should detect sensitive data in state changes")
+}
+
+// TestCollectMatches_DirectStructValues tests collectMatchesStruct via ExportData embedding
+func TestCollectMatches_DirectStructValues(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	tests := []struct {
+		name          string
+		data          *ExportData
+		minRedactions int
+	}{
+		{
+			name: "ExportData with component props",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Components: []*ComponentSnapshot{
+					{
+						ID:   "comp-1",
+						Name: "Test",
+						Props: map[string]interface{}{
+							"password": "direct_secret",
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+		{
+			name: "ExportData with StateChange containing sensitive values",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				State: []StateChange{
+					{
+						RefID:    "ref-1",
+						RefName:  "auth",
+						OldValue: "password=old_secret",
+						NewValue: "password=new_secret",
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+		{
+			name: "ExportData with EventRecord payloads",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Events: []EventRecord{
+					{
+						ID:       "evt-1",
+						Name:     "auth",
+						SourceID: "form-1",
+						Payload: map[string]interface{}{
+							"credentials": "password=event_secret",
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+		{
+			name: "ExportData with component state maps",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Components: []*ComponentSnapshot{
+					{
+						ID:   "comp-1",
+						Name: "DirectComponent",
+						Props: map[string]interface{}{
+							"apiKey": "sk_test_direct",
+						},
+						State: map[string]interface{}{
+							"token": "bearer_direct",
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := SanitizeOptions{DryRun: true}
+			_, dryRunResult := sanitizer.SanitizeWithOptions(tt.data, opts)
+
+			require.NotNil(t, dryRunResult, "DryRunResult should be present")
+			assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, tt.minRedactions,
+				"Should detect sensitive data in struct")
+		})
+	}
+}
+
+// TestCollectMatches_NestedMapInProps tests collectMatchesGenericStruct via nested maps in Props
+func TestCollectMatches_NestedMapInProps(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	tests := []struct {
+		name          string
+		data          *ExportData
+		minRedactions int
+	}{
+		{
+			name: "deeply nested maps with sensitive data",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Components: []*ComponentSnapshot{
+					{
+						ID:   "comp-1",
+						Name: "NestedComponent",
+						Props: map[string]interface{}{
+							"config": map[string]interface{}{
+								"auth": map[string]interface{}{
+									"password": "nested_secret",
+									"apiKey":   "sk_nested_key",
+								},
+							},
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+		{
+			name: "slice of maps in props",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Components: []*ComponentSnapshot{
+					{
+						ID:   "comp-1",
+						Name: "SliceComponent",
+						Props: map[string]interface{}{
+							"credentials": []interface{}{
+								map[string]interface{}{
+									"password": "slice_secret1",
+								},
+								map[string]interface{}{
+									"token": "slice_token",
+								},
+							},
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+		{
+			name: "mixed nested types",
+			data: &ExportData{
+				Version:   "1.0",
+				Timestamp: time.Now(),
+				Components: []*ComponentSnapshot{
+					{
+						ID:   "comp-1",
+						Name: "MixedComponent",
+						State: map[string]interface{}{
+							"users": []interface{}{
+								map[string]interface{}{
+									"name":     "alice",
+									"password": "alice_pass",
+								},
+							},
+							"settings": map[string]interface{}{
+								"apiKey": "sk_settings_key",
+							},
+						},
+					},
+				},
+			},
+			minRedactions: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := SanitizeOptions{DryRun: true}
+			_, dryRunResult := sanitizer.SanitizeWithOptions(tt.data, opts)
+
+			require.NotNil(t, dryRunResult, "DryRunResult should be present")
+			assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, tt.minRedactions,
+				"Should handle nested structures correctly")
+		})
+	}
+}
+
+// TestCollectMatches_RefSnapshots tests collectMatches via RefSnapshot traversal
+func TestCollectMatches_RefSnapshots(t *testing.T) {
+	sanitizer := NewSanitizer()
+
+	data := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "ComponentWithRefs",
+				Refs: []*RefSnapshot{
+					{
+						ID:    "ref-1",
+						Name:  "authToken",
+						Type:  "string",
+						Value: "password=ref_secret",
+					},
+					{
+						ID:   "ref-2",
+						Name: "config",
+						Type: "map",
+						Value: map[string]interface{}{
+							"apiKey": "sk_ref_key",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	opts := SanitizeOptions{DryRun: true}
+	_, dryRunResult := sanitizer.SanitizeWithOptions(data, opts)
+
+	require.NotNil(t, dryRunResult, "DryRunResult should be present")
+	assert.GreaterOrEqual(t, dryRunResult.WouldRedactCount, 1,
+		"Should detect sensitive data in RefSnapshots")
+}
+
+// TestBuildPath tests the buildPath helper function
+func TestBuildPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		parent   string
+		child    string
+		expected string
+	}{
+		{
+			name:     "empty parent",
+			parent:   "",
+			child:    "field",
+			expected: "field",
+		},
+		{
+			name:     "non-empty parent",
+			parent:   "root",
+			child:    "field",
+			expected: "root.field",
+		},
+		{
+			name:     "nested path",
+			parent:   "root.nested",
+			child:    "field",
+			expected: "root.nested.field",
+		},
+		{
+			name:     "empty child",
+			parent:   "root",
+			child:    "",
+			expected: "root.",
+		},
+		{
+			name:     "both empty",
+			parent:   "",
+			child:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildPath(tt.parent, tt.child)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

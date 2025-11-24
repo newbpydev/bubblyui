@@ -521,3 +521,157 @@ func TestList_SelectionHighlight(t *testing.T) {
 	assert.NotEmpty(t, output, "Output should not be empty")
 	assert.Contains(t, output, "Item 1")
 }
+
+// ============================================================================
+// LIST HELPER FUNCTION TESTS - Additional Coverage
+// ============================================================================
+
+func TestList_VirtualScroll_ScrollDown(t *testing.T) {
+	// Create a long list with virtual scrolling
+	items := bubbly.NewRef([]string{
+		"Item 1", "Item 2", "Item 3", "Item 4", "Item 5",
+		"Item 6", "Item 7", "Item 8", "Item 9", "Item 10",
+		"Item 11", "Item 12", "Item 13", "Item 14", "Item 15",
+	})
+
+	list := List(ListProps[string]{
+		Items:  items,
+		Height: 5, // Only show 5 items at a time
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Navigate down past visible area to trigger scroll adjustment
+	for i := 0; i < 7; i++ {
+		list.Emit("keyDown", nil)
+	}
+
+	output := list.View()
+	assert.NotEmpty(t, output, "Should render after scrolling")
+}
+
+func TestList_VirtualScroll_ScrollUp(t *testing.T) {
+	// Create a list and scroll down then up
+	items := bubbly.NewRef([]string{
+		"Item 1", "Item 2", "Item 3", "Item 4", "Item 5",
+		"Item 6", "Item 7", "Item 8", "Item 9", "Item 10",
+	})
+
+	list := List(ListProps[string]{
+		Items:  items,
+		Height: 3,
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Navigate down to scroll
+	for i := 0; i < 6; i++ {
+		list.Emit("keyDown", nil)
+	}
+
+	// Navigate up past visible area to trigger scroll up adjustment
+	for i := 0; i < 6; i++ {
+		list.Emit("keyUp", nil)
+	}
+
+	output := list.View()
+	assert.NotEmpty(t, output, "Should render after scroll up")
+}
+
+func TestList_SelectItem_OutOfBounds_Negative(t *testing.T) {
+	items := bubbly.NewRef([]string{"Item 1", "Item 2"})
+
+	list := List(ListProps[string]{
+		Items: items,
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Try to select negative index via direct emit (simulating edge case)
+	assert.NotPanics(t, func() {
+		list.Emit("select", -1)
+	})
+}
+
+func TestList_SelectItem_OutOfBounds_TooLarge(t *testing.T) {
+	items := bubbly.NewRef([]string{"Item 1", "Item 2"})
+
+	list := List(ListProps[string]{
+		Items: items,
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Try to select index beyond list length
+	assert.NotPanics(t, func() {
+		list.Emit("select", 100)
+	})
+}
+
+func TestList_ZeroHeight(t *testing.T) {
+	// Test with Height = 0 (should use default)
+	items := bubbly.NewRef([]string{"Item 1", "Item 2", "Item 3"})
+
+	list := List(ListProps[string]{
+		Items:  items,
+		Height: 0, // Zero height should use default (10)
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Navigate to trigger scroll offset calculation
+	for i := 0; i < 3; i++ {
+		list.Emit("keyDown", nil)
+	}
+
+	output := list.View()
+	assert.NotEmpty(t, output, "Should render with default height")
+}
+
+func TestList_ScrollOffset_BeyondVisible(t *testing.T) {
+	// Test scrolling when selected item is well beyond visible area
+	items := bubbly.NewRef([]string{
+		"Item 1", "Item 2", "Item 3", "Item 4", "Item 5",
+		"Item 6", "Item 7", "Item 8", "Item 9", "Item 10",
+		"Item 11", "Item 12", "Item 13", "Item 14", "Item 15",
+		"Item 16", "Item 17", "Item 18", "Item 19", "Item 20",
+	})
+
+	list := List(ListProps[string]{
+		Items:  items,
+		Height: 5,
+		RenderItem: func(item string, index int) string {
+			return item
+		},
+	})
+
+	list.Init()
+
+	// Navigate well past visible area
+	for i := 0; i < 15; i++ {
+		list.Emit("keyDown", nil)
+	}
+
+	// Then navigate back up past current visible area
+	for i := 0; i < 10; i++ {
+		list.Emit("keyUp", nil)
+	}
+
+	output := list.View()
+	assert.NotEmpty(t, output, "Should handle extensive scroll operations")
+}

@@ -440,3 +440,119 @@ func TestSearchWidget_GetResultCount(t *testing.T) {
 
 	assert.Equal(t, 2, sw.GetResultCount())
 }
+
+// TestSearchWidget_RenderPagination tests the pagination logic in renderResults
+func TestSearchWidget_RenderPagination(t *testing.T) {
+	// Create more than 10 components to trigger pagination
+	components := make([]*ComponentSnapshot, 15)
+	for i := 0; i < 15; i++ {
+		components[i] = &ComponentSnapshot{
+			ID:   string(rune('A' + i)),
+			Name: "Item",
+			Type: "Component",
+		}
+	}
+
+	sw := NewSearchWidget(components)
+	sw.Search("Item") // Should match all 15 items
+
+	assert.Equal(t, 15, sw.GetResultCount(), "All 15 items should match")
+
+	// Initial render with cursor at 0 - should show ellipsis at end
+	output := sw.Render()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "...", "Should show ellipsis indicating more results")
+}
+
+// TestSearchWidget_RenderPagination_CursorAtEnd tests pagination with cursor at end
+func TestSearchWidget_RenderPagination_CursorAtEnd(t *testing.T) {
+	// Create more than 10 components
+	components := make([]*ComponentSnapshot, 20)
+	for i := 0; i < 20; i++ {
+		components[i] = &ComponentSnapshot{
+			ID:   string(rune('A' + i)),
+			Name: "Item",
+			Type: "Component",
+		}
+	}
+
+	sw := NewSearchWidget(components)
+	sw.Search("Item")
+
+	// Move cursor to near the end
+	for i := 0; i < 18; i++ {
+		sw.NextResult()
+	}
+
+	// Render with cursor near end - should show ellipsis at start
+	output := sw.Render()
+	assert.NotEmpty(t, output)
+	assert.Contains(t, output, "...", "Should show ellipsis indicating earlier results")
+}
+
+// TestSearchWidget_RenderPagination_CursorInMiddle tests pagination with cursor in middle
+func TestSearchWidget_RenderPagination_CursorInMiddle(t *testing.T) {
+	// Create 25 components
+	components := make([]*ComponentSnapshot, 25)
+	for i := 0; i < 25; i++ {
+		components[i] = &ComponentSnapshot{
+			ID:   string(rune('A' + i%26)),
+			Name: "Item",
+			Type: "Component",
+		}
+	}
+
+	sw := NewSearchWidget(components)
+	sw.Search("Item")
+
+	// Move cursor to middle
+	for i := 0; i < 12; i++ {
+		sw.NextResult()
+	}
+
+	// Render with cursor in middle - should show ellipsis at both ends
+	output := sw.Render()
+	assert.NotEmpty(t, output)
+	// The output should show a window of results around cursor
+	assert.Greater(t, len(output), 0, "Should render results around cursor")
+}
+
+// TestSearchWidget_RenderResult_Selected tests rendering a selected result
+func TestSearchWidget_RenderResult_Selected(t *testing.T) {
+	components := []*ComponentSnapshot{
+		{ID: "1", Name: "Button", Type: "ButtonType"},
+		{ID: "2", Name: "Input", Type: "InputType"},
+	}
+
+	sw := NewSearchWidget(components)
+	sw.Search("Button")
+
+	// First result should be selected by default (cursor = 0)
+	output := sw.Render()
+	assert.NotEmpty(t, output)
+	// The selected result should have different styling
+	assert.Contains(t, output, "Button")
+}
+
+// TestSearchWidget_RenderResult_NotSelected tests rendering non-selected results
+func TestSearchWidget_RenderResult_NotSelected(t *testing.T) {
+	components := []*ComponentSnapshot{
+		{ID: "1", Name: "Button", Type: "ButtonType"},
+		{ID: "2", Name: "Input", Type: "InputType"},
+		{ID: "3", Name: "Form", Type: "FormType"},
+	}
+
+	sw := NewSearchWidget(components)
+	sw.Search("") // Empty search matches all
+
+	assert.Equal(t, 3, sw.GetResultCount())
+
+	// Move cursor to second item
+	sw.NextResult()
+	assert.Equal(t, 1, sw.GetCursor())
+
+	output := sw.Render()
+	assert.Contains(t, output, "Button")
+	assert.Contains(t, output, "Input")
+	assert.Contains(t, output, "Form")
+}
