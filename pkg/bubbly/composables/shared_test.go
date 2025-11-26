@@ -238,3 +238,147 @@ func TestCreateShared_PersistsAcrossLifecycle(t *testing.T) {
 	assert.Equal(t, int32(1), initCount.Load(), "Factory should be called only once")
 	assert.Equal(t, int32(3), counter2.count.Load(), "State should persist across contexts")
 }
+
+// ====================================================================
+// BENCHMARKS - Shared Composable Performance Validation
+// ====================================================================
+//
+// Performance Targets (from tasks.md Task 6.2):
+// - Subsequent calls ≤ 50ns/op
+// - Memory savings vs recreated composables
+// - sync.Once overhead acceptable
+//
+// Benchmark Targets (from designs.md line 418):
+// - BenchmarkSharedComposable: 50000000 ops, 30 ns/op, 0 B/op, 0 allocs/op
+
+// benchmarkComposable is a simple composable for benchmarking
+type benchmarkComposable struct {
+	count *atomic.Int32
+}
+
+func newBenchmarkComposable(_ *bubbly.Context) *benchmarkComposable {
+	return &benchmarkComposable{
+		count: &atomic.Int32{},
+	}
+}
+
+// BenchmarkSharedComposable_FirstCall benchmarks the initial creation of a shared composable.
+// This measures the overhead of sync.Once initialization.
+//
+// Note: This benchmark creates a new shared factory for each iteration to measure
+// the first-call overhead. In real usage, this happens only once per application.
+func BenchmarkSharedComposable_FirstCall(b *testing.B) {
+	ctx := createTestContext()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		// Create new shared factory each iteration to measure first-call overhead
+		UseShared := CreateShared(newBenchmarkComposable)
+		_ = UseShared(ctx)
+	}
+}
+
+// BenchmarkSharedComposable_SubsequentCalls benchmarks cached access to a shared composable.
+// This measures the overhead of sync.Once on subsequent calls (should be very fast).
+//
+// Target: ≤50ns/op, 0 allocations
+func BenchmarkSharedComposable_SubsequentCalls(b *testing.B) {
+	// Setup: Create shared factory and initialize it once
+	UseSharedCounter := CreateShared(newBenchmarkComposable)
+	ctx := createTestContext()
+
+	// Initialize the shared composable (first call)
+	_ = UseSharedCounter(ctx)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// Benchmark subsequent calls (cached access)
+	for i := 0; i < b.N; i++ {
+		_ = UseSharedCounter(ctx)
+	}
+}
+
+// BenchmarkRecreatedComposable benchmarks creating a new composable each time.
+// This is the baseline comparison for CreateShared - the old way of doing things.
+//
+// This benchmark measures the overhead of recreating composables without sharing,
+// to compare with the shared pattern and show memory savings.
+func BenchmarkRecreatedComposable(b *testing.B) {
+	ctx := createTestContext()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// Benchmark recreating composable each time (non-shared pattern)
+	for i := 0; i < b.N; i++ {
+		_ = newBenchmarkComposable(ctx)
+	}
+}
+
+// BenchmarkSharedComposable_ConcurrentAccess benchmarks concurrent access to shared composable.
+// This measures the overhead of sync.Once under concurrent load.
+func BenchmarkSharedComposable_ConcurrentAccess(b *testing.B) {
+	// Setup: Create shared factory and initialize it once
+	UseSharedCounter := CreateShared(newBenchmarkComposable)
+	ctx := createTestContext()
+
+	// Initialize the shared composable (first call)
+	_ = UseSharedCounter(ctx)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// Benchmark concurrent access
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_ = UseSharedCounter(ctx)
+		}
+	})
+}
+
+// BenchmarkSharedComposable_WithState benchmarks shared composable with state operations.
+// This measures real-world usage with state modifications.
+func BenchmarkSharedComposable_WithState(b *testing.B) {
+	// Setup: Create shared factory with state
+	UseSharedCounter := CreateShared(func(ctx *bubbly.Context) *benchmarkComposable {
+		return &benchmarkComposable{
+			count: &atomic.Int32{},
+		}
+	})
+	ctx := createTestContext()
+
+	// Initialize the shared composable
+	counter := UseSharedCounter(ctx)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// Benchmark access + state operation
+	for i := 0; i < b.N; i++ {
+		c := UseSharedCounter(ctx)
+		c.count.Add(1)
+		_ = c.count.Load()
+	}
+
+	// Prevent compiler optimization
+	_ = counter
+}
+
+// BenchmarkRecreatedComposable_WithState benchmarks recreated composable with state operations.
+// This is the baseline comparison for BenchmarkSharedComposable_WithState.
+func BenchmarkRecreatedComposable_WithState(b *testing.B) {
+	ctx := createTestContext()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	// Benchmark recreating composable + state operation each time
+	for i := 0; i < b.N; i++ {
+		c := newBenchmarkComposable(ctx)
+		c.count.Add(1)
+		_ = c.count.Load()
+	}
+}
