@@ -1089,20 +1089,47 @@ func BenchmarkRecreatedComposable(b *testing.B) {
 - `.windsurf/rules/component-reference.md` (MODIFY)
 
 **Updates**:
-- [ ] Add UseTheme/ProvideTheme to "Always Do" section
-- [ ] Add WithKeyBindings to builder patterns
-- [ ] Add CreateShared to composables section
-- [ ] Update "Never Do" with old patterns marked as optional
-- [ ] Add code examples inline
+- [x] Add UseTheme/ProvideTheme to "Always Do" section
+- [x] Add WithMultiKeyBindings to builder patterns
+- [x] Add CreateShared to composables section
+- [x] Update "Never Do" with old patterns marked as optional
+- [x] Add code examples inline
 
 **Estimated Effort**: 1 hour
 
 **Priority**: MEDIUM
 
 **Completion Criteria**:
-- Reference guide current
-- Examples use new patterns
-- Old patterns marked as alternative
+- [x] Reference guide current
+- [x] Examples use new patterns
+- [x] Old patterns marked as alternative
+
+**Implementation Notes** (Completed):
+- Updated `.windsurf/rules/component-reference.md` (440 → 521 lines, +81 lines)
+- Added **Theme Integration** section updates:
+  - New "UseTheme/ProvideTheme Pattern (PREFERRED - 94% less code)" section
+  - New "Customizing Theme" section with example
+  - Renamed old pattern to "Legacy Provide/Inject Pattern (still works)"
+  - Updated Theme Struct Fields with proper godoc-style comments
+- Added **Multi-Key Bindings** section (NEW - 67% less code):
+  - `WithMultiKeyBindings` example with vim keys + arrows
+  - Marked old `WithKeyBinding` as "ALTERNATIVE: more verbose"
+- Added **Shared Composables** section (NEW - Singleton Pattern):
+  - `CreateShared` example with use cases
+  - Thread-safety note (sync.Once)
+- Updated **NEVER Do These** section:
+  - Added "Verbose Theme Patterns (Use Automation Instead)"
+  - Added "Repeated Key Bindings (Use WithMultiKeyBindings)"
+  - Old patterns marked with ⚠️ OPTIONAL
+- Updated **ALWAYS Do These** section:
+  - Item 4: Changed from `ctx.Provide("theme")` to `ctx.ProvideTheme()`
+  - Item 5: Added `WithMultiKeyBindings` for grouped keys
+  - Item 10: Added `CreateShared` for singleton composables
+- Updated **Quick Reference Checklist**:
+  - Added `ctx.ProvideTheme()` / `ctx.UseTheme()` check
+  - Added `WithMultiKeyBindings` check
+  - Added `CreateShared` consideration
+- Actual effort: 30 minutes (under estimate)
 
 ---
 
