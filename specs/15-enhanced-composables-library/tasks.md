@@ -46,7 +46,7 @@
   - Race detector passes, no goroutine leaks
   - Default 80x24 terminal size with MD breakpoint
 
-### Task 1.2: UseFocus
+### Task 1.2: UseFocus ✅ COMPLETED
 - **Description**: Multi-pane focus management with generic type support
 - **Prerequisites**: Task 1.1
 - **Unlocks**: Task 1.3
@@ -61,14 +61,23 @@
   func UseFocus[T comparable](ctx *bubbly.Context, initial T, order []T) *FocusReturn[T]
   ```
 - **Tests**:
-  - [ ] Initial focus set correctly
-  - [ ] Next() cycles through order
-  - [ ] Previous() cycles backward
-  - [ ] Focus() sets specific pane
-  - [ ] IsFocused() returns correct value
-  - [ ] Empty order panics
-  - [ ] Single item order stays focused
+  - [x] Initial focus set correctly
+  - [x] Next() cycles through order
+  - [x] Previous() cycles backward
+  - [x] Focus() sets specific pane
+  - [x] IsFocused() returns correct value
+  - [x] Empty order panics
+  - [x] Single item order stays focused
 - **Estimated effort**: 3 hours
+- **Implementation Notes**:
+  - 13 test functions covering all requirements and edge cases
+  - 88.9% coverage on composables package (above 80% requirement)
+  - Generic type support verified with int (FocusPane) and string types
+  - Works with CreateShared pattern for cross-component sharing
+  - Race detector passes, no goroutine leaks
+  - Focus on non-existent pane is no-op (safe behavior)
+  - Initial value not in order defaults to first item in order
+  - Comprehensive godoc comments with examples
 
 ### Task 1.3: UseScroll
 - **Description**: Viewport scrolling management
