@@ -1,10 +1,10 @@
 # Master Tasks Checklist - BubblyUI
 
 **Last Updated:** November 26, 2025  
-**Total Features:** 13 (00-12)  
-**Specifications Complete:** 13/13 (100%)  
-**Implementation Complete:** 4/13 (31%)  
-**Total Estimated Effort:** ~770 hours
+**Total Features:** 14 (00-13, 14)  
+**Specifications Complete:** 14/14 (100%)  
+**Implementation Complete:** 4/14 (29%)  
+**Total Estimated Effort:** ~786 hours
 
 ---
 
@@ -474,6 +474,56 @@
 
 ---
 
+### 14-advanced-layout-system
+**Status:** Specified, Not Implemented  
+**Coverage:** 0%  
+**Prerequisites:** 06-built-in-components (components package exists)  
+**Unlocks:** Professional TUI layouts, dashboard patterns, responsive designs
+
+#### Requirements
+- [x] requirements.md complete
+- [x] designs.md complete
+- [x] user-workflow.md complete
+- [x] tasks.md complete (15 tasks)
+
+#### Implementation (15 tasks, ~16 hours)
+- [ ] Phase 1: Type Definitions (0.5 hours)
+  - [ ] Task 1.1: Layout type constants
+- [ ] Phase 2: Atoms (2.25 hours)
+  - [ ] Task 2.1: Box component
+  - [ ] Task 2.2: Divider component
+  - [ ] Task 2.3: Enhanced Spacer
+- [ ] Phase 3: Molecules (4.25 hours)
+  - [ ] Task 3.1: HStack component
+  - [ ] Task 3.2: VStack component
+  - [ ] Task 3.3: Center component
+  - [ ] Task 3.4: Container component
+- [ ] Phase 4: Organisms (6 hours)
+  - [ ] Task 4.1: Flex component - core
+  - [ ] Task 4.2: Flex space distribution
+  - [ ] Task 4.3: Flex cross-axis alignment
+  - [ ] Task 4.4: Flex wrap support
+- [ ] Phase 5: Integration (3 hours)
+  - [ ] Task 5.1: Theme integration
+  - [ ] Task 5.2: Integration tests
+  - [ ] Task 5.3: Documentation & examples
+
+#### Testing
+- [ ] Unit tests (target: >80%)
+- [ ] Integration tests (nesting, composition)
+- [ ] Performance benchmarks (<10ms render)
+- [ ] Visual regression tests
+
+#### Key Features
+- **Flex**: Flexbox-style layout (row/column, justify, align, gap, wrap)
+- **HStack/VStack**: Simple horizontal/vertical stacking
+- **Center**: Center content horizontally/vertically
+- **Box**: Generic container with padding/border/title
+- **Divider**: Visual separator lines
+- **Container**: Width-constrained centered container
+
+---
+
 ## Integration Validation
 
 ### Cross-Feature Integration
@@ -488,6 +538,7 @@
 - [ ] Testing utilities test all features (10 + 01-08)
 - [ ] Profiler analyzes all features (11 + 01-08)
 - [x] Internal automations reduce boilerplate (13 + 08, 02, 04) ✅
+- [ ] Layout primitives work with all components (14 + 06, 02)
 
 ### Bubbletea Integration
 - [ ] Components wrap Bubbletea models
@@ -859,6 +910,9 @@ make bench
 **Phase 5: Advanced Automation** ✅ COMPLETE
 - ✅ 13-adv-internal-package-automation (~20 hours) - **170+ lines eliminated, VueUse patterns** ✅ DONE
 
+**Phase 6: Layout System** (Fully Specified)
+- 📋 14-advanced-layout-system (~16 hours) - **Flexbox-like layouts, HStack/VStack, Center, Box, Divider**
+
 ### Timeline to v1.0
 
 - **v0.1.x** (Current): Foundation complete by Nov 2025
@@ -887,5 +941,5 @@ make bench
 ---
 
 **Document Status**: Complete ✅  
-**Last Major Update**: November 26, 2025 - Feature 13 (Advanced Internal Package Automation) COMPLETE  
-**Next Review**: After Feature 03 completion or Feature 04 implementation begins
+**Last Major Update**: November 26, 2025 - Feature 14 (Advanced Layout System) SPECIFIED  
+**Next Review**: After Feature 14 implementation begins or Phase 3 features start
