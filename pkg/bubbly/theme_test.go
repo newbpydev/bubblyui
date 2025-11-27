@@ -361,6 +361,8 @@ func BenchmarkThemeInjection(b *testing.B) {
 // 3. Expose each color for template access
 //
 // This benchmark measures the overhead of the old pattern to compare with UseTheme.
+//
+//nolint:gocyclo // High cyclomatic complexity is intentional - simulates real-world old pattern with 7 colors
 func BenchmarkManualInjectExpose(b *testing.B) {
 	// Setup: Create parent-child component hierarchy with individual colors provided
 	parent := &componentImpl{

@@ -961,7 +961,7 @@ func TestGetRegisteredHook_Coverage(t *testing.T) {
 	original := GetRegisteredHook()
 	defer func() {
 		if original != nil {
-			RegisterHook(original)
+			_ = RegisterHook(original)
 		} else {
 			_ = UnregisterHook()
 		}

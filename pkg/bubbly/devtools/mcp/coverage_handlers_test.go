@@ -551,5 +551,6 @@ func TestExportTool_Compression_Extended(t *testing.T) {
 	if statErr != nil {
 		// Try without .gz extension
 		_, statErr = os.Stat(filepath.Join(tmpDir, "export.json"))
+		_ = statErr // Intentionally ignoring - we're just checking if file exists
 	}
 }

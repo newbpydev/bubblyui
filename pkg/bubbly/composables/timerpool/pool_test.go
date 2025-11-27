@@ -229,14 +229,9 @@ func TestTimerPool_DoubleRelease(t *testing.T) {
 
 // TestEnableGlobalPool tests the EnableGlobalPool function
 func TestEnableGlobalPool(t *testing.T) {
-	// Save original state
-	originalPool := GlobalPool
-	defer func() {
-		GlobalPool = originalPool
-	}()
-
-	// Reset to nil
-	GlobalPool = nil
+	// Reset global pool state for clean test
+	ResetGlobalPoolForTesting()
+	defer ResetGlobalPoolForTesting()
 
 	// Enable global pool
 	EnableGlobalPool()
@@ -256,14 +251,9 @@ func TestEnableGlobalPool(t *testing.T) {
 
 // TestEnableGlobalPool_Concurrent tests concurrent EnableGlobalPool calls
 func TestEnableGlobalPool_Concurrent(t *testing.T) {
-	// Save original state
-	originalPool := GlobalPool
-	defer func() {
-		GlobalPool = originalPool
-	}()
-
-	// Reset to nil
-	GlobalPool = nil
+	// Reset global pool state for clean test
+	ResetGlobalPoolForTesting()
+	defer ResetGlobalPoolForTesting()
 
 	var wg sync.WaitGroup
 	numGoroutines := 10

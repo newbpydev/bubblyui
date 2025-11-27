@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestNewDataCollector_CreatesInstance tests that NewDataCollector creates a valid instance

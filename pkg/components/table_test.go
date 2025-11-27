@@ -1179,9 +1179,8 @@ func TestTable_Sorting_Float64Column(t *testing.T) {
 
 func TestTable_Sorting_MixedTypeComparison(t *testing.T) {
 	// Test comparison fallback to string when types don't match
-	type Mixed struct {
-		Value interface{}
-	}
+	// Note: Mixed type is defined but not used directly - the test verifies
+	// the compareValues fallback case using User type with string comparison.
 
 	// This tests the compareValues fallback case
 	data := bubbly.NewRef([]User{

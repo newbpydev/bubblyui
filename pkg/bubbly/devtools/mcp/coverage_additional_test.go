@@ -97,13 +97,13 @@ func TestStateChangeDetector_SetNotifier_ThreadSafe(t *testing.T) {
 	wg.Add(10)
 
 	for i := 0; i < 10; i++ {
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			mockNotifier := &mockNotificationSender{
 				notifications: make([]mockNotification, 0),
 			}
 			detector.SetNotifier(mockNotifier)
-		}(i)
+		}()
 	}
 
 	wg.Wait()

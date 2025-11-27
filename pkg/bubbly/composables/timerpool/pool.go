@@ -249,6 +249,11 @@ func (tp *TimerPool) Stats() Stats {
 //	debounced := UseDebounce(ctx, value, 300*time.Millisecond)
 var GlobalPool *TimerPool
 
+// globalPoolOnce ensures thread-safe initialization of GlobalPool.
+// Using sync.Once guarantees that NewTimerPool() is called exactly once,
+// even when EnableGlobalPool() is called concurrently from multiple goroutines.
+var globalPoolOnce sync.Once
+
 // EnableGlobalPool initializes and enables the global timer pool.
 //
 // After calling this, all UseDebounce and UseThrottle composables will automatically
@@ -261,9 +266,20 @@ var GlobalPool *TimerPool
 //	    // ... rest of application ...
 //	}
 //
-// Thread-safe: Safe to call concurrently from multiple goroutines.
+// Thread-safe: Safe to call concurrently from multiple goroutines via sync.Once.
 func EnableGlobalPool() {
-	if GlobalPool == nil {
+	globalPoolOnce.Do(func() {
 		GlobalPool = NewTimerPool()
-	}
+	})
+}
+
+// ResetGlobalPoolForTesting resets the global pool state for testing purposes.
+// This function is ONLY for use in tests and should never be called in production code.
+// It resets both GlobalPool and the sync.Once guard to allow re-initialization.
+//
+// WARNING: This is not thread-safe and should only be called when no other goroutines
+// are accessing GlobalPool.
+func ResetGlobalPoolForTesting() {
+	GlobalPool = nil
+	globalPoolOnce = sync.Once{}
 }
