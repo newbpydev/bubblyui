@@ -64,11 +64,12 @@ func CreateDashboardDemo() (bubbly.Component, error) {
 			header.Init()
 
 			// Header box with border
+			// Width = sidebar (20) + contentBox (71 + 2 border) = 93
 			headerBox := components.Box(components.BoxProps{
 				Child:   header,
 				Padding: 1,
 				Border:  true,
-				Width:   78,
+				Width:   93,
 			})
 			headerBox.Init()
 
@@ -121,21 +122,25 @@ func CreateDashboardDemo() (bubbly.Component, error) {
 					Foreground(stat.color)
 
 				content := fmt.Sprintf("%s\n%s", stat.icon, valueStyle.Render(stat.value))
+				// Width must be at least 14 to fit: 2 (border) + 2 (padding) + content
+				// "Revenue" is 7 chars, "$45.2K" is 6 chars - need at least 14 for proper borders
 				card := components.Card(components.CardProps{
 					Title:   stat.title,
 					Content: content,
-					Width:   12,
+					Width:   14,
 				})
 				card.Init()
 				cardComponents = append(cardComponents, card)
 			}
 
 			// Flex layout for cards with space-between
+			// Card Width=14 renders to 16 chars (14 + 2 for border)
+			// 4 cards × 16 = 64, plus 3 gaps × 1 = 3, total = 67 chars
 			cardGrid := components.Flex(components.FlexProps{
 				Items:   cardComponents,
 				Justify: components.JustifySpaceBetween,
 				Gap:     1,
-				Width:   54,
+				Width:   67,
 			})
 			cardGrid.Init()
 
@@ -146,7 +151,7 @@ func CreateDashboardDemo() (bubbly.Component, error) {
 			contentTitle.Init()
 
 			contentDivider := components.Divider(components.DividerProps{
-				Length: 52,
+				Length: 65,
 				Label:  "Stats",
 			})
 			contentDivider.Init()
@@ -157,11 +162,15 @@ func CreateDashboardDemo() (bubbly.Component, error) {
 			})
 			contentArea.Init()
 
+			// Box Width must accommodate content (67 chars) + padding (2) = 69
+			// Lipgloss Width sets content area, padding is inside that
+			// So we need Width >= 67 + 2 (padding left/right) = 69
+			// Adding 2 more for safety margin = 71
 			contentBox := components.Box(components.BoxProps{
 				Child:   contentArea,
 				Padding: 1,
 				Border:  true,
-				Width:   56,
+				Width:   71,
 			})
 			contentBox.Init()
 
@@ -181,7 +190,7 @@ func CreateDashboardDemo() (bubbly.Component, error) {
 
 			footerCenter := components.Center(components.CenterProps{
 				Child: footerText,
-				Width: 78,
+				Width: 93,
 			})
 			footerCenter.Init()
 
