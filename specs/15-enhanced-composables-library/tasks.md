@@ -114,7 +114,7 @@
   - Handles edge cases: empty list, visible >= total, negative inputs
   - Comprehensive godoc comments with examples
 
-### Task 1.4: UseSelection
+### Task 1.4: UseSelection ✅ COMPLETED
 - **Description**: List/table selection management with generic items
 - **Prerequisites**: Task 1.3
 - **Unlocks**: Task 1.5
@@ -126,20 +126,32 @@
   type SelectionReturn[T any] struct {
       SelectedIndex *bubbly.Ref[int]
       SelectedItem *bubbly.Computed[T]
+      SelectedIndices *bubbly.Ref[[]int]  // for multi-select
       Items *bubbly.Ref[[]T]
   }
   func UseSelection[T any](ctx *bubbly.Context, items []T, opts ...SelectionOption) *SelectionReturn[T]
   ```
 - **Tests**:
-  - [ ] Initial selection is 0
-  - [ ] SelectNext/SelectPrevious navigate
-  - [ ] Wrap option enables circular navigation
-  - [ ] SelectedItem computed correctly
-  - [ ] IsSelected returns correct value
-  - [ ] SetItems updates and adjusts selection
-  - [ ] Empty items list handled
-  - [ ] Multi-select mode (optional)
+  - [x] Initial selection is 0
+  - [x] SelectNext/SelectPrevious navigate
+  - [x] Wrap option enables circular navigation
+  - [x] SelectedItem computed correctly
+  - [x] IsSelected returns correct value
+  - [x] SetItems updates and adjusts selection
+  - [x] Empty items list handled
+  - [x] Multi-select mode (optional)
 - **Estimated effort**: 4 hours
+- **Implementation Notes**:
+  - 20 test functions with 30+ sub-tests covering all requirements and edge cases
+  - 90.4% coverage on composables package (above 80% requirement)
+  - Generic type support verified with string and custom types
+  - Includes: WithWrap, WithMultiSelect options
+  - Methods: Select, SelectNext, SelectPrevious, IsSelected, ToggleSelection, ClearSelection, SetItems
+  - Empty list returns -1 for SelectedIndex, zero value for SelectedItem
+  - Multi-select mode uses SelectedIndices for tracking multiple selections
+  - Works with CreateShared pattern for cross-component sharing
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 1.5: UseMode
 - **Description**: Navigation/input mode management
