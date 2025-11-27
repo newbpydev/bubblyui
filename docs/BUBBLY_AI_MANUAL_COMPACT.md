@@ -1,6 +1,6 @@
 # BubblyUI Compact Manual for AI Agents
 
-**Version:** 3.1 | **Updated:** November 26, 2025 | **Status:** VERIFIED  
+**Version:** 3.2 | **Updated:** November 27, 2025 | **Status:** VERIFIED (Feature 13-14)  
 **Philosophy:** Zero boilerplate TUI framework with Vue-inspired composables
 
 ---
@@ -181,7 +181,7 @@ var UseSharedCounter = composables.CreateShared(func(ctx *bubbly.Context) *Count
 
 ---
 
-## Components Package (27 Components)
+## Components Package (35+ Components)
 
 ### Atoms
 ```go
@@ -189,7 +189,9 @@ components.Button(ButtonProps{Label, Variant, OnClick, Disabled})
 components.Text(TextProps{Content, Color})
 components.Chip(ChipProps{Label, Variant})  // Badge
 components.Icon(IconProps{Icon, Color})
-components.Spacer(SpacerProps{Height})
+components.Spacer(SpacerProps{Height, Width, Flex})  // Flex: expands to fill
+components.Box(BoxProps{Child, Content, Padding, Border, Title})
+components.Divider(DividerProps{Vertical, Length, Label, Char})
 ```
 
 ### Form Inputs (Require Ref)
@@ -213,7 +215,7 @@ components.Modal(ModalProps{Title, Content, Visible: ref, OnConfirm, OnCancel})
 components.Form(FormProps{Fields, OnSubmit, SubmitButton})
 ```
 
-### Layouts
+### Legacy Layouts
 ```go
 components.AppLayout(AppLayoutProps{Header, Sidebar, Main, Footer})
 components.PageLayout(PageLayoutProps{Title, Content, Actions})
@@ -225,6 +227,80 @@ components.GridLayout(GridLayoutProps{Columns, Rows, Cells, Border})
 card := components.Card(props)
 card.Init()  // REQUIRED before View()
 return card.View()
+```
+
+---
+
+## Advanced Layout System (Feature 14)
+
+### Layout Type Constants
+```go
+// Direction: FlexRow, FlexColumn
+// Justify: JustifyStart, JustifyCenter, JustifyEnd, JustifySpaceBetween, JustifySpaceAround, JustifySpaceEvenly
+// Align: AlignItemsStart, AlignItemsCenter, AlignItemsEnd, AlignItemsStretch
+// Container: ContainerSm(40), ContainerMd(60), ContainerLg(80), ContainerXl(100), ContainerFull
+```
+
+### Stack Components (Molecule)
+```go
+// HStack - horizontal layout
+hstack := components.HStack(components.StackProps{
+    Items:   []interface{}{logo, spacer, btn1, btn2},
+    Spacing: 2,
+    Align:   components.AlignItemsCenter,
+    Divider: true,
+})
+
+// VStack - vertical layout
+vstack := components.VStack(components.StackProps{
+    Items:   []interface{}{header, content, footer},
+    Spacing: 1,
+    Divider: true,
+})
+```
+
+### Centering & Containers (Molecule)
+```go
+// Center - centers child in both directions (default)
+center := components.Center(components.CenterProps{
+    Child:  modal,
+    Width:  80,
+    Height: 24,
+})
+
+// Container - width-constrained container
+container := components.Container(components.ContainerProps{
+    Child:    content,
+    Size:     components.ContainerMd,  // 60 chars
+    Centered: true,
+})
+```
+
+### Flex (Organism - Flexbox)
+```go
+flex := components.Flex(components.FlexProps{
+    Items:     []bubbly.Component{item1, item2, item3},
+    Direction: components.FlexRow,         // or FlexColumn
+    Justify:   components.JustifySpaceBetween,
+    Align:     components.AlignItemsCenter,
+    Gap:       2,
+    Wrap:      true,                       // Enable wrapping
+    Width:     80,                         // Required for wrap
+})
+flex.Init()
+```
+
+### Responsive Pattern
+```go
+// Handle resize via WithMessageHandler
+.WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+    if wmsg, ok := msg.(tea.WindowSizeMsg); ok {
+        comp.Emit("resize", map[string]int{"width": wmsg.Width, "height": wmsg.Height})
+    }
+    return nil
+})
+
+// Breakpoints: xs(<60), sm(60-79), md(80-119), lg(120-159), xl(160+)
 ```
 
 ---
@@ -415,4 +491,4 @@ func CreateApp() (bubbly.Component, error) {
 
 ---
 
-**Total: ~450 lines vs 2600+ lines (83% reduction) - All essential APIs preserved**
+**Total: ~550 lines vs 3000+ lines (82% reduction) - All essential APIs preserved including Feature 14 layouts**
