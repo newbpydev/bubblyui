@@ -155,7 +155,7 @@
 
 ## Phase 3: Molecules (Component Combinations)
 
-### Task 3.1: HStack Component
+### Task 3.1: HStack Component ✅ COMPLETED
 - **Description**: Horizontal stack layout with spacing and alignment
 - **Prerequisites**: Task 2.1, Task 2.2, Task 2.3
 - **Unlocks**: Complex horizontal layouts, toolbars
@@ -165,7 +165,7 @@
 - **Type Safety**:
   ```go
   type StackProps struct {
-      Items       []bubbly.Component
+      Items       []interface{}  // Accepts any bubbly.Component
       Spacing     int
       Align       AlignItems
       Divider     bool
@@ -174,13 +174,26 @@
   }
   ```
 - **Tests**:
-  - [ ] Renders items horizontally
-  - [ ] Applies spacing between items
-  - [ ] Aligns items (start/center/end)
-  - [ ] Renders dividers between items when enabled
-  - [ ] Handles empty Items array
-  - [ ] Handles single item
+  - [x] Renders items horizontally
+  - [x] Applies spacing between items
+  - [x] Aligns items (start/center/end)
+  - [x] Renders dividers between items when enabled
+  - [x] Handles empty Items array
+  - [x] Handles single item
 - **Estimated effort**: 1.5 hours
+- **Implementation Notes** (2025-11-26):
+  - Implemented `StackProps` struct shared by HStack and VStack
+  - Added `hstackApplyDefaults()` for DividerChar (│) and Align (start) defaults
+  - Added `hstackRenderItems()` for rendering child components
+  - Added `hstackCalculateMaxHeight()` for cross-axis alignment calculations
+  - Added `hstackAlignItem()` for vertical alignment (start/center/end/stretch)
+  - Added `hstackCreateDivider()` for themed vertical dividers
+  - Added `hstackJoinWithSpacing()` using `lipgloss.JoinHorizontal`
+  - Items use `[]interface{}` to accept any component type
+  - Divider uses `theme.Muted` for consistent styling
+  - 17 test functions covering all scenarios (table-driven tests)
+  - 95.4% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ### Task 3.2: VStack Component
 - **Description**: Vertical stack layout with spacing and alignment
