@@ -12,7 +12,7 @@
 
 ## Phase 1: TUI-Specific Core Composables
 
-### Task 1.1: UseWindowSize
+### Task 1.1: UseWindowSize ✅ COMPLETED
 - **Description**: Terminal dimensions and responsive breakpoints composable
 - **Prerequisites**: None
 - **Unlocks**: Task 1.2, Phase 2 tasks
@@ -31,13 +31,20 @@
   func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn
   ```
 - **Tests**:
-  - [ ] Breakpoint calculation for all ranges (xs, sm, md, lg, xl)
-  - [ ] SetSize updates all derived values
-  - [ ] Min dimension enforcement
-  - [ ] Custom breakpoint configuration
-  - [ ] GetContentWidth with/without sidebar
-  - [ ] GetCardWidth calculation
+  - [x] Breakpoint calculation for all ranges (xs, sm, md, lg, xl)
+  - [x] SetSize updates all derived values
+  - [x] Min dimension enforcement
+  - [x] Custom breakpoint configuration
+  - [x] GetContentWidth with/without sidebar
+  - [x] GetCardWidth calculation
 - **Estimated effort**: 4 hours
+- **Implementation Notes**:
+  - 13 test functions with 30+ sub-tests covering all breakpoint ranges
+  - 100% coverage on all functions except GetCardWidth (80% - defensive edge case)
+  - Includes: WithBreakpoints, WithMinDimensions, WithSidebarWidth options
+  - Works with CreateShared pattern for cross-component sharing
+  - Race detector passes, no goroutine leaks
+  - Default 80x24 terminal size with MD breakpoint
 
 ### Task 1.2: UseFocus
 - **Description**: Multi-pane focus management with generic type support
