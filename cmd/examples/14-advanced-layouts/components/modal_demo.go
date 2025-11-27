@@ -51,7 +51,7 @@ func CreateModalDemo() (bubbly.Component, error) {
 			bgContent := `
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│   This is the background content of your application.          │
+│   This is the background content of your application.           │
 │                                                                 │
 │   When a modal is shown, it appears centered over this          │
 │   content using the Center component.                           │
