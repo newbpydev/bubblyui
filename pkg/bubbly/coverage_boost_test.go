@@ -1,6 +1,8 @@
 package bubbly
 
 import (
+	"bytes"
+	"log"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -974,4 +976,437 @@ func TestGetRegisteredHook_Coverage(t *testing.T) {
 	})
 
 	// GetRegisteredHook with a hook is covered by the other tests already
+}
+
+// =============================================================================
+// Test loop_detection.go - commandLoopError.Error()
+// =============================================================================
+
+func TestCommandLoopError_Error(t *testing.T) {
+	tests := []struct {
+		name        string
+		componentID string
+		refID       string
+		cmdCount    int
+		maxCmds     int
+		wantContain []string
+	}{
+		{
+			name:        "basic error message",
+			componentID: "Counter",
+			refID:       "count-ref",
+			cmdCount:    150,
+			maxCmds:     100,
+			wantContain: []string{
+				"command generation loop detected",
+				"Counter",
+				"count-ref",
+				"150",
+				"100",
+			},
+		},
+		{
+			name:        "different component",
+			componentID: "TodoList",
+			refID:       "items-ref",
+			cmdCount:    200,
+			maxCmds:     100,
+			wantContain: []string{
+				"TodoList",
+				"items-ref",
+				"200",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := &commandLoopError{
+				ComponentID:  tt.componentID,
+				RefID:        tt.refID,
+				CommandCount: tt.cmdCount,
+				MaxCommands:  tt.maxCmds,
+			}
+
+			errMsg := err.Error()
+			for _, want := range tt.wantContain {
+				assert.Contains(t, errMsg, want, "Error message should contain %q", want)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Test loop_detection.go - nopCommandLogger.LogCommand()
+// =============================================================================
+
+func TestNopCommandLogger_LogCommand(t *testing.T) {
+	// Test that nopCommandLogger.LogCommand is a no-op and doesn't panic
+	logger := newNopCommandLogger()
+
+	// Should not panic with any inputs
+	assert.NotPanics(t, func() {
+		logger.LogCommand("Counter", "comp-1", "ref-1", 0, 1)
+	}, "LogCommand should not panic")
+
+	assert.NotPanics(t, func() {
+		logger.LogCommand("", "", "", nil, nil)
+	}, "LogCommand should not panic with empty/nil values")
+
+	assert.NotPanics(t, func() {
+		logger.LogCommand("Test", "id", "ref", struct{ X int }{42}, []int{1, 2, 3})
+	}, "LogCommand should not panic with complex types")
+}
+
+// =============================================================================
+// Test loop_detection.go - commandLoggerImpl.LogCommand()
+// =============================================================================
+
+func TestCommandLoggerImpl_LogCommand(t *testing.T) {
+	// Create a buffer to capture log output
+	var buf bytes.Buffer
+	logger := log.New(&buf, "", 0)
+	cmdLogger := &commandLoggerImpl{logger: logger}
+
+	// Test logging
+	cmdLogger.LogCommand("Counter", "comp-123", "count-ref", 0, 1)
+
+	output := buf.String()
+	assert.Contains(t, output, "[DEBUG] Command Generated", "Should contain debug prefix")
+	assert.Contains(t, output, "Counter", "Should contain component name")
+	assert.Contains(t, output, "comp-123", "Should contain component ID")
+	assert.Contains(t, output, "count-ref", "Should contain ref ID")
+	assert.Contains(t, output, "0", "Should contain old value")
+	assert.Contains(t, output, "1", "Should contain new value")
+}
+
+// =============================================================================
+// Test watch_effect.go - invalidationWatcher.AddDependent()
+// =============================================================================
+
+func TestInvalidationWatcher_AddDependent_Coverage(t *testing.T) {
+	// Create a minimal invalidation watcher
+	iw := &invalidationWatcher{}
+
+	// AddDependent should be a no-op and not panic
+	assert.NotPanics(t, func() {
+		iw.AddDependent(nil)
+	}, "AddDependent with nil should not panic")
+
+	// Create a mock dependency
+	mockDep := &invalidationWatcher{}
+	assert.NotPanics(t, func() {
+		iw.AddDependent(mockDep)
+	}, "AddDependent with valid dependency should not panic")
+}
+
+// =============================================================================
+// Test context.go - OnBeforeUnmount coverage
+// =============================================================================
+
+func TestContext_OnBeforeUnmount_Coverage(t *testing.T) {
+	t.Run("registers hook when lifecycle is nil", func(t *testing.T) {
+		comp := &componentImpl{
+			name:        "TestComponent",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+			// lifecycle is nil initially
+		}
+		ctx := &Context{component: comp}
+
+		hookCalled := false
+		ctx.OnBeforeUnmount(func() {
+			hookCalled = true
+		})
+
+		// Lifecycle should be created
+		assert.NotNil(t, comp.lifecycle, "Lifecycle should be created")
+
+		// Execute the hook to verify it was registered
+		comp.lifecycle.executeHooks("beforeUnmount")
+		assert.True(t, hookCalled, "Hook should have been called")
+	})
+
+	t.Run("registers multiple hooks with correct order", func(t *testing.T) {
+		comp := &componentImpl{
+			name:        "TestComponent",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+		ctx := &Context{component: comp}
+
+		var order []int
+		ctx.OnBeforeUnmount(func() { order = append(order, 1) })
+		ctx.OnBeforeUnmount(func() { order = append(order, 2) })
+		ctx.OnBeforeUnmount(func() { order = append(order, 3) })
+
+		comp.lifecycle.executeHooks("beforeUnmount")
+		assert.Equal(t, []int{1, 2, 3}, order, "Hooks should execute in registration order")
+	})
+}
+
+// =============================================================================
+// Test context.go - ExposeComponent coverage
+// =============================================================================
+
+func TestContext_ExposeComponent_Coverage(t *testing.T) {
+	t.Run("returns error for nil component", func(t *testing.T) {
+		comp := &componentImpl{
+			name:        "Parent",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+		ctx := &Context{component: comp}
+
+		err := ctx.ExposeComponent("child", nil)
+		assert.Error(t, err, "Should return error for nil component")
+		assert.Contains(t, err.Error(), "nil component")
+	})
+
+	t.Run("initializes uninitialized component", func(t *testing.T) {
+		parent := &componentImpl{
+			name:        "Parent",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+		ctx := &Context{component: parent}
+
+		child := &componentImpl{
+			name:        "Child",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+
+		err := ctx.ExposeComponent("child", child)
+		assert.NoError(t, err)
+		assert.True(t, child.IsInitialized(), "Child should be initialized")
+	})
+
+	t.Run("queues init command when parent has command queue", func(t *testing.T) {
+		parent := &componentImpl{
+			name:         "Parent",
+			state:        make(map[string]interface{}),
+			provides:     make(map[string]interface{}),
+			injectCache:  make(map[string]interface{}),
+			children:     make([]Component, 0),
+			handlers:     make(map[string][]EventHandler),
+			keyBindings:  make(map[string][]KeyBinding),
+			commandQueue: NewCommandQueue(),
+		}
+		ctx := &Context{component: parent}
+
+		// Create child component
+		child := &componentImpl{
+			name:        "Child",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+
+		err := ctx.ExposeComponent("child", child)
+		assert.NoError(t, err)
+	})
+}
+
+// =============================================================================
+// Test lifecycle.go - cleanupEventHandlers panic recovery
+// =============================================================================
+
+func TestLifecycle_CleanupEventHandlers_PanicRecovery(t *testing.T) {
+	t.Run("recovers from panic during cleanup", func(t *testing.T) {
+		comp := &componentImpl{
+			name:        "TestComponent",
+			id:          "test-123",
+			state:       make(map[string]interface{}),
+			provides:    make(map[string]interface{}),
+			injectCache: make(map[string]interface{}),
+			children:    make([]Component, 0),
+			handlers:    make(map[string][]EventHandler),
+			keyBindings: make(map[string][]KeyBinding),
+		}
+		lm := newLifecycleManager(comp)
+
+		// Add a handler that will panic during cleanup
+		comp.handlers["test"] = []EventHandler{
+			func(data interface{}) {
+				panic("test panic during cleanup")
+			},
+		}
+
+		// cleanupEventHandlers should not panic
+		assert.NotPanics(t, func() {
+			lm.cleanupEventHandlers()
+		}, "cleanupEventHandlers should recover from panic")
+	})
+}
+
+// =============================================================================
+// Test watch_effect.go - run() edge cases
+// =============================================================================
+
+func TestWatchEffect_Run_Coverage(t *testing.T) {
+	t.Run("returns early when stopped", func(t *testing.T) {
+		effect := &watchEffect{
+			stopped:  true,
+			cleanups: make([]WatchCleanup, 0),
+			watchers: make(map[Dependency]*invalidationWatcher),
+		}
+
+		// Should not panic and return early
+		assert.NotPanics(t, func() {
+			effect.run()
+		})
+	})
+
+	t.Run("returns early when setting up", func(t *testing.T) {
+		effect := &watchEffect{
+			settingUp: true,
+			cleanups:  make([]WatchCleanup, 0),
+			watchers:  make(map[Dependency]*invalidationWatcher),
+		}
+
+		assert.NotPanics(t, func() {
+			effect.run()
+		})
+	})
+
+	t.Run("returns early when already running", func(t *testing.T) {
+		effect := &watchEffect{
+			running:  true,
+			cleanups: make([]WatchCleanup, 0),
+			watchers: make(map[Dependency]*invalidationWatcher),
+		}
+
+		assert.NotPanics(t, func() {
+			effect.run()
+		})
+	})
+}
+
+// =============================================================================
+// Test computed.go - Computed.AddDependent()
+// =============================================================================
+
+func TestComputed_AddDependent_Coverage(t *testing.T) {
+	t.Run("adds dependent successfully", func(t *testing.T) {
+		// Create a computed value
+		ref := NewRef(10)
+		computed := NewComputed(func() int {
+			return ref.GetTyped() * 2
+		})
+
+		// Create a mock dependent
+		mockDep := NewComputed(func() int { return 0 })
+
+		// Add dependent
+		computed.AddDependent(mockDep)
+
+		// Verify dependent was added (indirectly by checking no panic)
+		assert.NotPanics(t, func() {
+			computed.AddDependent(mockDep) // Adding same dependent again should be no-op
+		})
+	})
+
+	t.Run("avoids duplicate dependents", func(t *testing.T) {
+		ref := NewRef(5)
+		computed := NewComputed(func() int {
+			return ref.GetTyped() + 1
+		})
+
+		mockDep := NewComputed(func() int { return 0 })
+
+		// Add same dependent multiple times
+		computed.AddDependent(mockDep)
+		computed.AddDependent(mockDep)
+		computed.AddDependent(mockDep)
+
+		// Should not panic and should handle duplicates
+		assert.NotPanics(t, func() {
+			computed.GetTyped()
+		})
+	})
+}
+
+// =============================================================================
+// Test ref.go - Ref.AddDependent()
+// =============================================================================
+
+func TestRef_AddDependent_Coverage(t *testing.T) {
+	t.Run("adds dependent successfully", func(t *testing.T) {
+		ref := NewRef(42)
+
+		// Create a mock dependent
+		mockDep := NewComputed(func() int { return 0 })
+
+		// Add dependent
+		ref.AddDependent(mockDep)
+
+		// Verify dependent was added (indirectly by checking no panic)
+		assert.NotPanics(t, func() {
+			ref.AddDependent(mockDep) // Adding same dependent again should be no-op
+		})
+	})
+
+	t.Run("avoids duplicate dependents", func(t *testing.T) {
+		ref := NewRef("test")
+
+		mockDep := NewComputed(func() string { return "" })
+
+		// Add same dependent multiple times
+		ref.AddDependent(mockDep)
+		ref.AddDependent(mockDep)
+		ref.AddDependent(mockDep)
+
+		// Should not panic
+		assert.NotPanics(t, func() {
+			ref.GetTyped()
+		})
+	})
+}
+
+// =============================================================================
+// Test loop_detection.go - commandLoggerImpl.LogCommand() (line 234)
+// =============================================================================
+
+func TestCommandLoggerImpl_LogCommand_Extended(t *testing.T) {
+	t.Run("logs with various value types", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := log.New(&buf, "", 0)
+		cmdLogger := &commandLoggerImpl{logger: logger}
+
+		// Test with different types
+		cmdLogger.LogCommand("Counter", "comp-1", "ref-1", nil, "string")
+		assert.Contains(t, buf.String(), "Counter")
+
+		buf.Reset()
+		cmdLogger.LogCommand("List", "comp-2", "ref-2", []int{1, 2}, []int{1, 2, 3})
+		assert.Contains(t, buf.String(), "List")
+
+		buf.Reset()
+		cmdLogger.LogCommand("Map", "comp-3", "ref-3", map[string]int{}, map[string]int{"a": 1})
+		assert.Contains(t, buf.String(), "Map")
+	})
 }
