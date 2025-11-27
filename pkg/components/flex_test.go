@@ -793,3 +793,514 @@ func TestFlex_LargeGap(t *testing.T) {
 	bIdx := strings.Index(result, "B")
 	assert.GreaterOrEqual(t, bIdx-aIdx, 10, "Large gap should create space")
 }
+
+// =============================================================================
+// Task 4.2: Space Distribution Tests
+// =============================================================================
+
+// TestFlex_SpaceBetween_DistributesEvenly tests that space-between distributes
+// remaining space evenly between items with no space on edges.
+func TestFlex_SpaceBetween_DistributesEvenly(t *testing.T) {
+	tests := []struct {
+		name          string
+		items         []string
+		containerSize int
+		direction     FlexDirection
+		expectGapMin  int // minimum expected gap between items
+	}{
+		{
+			name:          "two items in row",
+			items:         []string{"A", "B"},
+			containerSize: 20,
+			direction:     FlexRow,
+			expectGapMin:  18, // 20 - 2 chars = 18 space between
+		},
+		{
+			name:          "three items in row",
+			items:         []string{"A", "B", "C"},
+			containerSize: 30,
+			direction:     FlexRow,
+			expectGapMin:  13, // (30 - 3) / 2 = 13.5, floor = 13
+		},
+		{
+			name:          "two items in column",
+			items:         []string{"Top", "Bottom"},
+			containerSize: 10,
+			direction:     FlexColumn,
+			expectGapMin:  8, // 10 - 2 lines = 8 lines between
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := make([]bubbly.Component, len(tt.items))
+			for i, content := range tt.items {
+				items[i] = mockFlexComponent(content)
+			}
+
+			props := FlexProps{
+				Items:     items,
+				Direction: tt.direction,
+				Justify:   JustifySpaceBetween,
+			}
+			if tt.direction == FlexRow {
+				props.Width = tt.containerSize
+			} else {
+				props.Height = tt.containerSize
+			}
+
+			flex := Flex(props)
+			flex.Init()
+
+			result := flex.View()
+
+			// Verify all items present
+			for _, item := range tt.items {
+				assert.Contains(t, result, item)
+			}
+
+			// For row direction, verify first item starts at position 0 (no leading space)
+			if tt.direction == FlexRow {
+				firstIdx := strings.Index(result, tt.items[0])
+				assert.Equal(t, 0, firstIdx, "First item should start at position 0 (no edge space)")
+			}
+		})
+	}
+}
+
+// TestFlex_SpaceAround_AddsHalfEdgeSpace tests that space-around adds
+// half-size space on edges and full space between items.
+func TestFlex_SpaceAround_AddsHalfEdgeSpace(t *testing.T) {
+	tests := []struct {
+		name          string
+		items         []string
+		containerSize int
+		direction     FlexDirection
+	}{
+		{
+			name:          "two items in row",
+			items:         []string{"A", "B"},
+			containerSize: 20,
+			direction:     FlexRow,
+		},
+		{
+			name:          "three items in row",
+			items:         []string{"X", "Y", "Z"},
+			containerSize: 30,
+			direction:     FlexRow,
+		},
+		{
+			name:          "two items in column",
+			items:         []string{"Top", "Bottom"},
+			containerSize: 10,
+			direction:     FlexColumn,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := make([]bubbly.Component, len(tt.items))
+			for i, content := range tt.items {
+				items[i] = mockFlexComponent(content)
+			}
+
+			props := FlexProps{
+				Items:     items,
+				Direction: tt.direction,
+				Justify:   JustifySpaceAround,
+			}
+			if tt.direction == FlexRow {
+				props.Width = tt.containerSize
+			} else {
+				props.Height = tt.containerSize
+			}
+
+			flex := Flex(props)
+			flex.Init()
+
+			result := flex.View()
+
+			// Verify all items present
+			for _, item := range tt.items {
+				assert.Contains(t, result, item)
+			}
+
+			// For row direction, verify there IS leading space (edge space)
+			if tt.direction == FlexRow {
+				firstIdx := strings.Index(result, tt.items[0])
+				assert.Greater(t, firstIdx, 0, "First item should have leading space (edge space)")
+			}
+		})
+	}
+}
+
+// TestFlex_SpaceEvenly_DistributesAllSpaceEqually tests that space-evenly
+// distributes space equally everywhere including edges.
+func TestFlex_SpaceEvenly_DistributesAllSpaceEqually(t *testing.T) {
+	tests := []struct {
+		name          string
+		items         []string
+		containerSize int
+		direction     FlexDirection
+	}{
+		{
+			name:          "two items in row",
+			items:         []string{"A", "B"},
+			containerSize: 20,
+			direction:     FlexRow,
+		},
+		{
+			name:          "three items in row",
+			items:         []string{"X", "Y", "Z"},
+			containerSize: 30,
+			direction:     FlexRow,
+		},
+		{
+			name:          "two items in column",
+			items:         []string{"Top", "Bottom"},
+			containerSize: 12,
+			direction:     FlexColumn,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := make([]bubbly.Component, len(tt.items))
+			for i, content := range tt.items {
+				items[i] = mockFlexComponent(content)
+			}
+
+			props := FlexProps{
+				Items:     items,
+				Direction: tt.direction,
+				Justify:   JustifySpaceEvenly,
+			}
+			if tt.direction == FlexRow {
+				props.Width = tt.containerSize
+			} else {
+				props.Height = tt.containerSize
+			}
+
+			flex := Flex(props)
+			flex.Init()
+
+			result := flex.View()
+
+			// Verify all items present
+			for _, item := range tt.items {
+				assert.Contains(t, result, item)
+			}
+
+			// For row direction, verify there IS leading space (edge space)
+			if tt.direction == FlexRow {
+				firstIdx := strings.Index(result, tt.items[0])
+				assert.Greater(t, firstIdx, 0, "First item should have leading space (edge space)")
+			}
+		})
+	}
+}
+
+// TestFlex_SpaceDistribution_SingleItem tests that space distribution
+// handles single item gracefully.
+func TestFlex_SpaceDistribution_SingleItem(t *testing.T) {
+	tests := []struct {
+		name      string
+		justify   JustifyContent
+		direction FlexDirection
+	}{
+		{name: "space-between row", justify: JustifySpaceBetween, direction: FlexRow},
+		{name: "space-around row", justify: JustifySpaceAround, direction: FlexRow},
+		{name: "space-evenly row", justify: JustifySpaceEvenly, direction: FlexRow},
+		{name: "space-between column", justify: JustifySpaceBetween, direction: FlexColumn},
+		{name: "space-around column", justify: JustifySpaceAround, direction: FlexColumn},
+		{name: "space-evenly column", justify: JustifySpaceEvenly, direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := mockFlexComponent("Single")
+
+			props := FlexProps{
+				Items:     []bubbly.Component{item},
+				Direction: tt.direction,
+				Justify:   tt.justify,
+			}
+			if tt.direction == FlexRow {
+				props.Width = 30
+			} else {
+				props.Height = 10
+			}
+
+			flex := Flex(props)
+			flex.Init()
+
+			result := flex.View()
+
+			// Should render without panic
+			assert.Contains(t, result, "Single")
+
+			// For space-between with single item, item should be at start
+			if tt.justify == JustifySpaceBetween && tt.direction == FlexRow {
+				idx := strings.Index(result, "Single")
+				assert.Equal(t, 0, idx, "Single item with space-between should be at start")
+			}
+		})
+	}
+}
+
+// TestFlex_SpaceDistribution_EmptyItems tests that space distribution
+// handles empty items array gracefully.
+func TestFlex_SpaceDistribution_EmptyItems(t *testing.T) {
+	tests := []struct {
+		name    string
+		justify JustifyContent
+	}{
+		{name: "space-between", justify: JustifySpaceBetween},
+		{name: "space-around", justify: JustifySpaceAround},
+		{name: "space-evenly", justify: JustifySpaceEvenly},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flex := Flex(FlexProps{
+				Items:   []bubbly.Component{},
+				Justify: tt.justify,
+				Width:   30,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Should return empty string without panic
+			assert.Equal(t, "", result)
+		})
+	}
+}
+
+// TestFlexDistributeSpaceBetween_Algorithm tests the space-between algorithm directly.
+func TestFlexDistributeSpaceBetween_Algorithm(t *testing.T) {
+	tests := []struct {
+		name           string
+		n              int
+		remainingSpace int
+		initialGaps    []int
+		expectGaps     []int
+		expectStart    int
+		expectEnd      int
+	}{
+		{
+			name:           "two items, 10 space",
+			n:              2,
+			remainingSpace: 10,
+			initialGaps:    []int{0},
+			expectGaps:     []int{10},
+			expectStart:    0,
+			expectEnd:      0,
+		},
+		{
+			name:           "three items, 20 space",
+			n:              3,
+			remainingSpace: 20,
+			initialGaps:    []int{0, 0},
+			expectGaps:     []int{10, 10},
+			expectStart:    0,
+			expectEnd:      0,
+		},
+		{
+			name:           "three items, 21 space (remainder)",
+			n:              3,
+			remainingSpace: 21,
+			initialGaps:    []int{0, 0},
+			expectGaps:     []int{11, 10}, // remainder distributed to first gap
+			expectStart:    0,
+			expectEnd:      0,
+		},
+		{
+			name:           "single item",
+			n:              1,
+			remainingSpace: 10,
+			initialGaps:    []int{},
+			expectGaps:     []int{},
+			expectStart:    0,
+			expectEnd:      10, // remaining space goes to end
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gaps := make([]int, len(tt.initialGaps))
+			copy(gaps, tt.initialGaps)
+
+			result := flexDistributeSpaceBetween(tt.n, tt.remainingSpace, gaps)
+
+			assert.Equal(t, tt.expectGaps, result.gaps, "gaps mismatch")
+			assert.Equal(t, tt.expectStart, result.startPadding, "startPadding mismatch")
+			assert.Equal(t, tt.expectEnd, result.endPadding, "endPadding mismatch")
+		})
+	}
+}
+
+// TestFlexDistributeSpaceAround_Algorithm tests the space-around algorithm directly.
+func TestFlexDistributeSpaceAround_Algorithm(t *testing.T) {
+	tests := []struct {
+		name           string
+		n              int
+		remainingSpace int
+		initialGaps    []int
+		expectStart    int
+		expectEnd      int
+	}{
+		{
+			name:           "two items, 20 space",
+			n:              2,
+			remainingSpace: 20,
+			initialGaps:    []int{0},
+			expectStart:    5, // 20 / (2*2) = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "three items, 30 space",
+			n:              3,
+			remainingSpace: 30,
+			initialGaps:    []int{0, 0},
+			expectStart:    5, // 30 / (3*2) = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "single item, 10 space",
+			n:              1,
+			remainingSpace: 10,
+			initialGaps:    []int{},
+			expectStart:    5, // 10 / (1*2) = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "zero items",
+			n:              0,
+			remainingSpace: 10,
+			initialGaps:    []int{},
+			expectStart:    0,
+			expectEnd:      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gaps := make([]int, len(tt.initialGaps))
+			copy(gaps, tt.initialGaps)
+
+			result := flexDistributeSpaceAround(tt.n, tt.remainingSpace, gaps)
+
+			assert.Equal(t, tt.expectStart, result.startPadding, "startPadding mismatch")
+			assert.Equal(t, tt.expectEnd, result.endPadding, "endPadding mismatch")
+		})
+	}
+}
+
+// TestFlexDistributeSpaceEvenly_Algorithm tests the space-evenly algorithm directly.
+func TestFlexDistributeSpaceEvenly_Algorithm(t *testing.T) {
+	tests := []struct {
+		name           string
+		n              int
+		remainingSpace int
+		initialGaps    []int
+		expectStart    int
+		expectEnd      int
+	}{
+		{
+			name:           "two items, 15 space",
+			n:              2,
+			remainingSpace: 15,
+			initialGaps:    []int{0},
+			expectStart:    5, // 15 / 3 = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "three items, 20 space",
+			n:              3,
+			remainingSpace: 20,
+			initialGaps:    []int{0, 0},
+			expectStart:    5, // 20 / 4 = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "two items, 16 space (remainder)",
+			n:              2,
+			remainingSpace: 16,
+			initialGaps:    []int{0},
+			expectStart:    6, // 16 / 3 = 5 + 1 remainder
+			expectEnd:      5,
+		},
+		{
+			name:           "single item, 10 space",
+			n:              1,
+			remainingSpace: 10,
+			initialGaps:    []int{},
+			expectStart:    5, // 10 / 2 = 5
+			expectEnd:      5,
+		},
+		{
+			name:           "zero items",
+			n:              0,
+			remainingSpace: 10,
+			initialGaps:    []int{},
+			expectStart:    0,
+			expectEnd:      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gaps := make([]int, len(tt.initialGaps))
+			copy(gaps, tt.initialGaps)
+
+			result := flexDistributeSpaceEvenly(tt.n, tt.remainingSpace, gaps)
+
+			assert.Equal(t, tt.expectStart, result.startPadding, "startPadding mismatch")
+			assert.Equal(t, tt.expectEnd, result.endPadding, "endPadding mismatch")
+		})
+	}
+}
+
+// TestFlex_SpaceDistribution_WithGap tests space distribution combined with explicit gap.
+func TestFlex_SpaceDistribution_WithGap(t *testing.T) {
+	tests := []struct {
+		name    string
+		justify JustifyContent
+		gap     int
+	}{
+		{name: "space-between with gap 2", justify: JustifySpaceBetween, gap: 2},
+		{name: "space-around with gap 2", justify: JustifySpaceAround, gap: 2},
+		{name: "space-evenly with gap 2", justify: JustifySpaceEvenly, gap: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := []bubbly.Component{
+				mockFlexComponent("A"),
+				mockFlexComponent("B"),
+				mockFlexComponent("C"),
+			}
+
+			flex := Flex(FlexProps{
+				Items:   items,
+				Justify: tt.justify,
+				Gap:     tt.gap,
+				Width:   40,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// All items should be present
+			assert.Contains(t, result, "A")
+			assert.Contains(t, result, "B")
+			assert.Contains(t, result, "C")
+
+			// Verify minimum gap is respected
+			aIdx := strings.Index(result, "A")
+			bIdx := strings.Index(result, "B")
+			assert.GreaterOrEqual(t, bIdx-aIdx-1, tt.gap, "Gap should be at least %d", tt.gap)
+		})
+	}
+}
