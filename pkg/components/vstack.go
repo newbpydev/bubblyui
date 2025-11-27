@@ -54,6 +54,8 @@ func vstackCalculateMaxWidth(items []string) int {
 }
 
 // vstackAlignItem aligns a single item horizontally based on AlignItems.
+//
+//nolint:dupl // Similar alignment logic is intentionally duplicated for clarity across layout components
 func vstackAlignItem(item string, maxWidth int, align AlignItems) string {
 	itemWidth := lipgloss.Width(item)
 

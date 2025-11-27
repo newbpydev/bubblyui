@@ -90,6 +90,8 @@ func hstackCalculateMaxHeight(items []string) int {
 }
 
 // hstackAlignItem aligns a single item vertically based on AlignItems.
+//
+//nolint:dupl // Similar alignment logic is intentionally duplicated for clarity across layout components
 func hstackAlignItem(item string, maxHeight int, align AlignItems) string {
 	itemHeight := lipgloss.Height(item)
 	itemWidth := lipgloss.Width(item)
