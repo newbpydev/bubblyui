@@ -12,36 +12,61 @@ import (
 //
 // Example usage:
 //
+//	// Fixed-size spacer
 //	spacer := components.Spacer(components.SpacerProps{
 //	    Width:  20,
 //	    Height: 3,
 //	})
+//
+//	// Flexible spacer (fills available space in parent layout)
+//	flexSpacer := components.Spacer(components.SpacerProps{
+//	    Flex: true,
+//	})
 type SpacerProps struct {
+	// Flex makes the spacer fill available space in parent layouts.
+	// When true, the spacer expands to fill remaining space in HStack/VStack/Flex.
+	// Width and Height become minimum dimensions when Flex is true.
+	// Default: false (fixed-size spacer)
+	Flex bool
+
 	// Width sets the horizontal space in characters.
-	// Optional - if 0, no horizontal space is added.
+	// When Flex=false: exact width to render.
+	// When Flex=true: minimum width (parent layout may expand beyond this).
+	// Optional - if 0, no horizontal space is added (or auto when Flex=true).
 	Width int
 
 	// Height sets the vertical space in lines.
-	// Optional - if 0, no vertical space is added.
+	// When Flex=false: exact height to render.
+	// When Flex=true: minimum height (parent layout may expand beyond this).
+	// Optional - if 0, no vertical space is added (or auto when Flex=true).
 	Height int
 
 	// Common props for all components
 	CommonProps
 }
 
+// IsFlex returns true if this spacer should fill available space.
+// Parent layouts (HStack, VStack, Flex) use this to detect flexible spacers
+// and distribute remaining space accordingly.
+func (p SpacerProps) IsFlex() bool {
+	return p.Flex
+}
+
 // Spacer creates a new Spacer atom component.
 //
 // Spacer is a layout utility component that creates empty space in the terminal.
 // It can create horizontal space (width), vertical space (height), or both.
+// When Flex=true, the spacer acts as a marker for parent layouts (HStack, VStack, Flex)
+// to fill remaining available space.
 //
 // Example:
 //
-//	// Horizontal spacer
+//	// Fixed horizontal spacer
 //	hSpacer := components.Spacer(components.SpacerProps{
 //	    Width: 10,
 //	})
 //
-//	// Vertical spacer
+//	// Fixed vertical spacer
 //	vSpacer := components.Spacer(components.SpacerProps{
 //	    Height: 3,
 //	})
@@ -50,6 +75,17 @@ type SpacerProps struct {
 //	spacer := components.Spacer(components.SpacerProps{
 //	    Width:  20,
 //	    Height: 5,
+//	})
+//
+//	// Flexible spacer - fills available space in parent layout
+//	flexSpacer := components.Spacer(components.SpacerProps{
+//	    Flex: true,
+//	})
+//
+//	// Flexible spacer with minimum width
+//	flexMinSpacer := components.Spacer(components.SpacerProps{
+//	    Flex:  true,
+//	    Width: 5, // minimum 5 characters, parent can expand
 //	})
 //
 //	// Initialize and use with Bubbletea
@@ -61,6 +97,8 @@ type SpacerProps struct {
 //   - Adding padding in layouts
 //   - Vertical spacing between sections
 //   - Horizontal spacing in rows
+//   - Pushing items to opposite ends (Flex=true in HStack)
+//   - Creating flexible gaps in toolbars
 //
 // Accessibility:
 //   - Invisible but affects layout
