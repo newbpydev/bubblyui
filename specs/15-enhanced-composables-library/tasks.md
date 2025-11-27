@@ -258,7 +258,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 2.3: UsePrevious
+### Task 2.3: UsePrevious ✅ COMPLETED
 - **Description**: Previous value tracking
 - **Prerequisites**: Task 2.2
 - **Unlocks**: Task 2.4
@@ -273,11 +273,23 @@
   func UsePrevious[T any](ctx *bubbly.Context, ref *bubbly.Ref[T]) *PreviousReturn[T]
   ```
 - **Tests**:
-  - [ ] Initial previous is nil
-  - [ ] Previous updates when ref changes
-  - [ ] Get returns correct previous value
-  - [ ] Works with Watch internally
+  - [x] Initial previous is nil
+  - [x] Previous updates when ref changes
+  - [x] Get returns correct previous value
+  - [x] Works with Watch internally
 - **Estimated effort**: 2 hours
+- **Implementation Notes**:
+  - 11 test functions with 20+ sub-tests covering all requirements and edge cases
+  - 100% coverage on UsePrevious function and Get method
+  - 91.6% coverage on composables package (above 80% requirement)
+  - Generic type support verified with int, string, struct, and slice types
+  - Uses *T (pointer) to distinguish "no previous" (nil) from "previous is zero value"
+  - Uses bubbly.Watch internally to observe source ref changes
+  - Stores copy of oldVal to avoid aliasing issues
+  - Works with CreateShared pattern for cross-component sharing
+  - Value is reactive (can be watched for changes)
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 2.4: UseHistory
 - **Description**: Undo/redo state management
