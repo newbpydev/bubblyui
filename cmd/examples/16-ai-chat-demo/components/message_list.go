@@ -38,29 +38,31 @@ func CreateMessageList() (bubbly.Component, error) {
 			sidebarWidth := ws.SidebarWidth.GetTyped()
 			_ = chat.FocusedPane.GetTyped() // Focus handled by parent
 
-			// Calculate content width based on sidebar visibility
-			// Subtract for parent's border (2) and padding
-			var contentWidth int
+			// === DIMENSION CALCULATION ===
+			// Match exactly what parent provides:
+			// app.go: contentWidth = width - sidebarWidth - 1, msgListWidth = contentWidth - 2
+			// Parent box inner area (after borders) = msgListWidth - 2 = width - sidebarWidth - 5
+			var parentInnerWidth int
 			if sidebarVisible {
-				contentWidth = width - sidebarWidth - 4
+				parentInnerWidth = width - sidebarWidth - 5
 			} else {
-				contentWidth = width - 4
+				parentInnerWidth = width - 5
 			}
 
-			// Reserve space for scrollbar (1 char)
+			// Scrollbar is 1 char, positioned at right edge
 			scrollbarWidth := 1
-			innerWidth := contentWidth - scrollbarWidth - 1
+			// Text content fills the rest (no extra gaps)
+			textWidth := parentInnerWidth - scrollbarWidth
 
-			if innerWidth < 20 {
-				innerWidth = 20
+			if textWidth < 20 {
+				textWidth = 20
 			}
 
 			// Calculate available height for messages
-			// Parent box handles height, we need to fit inside
-			// headerHeight=1, footerHeight=3, mainHeight = height - 4 - 1
-			// Parent box has height(mainHeight-2) and border takes 2 lines
+			// Parent: mainHeight = height - 5, box height = mainHeight - 2
+			// Inner height after borders = mainHeight - 4 = height - 9
 			mainHeight := height - 5
-			listHeight := mainHeight - 4 // Account for title line, divider, and some padding
+			listHeight := mainHeight - 4 // Title line + divider + padding
 			if listHeight < 3 {
 				listHeight = 3
 			}
@@ -89,8 +91,8 @@ func CreateMessageList() (bubbly.Component, error) {
 			// Render ALL messages first, then slice for display
 			var allRenderedLines []string
 			for _, msg := range messages {
-				msgContent := renderMessage(msg, innerWidth-2, userStyle, assistantStyle, contentStyle, codeBlockStyle, typingStyle)
-				msgLines := strings.Split(msgContent, "\n")
+				rendered := renderMessage(msg, textWidth-4, userStyle, assistantStyle, contentStyle, codeBlockStyle, typingStyle)
+				msgLines := strings.Split(rendered, "\n")
 				allRenderedLines = append(allRenderedLines, msgLines...)
 			}
 
@@ -99,7 +101,7 @@ func CreateMessageList() (bubbly.Component, error) {
 			startLine := 0
 			for i := 0; i < scrollOffset && i < len(messages); i++ {
 				msg := messages[i]
-				msgContent := renderMessage(msg, innerWidth-2, userStyle, assistantStyle, contentStyle, codeBlockStyle, typingStyle)
+				msgContent := renderMessage(msg, textWidth-2, userStyle, assistantStyle, contentStyle, codeBlockStyle, typingStyle)
 				msgLines := strings.Split(msgContent, "\n")
 				startLine += len(msgLines)
 			}
@@ -123,15 +125,14 @@ func CreateMessageList() (bubbly.Component, error) {
 				visibleLines = append(visibleLines, "")
 			}
 
-			// Pad each line to fixed width to prevent scrollbar jitter
-			// This ensures content area has consistent width
-			contentAreaWidth := innerWidth - 2 // Leave space for scrollbar
+			// Pad each line to exactly textWidth so scrollbar hugs content
+			// This ensures perfect alignment with no gaps
 			for i, line := range visibleLines {
-				// Get visible length (without ANSI codes)
 				visibleLen := lipgloss.Width(line)
-				if visibleLen < contentAreaWidth {
-					visibleLines[i] = line + strings.Repeat(" ", contentAreaWidth-visibleLen)
+				if visibleLen < textWidth {
+					visibleLines[i] = line + strings.Repeat(" ", textWidth-visibleLen)
 				}
+				// Don't truncate - ANSI codes would break. renderMessage handles wrapping.
 			}
 
 			content := strings.Join(visibleLines, "\n")
@@ -139,13 +140,18 @@ func CreateMessageList() (bubbly.Component, error) {
 			// Build scrollbar
 			scrollbar := buildScrollbar(listHeight, len(allRenderedLines), startLine, theme)
 
-			// Combine content with scrollbar - use fixed width style
-			fixedWidthStyle := lipgloss.NewStyle().Width(contentAreaWidth)
-			contentWithScrollbar := lipgloss.JoinHorizontal(
+			// Apply explicit widths to ensure no gaps
+			contentBlock := lipgloss.NewStyle().Width(textWidth).Render(content)
+			scrollbarBlock := lipgloss.NewStyle().Width(scrollbarWidth).Render(scrollbar)
+
+			// Join content with scrollbar - both with explicit widths
+			joined := lipgloss.JoinHorizontal(
 				lipgloss.Top,
-				fixedWidthStyle.Render(content),
-				scrollbar,
+				contentBlock,
+				scrollbarBlock,
 			)
+			// Ensure final width matches parent exactly
+			contentWithScrollbar := lipgloss.NewStyle().Width(parentInnerWidth).Render(joined)
 
 			// Scroll indicator in title
 			scrollInfo := ""
@@ -153,18 +159,21 @@ func CreateMessageList() (bubbly.Component, error) {
 				scrollInfo = fmt.Sprintf(" ▼ %d/%d", scrollOffset+1, len(messages))
 			}
 
-			// Title with scroll info
+			// Title with scroll info - set explicit width to match content
 			titleStyle := lipgloss.NewStyle().
 				Bold(true).
-				Foreground(theme.Primary)
+				Foreground(theme.Primary).
+				Width(parentInnerWidth)
 
 			title := titleStyle.Render("💬 Messages" + scrollInfo)
 
+			// Divider spans full width
 			dividerStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240"))
-			dividerLine := dividerStyle.Render(strings.Repeat("─", innerWidth))
+				Foreground(lipgloss.Color("240")).
+				Width(parentInnerWidth)
+			dividerLine := dividerStyle.Render(strings.Repeat("─", parentInnerWidth))
 
-			// Build content - parent handles borders
+			// Build content - all elements have same explicit width
 			innerContent := lipgloss.JoinVertical(
 				lipgloss.Left,
 				title,
