@@ -263,7 +263,7 @@
   - 95.2% test coverage for components package
   - All quality gates pass: lint clean, race-free, builds successfully
 
-### Task 3.4: Container Component
+### Task 3.4: Container Component ✅ COMPLETED
 - **Description**: Width-constrained, centered container
 - **Prerequisites**: Task 1.1, Task 3.3
 - **Unlocks**: Readable content layouts
@@ -281,11 +281,23 @@
   }
   ```
 - **Tests**:
-  - [ ] Constrains width to preset sizes (sm=40, md=60, lg=80, xl=100)
-  - [ ] Uses custom MaxWidth when provided
-  - [ ] Centers content when Centered=true
-  - [ ] Full size uses 100% width
+  - [x] Constrains width to preset sizes (sm=40, md=60, lg=80, xl=100)
+  - [x] Uses custom MaxWidth when provided
+  - [x] Centers content when Centered=true
+  - [x] Full size uses 100% width
 - **Estimated effort**: 45 minutes
+- **Implementation Notes** (2025-11-27):
+  - Implemented `ContainerProps` struct with all specified fields plus `CenteredSet` for default handling
+  - Added `containerApplyDefaults()` for Size (default ContainerMd) and Centered (default true)
+  - Added `containerGetWidth()` to resolve MaxWidth vs Size.Width() precedence
+  - Added `containerRenderContent()`, `containerApplyWidth()`, `containerRenderEmpty()` helpers
+  - Uses Lipgloss `Width()` and `Align()` for width constraint and centering
+  - `CenteredSet` field allows distinguishing "not set" (default true) from "explicitly false"
+  - Theme integration via `injectTheme()` - follows existing component patterns
+  - Custom style support via `CommonProps.Style`
+  - 15 test functions covering all scenarios (table-driven tests)
+  - 95.2% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ---
 
