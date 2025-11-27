@@ -2,9 +2,9 @@
 
 **100% Truthful Reference Guide - Verified Against Source Code**
 
-**Version:** 3.1  
-**Last Updated:** November 26, 2025  
-**Status:** VERIFIED & ACCURATE (DevTools Pattern + Feature 13 Automation)  
+**Version:** 3.2  
+**Last Updated:** November 27, 2025  
+**Status:** VERIFIED & ACCURATE (DevTools Pattern + Feature 13-14)  
 **Target Audience:** AI Coding Assistants
 
 ---
@@ -1276,6 +1276,354 @@ grid := components.GridLayout(components.GridLayoutProps{
     BorderStyle: lipgloss.RoundedBorder(),
 })
 ```
+
+---
+
+## Part 8B: Advanced Layout System (Feature 14)
+
+The Advanced Layout System provides flexbox-style layouts with direction, justify, align, and wrap options.
+
+### Layout Type Constants
+
+```go
+// Direction
+FlexRow    FlexDirection = "row"     // Horizontal (default)
+FlexColumn FlexDirection = "column"  // Vertical
+
+// Justify (main axis)
+JustifyStart        JustifyContent = "start"         // Align to start
+JustifyCenter       JustifyContent = "center"        // Center items
+JustifyEnd          JustifyContent = "end"           // Align to end
+JustifySpaceBetween JustifyContent = "space-between" // Equal space between
+JustifySpaceAround  JustifyContent = "space-around"  // Equal space around
+JustifySpaceEvenly  JustifyContent = "space-evenly"  // Equal space everywhere
+
+// Align (cross axis)
+AlignItemsStart   AlignItems = "start"   // Align to start
+AlignItemsCenter  AlignItems = "center"  // Center items
+AlignItemsEnd     AlignItems = "end"     // Align to end
+AlignItemsStretch AlignItems = "stretch" // Fill available space
+
+// Container sizes
+ContainerSm   ContainerSize = "sm"   // 40 chars
+ContainerMd   ContainerSize = "md"   // 60 chars
+ContainerLg   ContainerSize = "lg"   // 80 chars
+ContainerXl   ContainerSize = "xl"   // 100 chars
+ContainerFull ContainerSize = "full" // 100% width
+```
+
+### Box (Atom - Generic Container)
+
+```go
+box := components.Box(components.BoxProps{
+    Child:       childComponent,     // Component or use Content
+    Content:     "Text content",     // Used when Child is nil
+    Padding:     1,                  // Uniform padding
+    PaddingX:    2,                  // Horizontal (overrides Padding)
+    PaddingY:    1,                  // Vertical (overrides Padding)
+    Border:      true,               // Enable border
+    BorderStyle: lipgloss.RoundedBorder(),
+    Title:       "Box Title",        // Header line inside box
+    Width:       40,                 // Fixed width (0 = auto)
+    Height:      10,                 // Fixed height (0 = auto)
+    Background:  lipgloss.Color("236"),
+})
+box.Init()
+return box.View()
+```
+
+### Divider (Atom - Separator)
+
+```go
+// Horizontal divider
+hDivider := components.Divider(components.DividerProps{
+    Vertical: false,         // Default: horizontal
+    Length:   40,            // Width in characters
+    Label:    "Section",     // Optional centered label
+    Char:     "─",           // Custom character (default: ─)
+})
+
+// Vertical divider
+vDivider := components.Divider(components.DividerProps{
+    Vertical: true,          // Vertical line
+    Length:   10,            // Height in lines
+    Char:     "│",           // Default for vertical
+})
+hDivider.Init()
+```
+
+### Spacer (Atom - Space Filler)
+
+```go
+// Fixed spacer
+spacer := components.Spacer(components.SpacerProps{
+    Height: 2,    // Fixed height
+    Width:  10,   // Fixed width
+})
+
+// Flexible spacer (fills available space)
+flexSpacer := components.Spacer(components.SpacerProps{
+    Flex: true,   // Expands to fill space
+})
+
+// Check if spacer is flexible
+if spacer.IsFlex() { /* parent handles space distribution */ }
+```
+
+### HStack (Molecule - Horizontal Stack)
+
+```go
+hstack := components.HStack(components.StackProps{
+    Items: []interface{}{
+        logo,
+        spacer,   // Push buttons to right
+        button1,
+        button2,
+    },
+    Spacing: 2,                     // Gap between items
+    Align:   components.AlignItemsCenter, // Vertical alignment
+    Divider: true,                  // Show dividers between items
+    DividerChar: "│",               // Default for HStack
+})
+hstack.Init()
+```
+
+### VStack (Molecule - Vertical Stack)
+
+```go
+vstack := components.VStack(components.StackProps{
+    Items: []interface{}{
+        header,
+        content,
+        footer,
+    },
+    Spacing: 1,                      // Gap between items
+    Align:   components.AlignItemsStart, // Horizontal alignment
+    Divider: true,                   // Show dividers
+    DividerChar: "─",                // Default for VStack
+})
+vstack.Init()
+```
+
+### Center (Molecule - Centering Container)
+
+```go
+// Center both directions (default)
+centered := components.Center(components.CenterProps{
+    Child:  modalContent,
+    Width:  80,           // Required for horizontal centering
+    Height: 24,           // Required for vertical centering
+})
+
+// Horizontal only
+hCentered := components.Center(components.CenterProps{
+    Child:      content,
+    Width:      60,
+    Horizontal: true,     // Explicit horizontal only
+})
+
+// Vertical only
+vCentered := components.Center(components.CenterProps{
+    Child:    content,
+    Height:   20,
+    Vertical: true,       // Explicit vertical only
+})
+centered.Init()
+```
+
+### Container (Molecule - Width-Constrained)
+
+```go
+// Using preset sizes
+container := components.Container(components.ContainerProps{
+    Child:    content,
+    Size:     components.ContainerMd,  // 60 chars wide
+    Centered: true,                    // Center content (default)
+})
+
+// Using custom width
+container := components.Container(components.ContainerProps{
+    Child:    content,
+    MaxWidth: 50,                      // Custom width (overrides Size)
+    Centered: false,                   // Left-aligned
+})
+container.Init()
+```
+
+### Flex (Organism - Flexbox Layout)
+
+```go
+// Basic row layout
+flex := components.Flex(components.FlexProps{
+    Items:     []bubbly.Component{item1, item2, item3},
+    Direction: components.FlexRow,        // horizontal (default)
+    Justify:   components.JustifySpaceBetween,
+    Align:     components.AlignItemsCenter,
+    Gap:       2,                         // Space between items
+})
+
+// Column layout centered
+flex := components.Flex(components.FlexProps{
+    Items:     []bubbly.Component{header, content, footer},
+    Direction: components.FlexColumn,     // vertical
+    Justify:   components.JustifyCenter,
+    Align:     components.AlignItemsCenter,
+    Gap:       1,
+})
+
+// Wrapping grid
+flex := components.Flex(components.FlexProps{
+    Items:   cardComponents,
+    Wrap:    true,                        // Enable wrapping
+    Width:   80,                          // Required for row wrap
+    Gap:     2,
+    Justify: components.JustifySpaceAround,
+})
+flex.Init()
+```
+
+### Responsive Layouts Pattern
+
+```go
+// Handle window resize in app.go
+.WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+    switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        comp.Emit("resize", map[string]int{
+            "width":  msg.Width,
+            "height": msg.Height,
+        })
+    }
+    return nil
+})
+
+// In Setup - handle resize
+ctx.On("resize", func(data interface{}) {
+    if sizeData, ok := data.(map[string]int); ok {
+        width := sizeData["width"]
+        height := sizeData["height"]
+        // Update layout based on size
+        windowSize.SetSize(width, height)
+    }
+})
+
+// Breakpoint-based layout
+type Breakpoint string
+const (
+    BreakpointXS Breakpoint = "xs"  // <60
+    BreakpointSM Breakpoint = "sm"  // 60-79
+    BreakpointMD Breakpoint = "md"  // 80-119
+    BreakpointLG Breakpoint = "lg"  // 120-159
+    BreakpointXL Breakpoint = "xl"  // 160+
+)
+
+func getBreakpoint(width int) Breakpoint {
+    switch {
+    case width < 60:
+        return BreakpointXS
+    case width < 80:
+        return BreakpointSM
+    case width < 120:
+        return BreakpointMD
+    case width < 160:
+        return BreakpointLG
+    default:
+        return BreakpointXL
+    }
+}
+```
+
+### Layout Composition Patterns
+
+**Dashboard Layout:**
+```go
+// Header: HStack with spacer for push-right effect
+header := components.HStack(components.StackProps{
+    Items: []interface{}{logo, flexSpacer, userMenu},
+    Align: components.AlignItemsCenter,
+})
+
+// Sidebar: VStack with navigation items
+sidebar := components.VStack(components.StackProps{
+    Items:   navItems,
+    Spacing: 1,
+    Divider: true,
+})
+
+// Main: Flex grid of cards
+main := components.Flex(components.FlexProps{
+    Items:   cards,
+    Wrap:    true,
+    Gap:     2,
+    Justify: components.JustifyStart,
+})
+
+// Container for readable content
+container := components.Container(components.ContainerProps{
+    Child:    main,
+    Size:     components.ContainerXl,
+    Centered: true,
+})
+```
+
+**Modal Dialog:**
+```go
+// Create modal content
+modalContent := components.Box(components.BoxProps{
+    Child:       dialogContent,
+    Title:       "Confirm Action",
+    Border:      true,
+    BorderStyle: lipgloss.RoundedBorder(),
+    Padding:     1,
+    Width:       50,
+})
+
+// Center the modal
+modal := components.Center(components.CenterProps{
+    Child:  modalContent,
+    Width:  termWidth,
+    Height: termHeight,
+})
+```
+
+**Form Layout:**
+```go
+// Form fields in VStack
+formFields := components.VStack(components.StackProps{
+    Items: []interface{}{
+        // Each row: HStack with label + input
+        components.HStack(components.StackProps{
+            Items: []interface{}{labelName, inputName},
+            Align: components.AlignItemsCenter,
+            Spacing: 2,
+        }),
+        components.HStack(components.StackProps{
+            Items: []interface{}{labelEmail, inputEmail},
+            Align: components.AlignItemsCenter,
+            Spacing: 2,
+        }),
+    },
+    Spacing: 1,
+})
+
+// Button row with right alignment
+buttonRow := components.Flex(components.FlexProps{
+    Items:   []bubbly.Component{cancelBtn, submitBtn},
+    Justify: components.JustifyEnd,
+    Gap:     2,
+})
+
+// Centered form
+form := components.Center(components.CenterProps{
+    Child: components.VStack(components.StackProps{
+        Items: []interface{}{formFields, buttonRow},
+        Spacing: 2,
+    }),
+    Width: 60,
+})
+```
+
+---
 
 ### Form Component
 
@@ -2580,22 +2928,30 @@ import (
 - ✅ **Content:** All 28 Context methods documented (including UseTheme, ProvideTheme)
 - ✅ **Content:** All 12 Builder methods documented (including WithMultiKeyBindings)
 - ✅ **Content:** All 12 Composables documented (including CreateShared)
-- ✅ **Content:** 20+ Components documented
+- ✅ **Content:** 35+ Components documented (including 8 layout components)
 - ✅ **Content:** Router, directives, events, lifecycle
 - ✅ **Anti-patterns:** 10+ documented
-- ✅ **Examples:** All from devtools example verified
+- ✅ **Examples:** Examples 14-16 patterns verified
 - ✅ **Accuracy:** 100% (every API signature verified)
 
-**New Automation Patterns (Feature 13):**
+**Feature 13 - Automation Patterns:**
 - ✅ **Theme System:** `UseTheme()`, `ProvideTheme()`, `Theme` struct, `DefaultTheme`
 - ✅ **Multi-Key Binding:** `WithMultiKeyBindings()` for variadic key registration
 - ✅ **Shared Composables:** `CreateShared[T]()` for singleton composables
 - ✅ **Migration Guide:** Before/after comparisons, when to use each pattern
 
+**Feature 14 - Advanced Layout System:**
+- ✅ **Layout Types:** FlexDirection, JustifyContent, AlignItems, ContainerSize
+- ✅ **Atoms:** Box, Divider, Spacer (with Flex property)
+- ✅ **Molecules:** HStack, VStack, Center, Container
+- ✅ **Organisms:** Flex (direction, justify, align, gap, wrap)
+- ✅ **Patterns:** Dashboard, Modal, Form, Responsive layouts
+- ✅ **Examples:** 14-advanced-layouts, 15-responsive-layouts, 16-ai-chat-demo
+
 **Files:**
-- `docs/BUBBLY_AI_MANUAL_SYSTEMATIC.md` - 2,700+ lines, compact format
+- `docs/BUBBLY_AI_MANUAL_SYSTEMATIC.md` - 3,000+ lines, compact format
 - Follows old manual structure but with correct information
 - DevTools pattern as primary structure
-- Feature 13 automation patterns integrated
+- Features 13-14 fully integrated
 
 **Mission complete - ready for use!** ✓
