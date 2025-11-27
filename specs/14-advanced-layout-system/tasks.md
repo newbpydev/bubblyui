@@ -224,7 +224,7 @@
   - 95.2% test coverage for components package
   - All quality gates pass: lint clean, race-free, builds successfully
 
-### Task 3.3: Center Component
+### Task 3.3: Center Component ✅ COMPLETED
 - **Description**: Centers child component horizontally and/or vertically
 - **Prerequisites**: Task 1.1
 - **Unlocks**: Modals, welcome screens, splash pages
@@ -243,12 +243,25 @@
   }
   ```
 - **Tests**:
-  - [ ] Centers both directions by default
-  - [ ] Centers only horizontally when specified
-  - [ ] Centers only vertically when specified
-  - [ ] Uses provided Width/Height
-  - [ ] Auto-sizes when dimensions are 0
+  - [x] Centers both directions by default
+  - [x] Centers only horizontally when specified
+  - [x] Centers only vertically when specified
+  - [x] Uses provided Width/Height
+  - [x] Auto-sizes when dimensions are 0
 - **Estimated effort**: 1 hour
+- **Implementation Notes** (2025-11-27):
+  - Implemented `CenterProps` struct with all specified fields
+  - Added `centerShouldCenterHorizontal()` and `centerShouldCenterVertical()` for flag logic
+  - Default behavior: centers BOTH directions when neither flag is set (per FR-3.3.3)
+  - Added `centerRenderContent()`, `centerRenderEmpty()`, `centerApplyPlacement()` helpers
+  - Added `centerApplyHorizontal()` and `centerApplyVertical()` for axis-specific centering
+  - Uses Lipgloss `Place()`, `PlaceHorizontal()`, `PlaceVertical()` for centering
+  - Handles nil child gracefully (returns empty container or empty string)
+  - Theme integration via `injectTheme()` - follows existing component patterns
+  - Custom style support via `CommonProps.Style`
+  - 13 test functions covering all scenarios (table-driven tests)
+  - 95.2% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ### Task 3.4: Container Component
 - **Description**: Width-constrained, centered container
