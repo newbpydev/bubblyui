@@ -413,7 +413,7 @@
   - 95.2% test coverage for components package
   - All quality gates pass: lint clean, race-free, builds successfully
 
-### Task 4.4: Flex Component - Wrap Support
+### Task 4.4: Flex Component - Wrap Support ✅ COMPLETED
 - **Description**: Implement wrapping when items exceed container width
 - **Prerequisites**: Task 4.1, Task 4.2, Task 4.3
 - **Unlocks**: Responsive card grids
@@ -421,11 +421,34 @@
   - `pkg/components/flex.go` (extend)
   - `pkg/components/flex_test.go` (extend)
 - **Tests**:
-  - [ ] Items wrap to next row when exceeding width
-  - [ ] Gap maintained between wrapped rows
-  - [ ] Justify applied per row
-  - [ ] Works with column direction (wrap to columns)
+  - [x] Items wrap to next row when exceeding width
+  - [x] Gap maintained between wrapped rows
+  - [x] Justify applied per row
+  - [x] Works with column direction (wrap to columns)
 - **Estimated effort**: 1.5 hours
+- **Implementation Notes** (2025-11-27):
+  - Added `flexWrapItems()` helper to split items into rows/columns based on container size
+  - Added `flexRenderRowWrapped()` for row direction with wrapping:
+    - Splits items into rows that fit within Width
+    - Applies cross-axis alignment per row
+    - Applies justify per row
+    - Joins rows vertically with gap between them
+  - Added `flexRenderColumnWrapped()` for column direction with wrapping:
+    - Splits items into columns that fit within Height
+    - Applies cross-axis alignment per column
+    - Applies justify per column
+    - Joins columns horizontally with gap between them
+  - Updated template to use wrapped rendering when `Wrap=true` and container size specified
+  - Wrap requires explicit Width (row) or Height (column) to determine when to wrap
+  - Added 10 comprehensive test functions with 21 subtests covering:
+    - Items wrapping to next row/column
+    - Gap maintained between wrapped rows
+    - Justify applied per row
+    - Column direction wrap
+    - Edge cases (single item, empty items, different sized items)
+    - Algorithm-level tests for `flexWrapItems`
+  - 95.3% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ---
 

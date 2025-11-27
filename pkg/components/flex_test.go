@@ -1734,3 +1734,329 @@ func TestFlex_CrossAxisAlignment_SingleItem(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Task 4.4: Wrap Support Tests
+// =============================================================================
+
+// TestFlex_Wrap_ItemsWrapToNextRow tests that items wrap to next row when
+// exceeding container width.
+func TestFlex_Wrap_ItemsWrapToNextRow(t *testing.T) {
+	// Create items that total 15 chars (5+5+5), container is 12 chars
+	// Should wrap: [AAAAA BBBBB] [CCCCC]
+	items := []bubbly.Component{
+		mockFlexComponentWithSize("AAAAA", 5, 1),
+		mockFlexComponentWithSize("BBBBB", 5, 1),
+		mockFlexComponentWithSize("CCCCC", 5, 1),
+	}
+
+	flex := Flex(FlexProps{
+		Items:     items,
+		Direction: FlexRow,
+		Wrap:      true,
+		Width:     12,
+		Gap:       1,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// All items should be present
+	assert.Contains(t, result, "AAAAA")
+	assert.Contains(t, result, "BBBBB")
+	assert.Contains(t, result, "CCCCC")
+
+	// Result should have multiple lines (wrapped)
+	lines := strings.Split(result, "\n")
+	assert.GreaterOrEqual(t, len(lines), 2, "Items should wrap to multiple lines")
+}
+
+// TestFlex_Wrap_GapMaintainedBetweenRows tests that gap is maintained
+// between wrapped rows.
+func TestFlex_Wrap_GapMaintainedBetweenRows(t *testing.T) {
+	items := []bubbly.Component{
+		mockFlexComponentWithSize("AA", 2, 1),
+		mockFlexComponentWithSize("BB", 2, 1),
+		mockFlexComponentWithSize("CC", 2, 1),
+	}
+
+	flex := Flex(FlexProps{
+		Items:     items,
+		Direction: FlexRow,
+		Wrap:      true,
+		Width:     5, // Forces wrap after each item
+		Gap:       2,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// All items should be present
+	assert.Contains(t, result, "AA")
+	assert.Contains(t, result, "BB")
+	assert.Contains(t, result, "CC")
+
+	// Should have multiple lines with gap between rows
+	lines := strings.Split(result, "\n")
+	assert.GreaterOrEqual(t, len(lines), 2, "Items should wrap with gap between rows")
+}
+
+// TestFlex_Wrap_JustifyAppliedPerRow tests that justify is applied per row.
+func TestFlex_Wrap_JustifyAppliedPerRow(t *testing.T) {
+	tests := []struct {
+		name    string
+		justify JustifyContent
+	}{
+		{name: "start", justify: JustifyStart},
+		{name: "center", justify: JustifyCenter},
+		{name: "end", justify: JustifyEnd},
+		{name: "space-between", justify: JustifySpaceBetween},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := []bubbly.Component{
+				mockFlexComponentWithSize("A", 1, 1),
+				mockFlexComponentWithSize("B", 1, 1),
+				mockFlexComponentWithSize("C", 1, 1),
+				mockFlexComponentWithSize("D", 1, 1),
+			}
+
+			flex := Flex(FlexProps{
+				Items:     items,
+				Direction: FlexRow,
+				Wrap:      true,
+				Width:     10,
+				Gap:       1,
+				Justify:   tt.justify,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// All items should be present
+			assert.Contains(t, result, "A")
+			assert.Contains(t, result, "B")
+			assert.Contains(t, result, "C")
+			assert.Contains(t, result, "D")
+		})
+	}
+}
+
+// TestFlex_Wrap_ColumnDirection tests wrap with column direction.
+func TestFlex_Wrap_ColumnDirection(t *testing.T) {
+	// Create items that total 6 lines, container is 4 lines
+	// Should wrap to columns
+	items := []bubbly.Component{
+		mockFlexComponentWithSize("A\nA", 1, 2),
+		mockFlexComponentWithSize("B\nB", 1, 2),
+		mockFlexComponentWithSize("C\nC", 1, 2),
+	}
+
+	flex := Flex(FlexProps{
+		Items:     items,
+		Direction: FlexColumn,
+		Wrap:      true,
+		Height:    5,
+		Gap:       1,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// All items should be present
+	assert.Contains(t, result, "A")
+	assert.Contains(t, result, "B")
+	assert.Contains(t, result, "C")
+
+	// Result should have width > 1 (wrapped to columns)
+	width := lipgloss.Width(result)
+	assert.Greater(t, width, 1, "Items should wrap to multiple columns")
+}
+
+// TestFlex_Wrap_NoWrapWhenDisabled tests that wrap is disabled by default.
+func TestFlex_Wrap_NoWrapWhenDisabled(t *testing.T) {
+	items := []bubbly.Component{
+		mockFlexComponentWithSize("AAAAA", 5, 1),
+		mockFlexComponentWithSize("BBBBB", 5, 1),
+		mockFlexComponentWithSize("CCCCC", 5, 1),
+	}
+
+	flex := Flex(FlexProps{
+		Items:     items,
+		Direction: FlexRow,
+		Wrap:      false, // Explicitly disabled
+		Width:     12,
+		Gap:       1,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// All items should be present
+	assert.Contains(t, result, "AAAAA")
+	assert.Contains(t, result, "BBBBB")
+	assert.Contains(t, result, "CCCCC")
+
+	// Result should be single line (no wrap)
+	lines := strings.Split(result, "\n")
+	assert.Equal(t, 1, len(lines), "Items should NOT wrap when Wrap=false")
+}
+
+// TestFlex_Wrap_SingleItemNoWrap tests that single item doesn't wrap.
+func TestFlex_Wrap_SingleItemNoWrap(t *testing.T) {
+	item := mockFlexComponentWithSize("AAAAAAAAAA", 10, 1)
+
+	flex := Flex(FlexProps{
+		Items:     []bubbly.Component{item},
+		Direction: FlexRow,
+		Wrap:      true,
+		Width:     5, // Smaller than item
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// Item should be present
+	assert.Contains(t, result, "AAAAAAAAAA")
+}
+
+// TestFlex_Wrap_EmptyItems tests wrap with empty items.
+func TestFlex_Wrap_EmptyItems(t *testing.T) {
+	flex := Flex(FlexProps{
+		Items:     []bubbly.Component{},
+		Direction: FlexRow,
+		Wrap:      true,
+		Width:     20,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// Should return empty string
+	assert.Equal(t, "", result)
+}
+
+// TestFlexWrapItems_Algorithm tests the wrap algorithm directly.
+func TestFlexWrapItems_Algorithm(t *testing.T) {
+	tests := []struct {
+		name          string
+		itemSizes     []int
+		containerSize int
+		gap           int
+		expectRows    int
+	}{
+		{
+			name:          "all fit in one row",
+			itemSizes:     []int{3, 3, 3},
+			containerSize: 15,
+			gap:           1,
+			expectRows:    1,
+		},
+		{
+			name:          "wrap to two rows",
+			itemSizes:     []int{5, 5, 5},
+			containerSize: 12,
+			gap:           1,
+			expectRows:    2,
+		},
+		{
+			name:          "each item on own row",
+			itemSizes:     []int{5, 5, 5},
+			containerSize: 5,
+			gap:           1,
+			expectRows:    3,
+		},
+		{
+			name:          "single item",
+			itemSizes:     []int{10},
+			containerSize: 5,
+			gap:           0,
+			expectRows:    1,
+		},
+		{
+			name:          "empty",
+			itemSizes:     []int{},
+			containerSize: 20,
+			gap:           0,
+			expectRows:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := flexWrapItems(tt.itemSizes, tt.containerSize, tt.gap)
+			assert.Equal(t, tt.expectRows, len(rows), "Number of rows mismatch")
+		})
+	}
+}
+
+// TestFlex_Wrap_WithDifferentSizedItems tests wrap with varying item sizes.
+func TestFlex_Wrap_WithDifferentSizedItems(t *testing.T) {
+	items := []bubbly.Component{
+		mockFlexComponentWithSize("A", 1, 1),
+		mockFlexComponentWithSize("BBBBB", 5, 1),
+		mockFlexComponentWithSize("CC", 2, 1),
+		mockFlexComponentWithSize("DDDD", 4, 1),
+	}
+
+	flex := Flex(FlexProps{
+		Items:     items,
+		Direction: FlexRow,
+		Wrap:      true,
+		Width:     10,
+		Gap:       1,
+	})
+	flex.Init()
+
+	result := flex.View()
+
+	// All items should be present
+	assert.Contains(t, result, "A")
+	assert.Contains(t, result, "BBBBB")
+	assert.Contains(t, result, "CC")
+	assert.Contains(t, result, "DDDD")
+}
+
+// TestFlex_Wrap_AlignmentAcrossRows tests cross-axis alignment with wrap.
+func TestFlex_Wrap_AlignmentAcrossRows(t *testing.T) {
+	tests := []struct {
+		name  string
+		align AlignItems
+	}{
+		{name: "start", align: AlignItemsStart},
+		{name: "center", align: AlignItemsCenter},
+		{name: "end", align: AlignItemsEnd},
+		{name: "stretch", align: AlignItemsStretch},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Items with different heights
+			items := []bubbly.Component{
+				mockFlexComponentWithSize("A", 2, 1),
+				mockFlexComponentWithSize("B\nB", 2, 2),
+				mockFlexComponentWithSize("C", 2, 1),
+				mockFlexComponentWithSize("D\nD\nD", 2, 3),
+			}
+
+			flex := Flex(FlexProps{
+				Items:     items,
+				Direction: FlexRow,
+				Wrap:      true,
+				Width:     6,
+				Gap:       1,
+				Align:     tt.align,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// All items should be present
+			assert.Contains(t, result, "A")
+			assert.Contains(t, result, "B")
+			assert.Contains(t, result, "C")
+			assert.Contains(t, result, "D")
+		})
+	}
+}

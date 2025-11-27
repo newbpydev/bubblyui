@@ -49,8 +49,9 @@ type FlexProps struct {
 	// Default: 0
 	Gap int
 
-	// Wrap enables wrapping items to next row/column.
-	// Default: false (implemented in Task 4.4)
+	// Wrap enables wrapping items to next row/column when they exceed
+	// the container size. Requires Width (for row) or Height (for column).
+	// Default: false
 	Wrap bool
 
 	// Width sets fixed container width. 0 = auto.
@@ -392,6 +393,175 @@ func flexJoinColumn(items []string, gaps []int, startPadding, endPadding int) st
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
+// flexWrapItems splits items into rows/columns based on container size.
+// Returns a slice of slices, where each inner slice contains indices of items in that row/column.
+func flexWrapItems(itemSizes []int, containerSize int, gap int) [][]int {
+	if len(itemSizes) == 0 {
+		return nil
+	}
+
+	var rows [][]int
+	var currentRow []int
+	currentSize := 0
+
+	for i, size := range itemSizes {
+		// Calculate size needed for this item (including gap if not first in row)
+		neededSize := size
+		if len(currentRow) > 0 {
+			neededSize += gap
+		}
+
+		// Check if item fits in current row
+		if len(currentRow) > 0 && currentSize+neededSize > containerSize {
+			// Start new row
+			rows = append(rows, currentRow)
+			currentRow = []int{i}
+			currentSize = size
+		} else {
+			// Add to current row
+			currentRow = append(currentRow, i)
+			currentSize += neededSize
+		}
+	}
+
+	// Add last row
+	if len(currentRow) > 0 {
+		rows = append(rows, currentRow)
+	}
+
+	return rows
+}
+
+// flexRenderRowWrapped renders items in row direction with wrapping.
+func flexRenderRowWrapped(rendered []string, p FlexProps) string {
+	// Calculate item widths
+	itemWidths := make([]int, len(rendered))
+	for i, item := range rendered {
+		itemWidths[i] = lipgloss.Width(item)
+	}
+
+	// Split items into rows
+	rows := flexWrapItems(itemWidths, p.Width, p.Gap)
+	if len(rows) == 0 {
+		return ""
+	}
+
+	// Render each row
+	var rowStrings []string
+	for _, rowIndices := range rows {
+		// Get items for this row
+		rowItems := make([]string, len(rowIndices))
+		rowWidths := make([]int, len(rowIndices))
+		for i, idx := range rowIndices {
+			rowItems[i] = rendered[idx]
+			rowWidths[i] = itemWidths[idx]
+		}
+
+		// Calculate max height for this row (for cross-axis alignment)
+		maxHeight := flexCalculateMaxHeight(rowItems)
+
+		// Apply cross-axis alignment to items in this row
+		aligned := make([]string, len(rowItems))
+		for i, item := range rowItems {
+			aligned[i] = flexAlignItemRow(item, maxHeight, p.Align)
+		}
+
+		// Recalculate widths after alignment
+		for i, item := range aligned {
+			rowWidths[i] = lipgloss.Width(item)
+		}
+
+		// Calculate gaps for this row
+		gaps, startPadding := flexCalculateGaps(rowWidths, p.Width, p.Justify, p.Gap)
+
+		// Join items in this row
+		rowStr := flexJoinRow(aligned, gaps, startPadding, 0)
+		rowStrings = append(rowStrings, rowStr)
+	}
+
+	// Join rows vertically with gap between them
+	if p.Gap > 0 && len(rowStrings) > 1 {
+		var parts []string
+		for i, row := range rowStrings {
+			parts = append(parts, row)
+			if i < len(rowStrings)-1 {
+				// Add gap lines between rows
+				emptyLines := make([]string, p.Gap)
+				for j := range emptyLines {
+					emptyLines[j] = ""
+				}
+				parts = append(parts, strings.Join(emptyLines, "\n"))
+			}
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, rowStrings...)
+}
+
+// flexRenderColumnWrapped renders items in column direction with wrapping.
+func flexRenderColumnWrapped(rendered []string, p FlexProps) string {
+	// Calculate item heights
+	itemHeights := make([]int, len(rendered))
+	for i, item := range rendered {
+		itemHeights[i] = lipgloss.Height(item)
+	}
+
+	// Split items into columns
+	columns := flexWrapItems(itemHeights, p.Height, p.Gap)
+	if len(columns) == 0 {
+		return ""
+	}
+
+	// Render each column
+	var columnStrings []string
+	for _, colIndices := range columns {
+		// Get items for this column
+		colItems := make([]string, len(colIndices))
+		colHeights := make([]int, len(colIndices))
+		for i, idx := range colIndices {
+			colItems[i] = rendered[idx]
+			colHeights[i] = itemHeights[idx]
+		}
+
+		// Calculate max width for this column (for cross-axis alignment)
+		maxWidth := flexCalculateMaxWidth(colItems)
+
+		// Apply cross-axis alignment to items in this column
+		aligned := make([]string, len(colItems))
+		for i, item := range colItems {
+			aligned[i] = flexAlignItemColumn(item, maxWidth, p.Align)
+		}
+
+		// Recalculate heights after alignment
+		for i, item := range aligned {
+			colHeights[i] = lipgloss.Height(item)
+		}
+
+		// Calculate gaps for this column
+		gaps, startPadding := flexCalculateGaps(colHeights, p.Height, p.Justify, p.Gap)
+
+		// Join items in this column
+		colStr := flexJoinColumn(aligned, gaps, startPadding, 0)
+		columnStrings = append(columnStrings, colStr)
+	}
+
+	// Join columns horizontally with gap between them
+	if p.Gap > 0 && len(columnStrings) > 1 {
+		var parts []string
+		for i, col := range columnStrings {
+			parts = append(parts, col)
+			if i < len(columnStrings)-1 {
+				// Add gap spaces between columns
+				parts = append(parts, strings.Repeat(" ", p.Gap))
+			}
+		}
+		return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, columnStrings...)
+}
+
 // Flex creates a flexbox-style layout component.
 // Items are arranged in a row or column with configurable alignment and spacing.
 //
@@ -458,9 +628,17 @@ func Flex(props FlexProps) bubbly.Component {
 			var result string
 
 			if p.Direction == FlexColumn {
-				result = flexRenderColumn(rendered, p)
+				if p.Wrap && p.Height > 0 {
+					result = flexRenderColumnWrapped(rendered, p)
+				} else {
+					result = flexRenderColumn(rendered, p)
+				}
 			} else {
-				result = flexRenderRow(rendered, p)
+				if p.Wrap && p.Width > 0 {
+					result = flexRenderRowWrapped(rendered, p)
+				} else {
+					result = flexRenderRow(rendered, p)
+				}
 			}
 
 			// Apply custom style if provided
