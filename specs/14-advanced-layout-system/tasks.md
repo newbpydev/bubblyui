@@ -195,7 +195,7 @@
   - 95.4% test coverage for components package
   - All quality gates pass: lint clean, race-free, builds successfully
 
-### Task 3.2: VStack Component
+### Task 3.2: VStack Component ✅ COMPLETED
 - **Description**: Vertical stack layout with spacing and alignment
 - **Prerequisites**: Task 2.1, Task 2.2, Task 2.3
 - **Unlocks**: Complex vertical layouts, forms
@@ -204,12 +204,25 @@
   - `pkg/components/vstack_test.go`
 - **Type Safety**: (Same StackProps as HStack)
 - **Tests**:
-  - [ ] Renders items vertically
-  - [ ] Applies spacing between items
-  - [ ] Aligns items (start/center/end)
-  - [ ] Renders dividers between items when enabled
-  - [ ] Handles empty Items array
+  - [x] Renders items vertically
+  - [x] Applies spacing between items
+  - [x] Aligns items (start/center/end)
+  - [x] Renders dividers between items when enabled
+  - [x] Handles empty Items array
 - **Estimated effort**: 1 hour (reuse HStack logic)
+- **Implementation Notes** (2025-11-26):
+  - Implemented using same `StackProps` struct shared with HStack
+  - Added `vstackApplyDefaults()` for DividerChar (─) and Align (start) defaults
+  - Added `vstackRenderItems()` for rendering child components
+  - Added `vstackCalculateMaxWidth()` for cross-axis alignment calculations
+  - Added `vstackAlignItem()` for horizontal alignment (start/center/end/stretch)
+  - Added `vstackCreateDivider()` for themed horizontal dividers
+  - Added `vstackJoinWithSpacing()` using `lipgloss.JoinVertical`
+  - Cross-axis alignment uses `Width()` and `Align()` (vs HStack's Height/PaddingTop)
+  - Divider uses `theme.Muted` for consistent styling
+  - 17 test functions covering all scenarios (table-driven tests)
+  - 95.2% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ### Task 3.3: Center Component
 - **Description**: Centers child component horizontally and/or vertically
