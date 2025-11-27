@@ -433,6 +433,8 @@ func flexWrapItems(itemSizes []int, containerSize int, gap int) [][]int {
 }
 
 // flexRenderRowWrapped renders items in row direction with wrapping.
+//
+//nolint:dupl // Row and column wrapped rendering have similar structure but different axis handling
 func flexRenderRowWrapped(rendered []string, p FlexProps) string {
 	// Calculate item widths
 	itemWidths := make([]int, len(rendered))
@@ -500,6 +502,8 @@ func flexRenderRowWrapped(rendered []string, p FlexProps) string {
 }
 
 // flexRenderColumnWrapped renders items in column direction with wrapping.
+//
+//nolint:dupl // Row and column wrapped rendering have similar structure but different axis handling
 func flexRenderColumnWrapped(rendered []string, p FlexProps) string {
 	// Calculate item heights
 	itemHeights := make([]int, len(rendered))

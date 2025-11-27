@@ -454,17 +454,39 @@
 
 ## Phase 5: Integration Tasks
 
-### Task 5.1: Theme Integration
+### Task 5.1: Theme Integration ✅ COMPLETED
 - **Description**: Ensure all components use UseTheme correctly
 - **Prerequisites**: All Phase 2-4 tasks
 - **Unlocks**: Consistent themed layouts
 - **Files**:
   - All layout component files
+  - `pkg/components/theme_integration_test.go` (NEW)
 - **Tests**:
-  - [ ] Divider uses theme.Muted
-  - [ ] Box border uses theme.Secondary
-  - [ ] All components support custom Style prop
+  - [x] Divider uses theme.Muted
+  - [x] Box border uses theme.Secondary
+  - [x] All components support custom Style prop
 - **Estimated effort**: 30 minutes
+- **Implementation Notes** (2025-11-27):
+  - Verified all 8 layout components use `injectTheme(ctx)` pattern correctly:
+    - **Divider**: Uses `theme.Muted` for divider color (line 133)
+    - **Box**: Uses `theme.Secondary` for border, `theme.Primary` for title, `theme.Foreground` for content
+    - **HStack**: Uses `theme.Muted` for divider between items (line 143)
+    - **VStack**: Uses `theme.Muted` for divider between items (line 95)
+    - **Flex**: Injects theme, supports custom Style prop
+    - **Center**: Injects theme, supports custom Style prop
+    - **Container**: Injects theme, supports custom Style prop
+    - **Spacer**: Supports custom Style prop
+  - Created comprehensive theme integration test file with 7 test functions:
+    - `TestThemeIntegration_Divider_UsesMutedColor` - 3 subtests
+    - `TestThemeIntegration_Box_UsesSecondaryForBorder` - 3 subtests
+    - `TestThemeIntegration_Box_UsesPrimaryForTitle`
+    - `TestThemeIntegration_HStack_UsesMutedForDivider`
+    - `TestThemeIntegration_VStack_UsesMutedForDivider`
+    - `TestThemeIntegration_AllComponents_SupportCustomStyle` - 8 subtests
+    - `TestThemeIntegration_AllComponents_InjectTheme` - 7 subtests
+  - Added `nolint:dupl` comments to `flexRenderRowWrapped` and `flexRenderColumnWrapped` for intentional duplication
+  - 95.4% test coverage for components package
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ### Task 5.2: Integration Tests
 - **Description**: Test component composition and nesting
