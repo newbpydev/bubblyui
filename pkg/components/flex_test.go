@@ -1304,3 +1304,433 @@ func TestFlex_SpaceDistribution_WithGap(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Task 4.3: Cross-Axis Alignment Tests
+// =============================================================================
+
+// TestFlex_AlignStart_PositionsAtTopLeft tests that AlignStart positions items
+// at top (row) or left (column).
+func TestFlex_AlignStart_PositionsAtTopLeft(t *testing.T) {
+	tests := []struct {
+		name      string
+		direction FlexDirection
+	}{
+		{name: "row direction (top)", direction: FlexRow},
+		{name: "column direction (left)", direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create items with different sizes
+			small := mockFlexComponent("S")
+			large := mockFlexComponentWithSize("L\nL\nL", 5, 3)
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{small, large},
+				Direction: tt.direction,
+				Align:     AlignItemsStart,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Both items should be present
+			assert.Contains(t, result, "S")
+			assert.Contains(t, result, "L")
+
+			if tt.direction == FlexRow {
+				// In row with AlignStart, small item should be at top
+				// First line should contain "S"
+				lines := strings.Split(result, "\n")
+				assert.True(t, strings.Contains(lines[0], "S"), "S should be on first line (top aligned)")
+			} else {
+				// In column with AlignStart, items should be left-aligned
+				lines := strings.Split(result, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, "S") {
+						// S should start near the beginning
+						idx := strings.Index(line, "S")
+						assert.LessOrEqual(t, idx, 1, "S should be left-aligned")
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestFlex_AlignCenter_PositionsInMiddle tests that AlignCenter positions items
+// in the middle of the cross-axis.
+func TestFlex_AlignCenter_PositionsInMiddle(t *testing.T) {
+	tests := []struct {
+		name      string
+		direction FlexDirection
+	}{
+		{name: "row direction (vertical center)", direction: FlexRow},
+		{name: "column direction (horizontal center)", direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create items with different sizes
+			small := mockFlexComponent("S")
+			large := mockFlexComponentWithSize("L\nL\nL", 5, 3)
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{small, large},
+				Direction: tt.direction,
+				Align:     AlignItemsCenter,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Both items should be present
+			assert.Contains(t, result, "S")
+			assert.Contains(t, result, "L")
+
+			if tt.direction == FlexRow {
+				// In row with AlignCenter, small item should be vertically centered
+				lines := strings.Split(result, "\n")
+				// With 3-line tall container, S should be on middle line (index 1)
+				foundOnMiddle := false
+				if len(lines) >= 2 {
+					foundOnMiddle = strings.Contains(lines[1], "S")
+				}
+				assert.True(t, foundOnMiddle, "S should be vertically centered")
+			}
+		})
+	}
+}
+
+// TestFlex_AlignEnd_PositionsAtBottomRight tests that AlignEnd positions items
+// at bottom (row) or right (column).
+func TestFlex_AlignEnd_PositionsAtBottomRight(t *testing.T) {
+	tests := []struct {
+		name      string
+		direction FlexDirection
+	}{
+		{name: "row direction (bottom)", direction: FlexRow},
+		{name: "column direction (right)", direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create items with different sizes
+			small := mockFlexComponent("S")
+			large := mockFlexComponentWithSize("L\nL\nL", 5, 3)
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{small, large},
+				Direction: tt.direction,
+				Align:     AlignItemsEnd,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Both items should be present
+			assert.Contains(t, result, "S")
+			assert.Contains(t, result, "L")
+
+			if tt.direction == FlexRow {
+				// In row with AlignEnd, small item should be at bottom
+				lines := strings.Split(result, "\n")
+				// S should be on the last line
+				lastLine := lines[len(lines)-1]
+				assert.True(t, strings.Contains(lastLine, "S"), "S should be on last line (bottom aligned)")
+			}
+		})
+	}
+}
+
+// TestFlex_AlignStretch_FillsAvailableSpace tests that AlignStretch fills
+// the available cross-axis space.
+func TestFlex_AlignStretch_FillsAvailableSpace(t *testing.T) {
+	tests := []struct {
+		name      string
+		direction FlexDirection
+	}{
+		{name: "row direction (height stretch)", direction: FlexRow},
+		{name: "column direction (width stretch)", direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create items with different sizes
+			small := mockFlexComponent("S")
+			large := mockFlexComponentWithSize("L\nL\nL", 5, 3)
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{small, large},
+				Direction: tt.direction,
+				Align:     AlignItemsStretch,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Both items should be present
+			assert.Contains(t, result, "S")
+			assert.Contains(t, result, "L")
+
+			if tt.direction == FlexRow {
+				// In row with AlignStretch, result should have consistent height
+				lines := strings.Split(result, "\n")
+				assert.GreaterOrEqual(t, len(lines), 3, "Stretched items should have at least 3 lines")
+			} else {
+				// In column with AlignStretch, items should have same width
+				lines := strings.Split(result, "\n")
+				if len(lines) > 0 {
+					maxWidth := 0
+					for _, line := range lines {
+						w := lipgloss.Width(line)
+						if w > maxWidth {
+							maxWidth = w
+						}
+					}
+					assert.Greater(t, maxWidth, 1, "Stretched items should have width > 1")
+				}
+			}
+		})
+	}
+}
+
+// TestFlexAlignItemRow_Algorithm tests the row alignment algorithm directly.
+func TestFlexAlignItemRow_Algorithm(t *testing.T) {
+	tests := []struct {
+		name      string
+		item      string
+		maxHeight int
+		align     AlignItems
+		checkFunc func(t *testing.T, result string)
+	}{
+		{
+			name:      "start alignment - adds bottom padding",
+			item:      "X",
+			maxHeight: 3,
+			align:     AlignItemsStart,
+			checkFunc: func(t *testing.T, result string) {
+				height := lipgloss.Height(result)
+				assert.Equal(t, 3, height, "Result should have maxHeight")
+				lines := strings.Split(result, "\n")
+				assert.True(t, strings.Contains(lines[0], "X"), "X should be on first line")
+			},
+		},
+		{
+			name:      "center alignment - adds top and bottom padding",
+			item:      "X",
+			maxHeight: 3,
+			align:     AlignItemsCenter,
+			checkFunc: func(t *testing.T, result string) {
+				height := lipgloss.Height(result)
+				assert.Equal(t, 3, height, "Result should have maxHeight")
+				lines := strings.Split(result, "\n")
+				assert.True(t, strings.Contains(lines[1], "X"), "X should be on middle line")
+			},
+		},
+		{
+			name:      "end alignment - adds top padding",
+			item:      "X",
+			maxHeight: 3,
+			align:     AlignItemsEnd,
+			checkFunc: func(t *testing.T, result string) {
+				height := lipgloss.Height(result)
+				assert.Equal(t, 3, height, "Result should have maxHeight")
+				lines := strings.Split(result, "\n")
+				assert.True(t, strings.Contains(lines[2], "X"), "X should be on last line")
+			},
+		},
+		{
+			name:      "stretch alignment - sets height",
+			item:      "X",
+			maxHeight: 3,
+			align:     AlignItemsStretch,
+			checkFunc: func(t *testing.T, result string) {
+				height := lipgloss.Height(result)
+				assert.Equal(t, 3, height, "Result should have maxHeight")
+			},
+		},
+		{
+			name:      "item already at max height - no change",
+			item:      "X\nY\nZ",
+			maxHeight: 3,
+			align:     AlignItemsCenter,
+			checkFunc: func(t *testing.T, result string) {
+				assert.Contains(t, result, "X")
+				assert.Contains(t, result, "Y")
+				assert.Contains(t, result, "Z")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := flexAlignItemRow(tt.item, tt.maxHeight, tt.align)
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+// TestFlexAlignItemColumn_Algorithm tests the column alignment algorithm directly.
+func TestFlexAlignItemColumn_Algorithm(t *testing.T) {
+	tests := []struct {
+		name      string
+		item      string
+		maxWidth  int
+		align     AlignItems
+		checkFunc func(t *testing.T, result string)
+	}{
+		{
+			name:     "start alignment - left aligned",
+			item:     "X",
+			maxWidth: 10,
+			align:    AlignItemsStart,
+			checkFunc: func(t *testing.T, result string) {
+				width := lipgloss.Width(result)
+				assert.Equal(t, 10, width, "Result should have maxWidth")
+				// X should be at the start
+				idx := strings.Index(result, "X")
+				assert.LessOrEqual(t, idx, 1, "X should be left-aligned")
+			},
+		},
+		{
+			name:     "center alignment - centered",
+			item:     "X",
+			maxWidth: 10,
+			align:    AlignItemsCenter,
+			checkFunc: func(t *testing.T, result string) {
+				width := lipgloss.Width(result)
+				assert.Equal(t, 10, width, "Result should have maxWidth")
+				// X should be in the middle
+				idx := strings.Index(result, "X")
+				assert.Greater(t, idx, 0, "X should have leading space")
+				assert.Less(t, idx, 9, "X should have trailing space")
+			},
+		},
+		{
+			name:     "end alignment - right aligned",
+			item:     "X",
+			maxWidth: 10,
+			align:    AlignItemsEnd,
+			checkFunc: func(t *testing.T, result string) {
+				width := lipgloss.Width(result)
+				assert.Equal(t, 10, width, "Result should have maxWidth")
+				// X should be at the end
+				idx := strings.Index(result, "X")
+				assert.GreaterOrEqual(t, idx, 8, "X should be right-aligned")
+			},
+		},
+		{
+			name:     "stretch alignment - full width",
+			item:     "X",
+			maxWidth: 10,
+			align:    AlignItemsStretch,
+			checkFunc: func(t *testing.T, result string) {
+				width := lipgloss.Width(result)
+				assert.Equal(t, 10, width, "Result should have maxWidth")
+			},
+		},
+		{
+			name:     "item already at max width - no change",
+			item:     "XXXXXXXXXX",
+			maxWidth: 10,
+			align:    AlignItemsCenter,
+			checkFunc: func(t *testing.T, result string) {
+				assert.Equal(t, "XXXXXXXXXX", result)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := flexAlignItemColumn(tt.item, tt.maxWidth, tt.align)
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+// TestFlex_CrossAxisAlignment_WithDifferentSizedItems tests alignment with
+// items of varying sizes.
+func TestFlex_CrossAxisAlignment_WithDifferentSizedItems(t *testing.T) {
+	tests := []struct {
+		name      string
+		align     AlignItems
+		direction FlexDirection
+	}{
+		{name: "start row", align: AlignItemsStart, direction: FlexRow},
+		{name: "center row", align: AlignItemsCenter, direction: FlexRow},
+		{name: "end row", align: AlignItemsEnd, direction: FlexRow},
+		{name: "stretch row", align: AlignItemsStretch, direction: FlexRow},
+		{name: "start column", align: AlignItemsStart, direction: FlexColumn},
+		{name: "center column", align: AlignItemsCenter, direction: FlexColumn},
+		{name: "end column", align: AlignItemsEnd, direction: FlexColumn},
+		{name: "stretch column", align: AlignItemsStretch, direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create items with significantly different sizes
+			tiny := mockFlexComponent("T")
+			small := mockFlexComponentWithSize("SM", 4, 2)
+			large := mockFlexComponentWithSize("LG\nLG\nLG\nLG", 6, 4)
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{tiny, small, large},
+				Direction: tt.direction,
+				Align:     tt.align,
+				Gap:       1,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// All items should be present
+			assert.Contains(t, result, "T")
+			assert.Contains(t, result, "SM")
+			assert.Contains(t, result, "LG")
+
+			// Result should have dimensions
+			width := lipgloss.Width(result)
+			height := lipgloss.Height(result)
+			assert.Greater(t, width, 0, "Result should have width")
+			assert.Greater(t, height, 0, "Result should have height")
+		})
+	}
+}
+
+// TestFlex_CrossAxisAlignment_SingleItem tests alignment with a single item.
+func TestFlex_CrossAxisAlignment_SingleItem(t *testing.T) {
+	tests := []struct {
+		name      string
+		align     AlignItems
+		direction FlexDirection
+	}{
+		{name: "start row", align: AlignItemsStart, direction: FlexRow},
+		{name: "center row", align: AlignItemsCenter, direction: FlexRow},
+		{name: "end row", align: AlignItemsEnd, direction: FlexRow},
+		{name: "stretch row", align: AlignItemsStretch, direction: FlexRow},
+		{name: "start column", align: AlignItemsStart, direction: FlexColumn},
+		{name: "center column", align: AlignItemsCenter, direction: FlexColumn},
+		{name: "end column", align: AlignItemsEnd, direction: FlexColumn},
+		{name: "stretch column", align: AlignItemsStretch, direction: FlexColumn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := mockFlexComponent("Single")
+
+			flex := Flex(FlexProps{
+				Items:     []bubbly.Component{item},
+				Direction: tt.direction,
+				Align:     tt.align,
+			})
+			flex.Init()
+
+			result := flex.View()
+
+			// Item should be present
+			assert.Contains(t, result, "Single")
+		})
+	}
+}
