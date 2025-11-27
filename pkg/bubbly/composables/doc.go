@@ -48,7 +48,7 @@ Use composables in a component's Setup function:
 
 # Standard Composables
 
-The package provides eight standard composables:
+The package provides nine standard composables plus a factory helper:
 
 UseState[T]: Simple reactive state management with getter/setter API.
 
@@ -118,6 +118,34 @@ UseEventListener: Event handling with automatic cleanup.
 	    fmt.Println("Clicked!")
 	})
 	// Cleanup called automatically on unmount
+
+# Shared Composables
+
+CreateShared[T]: Factory helper for creating singleton composables.
+Inspired by VueUse's createSharedComposable, this enables sharing state
+and logic across multiple components without prop drilling or global variables.
+
+	// Define a shared composable at package level
+	var UseSharedCounter = composables.CreateShared(
+	    func(ctx *bubbly.Context) *CounterComposable {
+	        return UseCounter(ctx, 0)
+	    },
+	)
+
+	// In any component - same instance across all
+	counter := UseSharedCounter(ctx)
+
+Key features:
+  - Thread-safe initialization via sync.Once
+  - Type-safe with Go generics
+  - Factory called exactly once, subsequent calls return cached instance
+  - Enables global state, singleton services, cross-component communication
+
+Use cases:
+  - Global application state (user session, preferences)
+  - Singleton services (API clients, loggers)
+  - Cross-component communication without prop drilling
+  - Shared caches or data stores
 
 # Integration with Component System
 
@@ -408,6 +436,7 @@ The package is organized into focused files:
   - use_form.go: Form management
   - use_local_storage.go: Persistent state
   - use_event_listener.go: Event handling
+  - shared.go: CreateShared factory for singleton composables
   - storage.go: Storage interface and implementations
 
 Each file includes comprehensive godoc and usage examples.
