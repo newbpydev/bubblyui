@@ -6,13 +6,13 @@
 - [x] 06-built-in-components completed (components package exists)
 - [x] Theme system exists (UseTheme/ProvideTheme)
 - [x] Lipgloss available for rendering
-- [ ] Type definitions added to `pkg/components/types.go`
+- [x] Type definitions added to `pkg/components/layout_types.go`
 
 ---
 
 ## Phase 1: Type Definitions and Constants
 
-### Task 1.1: Layout Type Constants
+### Task 1.1: Layout Type Constants ✅ COMPLETED
 - **Description**: Define alignment and direction constants for layout system
 - **Prerequisites**: None
 - **Unlocks**: All layout components
@@ -27,9 +27,15 @@
   type ContainerSize string
   ```
 - **Tests**:
-  - [ ] Constants have expected string values
-  - [ ] ContainerSize presets return correct widths
+  - [x] Constants have expected string values
+  - [x] ContainerSize presets return correct widths
 - **Estimated effort**: 30 minutes
+- **Implementation Notes** (2025-01-27):
+  - Implemented 4 type definitions: `FlexDirection`, `JustifyContent`, `AlignItems`, `ContainerSize`
+  - Added `IsValid()` method for validation on all types
+  - Added `Width()` method on `ContainerSize` for preset widths (40/60/80/100/0)
+  - 100% test coverage with table-driven tests (9 test functions, 41 subtests)
+  - All quality gates pass: lint clean, race-free, builds successfully
 
 ---
 
