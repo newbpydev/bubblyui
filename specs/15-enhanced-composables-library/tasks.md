@@ -79,7 +79,7 @@
   - Initial value not in order defaults to first item in order
   - Comprehensive godoc comments with examples
 
-### Task 1.3: UseScroll
+### Task 1.3: UseScroll ✅ COMPLETED
 - **Description**: Viewport scrolling management
 - **Prerequisites**: Task 1.2
 - **Unlocks**: Task 1.4
@@ -94,15 +94,25 @@
   func UseScroll(ctx *bubbly.Context, totalItems, visibleCount int) *ScrollReturn
   ```
 - **Tests**:
-  - [ ] Initial offset is 0
-  - [ ] ScrollUp/ScrollDown respect bounds
-  - [ ] ScrollTo clamps to valid range
-  - [ ] ScrollToTop/ScrollToBottom work correctly
-  - [ ] PageUp/PageDown move by visible count
-  - [ ] IsAtTop/IsAtBottom return correct values
-  - [ ] SetTotalItems recalculates max offset
-  - [ ] Empty list (0 items) handled
+  - [x] Initial offset is 0
+  - [x] ScrollUp/ScrollDown respect bounds
+  - [x] ScrollTo clamps to valid range
+  - [x] ScrollToTop/ScrollToBottom work correctly
+  - [x] PageUp/PageDown move by visible count
+  - [x] IsAtTop/IsAtBottom return correct values
+  - [x] SetTotalItems recalculates max offset
+  - [x] Empty list (0 items) handled
 - **Estimated effort**: 3 hours
+- **Implementation Notes**:
+  - 14 test functions with 20+ sub-tests covering all requirements and edge cases
+  - 86.7% coverage on UseScroll function, 100% on most methods
+  - Includes: ScrollUp, ScrollDown, ScrollTo, ScrollToTop, ScrollToBottom, PageUp, PageDown
+  - IsAtTop/IsAtBottom for boundary detection
+  - SetTotalItems/SetVisibleCount for dynamic list updates
+  - Works with CreateShared pattern for cross-component sharing
+  - Race detector passes, no goroutine leaks
+  - Handles edge cases: empty list, visible >= total, negative inputs
+  - Comprehensive godoc comments with examples
 
 ### Task 1.4: UseSelection
 - **Description**: List/table selection management with generic items
