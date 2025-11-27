@@ -333,8 +333,8 @@ func BenchmarkProvideInject_CachedLookup(b *testing.B) {
 // Composable Chain Benchmarks
 // ============================================================================
 
-// UseCounter is a simple composable for benchmarking
-func UseCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(), func()) {
+// benchCounter is a simple composable for benchmarking (internal use only)
+func benchCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(), func()) {
 	state := UseState(ctx, initial)
 
 	increment := func() {
@@ -348,9 +348,11 @@ func UseCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(), fun
 	return state.Value, increment, decrement
 }
 
-// UseDoubleCounter chains UseCounter
-func UseDoubleCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(), func()) {
-	count, inc, dec := UseCounter(ctx, initial)
+// benchDoubleCounter chains benchCounter
+//
+//nolint:unparam // third return value is used in BenchmarkComposableChain for API consistency
+func benchDoubleCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(), func()) {
+	count, inc, dec := benchCounter(ctx, initial)
 
 	doubleInc := func() {
 		inc()
@@ -366,7 +368,7 @@ func UseDoubleCounter(ctx *bubbly.Context, initial int) (*bubbly.Ref[int], func(
 }
 
 // BenchmarkComposableChain measures chained composable overhead
-// UseDoubleCounter -> UseCounter -> UseState
+// benchDoubleCounter -> benchCounter -> UseState
 // Target: < 500ns combined
 func BenchmarkComposableChain(b *testing.B) {
 	ctx := bubbly.NewTestContext()
@@ -374,7 +376,7 @@ func BenchmarkComposableChain(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		count, inc, dec := UseDoubleCounter(ctx, 0)
+		count, inc, dec := benchDoubleCounter(ctx, 0)
 		_, _, _ = count, inc, dec
 	}
 }
@@ -382,7 +384,7 @@ func BenchmarkComposableChain(b *testing.B) {
 // BenchmarkComposableChain_Execution measures executing chained composable functions
 func BenchmarkComposableChain_Execution(b *testing.B) {
 	ctx := bubbly.NewTestContext()
-	_, inc, _ := UseDoubleCounter(ctx, 0)
+	_, inc, _ := benchDoubleCounter(ctx, 0)
 	b.ReportAllocs()
 	b.ResetTimer()
 
@@ -636,7 +638,7 @@ func BenchmarkWithStats_ComposableChain(b *testing.B) {
 	ctx := bubbly.NewTestContext()
 
 	RunWithStats(b, func() {
-		count, inc, _ := UseDoubleCounter(ctx, 0)
+		count, inc, _ := benchDoubleCounter(ctx, 0)
 		inc()
 		_ = count.Get()
 	})

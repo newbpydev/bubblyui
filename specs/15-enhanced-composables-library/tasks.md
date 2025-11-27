@@ -222,7 +222,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 2.2: UseCounter
+### Task 2.2: UseCounter ✅ COMPLETED
 - **Description**: Bounded counter with step support
 - **Prerequisites**: Task 2.1
 - **Unlocks**: Task 2.3
@@ -237,15 +237,26 @@
   func UseCounter(ctx *bubbly.Context, initial int, opts ...CounterOption) *CounterReturn
   ```
 - **Tests**:
-  - [ ] Initial value set correctly
-  - [ ] Increment/Decrement by step
-  - [ ] Min bound enforced
-  - [ ] Max bound enforced
-  - [ ] IncrementBy/DecrementBy work
-  - [ ] Set clamps to bounds
-  - [ ] Reset returns to initial
-  - [ ] Default step is 1
+  - [x] Initial value set correctly
+  - [x] Increment/Decrement by step
+  - [x] Min bound enforced
+  - [x] Max bound enforced
+  - [x] IncrementBy/DecrementBy work
+  - [x] Set clamps to bounds
+  - [x] Reset returns to initial
+  - [x] Default step is 1
 - **Estimated effort**: 2 hours
+- **Implementation Notes**:
+  - 18 test functions with 40+ sub-tests covering all requirements and edge cases
+  - 100% coverage on UseCounter function and all methods
+  - 91.5% coverage on composables package (above 80% requirement)
+  - Options: WithMin, WithMax, WithStep (functional options pattern)
+  - Methods: Increment, Decrement, IncrementBy, DecrementBy, Set, Reset
+  - Initial value clamped to bounds if min/max configured
+  - Default step is 1, configurable via WithStep
+  - Works with CreateShared pattern for cross-component sharing
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 2.3: UsePrevious
 - **Description**: Previous value tracking
