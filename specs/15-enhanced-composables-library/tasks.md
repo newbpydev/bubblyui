@@ -291,7 +291,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 2.4: UseHistory
+### Task 2.4: UseHistory ✅ COMPLETED
 - **Description**: Undo/redo state management
 - **Prerequisites**: Task 2.3
 - **Unlocks**: Phase 3
@@ -307,15 +307,28 @@
   func UseHistory[T any](ctx *bubbly.Context, initial T, maxSize int) *HistoryReturn[T]
   ```
 - **Tests**:
-  - [ ] Initial state set correctly
-  - [ ] Push adds to history
-  - [ ] Undo reverts state
-  - [ ] Redo restores state
-  - [ ] CanUndo/CanRedo computed correctly
-  - [ ] Push clears redo stack
-  - [ ] Max size enforced (drop oldest)
-  - [ ] Clear empties history
+  - [x] Initial state set correctly
+  - [x] Push adds to history
+  - [x] Undo reverts state
+  - [x] Redo restores state
+  - [x] CanUndo/CanRedo computed correctly
+  - [x] Push clears redo stack
+  - [x] Max size enforced (drop oldest)
+  - [x] Clear empties history
 - **Estimated effort**: 4 hours
+- **Implementation Notes**:
+  - 17 test functions with 25+ sub-tests covering all requirements and edge cases
+  - 92.1% coverage on composables package (above 80% requirement)
+  - Generic type support verified with int, string, struct, and slice types
+  - Uses two stacks: past (for undo) and future (for redo)
+  - maxSize represents max entries in past stack (allowing maxSize undos)
+  - Uses internal Ref[int] for pastLen/futureLen to enable reactive Computed values
+  - CanUndo/CanRedo are Computed[bool] that react to history changes
+  - Thread-safe with sync.Mutex protecting past/future slices
+  - Works with CreateShared pattern for cross-component sharing
+  - Current is reactive (can be watched for changes)
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ---
 
