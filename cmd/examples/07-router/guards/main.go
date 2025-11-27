@@ -231,7 +231,7 @@ func (m model) View() string {
 		return "Loading..."
 	}
 
-	// Create RouterView to render current component
+	// Create View to render current component
 	routerView := router.NewRouterView(m.router, 0)
 
 	// Render header with auth status

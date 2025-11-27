@@ -181,12 +181,12 @@ func TestExportIncremental_MultipleChain(t *testing.T) {
 	// Verify each delta has exactly 1 event
 	data1, _ := os.ReadFile(delta1File)
 	var delta1 IncrementalExportData
-	json.Unmarshal(data1, &delta1)
+	_ = json.Unmarshal(data1, &delta1)
 	assert.Len(t, delta1.NewEvents, 1)
 
 	data2, _ := os.ReadFile(delta2File)
 	var delta2 IncrementalExportData
-	json.Unmarshal(data2, &delta2)
+	_ = json.Unmarshal(data2, &delta2)
 	assert.Len(t, delta2.NewEvents, 1)
 }
 
@@ -220,7 +220,7 @@ func TestImportDelta_AppendsData(t *testing.T) {
 	defer os.Remove(deltaFile)
 
 	data, _ := json.MarshalIndent(delta, "", "  ")
-	os.WriteFile(deltaFile, data, 0644)
+	_ = os.WriteFile(deltaFile, data, 0644)
 
 	// Import delta
 	err := dt.ImportDelta(deltaFile)
@@ -268,7 +268,7 @@ func TestExportIncremental_EmptyDelta(t *testing.T) {
 	// Read delta
 	data, _ := os.ReadFile(deltaFile)
 	var delta IncrementalExportData
-	json.Unmarshal(data, &delta)
+	_ = json.Unmarshal(data, &delta)
 
 	// Should have no new data
 	assert.Len(t, delta.NewEvents, 0)

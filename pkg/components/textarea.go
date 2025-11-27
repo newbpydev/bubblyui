@@ -120,49 +120,91 @@ type TextAreaProps struct {
 //   - Clear visual distinction for disabled state
 //   - Error messages clearly displayed
 //   - Keyboard accessible
+//
+// textareaApplyDefaults returns rows and width with defaults applied.
+func textareaApplyDefaults(props TextAreaProps) (int, int) {
+	rows := props.Rows
+	if rows <= 0 {
+		rows = 3
+	}
+	width := props.Width
+	if width <= 0 {
+		width = 40
+	}
+	return rows, width
+}
+
+// textareaGetBorderColor returns the border color based on state.
+func textareaGetBorderColor(props TextAreaProps, validationError error, theme Theme) lipgloss.TerminalColor {
+	if props.Disabled {
+		return theme.Muted
+	}
+	if validationError != nil {
+		return theme.Danger
+	}
+	return theme.Secondary
+}
+
+// textareaRenderContent renders the text content area.
+func textareaRenderContent(text string, props TextAreaProps, rows int, theme Theme) string {
+	var content strings.Builder
+
+	if text == "" && props.Placeholder != "" {
+		return lipgloss.NewStyle().Foreground(theme.Muted).Render(props.Placeholder)
+	}
+
+	lines := strings.Split(text, "\n")
+	displayLines := lines
+	if len(lines) > rows {
+		displayLines = lines[len(lines)-rows:]
+	}
+
+	for i, line := range displayLines {
+		if props.Disabled {
+			content.WriteString(lipgloss.NewStyle().Foreground(theme.Muted).Render(line))
+		} else {
+			content.WriteString(line)
+		}
+		if i < len(displayLines)-1 {
+			content.WriteString("\n")
+		}
+	}
+
+	for i := len(displayLines); i < rows; i++ {
+		content.WriteString("\n")
+	}
+
+	return content.String()
+}
+
 func TextArea(props TextAreaProps) bubbly.Component {
 	component, _ := bubbly.NewComponent("TextArea").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Try to inject theme, fallback to DefaultTheme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
-
-			// Create internal state for validation error
+			theme := injectTheme(ctx)
 			validationError := bubbly.NewRef[error](nil)
 
-			// Watch value changes for validation
 			if props.Validate != nil {
-				bubbly.Watch(props.Value, func(oldValue, newValue string) {
-					err := props.Validate(newValue)
-					validationError.Set(err)
+				bubbly.Watch(props.Value, func(_, newValue string) {
+					validationError.Set(props.Validate(newValue))
 				})
 			}
 
-			// Register change event handler
 			ctx.On("change", func(data interface{}) {
-				if !props.Disabled {
-					if newValue, ok := data.(string); ok {
-						// Enforce max length if specified
-						if props.MaxLength > 0 && len(newValue) > props.MaxLength {
-							newValue = newValue[:props.MaxLength]
-						}
-
-						props.Value.Set(newValue)
-
-						// Call OnChange callback if provided
-						if props.OnChange != nil {
-							props.OnChange(newValue)
-						}
+				if props.Disabled {
+					return
+				}
+				if newValue, ok := data.(string); ok {
+					if props.MaxLength > 0 && len(newValue) > props.MaxLength {
+						newValue = newValue[:props.MaxLength]
+					}
+					props.Value.Set(newValue)
+					if props.OnChange != nil {
+						props.OnChange(newValue)
 					}
 				}
 			})
 
-			// Expose internal state
 			ctx.Expose("theme", theme)
 			ctx.Expose("validationError", validationError)
 		}).
@@ -171,93 +213,25 @@ func TextArea(props TextAreaProps) bubbly.Component {
 			theme := ctx.Get("theme").(Theme)
 			validationError := ctx.Get("validationError").(*bubbly.Ref[error])
 
-			// Get current text
 			text := props.Value.GetTyped()
+			rows, width := textareaApplyDefaults(props)
 
-			// Determine rows (default to 3 if not specified)
-			rows := props.Rows
-			if rows <= 0 {
-				rows = 3
-			}
-
-			// Determine width (default to 40 if not specified)
-			width := props.Width
-			if width <= 0 {
-				width = 40
-			}
-
-			// Build textarea style
-			textareaStyle := lipgloss.NewStyle().
-				Padding(0, 1).
-				Width(width)
-
-			// Add border unless NoBorder is true
+			textareaStyle := lipgloss.NewStyle().Padding(0, 1).Width(width)
 			if !props.NoBorder {
-				textareaStyle = textareaStyle.Border(theme.GetBorderStyle())
+				textareaStyle = textareaStyle.
+					Border(theme.GetBorderStyle()).
+					BorderForeground(textareaGetBorderColor(props, validationError.GetTyped(), theme))
 			}
 
-			// Set border color based on state (only if border is shown)
-			if !props.NoBorder {
-				if props.Disabled {
-					textareaStyle = textareaStyle.BorderForeground(theme.Muted)
-				} else if validationError.GetTyped() != nil {
-					textareaStyle = textareaStyle.BorderForeground(theme.Danger)
-				} else {
-					textareaStyle = textareaStyle.BorderForeground(theme.Secondary)
-				}
-			}
-
-			// Apply custom style if provided
 			if props.Style != nil {
 				textareaStyle = textareaStyle.Inherit(*props.Style)
 			}
 
-			// Build content
-			var content strings.Builder
+			content := textareaRenderContent(text, props, rows, theme)
+			output := textareaStyle.Render(content)
 
-			if text == "" && props.Placeholder != "" {
-				// Show placeholder
-				placeholderStyle := lipgloss.NewStyle().Foreground(theme.Muted)
-				content.WriteString(placeholderStyle.Render(props.Placeholder))
-			} else {
-				// Split text into lines
-				lines := strings.Split(text, "\n")
-
-				// Render lines (limit to rows)
-				displayLines := lines
-				if len(lines) > rows {
-					// Show last N lines if content exceeds rows
-					displayLines = lines[len(lines)-rows:]
-				}
-
-				for i, line := range displayLines {
-					if props.Disabled {
-						lineStyle := lipgloss.NewStyle().Foreground(theme.Muted)
-						content.WriteString(lineStyle.Render(line))
-					} else {
-						content.WriteString(line)
-					}
-
-					// Add newline except for last line
-					if i < len(displayLines)-1 {
-						content.WriteString("\n")
-					}
-				}
-
-				// Pad with empty lines if needed to reach rows
-				for i := len(displayLines); i < rows; i++ {
-					content.WriteString("\n")
-				}
-			}
-
-			// Render textarea
-			output := textareaStyle.Render(content.String())
-
-			// Add validation error if present
 			if err := validationError.GetTyped(); err != nil {
-				errorStyle := lipgloss.NewStyle().
-					Foreground(theme.Danger).
-					Italic(true)
+				errorStyle := lipgloss.NewStyle().Foreground(theme.Danger).Italic(true)
 				output += "\n" + errorStyle.Render("✗ "+err.Error())
 			}
 

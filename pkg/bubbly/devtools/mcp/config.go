@@ -6,15 +6,15 @@ import (
 	"time"
 )
 
-// MCPTransportType defines the transport mechanism for MCP server.
+// TransportType defines the transport mechanism for MCP server.
 //
 // Multiple transports can be enabled simultaneously using bitwise OR.
 // For example: MCPTransportStdio | MCPTransportHTTP enables both.
-type MCPTransportType int
+type TransportType int
 
 const (
 	// MCPTransportStdio enables stdio transport for local CLI integration
-	MCPTransportStdio MCPTransportType = 1 << iota
+	MCPTransportStdio TransportType = 1 << iota
 
 	// MCPTransportHTTP enables HTTP/SSE transport for IDE integration
 	MCPTransportHTTP
@@ -24,7 +24,7 @@ const (
 //
 // Returns:
 //   - string: Human-readable transport type (e.g., "stdio", "http", "stdio|http")
-func (t MCPTransportType) String() string {
+func (t TransportType) String() string {
 	if t == 0 {
 		return "none"
 	}
@@ -40,7 +40,7 @@ func (t MCPTransportType) String() string {
 	return strings.Join(parts, "|")
 }
 
-// MCPConfig holds configuration options for the MCP server.
+// Config holds configuration options for the MCP server.
 //
 // Configuration controls transport selection, security settings, performance
 // tuning, and write operation permissions. All fields have sensible defaults
@@ -57,7 +57,7 @@ func (t MCPTransportType) String() string {
 //	cfg := mcp.DefaultMCPConfig()
 //
 //	// Enable HTTP transport with auth
-//	cfg := &mcp.MCPConfig{
+//	cfg := &mcp.Config{
 //	    Transport:  mcp.MCPTransportHTTP,
 //	    HTTPPort:   8765,
 //	    HTTPHost:   "localhost",
@@ -69,10 +69,10 @@ func (t MCPTransportType) String() string {
 //	if err := cfg.Validate(); err != nil {
 //	    log.Fatal(err)
 //	}
-type MCPConfig struct {
+type Config struct {
 	// Transport specifies which transport(s) to enable
 	// Can be MCPTransportStdio, MCPTransportHTTP, or both (bitwise OR)
-	Transport MCPTransportType
+	Transport TransportType
 
 	// HTTPPort is the port for HTTP transport (1-65535)
 	// Only used when MCPTransportHTTP is enabled
@@ -119,7 +119,7 @@ type MCPConfig struct {
 	SanitizeExports bool
 }
 
-// DefaultMCPConfig returns an MCPConfig with sensible default values.
+// DefaultMCPConfig returns an Config with sensible default values.
 //
 // The defaults are optimized for local development with stdio transport:
 //   - Stdio transport only (no network exposure)
@@ -145,9 +145,9 @@ type MCPConfig struct {
 //	}
 //
 // Returns:
-//   - *MCPConfig: A new config with default values
-func DefaultMCPConfig() *MCPConfig {
-	return &MCPConfig{
+//   - *Config: A new config with default values
+func DefaultMCPConfig() *Config {
+	return &Config{
 		Transport:            MCPTransportStdio,
 		HTTPPort:             8765,
 		HTTPHost:             "localhost",
@@ -183,7 +183,7 @@ func DefaultMCPConfig() *MCPConfig {
 //
 // Returns:
 //   - error: Validation error, or nil if config is valid
-func (c *MCPConfig) Validate() error {
+func (c *Config) Validate() error {
 	// Validate HTTP port if HTTP transport is enabled
 	if c.Transport&MCPTransportHTTP != 0 {
 		// Port 0 is valid (OS assigns random available port)

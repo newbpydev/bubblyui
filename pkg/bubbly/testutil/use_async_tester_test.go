@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestUseAsyncTester_BasicAsync tests basic async operation

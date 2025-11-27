@@ -48,6 +48,86 @@ type CardProps struct {
 	CommonProps
 }
 
+// cardApplyDefaults sets default values for CardProps.
+func cardApplyDefaults(props *CardProps) {
+	if props.Width == 0 {
+		props.Width = 40
+	}
+	if props.Padding == 0 {
+		props.Padding = 1
+	}
+}
+
+// cardRenderContent builds the card's inner content string.
+func cardRenderContent(p CardProps, theme Theme) string {
+	var content strings.Builder
+	contentWidth := p.Width - (p.Padding * 2)
+
+	// Title
+	if p.Title != "" {
+		titleStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.Primary).
+			Width(contentWidth)
+		content.WriteString(titleStyle.Render(p.Title))
+		content.WriteString("\n\n")
+	}
+
+	// Content
+	if p.Content != "" {
+		contentStyle := lipgloss.NewStyle().
+			Width(contentWidth).
+			Foreground(theme.Foreground)
+		content.WriteString(contentStyle.Render(p.Content))
+		if len(p.Children) > 0 {
+			content.WriteString("\n")
+		}
+	}
+
+	// Children
+	for _, child := range p.Children {
+		content.WriteString(child.View())
+		content.WriteString("\n")
+	}
+
+	// Footer
+	if p.Footer != "" {
+		if p.Content != "" || len(p.Children) > 0 {
+			content.WriteString("\n")
+		}
+		footerStyle := lipgloss.NewStyle().
+			Foreground(theme.Muted).
+			Italic(true).
+			Width(contentWidth)
+		content.WriteString(footerStyle.Render(p.Footer))
+	}
+
+	return content.String()
+}
+
+// cardCreateStyle creates the card's outer style.
+func cardCreateStyle(p CardProps, theme Theme) lipgloss.Style {
+	cardStyle := lipgloss.NewStyle().
+		Width(p.Width).
+		Padding(p.Padding)
+
+	if !p.NoBorder {
+		cardStyle = cardStyle.
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Secondary)
+	}
+
+	if p.Height > 0 {
+		cardStyle = cardStyle.Height(p.Height)
+	}
+
+	if p.Style != nil {
+		cardStyle = cardStyle.Inherit(*p.Style)
+	}
+
+	return cardStyle
+}
+
 // Card creates a card container component.
 // The card displays a bordered box with optional title, content, footer, and child components.
 //
@@ -69,97 +149,22 @@ type CardProps struct {
 //	    Width:   50,
 //	})
 func Card(props CardProps) bubbly.Component {
-	// Set defaults
-	if props.Width == 0 {
-		props.Width = 40
-	}
-	if props.Padding == 0 {
-		props.Padding = 1
-	}
+	cardApplyDefaults(&props)
 
 	component, _ := bubbly.NewComponent("Card").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			theme := injectTheme(ctx)
 			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			p := ctx.Props().(CardProps)
 			theme := ctx.Get("theme").(Theme)
 
-			var content strings.Builder
+			content := cardRenderContent(p, theme)
+			cardStyle := cardCreateStyle(p, theme)
 
-			// Title
-			if p.Title != "" {
-				titleStyle := lipgloss.NewStyle().
-					Bold(true).
-					Foreground(theme.Primary).
-					Width(p.Width - (p.Padding * 2))
-				content.WriteString(titleStyle.Render(p.Title))
-				content.WriteString("\n\n")
-			}
-
-			// Content
-			if p.Content != "" {
-				contentStyle := lipgloss.NewStyle().
-					Width(p.Width - (p.Padding * 2)).
-					Foreground(theme.Foreground)
-				content.WriteString(contentStyle.Render(p.Content))
-				if len(p.Children) > 0 {
-					content.WriteString("\n")
-				}
-			}
-
-			// Children
-			if len(p.Children) > 0 {
-				for _, child := range p.Children {
-					content.WriteString(child.View())
-					content.WriteString("\n")
-				}
-			}
-
-			// Footer
-			if p.Footer != "" {
-				if p.Content != "" || len(p.Children) > 0 {
-					content.WriteString("\n")
-				}
-				footerStyle := lipgloss.NewStyle().
-					Foreground(theme.Muted).
-					Italic(true).
-					Width(p.Width - (p.Padding * 2))
-				content.WriteString(footerStyle.Render(p.Footer))
-			}
-
-			// Create card style
-			cardStyle := lipgloss.NewStyle().
-				Width(p.Width).
-				Padding(p.Padding)
-
-			// Add border if not disabled
-			if !p.NoBorder {
-				cardStyle = cardStyle.
-					Border(lipgloss.RoundedBorder()).
-					BorderForeground(theme.Secondary)
-			}
-
-			// Set height if specified
-			if p.Height > 0 {
-				cardStyle = cardStyle.Height(p.Height)
-			}
-
-			// Apply custom style if provided
-			if p.Style != nil {
-				cardStyle = cardStyle.Inherit(*p.Style)
-			}
-
-			// Render card
-			return cardStyle.Render(content.String())
+			return cardStyle.Render(content)
 		}).
 		Build()
 

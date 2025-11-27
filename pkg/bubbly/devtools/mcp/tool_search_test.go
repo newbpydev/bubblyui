@@ -8,15 +8,16 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestRegisterSearchComponentsTool tests the search_components tool registration.
 func TestRegisterSearchComponentsTool(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -37,7 +38,7 @@ func TestRegisterSearchComponentsTool(t *testing.T) {
 // TestSearchComponents_ByName tests searching components by name.
 func TestSearchComponents_ByName(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -105,7 +106,7 @@ func TestSearchComponents_ByName(t *testing.T) {
 // TestSearchComponents_NoMatches tests searching with no matches.
 func TestSearchComponents_NoMatches(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -158,7 +159,7 @@ func TestSearchComponents_NoMatches(t *testing.T) {
 // TestRegisterFilterEventsTool tests the filter_events tool registration.
 func TestRegisterFilterEventsTool(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -179,7 +180,7 @@ func TestRegisterFilterEventsTool(t *testing.T) {
 // TestFilterEvents_ByName tests filtering events by name.
 func TestFilterEvents_ByName(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -247,7 +248,7 @@ func TestFilterEvents_ByName(t *testing.T) {
 // TestFilterEvents_NoMatches tests filtering with no matches.
 func TestFilterEvents_NoMatches(t *testing.T) {
 	dt := devtools.Enable()
-	cfg := &MCPConfig{
+	cfg := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -302,7 +303,7 @@ func TestFilterEvents_NoMatches(t *testing.T) {
 func TestSearchComponents_Comprehensive(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupData     func(*devtools.DevToolsStore)
+		setupData     func(*devtools.Store)
 		params        map[string]interface{}
 		wantError     bool
 		wantContains  []string
@@ -311,7 +312,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 	}{
 		{
 			name: "search by type field",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				store.AddComponent(&devtools.ComponentSnapshot{
 					ID: "comp-1", Name: "SubmitButton", Type: "Button", Status: "mounted",
 				})
@@ -331,7 +332,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "search by ID field",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				store.AddComponent(&devtools.ComponentSnapshot{
 					ID: "test-comp-1", Name: "Counter", Type: "Counter", Status: "mounted",
 				})
@@ -348,7 +349,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "search all fields (no fields specified)",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				store.AddComponent(&devtools.ComponentSnapshot{
 					ID: "comp-test-1", Name: "Counter", Type: "Counter", Status: "mounted",
 				})
@@ -363,7 +364,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "max_results limit enforced",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				for i := 0; i < 20; i++ {
 					store.AddComponent(&devtools.ComponentSnapshot{
 						ID: fmt.Sprintf("comp-%d", i), Name: "Component", Type: "Component", Status: "mounted",
@@ -378,7 +379,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "exact match scores highest",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				store.AddComponent(&devtools.ComponentSnapshot{
 					ID: "comp-1", Name: "Counter", Type: "Counter", Status: "mounted",
 				})
@@ -393,7 +394,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "case insensitive search",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				store.AddComponent(&devtools.ComponentSnapshot{
 					ID: "comp-1", Name: "UPPERCASE", Type: "Component", Status: "mounted",
 				})
@@ -405,7 +406,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid JSON parameters",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params:        nil, // Will cause JSON unmarshal error
@@ -414,7 +415,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "missing query parameter",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -425,7 +426,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "max_results too low",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -437,7 +438,7 @@ func TestSearchComponents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "max_results too high",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -519,7 +520,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setupData     func(*devtools.DevToolsStore)
+		setupData     func(*devtools.Store)
 		params        map[string]interface{}
 		wantError     bool
 		wantCount     int
@@ -529,7 +530,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 	}{
 		{
 			name: "filter by source ID",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID: "event-1", Name: "click", SourceID: "comp-1", Timestamp: now,
@@ -550,7 +551,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "filter by time range",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID: "event-1", Name: "old-event", SourceID: "comp-1", Timestamp: past,
@@ -571,7 +572,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "filter by end time",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID: "event-1", Name: "past", SourceID: "comp-1", Timestamp: past,
@@ -589,7 +590,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "filter with limit",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				for i := 0; i < 20; i++ {
 					eventLog.Append(devtools.EventRecord{
@@ -605,7 +606,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "filter by multiple event names",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID: "event-1", Name: "click", SourceID: "comp-1", Timestamp: now,
@@ -626,7 +627,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "combined filters",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID: "event-1", Name: "click", SourceID: "comp-1", Timestamp: now,
@@ -647,7 +648,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid JSON parameters",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params:        nil, // Will cause JSON unmarshal error
@@ -656,7 +657,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid limit too low",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -667,7 +668,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid limit too high",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -678,7 +679,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid start_time format",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -689,7 +690,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "invalid end_time format",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				// No setup needed
 			},
 			params: map[string]interface{}{
@@ -700,7 +701,7 @@ func TestFilterEvents_Comprehensive(t *testing.T) {
 		},
 		{
 			name: "event with target ID and duration",
-			setupData: func(store *devtools.DevToolsStore) {
+			setupData: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID:        "event-1",

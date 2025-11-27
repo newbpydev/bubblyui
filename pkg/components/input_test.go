@@ -742,3 +742,103 @@ func TestInput_CursorPositionNotShownWhenBlurred(t *testing.T) {
 	viewFocused := input.View()
 	assert.NotEmpty(t, viewFocused, "Should render when focused with position")
 }
+
+// ============================================================================
+// NO BORDER TESTS
+// ============================================================================
+
+func TestInput_NoBorder(t *testing.T) {
+	valueRef := bubbly.NewRef("test value")
+
+	input := Input(InputProps{
+		Value:    valueRef,
+		Type:     InputText,
+		NoBorder: true,
+	})
+
+	input.Init()
+	view := input.View()
+
+	assert.NotEmpty(t, view, "Input should render without border")
+	assert.Contains(t, view, "test value", "Should display value")
+}
+
+func TestInput_NoBorder_WithCustomStyle(t *testing.T) {
+	valueRef := bubbly.NewRef("styled text")
+	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
+
+	input := Input(InputProps{
+		Value:    valueRef,
+		Type:     InputText,
+		NoBorder: true,
+		CommonProps: CommonProps{
+			Style: &customStyle,
+		},
+	})
+
+	input.Init()
+	view := input.View()
+
+	assert.NotEmpty(t, view, "Input should render without border with custom style")
+	assert.Contains(t, view, "styled text", "Should display value")
+}
+
+func TestInput_NoBorder_WithValidation(t *testing.T) {
+	valueRef := bubbly.NewRef("")
+
+	input := Input(InputProps{
+		Value:    valueRef,
+		Type:     InputText,
+		NoBorder: true,
+		Validate: func(s string) error {
+			if s != "" && len(s) < 3 {
+				return errors.New("too short")
+			}
+			return nil
+		},
+	})
+
+	input.Init()
+
+	// Trigger validation by setting a short value
+	valueRef.Set("ab")
+
+	view := input.View()
+
+	assert.NotEmpty(t, view, "Input should render without border")
+	assert.Contains(t, view, "too short", "Should show validation error even without border")
+}
+
+func TestInput_NoBorder_Focused(t *testing.T) {
+	valueRef := bubbly.NewRef("focus test")
+
+	input := Input(InputProps{
+		Value:    valueRef,
+		Type:     InputText,
+		NoBorder: true,
+	})
+
+	input.Init()
+	input.Emit("focus", nil)
+
+	view := input.View()
+
+	assert.NotEmpty(t, view, "Input should render focused without border")
+	assert.Contains(t, view, "focus test", "Should display value when focused")
+}
+
+func TestInput_NoBorder_Password(t *testing.T) {
+	valueRef := bubbly.NewRef("secret")
+
+	input := Input(InputProps{
+		Value:    valueRef,
+		Type:     InputPassword,
+		NoBorder: true,
+	})
+
+	input.Init()
+	view := input.View()
+
+	assert.NotEmpty(t, view, "Password input should render without border")
+	assert.NotContains(t, view, "secret", "Password should be masked even without border")
+}

@@ -8,6 +8,79 @@ import (
 	"os"
 )
 
+// readFileWithCompression reads a file, handling gzip compression if detected.
+func readFileWithCompression(filename string) ([]byte, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open import file: %w", err)
+	}
+	defer file.Close()
+
+	isCompressed, err := detectCompression(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect compression: %w", err)
+	}
+
+	if _, err = file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	var reader io.Reader = file
+	if isCompressed {
+		gzReader, err := gzip.NewReader(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer gzReader.Close()
+		reader = gzReader
+	}
+
+	return io.ReadAll(reader)
+}
+
+// restoreExportData restores export data to the dev tools store.
+func (dt *DevTools) restoreExportData(exportData *ExportData) {
+	dt.store.mu.Lock()
+	dt.store.components = make(map[string]*ComponentSnapshot)
+	dt.store.mu.Unlock()
+
+	dt.store.stateHistory.Clear()
+	dt.store.events.Clear()
+	dt.store.performance.Clear()
+
+	if exportData.Components != nil {
+		for _, comp := range exportData.Components {
+			dt.store.AddComponent(comp)
+		}
+	}
+
+	if exportData.State != nil {
+		for _, state := range exportData.State {
+			dt.store.stateHistory.Record(state)
+		}
+	}
+
+	if exportData.Events != nil {
+		for _, event := range exportData.Events {
+			dt.store.events.Append(event)
+		}
+	}
+
+	if exportData.Performance != nil {
+		dt.restorePerformanceData(exportData.Performance)
+	}
+}
+
+// restorePerformanceData restores performance metrics from export data.
+func (dt *DevTools) restorePerformanceData(perf *PerformanceData) {
+	allPerf := perf.GetAll()
+	for _, p := range allPerf {
+		for i := int64(0); i < p.RenderCount; i++ {
+			dt.store.performance.RecordRender(p.ComponentID, p.ComponentName, p.AvgRenderTime)
+		}
+	}
+}
+
 // Import loads debug data from a JSON file and restores it to the dev tools store.
 //
 // This function reads the specified file, validates the data, and replaces all
@@ -98,120 +171,37 @@ func (dt *DevTools) Import(filename string) error {
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
 func (dt *DevTools) ImportFormat(filename, formatName string) error {
-	// Open file
-	file, err := os.Open(filename)
+	data, err := readFileWithCompression(filename)
 	if err != nil {
-		return fmt.Errorf("failed to open import file: %w", err)
-	}
-	defer file.Close()
-
-	// Detect if file is gzip-compressed
-	isCompressed, err := detectCompression(file)
-	if err != nil {
-		return fmt.Errorf("failed to detect compression: %w", err)
+		return err
 	}
 
-	// Seek back to start after detection
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return fmt.Errorf("failed to seek file: %w", err)
-	}
-
-	// Create appropriate reader
-	var reader io.Reader = file
-	if isCompressed {
-		gzReader, err := gzip.NewReader(file)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer gzReader.Close()
-		reader = gzReader
-	}
-
-	// Read all data from reader
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return fmt.Errorf("failed to read import data: %w", err)
-	}
-
-	// Get format from registry
 	registry := getGlobalRegistry()
 	format, err := registry.Get(formatName)
 	if err != nil {
 		return fmt.Errorf("failed to get format: %w", err)
 	}
 
-	// Unmarshal using the specified format
 	var exportData ExportData
-	err = format.Unmarshal(data, &exportData)
-	if err != nil {
+	if err = format.Unmarshal(data, &exportData); err != nil {
 		return fmt.Errorf("failed to unmarshal import data: %w", err)
 	}
 
-	// Validate imported data
-	err = dt.ValidateImport(&exportData)
-	if err != nil {
+	if err = dt.ValidateImport(&exportData); err != nil {
 		return fmt.Errorf("import validation failed: %w", err)
 	}
 
-	// Lock for writing
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 
-	// Check if dev tools is enabled
 	if !dt.enabled {
 		return fmt.Errorf("dev tools not enabled")
 	}
-
-	// Check if store exists
 	if dt.store == nil {
 		return fmt.Errorf("dev tools store not initialized")
 	}
 
-	// Clear existing data
-	dt.store.mu.Lock()
-	dt.store.components = make(map[string]*ComponentSnapshot)
-	dt.store.mu.Unlock()
-
-	dt.store.stateHistory.Clear()
-	dt.store.events.Clear()
-	dt.store.performance.Clear()
-
-	// Restore components
-	if exportData.Components != nil {
-		for _, comp := range exportData.Components {
-			dt.store.AddComponent(comp)
-		}
-	}
-
-	// Restore state history
-	if exportData.State != nil {
-		for _, state := range exportData.State {
-			dt.store.stateHistory.Record(state)
-		}
-	}
-
-	// Restore events
-	if exportData.Events != nil {
-		for _, event := range exportData.Events {
-			dt.store.events.Append(event)
-		}
-	}
-
-	// Restore performance data
-	if exportData.Performance != nil {
-		allPerf := exportData.Performance.GetAll()
-		for _, perf := range allPerf {
-			for i := int64(0); i < perf.RenderCount; i++ {
-				dt.store.performance.RecordRender(
-					perf.ComponentID,
-					perf.ComponentName,
-					perf.AvgRenderTime,
-				)
-			}
-		}
-	}
-
+	dt.restoreExportData(&exportData)
 	return nil
 }
 
@@ -241,118 +231,65 @@ func (dt *DevTools) ImportFormat(filename, formatName string) error {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
+//
+// parseAndMigrateData parses JSON data, checks version, and applies migrations.
+func parseAndMigrateData(data []byte) ([]byte, error) {
+	var genericData map[string]interface{}
+	if err := json.Unmarshal(data, &genericData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal import data: %w", err)
+	}
+
+	version, err := extractVersion(genericData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract version: %w", err)
+	}
+
+	const currentVersion = "1.0"
+	if version != currentVersion {
+		genericData, err = migrateVersion(genericData, version, currentVersion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to migrate from version %s to %s: %w", version, currentVersion, err)
+		}
+		data, err = json.Marshal(genericData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal migrated data: %w", err)
+		}
+	}
+
+	return data, nil
+}
+
 func (dt *DevTools) ImportFromReader(reader io.Reader) error {
 	dt.mu.Lock()
 	defer dt.mu.Unlock()
 
-	// Check if dev tools is enabled
 	if !dt.enabled {
 		return fmt.Errorf("dev tools not enabled")
 	}
-
-	// Check if store exists
 	if dt.store == nil {
 		return fmt.Errorf("dev tools store not initialized")
 	}
 
-	// Read all data from reader
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return fmt.Errorf("failed to read import data: %w", err)
 	}
 
-	// First unmarshal into generic map to check version
-	var genericData map[string]interface{}
-	err = json.Unmarshal(data, &genericData)
+	data, err = parseAndMigrateData(data)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal import data: %w", err)
+		return err
 	}
 
-	// Extract and validate version
-	version, err := extractVersion(genericData)
-	if err != nil {
-		return fmt.Errorf("failed to extract version: %w", err)
-	}
-
-	// Current version constant
-	const currentVersion = "1.0"
-
-	// Apply migrations if needed
-	if version != currentVersion {
-		genericData, err = migrateVersion(genericData, version, currentVersion)
-		if err != nil {
-			return fmt.Errorf("failed to migrate from version %s to %s: %w", version, currentVersion, err)
-		}
-
-		// Re-marshal and unmarshal after migration
-		data, err = json.Marshal(genericData)
-		if err != nil {
-			return fmt.Errorf("failed to marshal migrated data: %w", err)
-		}
-	}
-
-	// Unmarshal into ExportData struct
 	var exportData ExportData
-	err = json.Unmarshal(data, &exportData)
-	if err != nil {
+	if err = json.Unmarshal(data, &exportData); err != nil {
 		return fmt.Errorf("failed to unmarshal import data: %w", err)
 	}
 
-	// Validate imported data
-	err = dt.ValidateImport(&exportData)
-	if err != nil {
+	if err = dt.ValidateImport(&exportData); err != nil {
 		return fmt.Errorf("import validation failed: %w", err)
 	}
 
-	// Clear existing data
-	dt.store.mu.Lock()
-	dt.store.components = make(map[string]*ComponentSnapshot)
-	dt.store.mu.Unlock()
-
-	dt.store.stateHistory.Clear()
-	dt.store.events.Clear()
-	dt.store.performance.Clear()
-
-	// Restore components
-	if exportData.Components != nil {
-		for _, comp := range exportData.Components {
-			dt.store.AddComponent(comp)
-		}
-	}
-
-	// Restore state history
-	if exportData.State != nil {
-		for _, state := range exportData.State {
-			dt.store.stateHistory.Record(state)
-		}
-	}
-
-	// Restore events
-	if exportData.Events != nil {
-		for _, event := range exportData.Events {
-			dt.store.events.Append(event)
-		}
-	}
-
-	// Restore performance data
-	if exportData.Performance != nil {
-		// Performance data is a pointer, so we need to restore each component
-		allPerf := exportData.Performance.GetAll()
-		for _, perf := range allPerf {
-			// Restore performance metrics by recording renders
-			// This is a simplified restoration - in reality we'd need to restore
-			// the exact state, but for now we'll just record the metrics
-			for i := int64(0); i < perf.RenderCount; i++ {
-				// Record average render time for each count
-				dt.store.performance.RecordRender(
-					perf.ComponentID,
-					perf.ComponentName,
-					perf.AvgRenderTime,
-				)
-			}
-		}
-	}
-
+	dt.restoreExportData(&exportData)
 	return nil
 }
 
@@ -384,63 +321,77 @@ func (dt *DevTools) ImportFromReader(reader io.Reader) error {
 //
 // Returns:
 //   - error: nil if valid, error describing the validation failure otherwise
+//
+// validateImportComponents validates the components slice in import data.
+func validateImportComponents(components []*ComponentSnapshot) error {
+	componentIDs := make(map[string]bool)
+	for i, comp := range components {
+		if comp == nil {
+			return fmt.Errorf("component at index %d is nil", i)
+		}
+		if comp.ID == "" {
+			return fmt.Errorf("component at index %d has empty ID", i)
+		}
+		if componentIDs[comp.ID] {
+			return fmt.Errorf("duplicate component ID: %s", comp.ID)
+		}
+		componentIDs[comp.ID] = true
+	}
+	return nil
+}
+
+// validateImportStateHistory validates the state history slice in import data.
+func validateImportStateHistory(state []StateChange) error {
+	for i, s := range state {
+		if s.RefID == "" {
+			return fmt.Errorf("state change at index %d has empty RefID", i)
+		}
+		if s.Timestamp.IsZero() {
+			return fmt.Errorf("state change at index %d has zero timestamp", i)
+		}
+	}
+	return nil
+}
+
+// validateImportEvents validates the events slice in import data.
+func validateImportEvents(events []EventRecord) error {
+	for i, event := range events {
+		if event.ID == "" {
+			return fmt.Errorf("event at index %d has empty ID", i)
+		}
+		if event.Timestamp.IsZero() {
+			return fmt.Errorf("event at index %d has zero timestamp", i)
+		}
+	}
+	return nil
+}
+
 func (dt *DevTools) ValidateImport(data *ExportData) error {
 	if data == nil {
 		return fmt.Errorf("import data is nil")
 	}
-
-	// Validate version (after migration, should always be current version)
-	// Note: Migration happens before validation, so this check is mostly for safety
 	if data.Version == "" {
 		return fmt.Errorf("version field is empty")
 	}
-
-	// Validate timestamp
 	if data.Timestamp.IsZero() {
 		return fmt.Errorf("timestamp is zero")
 	}
 
-	// Validate components
 	if data.Components != nil {
-		componentIDs := make(map[string]bool)
-		for i, comp := range data.Components {
-			if comp == nil {
-				return fmt.Errorf("component at index %d is nil", i)
-			}
-			if comp.ID == "" {
-				return fmt.Errorf("component at index %d has empty ID", i)
-			}
-			if componentIDs[comp.ID] {
-				return fmt.Errorf("duplicate component ID: %s", comp.ID)
-			}
-			componentIDs[comp.ID] = true
+		if err := validateImportComponents(data.Components); err != nil {
+			return err
 		}
 	}
-
-	// Validate state history
 	if data.State != nil {
-		for i, state := range data.State {
-			if state.RefID == "" {
-				return fmt.Errorf("state change at index %d has empty RefID", i)
-			}
-			if state.Timestamp.IsZero() {
-				return fmt.Errorf("state change at index %d has zero timestamp", i)
-			}
+		if err := validateImportStateHistory(data.State); err != nil {
+			return err
 		}
 	}
-
-	// Validate events
 	if data.Events != nil {
-		for i, event := range data.Events {
-			if event.ID == "" {
-				return fmt.Errorf("event at index %d has empty ID", i)
-			}
-			if event.Timestamp.IsZero() {
-				return fmt.Errorf("event at index %d has zero timestamp", i)
-			}
+		if err := validateImportEvents(data.Events); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 

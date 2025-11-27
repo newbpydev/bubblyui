@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestStartHTTPServer_Success tests successful HTTP server startup
@@ -45,7 +46,7 @@ func TestStartHTTPServer_Success(t *testing.T) {
 	// Wait for server to stop
 	select {
 	case err := <-errCh:
-		// Server should stop gracefully (context cancelled)
+		// Server should stop gracefully (context canceled)
 		assert.NoError(t, err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Server did not stop within timeout")
@@ -83,13 +84,13 @@ func TestStartHTTPServer_HealthCheck(t *testing.T) {
 func TestStartHTTPServer_InvalidConfig(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupConfig func(*MCPConfig)
+		setupConfig func(*Config)
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name: "HTTP transport not enabled",
-			setupConfig: func(cfg *MCPConfig) {
+			setupConfig: func(cfg *Config) {
 				cfg.Transport = MCPTransportStdio // Wrong transport
 			},
 			wantErr:     true,
@@ -97,7 +98,7 @@ func TestStartHTTPServer_InvalidConfig(t *testing.T) {
 		},
 		{
 			name: "Invalid port",
-			setupConfig: func(cfg *MCPConfig) {
+			setupConfig: func(cfg *Config) {
 				cfg.HTTPPort = 0 // Will be assigned by OS
 			},
 			wantErr: false, // Port 0 is valid (random port)
@@ -325,7 +326,7 @@ func TestGetHTTPAddr(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		transport MCPTransportType
+		transport TransportType
 		port      int
 		host      string
 		wantAddr  string
@@ -375,7 +376,7 @@ func TestGetHTTPPort(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		transport MCPTransportType
+		transport TransportType
 		port      int
 		wantPort  int
 	}{

@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestNewIfTester verifies IfTester creation.
@@ -40,7 +41,12 @@ func TestNewIfTester(t *testing.T) {
 				assert.Nil(t, tester)
 			} else {
 				assert.NotNil(t, tester)
-				assert.Equal(t, tt.conditionRef, tester.conditionRef)
+				// Verify the tester properly wraps the ref by checking behavior
+				if tt.conditionRef != nil {
+					// If we passed a valid ref, verify we can get/set values
+					tester.SetCondition(true)
+					assert.True(t, tester.GetCondition())
+				}
 			}
 		})
 	}

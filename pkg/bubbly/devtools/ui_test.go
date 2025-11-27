@@ -106,13 +106,13 @@ func TestDevToolsUI_Update_TabSwitching(t *testing.T) {
 	// Press Tab to switch to next panel
 	keyMsg := tea.KeyMsg{Type: tea.KeyTab}
 	updatedUI, _ := ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 1, ui.GetActivePanel())
 
 	// Press Tab again
 	updatedUI, _ = ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 2, ui.GetActivePanel())
 }
@@ -128,7 +128,7 @@ func TestDevToolsUI_Update_ShiftTabSwitching(t *testing.T) {
 	// Press Shift+Tab to go back
 	keyMsg := tea.KeyMsg{Type: tea.KeyShiftTab}
 	updatedUI, _ := ui.Update(keyMsg)
-	ui = updatedUI.(*DevToolsUI)
+	ui = updatedUI.(*UI)
 
 	assert.Equal(t, 1, ui.GetActivePanel())
 }
@@ -298,19 +298,19 @@ func TestDevToolsUI_KeyboardShortcuts(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      tea.KeyMsg
-		validate func(*testing.T, *DevToolsUI)
+		validate func(*testing.T, *UI)
 	}{
 		{
 			name: "tab switches panel",
 			key:  tea.KeyMsg{Type: tea.KeyTab},
-			validate: func(t *testing.T, ui *DevToolsUI) {
+			validate: func(t *testing.T, ui *UI) {
 				assert.Equal(t, 1, ui.GetActivePanel())
 			},
 		},
 		{
 			name: "shift+tab switches panel backward",
 			key:  tea.KeyMsg{Type: tea.KeyShiftTab},
-			validate: func(t *testing.T, ui *DevToolsUI) {
+			validate: func(t *testing.T, ui *UI) {
 				// From panel 0, shift+tab wraps to last panel
 				assert.Equal(t, 4, ui.GetActivePanel())
 			},
@@ -323,7 +323,7 @@ func TestDevToolsUI_KeyboardShortcuts(t *testing.T) {
 			ui := NewDevToolsUI(store)
 
 			updatedUI, _ := ui.Update(tt.key)
-			ui = updatedUI.(*DevToolsUI)
+			ui = updatedUI.(*UI)
 
 			tt.validate(t, ui)
 		})
@@ -557,4 +557,65 @@ func TestDevToolsUI_FocusMode_ThreadSafe(t *testing.T) {
 	// Should complete without panics
 	// Final state doesn't matter, just that it's valid
 	_ = ui.IsFocusMode()
+}
+
+// TestDevToolsUI_Init tests the Init method
+func TestDevToolsUI_Init(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Init should return a nil command (no initial side effects)
+	cmd := ui.Init()
+
+	// Init returns nil for DevToolsUI (no startup commands)
+	_ = cmd // Just verify it doesn't panic
+}
+
+// TestDevToolsUI_SetFocusMode tests the SetFocusMode method
+func TestDevToolsUI_SetFocusMode(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	tests := []struct {
+		name      string
+		focusMode bool
+	}{
+		{
+			name:      "enable focus mode",
+			focusMode: true,
+		},
+		{
+			name:      "disable focus mode",
+			focusMode: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ui.SetFocusMode(tt.focusMode)
+			assert.Equal(t, tt.focusMode, ui.IsFocusMode())
+		})
+	}
+}
+
+// TestDevToolsUI_SetFocusMode_Toggle tests toggling focus mode
+func TestDevToolsUI_SetFocusMode_Toggle(t *testing.T) {
+	store := NewDevToolsStore(1000, 1000, 1000)
+	ui := NewDevToolsUI(store)
+
+	// Initially not in focus mode
+	assert.False(t, ui.IsFocusMode())
+
+	// Enable focus mode
+	ui.SetFocusMode(true)
+	assert.True(t, ui.IsFocusMode())
+
+	// Disable focus mode
+	ui.SetFocusMode(false)
+	assert.False(t, ui.IsFocusMode())
+
+	// Toggle multiple times
+	ui.SetFocusMode(true)
+	ui.SetFocusMode(true) // Setting same value should be idempotent
+	assert.True(t, ui.IsFocusMode())
 }

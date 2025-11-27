@@ -44,9 +44,8 @@ func TestWrap_CreatesModel(t *testing.T) {
 			// Verify model is not nil
 			assert.NotNil(t, model)
 
-			// Verify model implements tea.Model
-			_, ok := model.(tea.Model)
-			assert.True(t, ok, "Wrap() should return a tea.Model")
+			// model is already tea.Model type from Wrap()
+			assert.NotNil(t, model, "Wrap() should return a tea.Model")
 		})
 	}
 }
@@ -166,9 +165,8 @@ func TestWrap_UpdateHandlesMessages(t *testing.T) {
 				assert.NotNil(t, cmd)
 			}
 
-			// Verify model type preserved
-			_, ok := updatedModel.(tea.Model)
-			assert.True(t, ok)
+			// updatedModel is already tea.Model type from Update()
+			assert.NotNil(t, updatedModel)
 		})
 	}
 }
@@ -398,8 +396,7 @@ func TestWrap_BubbleteatIntegration(t *testing.T) {
 	// (Bubbletea models are NOT thread-safe by design - they run in a single goroutine)
 	for i := 0; i < 100; i++ {
 		component.Emit("increment", nil)
-		updatedModel, _ := model.Update(tea.KeyMsg{})
-		model = updatedModel.(tea.Model)
+		model, _ = model.Update(tea.KeyMsg{})
 		_ = model.View()
 	}
 

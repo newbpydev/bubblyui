@@ -86,6 +86,129 @@ func TestComponentBuilder_Structure(t *testing.T) {
 	})
 }
 
+// TestComponentBuilder_WithMultiKeyBindings tests the variadic WithMultiKeyBindings method.
+// This tests Task 2.1: Multi-key binding helper that accepts variadic keys.
+func TestComponentBuilder_WithMultiKeyBindings(t *testing.T) {
+	tests := []struct {
+		name        string
+		event       string
+		description string
+		keys        []string
+		wantCount   int
+	}{
+		{
+			name:        "registers all keys correctly",
+			event:       "increment",
+			description: "Increment counter",
+			keys:        []string{"up", "k", "+"},
+			wantCount:   3,
+		},
+		{
+			name:        "single key works (equivalent to WithKeyBinding)",
+			event:       "decrement",
+			description: "Decrement counter",
+			keys:        []string{"down"},
+			wantCount:   1,
+		},
+		{
+			name:        "empty keys list is no-op",
+			event:       "noop",
+			description: "No operation",
+			keys:        []string{},
+			wantCount:   0,
+		},
+		{
+			name:        "multiple keys all emit same event",
+			event:       "save",
+			description: "Save data",
+			keys:        []string{"ctrl+s", "F2", "ctrl+enter"},
+			wantCount:   3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange & Act
+			builder := NewComponent("TestComponent").
+				WithMultiKeyBindings(tt.event, tt.description, tt.keys...).
+				Template(func(ctx RenderContext) string { return "test" })
+
+			component, err := builder.Build()
+
+			// Assert
+			require.NoError(t, err, "Build should succeed")
+			require.NotNil(t, component)
+
+			impl := component.(*componentImpl)
+
+			// Verify all keys are registered
+			totalBindings := 0
+			for _, key := range tt.keys {
+				bindings, exists := impl.keyBindings[key]
+				if tt.wantCount > 0 {
+					assert.True(t, exists, "Key %q should be registered", key)
+					assert.Len(t, bindings, 1, "Key %q should have exactly one binding", key)
+					if len(bindings) > 0 {
+						assert.Equal(t, tt.event, bindings[0].Event, "Key %q should emit event %q", key, tt.event)
+						assert.Equal(t, tt.description, bindings[0].Description, "Key %q should have description %q", key, tt.description)
+					}
+				}
+				totalBindings += len(bindings)
+			}
+
+			assert.Equal(t, tt.wantCount, totalBindings, "Total bindings should match expected count")
+		})
+	}
+}
+
+// TestComponentBuilder_WithMultiKeyBindings_ChainWithOthers tests chaining with other methods.
+func TestComponentBuilder_WithMultiKeyBindings_ChainWithOthers(t *testing.T) {
+	t.Run("works with existing WithKeyBinding in same builder", func(t *testing.T) {
+		// Arrange & Act
+		builder := NewComponent("TestComponent").
+			WithKeyBinding("esc", "cancel", "Cancel operation").
+			WithMultiKeyBindings("increment", "Increment", "up", "k", "+").
+			WithKeyBinding("enter", "submit", "Submit form").
+			Template(func(ctx RenderContext) string { return "test" })
+
+		component, err := builder.Build()
+
+		// Assert
+		require.NoError(t, err)
+		impl := component.(*componentImpl)
+
+		// Verify multi-key bindings
+		assert.Contains(t, impl.keyBindings, "up")
+		assert.Contains(t, impl.keyBindings, "k")
+		assert.Contains(t, impl.keyBindings, "+")
+
+		// Verify single-key bindings
+		assert.Contains(t, impl.keyBindings, "esc")
+		assert.Contains(t, impl.keyBindings, "enter")
+
+		// Verify all emit correct events
+		assert.Equal(t, "increment", impl.keyBindings["up"][0].Event)
+		assert.Equal(t, "increment", impl.keyBindings["k"][0].Event)
+		assert.Equal(t, "increment", impl.keyBindings["+"][0].Event)
+		assert.Equal(t, "cancel", impl.keyBindings["esc"][0].Event)
+		assert.Equal(t, "submit", impl.keyBindings["enter"][0].Event)
+	})
+}
+
+// TestComponentBuilder_WithMultiKeyBindings_ReturnsBuilder tests method chaining.
+func TestComponentBuilder_WithMultiKeyBindings_ReturnsBuilder(t *testing.T) {
+	t.Run("returns builder for chaining", func(t *testing.T) {
+		// Arrange
+		builder1 := NewComponent("TestComponent")
+
+		// Act
+		builder2 := builder1.WithMultiKeyBindings("increment", "Increment", "up", "k")
+
+		// Assert
+		assert.Same(t, builder1, builder2, "Should return same builder instance for chaining")
+	})
+}
+
 // TestComponentBuilder_UniqueIDs tests that each builder creates components with unique IDs.
 func TestComponentBuilder_UniqueIDs(t *testing.T) {
 	t.Run("generates unique IDs for multiple components", func(t *testing.T) {

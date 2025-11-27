@@ -113,19 +113,27 @@ func (lm *LayoutManager) Render(appContent, toolsContent string) string {
 	}
 }
 
+// calculateSplitDimensions calculates primary and secondary dimensions for split layouts.
+// Returns (primary, secondary) dimensions ensuring both are at least 1.
+func calculateSplitDimensions(total int, ratio float64) (int, int) {
+	primary := int(float64(total) * ratio)
+	secondary := total - primary - 1 // -1 for separator border
+
+	// Ensure minimum dimensions
+	if primary < 1 {
+		primary = 1
+	}
+	if secondary < 1 {
+		secondary = 1
+	}
+
+	return primary, secondary
+}
+
 // renderHorizontal renders app and tools side-by-side (left/right split).
 func (lm *LayoutManager) renderHorizontal(appContent, toolsContent string, ratio float64, width, height int) string {
 	// Calculate widths
-	appWidth := int(float64(width) * ratio)
-	toolsWidth := width - appWidth - 1 // -1 for separator border
-
-	// Ensure minimum widths
-	if appWidth < 1 {
-		appWidth = 1
-	}
-	if toolsWidth < 1 {
-		toolsWidth = 1
-	}
+	appWidth, toolsWidth := calculateSplitDimensions(width, ratio)
 
 	// Style app box with right border separator
 	appBox := lipgloss.NewStyle().
@@ -148,16 +156,7 @@ func (lm *LayoutManager) renderHorizontal(appContent, toolsContent string, ratio
 // renderVertical renders app and tools stacked (top/bottom split).
 func (lm *LayoutManager) renderVertical(appContent, toolsContent string, ratio float64, width, height int) string {
 	// Calculate heights
-	appHeight := int(float64(height) * ratio)
-	toolsHeight := height - appHeight - 1 // -1 for separator border
-
-	// Ensure minimum heights
-	if appHeight < 1 {
-		appHeight = 1
-	}
-	if toolsHeight < 1 {
-		toolsHeight = 1
-	}
+	appHeight, toolsHeight := calculateSplitDimensions(height, ratio)
 
 	// Style app box with bottom border separator
 	appBox := lipgloss.NewStyle().

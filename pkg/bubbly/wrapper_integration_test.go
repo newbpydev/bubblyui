@@ -56,8 +56,7 @@ func TestWrapIntegration_CompleteCounter(t *testing.T) {
 	// Increment 3 times
 	for i := 0; i < 3; i++ {
 		counter.Emit("increment", nil)
-		updatedModel, _ := model.Update(tea.KeyMsg{})
-		model = updatedModel.(tea.Model)
+		model, _ = model.Update(tea.KeyMsg{})
 		// With auto commands, commands are generated and drained through component
 	}
 
@@ -67,16 +66,14 @@ func TestWrapIntegration_CompleteCounter(t *testing.T) {
 
 	// Decrement once
 	counter.Emit("decrement", nil)
-	updatedModel, _ := model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	view = model.View()
 	assert.Equal(t, "Count: 2", view)
 
 	// Reset
 	counter.Emit("reset", nil)
-	updatedModel, _ = model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	view = model.View()
 	assert.Equal(t, "Count: 0", view)
@@ -152,8 +149,8 @@ func TestWrapIntegration_MultipleStateChanges(t *testing.T) {
 			}
 
 			// Process update
-			updatedModel, cmd := model.Update(tea.KeyMsg{})
-			model = updatedModel.(tea.Model)
+			var cmd tea.Cmd
+			model, cmd = model.Update(tea.KeyMsg{})
 
 			// With auto commands, cmd should handle batching
 			if tt.autoCommands && tt.updates > 1 {
@@ -223,8 +220,7 @@ func TestWrapIntegration_LifecycleHooks(t *testing.T) {
 
 	// Trigger update to ensure component is working
 	component.Emit("increment", nil)
-	updatedModel, _ := model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	// Verify component state changed correctly
 	view := model.View()
@@ -297,8 +293,8 @@ func TestWrapIntegration_CommandBatching(t *testing.T) {
 
 			// Trigger multiple state changes
 			component.Emit("add-many", tt.stateChanges)
-			updatedModel, cmd := model.Update(tea.KeyMsg{})
-			model = updatedModel.(tea.Model)
+			var cmd tea.Cmd
+			model, cmd = model.Update(tea.KeyMsg{})
 
 			// Verify commands were generated
 			assert.Equal(t, tt.stateChanges, commandCount, "Should generate commands for each state change")
@@ -364,8 +360,7 @@ func TestWrapIntegration_BackwardCompatibility(t *testing.T) {
 			// Increment 5 times
 			for i := 0; i < 5; i++ {
 				component.Emit("increment", nil)
-				updatedModel, _ := model.Update(tea.KeyMsg{})
-				model = updatedModel.(tea.Model)
+				model, _ = model.Update(tea.KeyMsg{})
 			}
 
 			// Verify final state (same result regardless of mode)
@@ -410,11 +405,9 @@ func TestWrapIntegration_RealWorldScenario(t *testing.T) {
 				validateForm()
 			})
 
-			ctx.On("submit", func(data interface{}) {
-				isValid := valid.Get().(bool)
-				if isValid {
-					// Form is valid, would submit here
-				}
+			ctx.On("submit", func(_ interface{}) {
+				// Form validation - in real implementation would submit if valid
+				_ = valid.Get().(bool)
 			})
 		}).
 		Template(func(ctx RenderContext) string {
@@ -446,24 +439,21 @@ func TestWrapIntegration_RealWorldScenario(t *testing.T) {
 
 	// Update username (too short)
 	form.Emit("update-username", "ab")
-	updatedModel, _ := model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	view = model.View()
 	assert.Contains(t, view, "❌ Invalid")
 
 	// Update username (valid length)
 	form.Emit("update-username", "john")
-	updatedModel, _ = model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	view = model.View()
 	assert.Contains(t, view, "❌ Invalid") // Still invalid (no email)
 
 	// Add email
 	form.Emit("update-email", "john@example.com")
-	updatedModel, _ = model.Update(tea.KeyMsg{})
-	model = updatedModel.(tea.Model)
+	model, _ = model.Update(tea.KeyMsg{})
 
 	// Now form is valid
 	view = model.View()

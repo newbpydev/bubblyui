@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestUseThrottleTester_BasicThrottling tests that throttle delays subsequent calls

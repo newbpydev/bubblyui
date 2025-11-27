@@ -11,10 +11,10 @@ import (
 // TestFrameworkHooks_ComponentLifecycle verifies hooks are called during component lifecycle
 func TestFrameworkHooks_ComponentLifecycle(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a component
 	component, err := NewComponent("TestComponent").
@@ -66,10 +66,10 @@ func TestFrameworkHooks_ComponentLifecycle(t *testing.T) {
 // TestFrameworkHooks_EventEmission verifies hooks are called when events are emitted
 func TestFrameworkHooks_EventEmission(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a component
 	component, err := NewComponent("EventTest").
@@ -102,10 +102,10 @@ func TestFrameworkHooks_EventEmission(t *testing.T) {
 // TestFrameworkHooks_RefChange verifies hooks are called when ref values change
 func TestFrameworkHooks_RefChange(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref
 	ref := NewRef(10)
@@ -125,7 +125,7 @@ func TestFrameworkHooks_RefChange(t *testing.T) {
 // TestFrameworkHooks_NoHook verifies no panic when no hook registered
 func TestFrameworkHooks_NoHook(t *testing.T) {
 	// Ensure no hook is registered
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	// Create and use a component - should not panic
 	component, err := NewComponent("NoHookTest").
@@ -151,10 +151,10 @@ func TestFrameworkHooks_NoHook(t *testing.T) {
 // TestFrameworkHooks_MultipleUpdates verifies hooks work with many updates
 func TestFrameworkHooks_MultipleUpdates(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	component, err := NewComponent("MultiUpdate").
 		Template(func(ctx RenderContext) string {
@@ -178,10 +178,10 @@ func TestFrameworkHooks_MultipleUpdates(t *testing.T) {
 // TestFrameworkHooks_MultipleRenders verifies render timing for multiple renders
 func TestFrameworkHooks_MultipleRenders(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	component, err := NewComponent("MultiRender").
 		Template(func(ctx RenderContext) string {
@@ -210,10 +210,10 @@ func TestFrameworkHooks_MultipleRenders(t *testing.T) {
 // TestFrameworkHooks_RefWithComponent verifies ref changes work with components
 func TestFrameworkHooks_RefWithComponent(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	var countRef *Ref[int]
 
@@ -254,10 +254,10 @@ func TestFrameworkHooks_RefWithComponent(t *testing.T) {
 // TestFrameworkHooks_CompleteLifecycle tests full component lifecycle
 func TestFrameworkHooks_CompleteLifecycle(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	var countRef *Ref[int]
 
@@ -310,7 +310,7 @@ func TestFrameworkHooks_CompleteLifecycle(t *testing.T) {
 // TestFrameworkHooks_ZeroOverhead verifies no overhead when hook not registered
 func TestFrameworkHooks_ZeroOverhead(t *testing.T) {
 	// Unregister any hook
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	component, err := NewComponent("ZeroOverhead").
 		Template(func(ctx RenderContext) string {
@@ -337,10 +337,10 @@ func TestFrameworkHooks_ZeroOverhead(t *testing.T) {
 // TestFrameworkHooks_ComputedChange verifies hooks are called when computed values change
 func TestFrameworkHooks_ComputedChange(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref and computed value
 	ref := NewRef(10)
@@ -373,10 +373,10 @@ func TestFrameworkHooks_ComputedChange(t *testing.T) {
 // TestFrameworkHooks_ComputedChange_NoChangeNoHook verifies hook not called when value unchanged
 func TestFrameworkHooks_ComputedChange_NoChangeNoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref and computed value that always returns same value
 	ref := NewRef(10)
@@ -404,10 +404,10 @@ func TestFrameworkHooks_ComputedChange_NoChangeNoHook(t *testing.T) {
 // TestFrameworkHooks_ComputedChange_NoWatchersNoHook verifies hook not called without watchers
 func TestFrameworkHooks_ComputedChange_NoWatchersNoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref and computed value WITHOUT watchers
 	ref := NewRef(10)
@@ -429,10 +429,10 @@ func TestFrameworkHooks_ComputedChange_NoWatchersNoHook(t *testing.T) {
 // TestFrameworkHooks_ComputedChange_CascadeOrder verifies hook fires before watchers
 func TestFrameworkHooks_ComputedChange_CascadeOrder(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Track order of events
 	var events []string
@@ -467,10 +467,10 @@ func TestFrameworkHooks_ComputedChange_CascadeOrder(t *testing.T) {
 // TestFrameworkHooks_ComputedChange_ThreadSafe verifies concurrent computed changes are safe
 func TestFrameworkHooks_ComputedChange_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create multiple refs and computed values
 	ref1 := NewRef(0)
@@ -523,10 +523,10 @@ func TestFrameworkHooks_ComputedChange_ThreadSafe(t *testing.T) {
 // TestFrameworkHooks_RefWatch verifies hooks are called when Ref watchers execute
 func TestFrameworkHooks_RefWatch(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref and watch it
 	ref := NewRef(10)
@@ -554,10 +554,10 @@ func TestFrameworkHooks_RefWatch(t *testing.T) {
 // TestFrameworkHooks_ComputedWatch verifies hooks are called when Computed watchers execute
 func TestFrameworkHooks_ComputedWatch(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref and computed value
 	ref := NewRef(10)
@@ -591,10 +591,10 @@ func TestFrameworkHooks_ComputedWatch(t *testing.T) {
 // TestFrameworkHooks_WatchWithImmediate verifies hooks fire when immediate watcher is triggered
 func TestFrameworkHooks_WatchWithImmediate(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref
 	ref := NewRef(10)
@@ -624,10 +624,10 @@ func TestFrameworkHooks_WatchWithImmediate(t *testing.T) {
 // TestFrameworkHooks_WatchWithDeep verifies hooks respect deep watching mode
 func TestFrameworkHooks_WatchWithDeep(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	type User struct {
 		Name string
@@ -658,10 +658,10 @@ func TestFrameworkHooks_WatchWithDeep(t *testing.T) {
 // TestFrameworkHooks_WatchFlushModes verifies hooks work with different flush modes
 func TestFrameworkHooks_WatchFlushModes(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Test sync mode (default)
 	ref1 := NewRef(10)
@@ -688,10 +688,10 @@ func TestFrameworkHooks_WatchFlushModes(t *testing.T) {
 // TestFrameworkHooks_WatchThreadSafe verifies concurrent watch callbacks are safe
 func TestFrameworkHooks_WatchThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create multiple refs with watchers
 	ref1 := NewRef(0)
@@ -730,10 +730,10 @@ func TestFrameworkHooks_WatchThreadSafe(t *testing.T) {
 // TestFrameworkHooks_FullCascade verifies complete Ref → Computed → Watch cascade
 func TestFrameworkHooks_FullCascade(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create Ref → Computed → Watch cascade
 	ref := NewRef(10)
@@ -773,10 +773,10 @@ func TestFrameworkHooks_FullCascade(t *testing.T) {
 // TestFrameworkHooks_EffectRun_InitialRun verifies hook fires on initial effect run
 func TestFrameworkHooks_EffectRun_InitialRun(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a WatchEffect
 	effectRan := false
@@ -798,10 +798,10 @@ func TestFrameworkHooks_EffectRun_InitialRun(t *testing.T) {
 // TestFrameworkHooks_EffectRun_DependencyChange verifies hook fires on dependency changes
 func TestFrameworkHooks_EffectRun_DependencyChange(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref
 	ref := NewRef(10)
@@ -836,10 +836,10 @@ func TestFrameworkHooks_EffectRun_DependencyChange(t *testing.T) {
 // TestFrameworkHooks_EffectRun_MultipleDependencies verifies hook fires for multiple dependency changes
 func TestFrameworkHooks_EffectRun_MultipleDependencies(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create multiple refs
 	ref1 := NewRef(10)
@@ -874,10 +874,10 @@ func TestFrameworkHooks_EffectRun_MultipleDependencies(t *testing.T) {
 // TestFrameworkHooks_EffectRun_EffectIDFormat verifies effect ID format is correct
 func TestFrameworkHooks_EffectRun_EffectIDFormat(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a WatchEffect
 	cleanup := WatchEffect(func() {
@@ -897,10 +897,10 @@ func TestFrameworkHooks_EffectRun_EffectIDFormat(t *testing.T) {
 // TestFrameworkHooks_EffectRun_StoppedEffect verifies hook doesn't fire when effect stopped
 func TestFrameworkHooks_EffectRun_StoppedEffect(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create a ref
 	ref := NewRef(10)
@@ -926,7 +926,7 @@ func TestFrameworkHooks_EffectRun_StoppedEffect(t *testing.T) {
 // TestFrameworkHooks_EffectRun_NoHook verifies no panic when no hook registered
 func TestFrameworkHooks_EffectRun_NoHook(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	// Create a ref
 	ref := NewRef(10)
@@ -950,10 +950,10 @@ func TestFrameworkHooks_EffectRun_NoHook(t *testing.T) {
 // TestFrameworkHooks_EffectRun_ThreadSafe verifies concurrent effect runs are safe
 func TestFrameworkHooks_EffectRun_ThreadSafe(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create multiple refs
 	ref1 := NewRef(0)
@@ -1004,10 +1004,10 @@ func TestFrameworkHooks_EffectRun_ThreadSafe(t *testing.T) {
 // TestFrameworkHooks_EffectRun_RefComputedEffectCascade verifies Ref → Computed → Effect cascade
 func TestFrameworkHooks_EffectRun_RefComputedEffectCascade(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create Ref → Computed → Effect cascade
 	ref := NewRef(10)
@@ -1048,10 +1048,10 @@ func TestFrameworkHooks_EffectRun_RefComputedEffectCascade(t *testing.T) {
 // TestFrameworkHooks_EffectRun_ConditionalDependencies verifies hook fires for conditional dependencies
 func TestFrameworkHooks_EffectRun_ConditionalDependencies(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create refs for conditional dependencies
 	toggle := NewRef(true)
@@ -1100,10 +1100,10 @@ func TestFrameworkHooks_EffectRun_ConditionalDependencies(t *testing.T) {
 // TestFrameworkHooks_ChildAdded verifies hook fires when child is added
 func TestFrameworkHooks_ChildAdded(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent and child components
 	parent, err := NewComponent("Parent").
@@ -1135,10 +1135,10 @@ func TestFrameworkHooks_ChildAdded(t *testing.T) {
 // TestFrameworkHooks_ChildRemoved verifies hook fires when child is removed
 func TestFrameworkHooks_ChildRemoved(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent and child components
 	parent, err := NewComponent("Parent").
@@ -1177,10 +1177,10 @@ func TestFrameworkHooks_ChildRemoved(t *testing.T) {
 // TestFrameworkHooks_ChildAdded_ErrorCases verifies hook doesn't fire on error cases
 func TestFrameworkHooks_ChildAdded_ErrorCases(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent component
 	parent, err := NewComponent("Parent").
@@ -1204,10 +1204,10 @@ func TestFrameworkHooks_ChildAdded_ErrorCases(t *testing.T) {
 // TestFrameworkHooks_ChildRemoved_ErrorCases verifies hook doesn't fire on error cases
 func TestFrameworkHooks_ChildRemoved_ErrorCases(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent and child components
 	parent, err := NewComponent("Parent").
@@ -1238,10 +1238,10 @@ func TestFrameworkHooks_ChildRemoved_ErrorCases(t *testing.T) {
 // TestFrameworkHooks_DynamicComponentTree verifies hooks work with dynamic tree changes
 func TestFrameworkHooks_DynamicComponentTree(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create parent component
 	parent, err := NewComponent("Parent").
@@ -1274,23 +1274,23 @@ func TestFrameworkHooks_DynamicComponentTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add children one by one
-	parent.(*componentImpl).AddChild(child1)
+	_ = parent.(*componentImpl).AddChild(child1)
 	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
 
-	parent.(*componentImpl).AddChild(child2)
+	_ = parent.(*componentImpl).AddChild(child2)
 	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
 
-	parent.(*componentImpl).AddChild(child3)
+	_ = parent.(*componentImpl).AddChild(child3)
 	assert.Equal(t, int32(3), hook.childAddedCalls.Load())
 
 	// Remove children one by one
-	parent.(*componentImpl).RemoveChild(child1)
+	_ = parent.(*componentImpl).RemoveChild(child1)
 	assert.Equal(t, int32(1), hook.childRemovedCalls.Load())
 
-	parent.(*componentImpl).RemoveChild(child2)
+	_ = parent.(*componentImpl).RemoveChild(child2)
 	assert.Equal(t, int32(2), hook.childRemovedCalls.Load())
 
-	parent.(*componentImpl).RemoveChild(child3)
+	_ = parent.(*componentImpl).RemoveChild(child3)
 	assert.Equal(t, int32(3), hook.childRemovedCalls.Load())
 
 	// Verify final state
@@ -1300,10 +1300,10 @@ func TestFrameworkHooks_DynamicComponentTree(t *testing.T) {
 // TestFrameworkHooks_NestedComponentTree verifies hooks work with nested trees
 func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
 	// Clean up
-	defer UnregisterHook()
+	defer func() { _ = UnregisterHook() }()
 
 	hook := &mockHook{}
-	RegisterHook(hook)
+	_ = RegisterHook(hook)
 
 	// Create nested tree: root -> parent -> child
 	root, err := NewComponent("Root").
@@ -1328,14 +1328,14 @@ func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Build tree from bottom up
-	parent.(*componentImpl).AddChild(child)
+	_ = parent.(*componentImpl).AddChild(child)
 	assert.Equal(t, int32(1), hook.childAddedCalls.Load())
 	hook.mu.RLock()
 	assert.Equal(t, parent.ID(), hook.lastParentID)
 	assert.Equal(t, child.ID(), hook.lastChildID)
 	hook.mu.RUnlock()
 
-	root.(*componentImpl).AddChild(parent)
+	_ = root.(*componentImpl).AddChild(parent)
 	assert.Equal(t, int32(2), hook.childAddedCalls.Load())
 	hook.mu.RLock()
 	assert.Equal(t, root.ID(), hook.lastParentID)
@@ -1351,7 +1351,7 @@ func TestFrameworkHooks_NestedComponentTree(t *testing.T) {
 // TestFrameworkHooks_ChildMutations_NoHook verifies no panic when no hook registered
 func TestFrameworkHooks_ChildMutations_NoHook(t *testing.T) {
 	// Ensure no hook is registered
-	UnregisterHook()
+	_ = UnregisterHook()
 
 	// Create parent and child components
 	parent, err := NewComponent("Parent").

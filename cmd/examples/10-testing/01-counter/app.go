@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/01-counter/components"
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/01-counter/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -12,12 +13,8 @@ import (
 // CreateApp creates the root counter application component
 func CreateApp() (bubbly.Component, error) {
 	return bubbly.NewComponent("CounterApp").
-		WithKeyBinding("up", "increment", "Increment counter").
-		WithKeyBinding("k", "increment", "Increment counter").
-		WithKeyBinding("+", "increment", "Increment counter").
-		WithKeyBinding("down", "decrement", "Decrement counter").
-		WithKeyBinding("j", "decrement", "Decrement counter").
-		WithKeyBinding("-", "decrement", "Decrement counter").
+		WithMultiKeyBindings("increment", "Increment counter", "up", "k", "+").
+		WithMultiKeyBindings("decrement", "Decrement counter", "down", "j", "-").
 		WithKeyBinding("r", "reset", "Reset counter").
 		WithKeyBinding("q", "quit", "Quit application").
 		WithKeyBinding("ctrl+c", "quit", "Quit application").

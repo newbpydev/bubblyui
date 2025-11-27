@@ -718,3 +718,115 @@ func BenchmarkConvertBool(b *testing.B) {
 		_ = convertBool("true")
 	}
 }
+
+// TestBindCheckbox_NonBoolTypeFallback tests the fallback path in checkbox rendering
+// when a non-bool type is used. This covers the string conversion fallback in Render().
+func TestBindCheckbox_NonBoolTypeFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *BindDirective[string]
+		expected string
+	}{
+		{
+			name: "string 'true' renders as checked",
+			setup: func() *BindDirective[string] {
+				ref := bubbly.NewRef("true")
+				return &BindDirective[string]{
+					ref:       ref,
+					inputType: "checkbox",
+				}
+			},
+			expected: "[Checkbox: [X]]",
+		},
+		{
+			name: "string 'false' renders as unchecked",
+			setup: func() *BindDirective[string] {
+				ref := bubbly.NewRef("false")
+				return &BindDirective[string]{
+					ref:       ref,
+					inputType: "checkbox",
+				}
+			},
+			expected: "[Checkbox: [ ]]",
+		},
+		{
+			name: "string '1' renders as unchecked (not 'true')",
+			setup: func() *BindDirective[string] {
+				ref := bubbly.NewRef("1")
+				return &BindDirective[string]{
+					ref:       ref,
+					inputType: "checkbox",
+				}
+			},
+			expected: "[Checkbox: [ ]]",
+		},
+		{
+			name: "empty string renders as unchecked",
+			setup: func() *BindDirective[string] {
+				ref := bubbly.NewRef("")
+				return &BindDirective[string]{
+					ref:       ref,
+					inputType: "checkbox",
+				}
+			},
+			expected: "[Checkbox: [ ]]",
+		},
+		{
+			name: "arbitrary string renders as unchecked",
+			setup: func() *BindDirective[string] {
+				ref := bubbly.NewRef("arbitrary")
+				return &BindDirective[string]{
+					ref:       ref,
+					inputType: "checkbox",
+				}
+			},
+			expected: "[Checkbox: [ ]]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			directive := tt.setup()
+			result := directive.Render()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestBindCheckbox_IntTypeFallback tests checkbox rendering with int type
+// This exercises the non-bool fallback path with numeric types.
+func TestBindCheckbox_IntTypeFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		expected string
+	}{
+		{
+			name:     "int 0 renders as unchecked",
+			value:    0,
+			expected: "[Checkbox: [ ]]",
+		},
+		{
+			name:     "int 1 renders as unchecked (not string 'true')",
+			value:    1,
+			expected: "[Checkbox: [ ]]",
+		},
+		{
+			name:     "int 42 renders as unchecked",
+			value:    42,
+			expected: "[Checkbox: [ ]]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ref := bubbly.NewRef(tt.value)
+			directive := &BindDirective[int]{
+				ref:       ref,
+				inputType: "checkbox",
+			}
+			result := directive.Render()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

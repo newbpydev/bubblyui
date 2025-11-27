@@ -3,8 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestNewProvideInjectTester tests creating a new ProvideInjectTester

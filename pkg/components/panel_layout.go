@@ -42,6 +42,67 @@ type PanelLayoutProps struct {
 	CommonProps
 }
 
+// panelLayoutApplyDefaults sets default values for PanelLayoutProps.
+func panelLayoutApplyDefaults(props *PanelLayoutProps) {
+	if props.Width == 0 {
+		props.Width = 80
+	}
+	if props.Height == 0 {
+		props.Height = 24
+	}
+	if props.SplitRatio == 0 {
+		props.SplitRatio = 0.5
+	}
+	if props.Direction == "" {
+		props.Direction = "horizontal"
+	}
+}
+
+// panelLayoutRenderPanel renders a single panel with the given dimensions and options.
+func panelLayoutRenderPanel(comp bubbly.Component, width, height int, showBorder bool, theme Theme, borderSides ...bool) string {
+	if comp == nil {
+		return lipgloss.NewStyle().Width(width).Height(height).Render("")
+	}
+
+	style := lipgloss.NewStyle().
+		Width(width).
+		Height(height).
+		Padding(1)
+
+	if showBorder {
+		if len(borderSides) == 4 {
+			style = style.Border(lipgloss.NormalBorder(), borderSides[0], borderSides[1], borderSides[2], borderSides[3])
+		} else {
+			style = style.Border(lipgloss.NormalBorder())
+		}
+		style = style.BorderForeground(theme.Secondary)
+	}
+
+	return style.Render(comp.View())
+}
+
+// panelLayoutRenderVertical renders vertical split layout.
+func panelLayoutRenderVertical(p PanelLayoutProps, theme Theme) string {
+	topHeight := int(float64(p.Height) * p.SplitRatio)
+	bottomHeight := p.Height - topHeight
+
+	topPanel := panelLayoutRenderPanel(p.Left, p.Width, topHeight, p.ShowBorder, theme, false, false, true, false)
+	bottomPanel := panelLayoutRenderPanel(p.Right, p.Width, bottomHeight, p.ShowBorder, theme)
+
+	return lipgloss.JoinVertical(lipgloss.Left, topPanel, bottomPanel)
+}
+
+// panelLayoutRenderHorizontal renders horizontal split layout.
+func panelLayoutRenderHorizontal(p PanelLayoutProps, theme Theme) string {
+	leftWidth := int(float64(p.Width) * p.SplitRatio)
+	rightWidth := p.Width - leftWidth
+
+	leftPanel := panelLayoutRenderPanel(p.Left, leftWidth, p.Height, p.ShowBorder, theme, false, true, false, false)
+	rightPanel := panelLayoutRenderPanel(p.Right, rightWidth, p.Height, p.ShowBorder, theme)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
+}
+
 // PanelLayout creates a split panel layout template component.
 // The layout splits the space either horizontally (left/right) or vertically (top/bottom).
 //
@@ -77,30 +138,12 @@ type PanelLayoutProps struct {
 //	    SplitRatio: 0.3, // 30% left, 70% right
 //	})
 func PanelLayout(props PanelLayoutProps) bubbly.Component {
-	// Set defaults
-	if props.Width == 0 {
-		props.Width = 80
-	}
-	if props.Height == 0 {
-		props.Height = 24
-	}
-	if props.SplitRatio == 0 {
-		props.SplitRatio = 0.5
-	}
-	if props.Direction == "" {
-		props.Direction = "horizontal"
-	}
+	panelLayoutApplyDefaults(&props)
 
 	component, _ := bubbly.NewComponent("PanelLayout").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			theme := injectTheme(ctx)
 			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -108,127 +151,14 @@ func PanelLayout(props PanelLayoutProps) bubbly.Component {
 			theme := ctx.Get("theme").(Theme)
 
 			var result string
-
 			if p.Direction == "vertical" {
-				// Vertical split (top/bottom)
-				topHeight := int(float64(p.Height) * p.SplitRatio)
-				bottomHeight := p.Height - topHeight
-
-				// Render top panel (using Left prop)
-				var topPanel string
-				if p.Left != nil {
-					topStyle := lipgloss.NewStyle().
-						Width(p.Width).
-						Height(topHeight).
-						Padding(1)
-
-					if p.ShowBorder {
-						topStyle = topStyle.
-							Border(lipgloss.NormalBorder(), false, false, true, false).
-							BorderForeground(theme.Secondary)
-					}
-
-					topContent := p.Left.View()
-					topPanel = topStyle.Render(topContent)
-				} else {
-					topStyle := lipgloss.NewStyle().
-						Width(p.Width).
-						Height(topHeight)
-					topPanel = topStyle.Render("")
-				}
-
-				// Render bottom panel (using Right prop)
-				var bottomPanel string
-				if p.Right != nil {
-					bottomStyle := lipgloss.NewStyle().
-						Width(p.Width).
-						Height(bottomHeight).
-						Padding(1)
-
-					if p.ShowBorder {
-						bottomStyle = bottomStyle.
-							Border(lipgloss.NormalBorder()).
-							BorderForeground(theme.Secondary)
-					}
-
-					bottomContent := p.Right.View()
-					bottomPanel = bottomStyle.Render(bottomContent)
-				} else {
-					bottomStyle := lipgloss.NewStyle().
-						Width(p.Width).
-						Height(bottomHeight)
-					bottomPanel = bottomStyle.Render("")
-				}
-
-				// Join vertically
-				result = lipgloss.JoinVertical(
-					lipgloss.Left,
-					topPanel,
-					bottomPanel,
-				)
+				result = panelLayoutRenderVertical(p, theme)
 			} else {
-				// Horizontal split (left/right)
-				leftWidth := int(float64(p.Width) * p.SplitRatio)
-				rightWidth := p.Width - leftWidth
-
-				// Render left panel
-				var leftPanel string
-				if p.Left != nil {
-					leftStyle := lipgloss.NewStyle().
-						Width(leftWidth).
-						Height(p.Height).
-						Padding(1)
-
-					if p.ShowBorder {
-						leftStyle = leftStyle.
-							Border(lipgloss.NormalBorder(), false, true, false, false).
-							BorderForeground(theme.Secondary)
-					}
-
-					leftContent := p.Left.View()
-					leftPanel = leftStyle.Render(leftContent)
-				} else {
-					leftStyle := lipgloss.NewStyle().
-						Width(leftWidth).
-						Height(p.Height)
-					leftPanel = leftStyle.Render("")
-				}
-
-				// Render right panel
-				var rightPanel string
-				if p.Right != nil {
-					rightStyle := lipgloss.NewStyle().
-						Width(rightWidth).
-						Height(p.Height).
-						Padding(1)
-
-					if p.ShowBorder {
-						rightStyle = rightStyle.
-							Border(lipgloss.NormalBorder()).
-							BorderForeground(theme.Secondary)
-					}
-
-					rightContent := p.Right.View()
-					rightPanel = rightStyle.Render(rightContent)
-				} else {
-					rightStyle := lipgloss.NewStyle().
-						Width(rightWidth).
-						Height(p.Height)
-					rightPanel = rightStyle.Render("")
-				}
-
-				// Join horizontally
-				result = lipgloss.JoinHorizontal(
-					lipgloss.Top,
-					leftPanel,
-					rightPanel,
-				)
+				result = panelLayoutRenderHorizontal(p, theme)
 			}
 
-			// Apply custom style if provided
 			if p.Style != nil {
-				containerStyle := lipgloss.NewStyle().Inherit(*p.Style)
-				result = containerStyle.Render(result)
+				result = lipgloss.NewStyle().Inherit(*p.Style).Render(result)
 			}
 
 			return result

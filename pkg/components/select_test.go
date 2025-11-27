@@ -444,3 +444,113 @@ func TestSelect_Props(t *testing.T) {
 	retrievedProps := selectComp.Props()
 	assert.NotNil(t, retrievedProps, "Props should be accessible")
 }
+
+// ============================================================================
+// SELECT HELPER FUNCTION TESTS - Additional Coverage
+// ============================================================================
+
+func TestSelect_EmptyOptions_NoPlaceholder(t *testing.T) {
+	// Test selectGetDisplayValue with empty options and no placeholder
+	valueRef := bubbly.NewRef("")
+	options := []string{}
+
+	selectComp := Select(SelectProps[string]{
+		Value:   valueRef,
+		Options: options,
+		// No placeholder
+	})
+
+	selectComp.Init()
+	view := selectComp.View()
+
+	// Should show "No options" when options are empty and no placeholder
+	assert.Contains(t, view, "No options", "Should show 'No options' text")
+}
+
+func TestSelect_ValueNotInOptions(t *testing.T) {
+	// Test when current value is not in the options list
+	valueRef := bubbly.NewRef("not-in-list")
+	options := []string{"option1", "option2", "option3"}
+
+	selectComp := Select(SelectProps[string]{
+		Value:       valueRef,
+		Options:     options,
+		Placeholder: "Select one",
+	})
+
+	selectComp.Init()
+	view := selectComp.View()
+
+	// Should show placeholder when value is not in options
+	assert.Contains(t, view, "Select one", "Should show placeholder when value not in options")
+}
+
+func TestSelect_ValueNotInOptions_NoPlaceholder(t *testing.T) {
+	// Test when value is not in options and no placeholder is set
+	valueRef := bubbly.NewRef("invalid-value")
+	options := []string{"option1", "option2"}
+
+	selectComp := Select(SelectProps[string]{
+		Value:   valueRef,
+		Options: options,
+		// No placeholder
+	})
+
+	selectComp.Init()
+	view := selectComp.View()
+
+	// Should show the current value as fallback
+	assert.Contains(t, view, "invalid-value", "Should show current value as fallback")
+}
+
+func TestSelect_NoBorder(t *testing.T) {
+	valueRef := bubbly.NewRef("option1")
+	options := []string{"option1", "option2"}
+
+	selectComp := Select(SelectProps[string]{
+		Value:    valueRef,
+		Options:  options,
+		NoBorder: true,
+	})
+
+	selectComp.Init()
+	view := selectComp.View()
+
+	assert.NotEmpty(t, view, "Select should render without border")
+	assert.Contains(t, view, "option1", "Should display selected value")
+}
+
+func TestSelect_NoBorder_Open(t *testing.T) {
+	valueRef := bubbly.NewRef("option1")
+	options := []string{"option1", "option2", "option3"}
+
+	selectComp := Select(SelectProps[string]{
+		Value:    valueRef,
+		Options:  options,
+		NoBorder: true,
+	})
+
+	selectComp.Init()
+	selectComp.Emit("toggle", nil)
+
+	view := selectComp.View()
+
+	assert.NotEmpty(t, view, "Select should render open without border")
+}
+
+func TestSelect_DisabledWithBorder(t *testing.T) {
+	valueRef := bubbly.NewRef("option1")
+	options := []string{"option1", "option2"}
+
+	selectComp := Select(SelectProps[string]{
+		Value:    valueRef,
+		Options:  options,
+		Disabled: true,
+		// NoBorder is false, so border color should be muted
+	})
+
+	selectComp.Init()
+	view := selectComp.View()
+
+	assert.NotEmpty(t, view, "Disabled select should render with muted border")
+}

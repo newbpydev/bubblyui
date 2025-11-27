@@ -173,7 +173,7 @@ func BenchmarkKeyBindingProcessing(t *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			impl.keyBindingsMu.RLock()
-			_, _ = impl.keyBindings[testKey]
+			_ = impl.keyBindings[testKey]
 			impl.keyBindingsMu.RUnlock()
 		}
 	})
@@ -203,7 +203,7 @@ func BenchmarkKeyBindingProcessing(t *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			impl.keyBindingsMu.RLock()
-			_, _ = impl.keyBindings[testKey]
+			_ = impl.keyBindings[testKey]
 			impl.keyBindingsMu.RUnlock()
 		}
 	})

@@ -307,7 +307,7 @@ func TestGetErrors(t *testing.T) {
 
 	// Modify the returned slice - should not affect internal state
 	errors[0] = fmt.Errorf("modified")
-	errors = append(errors, fmt.Errorf("added"))
+	_ = append(errors, fmt.Errorf("added"))
 
 	// Internal state should be unchanged
 	internalErrors := et.GetErrors()
@@ -327,7 +327,7 @@ func TestGetRecoveredPanics(t *testing.T) {
 
 	// Modify the returned slice - should not affect internal state
 	panics[0] = "modified"
-	panics = append(panics, "added")
+	_ = append(panics, "added")
 
 	// Internal state should be unchanged
 	internalPanics := et.GetRecoveredPanics()

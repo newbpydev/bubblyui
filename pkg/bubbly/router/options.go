@@ -114,7 +114,7 @@ func WithGuard(guard NavigationGuard) RouteOption {
 
 // WithComponent sets the component to render for this route.
 //
-// The component is used by RouterView to render the matched route.
+// The component is used by View to render the matched route.
 // The component should implement bubbly.Component interface.
 //
 // Parameters:

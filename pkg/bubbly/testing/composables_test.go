@@ -247,3 +247,123 @@ func TestIntegration_MockComposableInComposable(t *testing.T) {
 	mockState.Set(20)
 	assert.Equal(t, 40, doubled.Get())
 }
+
+// TestAssertComposableCleanup_CatchesPanic verifies that panicking cleanup is caught
+// This test uses the internal assertCleanupWithRecovery helper to test panic recovery.
+func TestAssertComposableCleanup_CatchesPanic(t *testing.T) {
+	panicCleanup := func() {
+		panic("test panic")
+	}
+
+	// Test the internal helper that handles panic recovery
+	executed, panicValue := assertCleanupWithRecovery(panicCleanup)
+
+	// The cleanup should NOT have fully executed (executed will be false due to panic)
+	assert.False(t, executed, "cleanup should not complete when it panics")
+	assert.NotNil(t, panicValue, "panic value should be captured")
+	assert.Equal(t, "test panic", panicValue, "panic value should match")
+}
+
+// TestAssertComposableCleanup_NormalExecution verifies normal cleanup via helper
+func TestAssertComposableCleanup_NormalExecution(t *testing.T) {
+	cleanupCalled := false
+	normalCleanup := func() {
+		cleanupCalled = true
+	}
+
+	executed, panicValue := assertCleanupWithRecovery(normalCleanup)
+
+	assert.True(t, executed, "cleanup should execute successfully")
+	assert.Nil(t, panicValue, "no panic should occur")
+	assert.True(t, cleanupCalled, "cleanup function should have been called")
+}
+
+// TestAssertCleanupWithRecovery_NilCleanup verifies nil cleanup handling
+func TestAssertCleanupWithRecovery_NilCleanup(t *testing.T) {
+	executed, panicValue := assertCleanupWithRecovery(nil)
+
+	assert.True(t, executed, "should complete successfully with nil cleanup")
+	assert.Nil(t, panicValue, "no panic should occur with nil cleanup")
+}
+
+// TestTriggerUpdate_ExecutesOnUpdatedHooks verifies TriggerUpdate calls onUpdated hooks
+func TestTriggerUpdate_ExecutesOnUpdatedHooks(t *testing.T) {
+	ctx := NewTestContext()
+
+	updated := false
+	ctx.OnUpdated(func() {
+		updated = true
+	})
+
+	// Must mount first before updates can be triggered
+	TriggerMount(ctx)
+	TriggerUpdate(ctx)
+
+	assert.True(t, updated, "onUpdated hook should be called")
+}
+
+// TestTriggerUpdate_MultipleHooks verifies TriggerUpdate calls all onUpdated hooks
+func TestTriggerUpdate_MultipleHooks(t *testing.T) {
+	ctx := NewTestContext()
+
+	callOrder := []int{}
+	ctx.OnUpdated(func() {
+		callOrder = append(callOrder, 1)
+	})
+	ctx.OnUpdated(func() {
+		callOrder = append(callOrder, 2)
+	})
+
+	// Must mount first before updates can be triggered
+	TriggerMount(ctx)
+	TriggerUpdate(ctx)
+
+	assert.Equal(t, []int{1, 2}, callOrder, "all onUpdated hooks should be called in order")
+}
+
+// TestTriggerUpdate_NoHooks verifies TriggerUpdate handles no hooks gracefully
+func TestTriggerUpdate_NoHooks(t *testing.T) {
+	ctx := NewTestContext()
+
+	// Should not panic with no hooks registered
+	TriggerUpdate(ctx)
+}
+
+// TestTriggerUpdate_WithRef verifies TriggerUpdate works with ref changes
+func TestTriggerUpdate_WithRef(t *testing.T) {
+	ctx := NewTestContext()
+
+	ref := ctx.Ref(0)
+	updateCount := 0
+
+	ctx.OnUpdated(func() {
+		updateCount++
+	})
+
+	// Must mount first before updates can be triggered
+	TriggerMount(ctx)
+
+	// Update ref
+	ref.Set(10)
+
+	// Manually trigger update
+	TriggerUpdate(ctx)
+
+	assert.Equal(t, 1, updateCount, "onUpdated hook should be called once")
+	assert.Equal(t, 10, ref.Get(), "ref should have updated value")
+}
+
+// TestTriggerUpdate_NotMounted verifies TriggerUpdate does nothing if not mounted
+func TestTriggerUpdate_NotMounted(t *testing.T) {
+	ctx := NewTestContext()
+
+	updated := false
+	ctx.OnUpdated(func() {
+		updated = true
+	})
+
+	// Do not mount - just trigger update
+	TriggerUpdate(ctx)
+
+	assert.False(t, updated, "onUpdated hook should NOT be called when not mounted")
+}

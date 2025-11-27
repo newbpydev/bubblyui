@@ -28,7 +28,7 @@ import (
 //	}
 //
 //	// Enable with HTTP transport
-//	cfg := &mcp.MCPConfig{
+//	cfg := &mcp.Config{
 //	    Transport:  mcp.MCPTransportHTTP,
 //	    HTTPPort:   8765,
 //	    EnableAuth: true,
@@ -45,7 +45,7 @@ import (
 // Returns:
 //   - *devtools.DevTools: The singleton dev tools instance with MCP enabled
 //   - error: Configuration validation error, or MCP server creation error
-func EnableWithMCP(config *MCPConfig) (*devtools.DevTools, error) {
+func EnableWithMCP(config *Config) (*devtools.DevTools, error) {
 	// Validate config
 	if config == nil {
 		return nil, fmt.Errorf("mcp config cannot be nil")

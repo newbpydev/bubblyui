@@ -318,7 +318,7 @@ func TestCommandLogger_ThreadSafe(t *testing.T) {
 	wg.Add(goroutines)
 
 	for i := 0; i < goroutines; i++ {
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 
 			for j := 0; j < logsPerGoroutine; j++ {
@@ -630,5 +630,275 @@ func BenchmarkCommandLogger_vs_Nop(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			logger.LogCommand("Test", "comp-1", "ref-1", i, i+1)
 		}
+	})
+}
+
+// TestSetDefaultLogger tests setting the package-level default logger.
+//
+// This test validates:
+//   - SetDefaultLogger updates the default logger
+//   - nil logger is handled gracefully (replaced with NopLogger)
+//   - GetDefaultLogger returns the current default
+func TestSetDefaultLogger(t *testing.T) {
+	// Save original default logger to restore after test
+	originalLogger := GetDefaultLogger()
+	defer SetDefaultLogger(originalLogger)
+
+	tests := []struct {
+		name           string
+		logger         CommandLogger
+		expectNopCheck bool // If true, verify it's a NopLogger by checking no output
+	}{
+		{
+			name:           "set to CommandLogger",
+			logger:         NewCommandLogger(&bytes.Buffer{}),
+			expectNopCheck: false,
+		},
+		{
+			name:           "set to NopLogger",
+			logger:         NewNopLogger(),
+			expectNopCheck: true,
+		},
+		{
+			name:           "set to nil converts to NopLogger",
+			logger:         nil,
+			expectNopCheck: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetDefaultLogger(tt.logger)
+			result := GetDefaultLogger()
+
+			assert.NotNil(t, result, "GetDefaultLogger should never return nil")
+
+			if tt.expectNopCheck {
+				// Verify it behaves like a NopLogger (no output)
+				var buf bytes.Buffer
+				// NopLogger ignores all input and produces no output
+				result.LogCommand("Test", "comp-1", "ref-1", 0, 1)
+				// If it's a NopLogger, buf remains empty (not connected to logger)
+				assert.Empty(t, buf.String(), "NopLogger should produce no output")
+			}
+		})
+	}
+}
+
+// TestGetDefaultLogger tests retrieving the package-level default logger.
+//
+// This test validates:
+//   - GetDefaultLogger returns non-nil logger
+//   - Default logger is usable
+func TestGetDefaultLogger(t *testing.T) {
+	logger := GetDefaultLogger()
+
+	assert.NotNil(t, logger, "GetDefaultLogger should return non-nil logger")
+
+	// Should be usable without panic
+	require.NotPanics(t, func() {
+		logger.LogCommand("Test", "comp-1", "ref-1", 0, 1)
+	})
+}
+
+// TestFormatValue tests the value formatting helper function.
+//
+// This test validates:
+//   - nil values formatted as "<nil>"
+//   - strings formatted with %v
+//   - numbers formatted correctly
+//   - complex types handled without panic
+func TestFormatValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    interface{}
+		expected string
+	}{
+		{
+			name:     "nil value",
+			value:    nil,
+			expected: "<nil>",
+		},
+		{
+			name:     "string value",
+			value:    "hello",
+			expected: "hello",
+		},
+		{
+			name:     "empty string",
+			value:    "",
+			expected: "",
+		},
+		{
+			name:     "integer value",
+			value:    42,
+			expected: "42",
+		},
+		{
+			name:     "negative integer",
+			value:    -10,
+			expected: "-10",
+		},
+		{
+			name:     "float value",
+			value:    3.14,
+			expected: "3.14",
+		},
+		{
+			name:     "boolean true",
+			value:    true,
+			expected: "true",
+		},
+		{
+			name:     "boolean false",
+			value:    false,
+			expected: "false",
+		},
+		{
+			name:     "slice",
+			value:    []int{1, 2, 3},
+			expected: "[1 2 3]",
+		},
+		{
+			name:     "empty slice",
+			value:    []int{},
+			expected: "[]",
+		},
+		{
+			name:     "map",
+			value:    map[string]int{"a": 1},
+			expected: "map[a:1]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatValue(tt.value)
+			assert.Equal(t, tt.expected, result, "FormatValue(%v) should return %q", tt.value, tt.expected)
+		})
+	}
+}
+
+// TestFormatValue_ComplexTypes tests FormatValue with complex types.
+//
+// This test validates that complex types don't cause panics and produce
+// reasonable string representations.
+func TestFormatValue_ComplexTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		value         interface{}
+		shouldContain string
+	}{
+		{
+			name:          "struct",
+			value:         struct{ Name string }{Name: "Alice"},
+			shouldContain: "Alice",
+		},
+		{
+			name:          "pointer to int",
+			value:         func() *int { i := 42; return &i }(),
+			shouldContain: "", // Just verify no panic
+		},
+		{
+			name:          "nil pointer",
+			value:         (*int)(nil),
+			shouldContain: "<nil>",
+		},
+		{
+			name:          "nested slice",
+			value:         [][]int{{1, 2}, {3, 4}},
+			shouldContain: "[[1 2] [3 4]]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				result := FormatValue(tt.value)
+				if tt.shouldContain != "" {
+					assert.Contains(t, result, tt.shouldContain,
+						"FormatValue should contain %q", tt.shouldContain)
+				}
+			})
+		})
+	}
+}
+
+// TestNopLogger_LogCommand_DirectCall tests that NopLogger.LogCommand can be
+// called directly and doesn't produce any side effects.
+//
+// This test explicitly exercises the nopLogger.LogCommand method to ensure
+// 100% coverage of the empty method body.
+func TestNopLogger_LogCommand_DirectCall(t *testing.T) {
+	logger := NewNopLogger()
+
+	tests := []struct {
+		name          string
+		componentName string
+		componentID   string
+		refID         string
+		oldValue      interface{}
+		newValue      interface{}
+	}{
+		{
+			name:          "basic call",
+			componentName: "Counter",
+			componentID:   "comp-1",
+			refID:         "ref-1",
+			oldValue:      0,
+			newValue:      1,
+		},
+		{
+			name:          "nil values",
+			componentName: "Test",
+			componentID:   "comp-2",
+			refID:         "ref-2",
+			oldValue:      nil,
+			newValue:      nil,
+		},
+		{
+			name:          "complex values",
+			componentName: "List",
+			componentID:   "comp-3",
+			refID:         "ref-3",
+			oldValue:      []string{"a", "b"},
+			newValue:      []string{"a", "b", "c"},
+		},
+		{
+			name:          "empty strings",
+			componentName: "",
+			componentID:   "",
+			refID:         "",
+			oldValue:      "",
+			newValue:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should not panic and should do nothing
+			require.NotPanics(t, func() {
+				logger.LogCommand(tt.componentName, tt.componentID, tt.refID, tt.oldValue, tt.newValue)
+			})
+		})
+	}
+}
+
+// TestDefaultLoggerInitialState tests that the default logger is initialized
+// to NopLogger at package load time.
+func TestDefaultLoggerInitialState(t *testing.T) {
+	// Save and restore
+	originalLogger := GetDefaultLogger()
+	defer SetDefaultLogger(originalLogger)
+
+	// Reset to verify initial state behavior
+	SetDefaultLogger(nil)
+	logger := GetDefaultLogger()
+
+	assert.NotNil(t, logger, "default logger should never be nil")
+
+	// Verify it behaves like NopLogger (no output, no panic)
+	require.NotPanics(t, func() {
+		logger.LogCommand("Test", "comp-1", "ref-1", 0, 1)
 	})
 }

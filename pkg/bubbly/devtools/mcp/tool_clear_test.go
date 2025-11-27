@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // createCallToolRequest creates a properly formatted CallToolRequest for testing
@@ -95,7 +96,7 @@ func TestRegisterClearEventLogTool(t *testing.T) {
 func TestHandleClearStateHistoryTool(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupHistory  func(*devtools.DevToolsStore)
+		setupHistory  func(*devtools.Store)
 		params        map[string]interface{}
 		wantError     bool
 		wantCleared   int
@@ -103,7 +104,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 	}{
 		{
 			name: "clear empty history with confirmation",
-			setupHistory: func(store *devtools.DevToolsStore) {
+			setupHistory: func(store *devtools.Store) {
 				// No history to add
 			},
 			params: map[string]interface{}{
@@ -114,7 +115,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 		},
 		{
 			name: "clear history with items",
-			setupHistory: func(store *devtools.DevToolsStore) {
+			setupHistory: func(store *devtools.Store) {
 				history := store.GetStateHistory()
 				for i := 0; i < 5; i++ {
 					history.Record(devtools.StateChange{
@@ -135,7 +136,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 		},
 		{
 			name: "clear without confirmation",
-			setupHistory: func(store *devtools.DevToolsStore) {
+			setupHistory: func(store *devtools.Store) {
 				history := store.GetStateHistory()
 				history.Record(devtools.StateChange{
 					RefID:     "ref-1",
@@ -154,7 +155,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 		},
 		{
 			name: "missing confirm parameter",
-			setupHistory: func(store *devtools.DevToolsStore) {
+			setupHistory: func(store *devtools.Store) {
 				// No history
 			},
 			params:        map[string]interface{}{},
@@ -163,7 +164,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 		},
 		{
 			name: "invalid confirm type",
-			setupHistory: func(store *devtools.DevToolsStore) {
+			setupHistory: func(store *devtools.Store) {
 				// No history
 			},
 			params: map[string]interface{}{
@@ -224,7 +225,7 @@ func TestHandleClearStateHistoryTool(t *testing.T) {
 func TestHandleClearEventLogTool(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupEvents   func(*devtools.DevToolsStore)
+		setupEvents   func(*devtools.Store)
 		params        map[string]interface{}
 		wantError     bool
 		wantCleared   int
@@ -232,7 +233,7 @@ func TestHandleClearEventLogTool(t *testing.T) {
 	}{
 		{
 			name: "clear empty event log with confirmation",
-			setupEvents: func(store *devtools.DevToolsStore) {
+			setupEvents: func(store *devtools.Store) {
 				// No events to add
 			},
 			params: map[string]interface{}{
@@ -243,7 +244,7 @@ func TestHandleClearEventLogTool(t *testing.T) {
 		},
 		{
 			name: "clear event log with items",
-			setupEvents: func(store *devtools.DevToolsStore) {
+			setupEvents: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				for i := 0; i < 10; i++ {
 					eventLog.Append(devtools.EventRecord{
@@ -265,7 +266,7 @@ func TestHandleClearEventLogTool(t *testing.T) {
 		},
 		{
 			name: "clear without confirmation",
-			setupEvents: func(store *devtools.DevToolsStore) {
+			setupEvents: func(store *devtools.Store) {
 				eventLog := store.GetEventLog()
 				eventLog.Append(devtools.EventRecord{
 					ID:        "event-1",
@@ -285,7 +286,7 @@ func TestHandleClearEventLogTool(t *testing.T) {
 		},
 		{
 			name: "missing confirm parameter",
-			setupEvents: func(store *devtools.DevToolsStore) {
+			setupEvents: func(store *devtools.Store) {
 				// No events
 			},
 			params:        map[string]interface{}{},
@@ -294,7 +295,7 @@ func TestHandleClearEventLogTool(t *testing.T) {
 		},
 		{
 			name: "invalid confirm type",
-			setupEvents: func(store *devtools.DevToolsStore) {
+			setupEvents: func(store *devtools.Store) {
 				// No events
 			},
 			params: map[string]interface{}{
@@ -460,17 +461,17 @@ func TestClearEventLog_ThreadSafety(t *testing.T) {
 func TestClearTools_InvalidJSON(t *testing.T) {
 	tests := []struct {
 		name        string
-		toolHandler func(*MCPServer, context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error)
+		toolHandler func(*Server, context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error)
 		toolName    string
 	}{
 		{
 			name:        "clear_state_history with invalid JSON",
-			toolHandler: (*MCPServer).handleClearStateHistoryTool,
+			toolHandler: (*Server).handleClearStateHistoryTool,
 			toolName:    "clear_state_history",
 		},
 		{
 			name:        "clear_event_log with invalid JSON",
-			toolHandler: (*MCPServer).handleClearEventLogTool,
+			toolHandler: (*Server).handleClearEventLogTool,
 			toolName:    "clear_event_log",
 		},
 	}

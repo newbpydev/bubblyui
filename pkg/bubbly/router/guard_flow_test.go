@@ -12,9 +12,9 @@ func TestRouter_CircularRedirect_Detection(t *testing.T) {
 	router := NewRouter()
 
 	// Setup routes
-	router.registry.Register("/a", "a", nil)
-	router.registry.Register("/b", "b", nil)
-	router.registry.Register("/c", "c", nil)
+	_ = router.registry.Register("/a", "a", nil)
+	_ = router.registry.Register("/b", "b", nil)
+	_ = router.registry.Register("/c", "c", nil)
 
 	// Setup circular redirect: /a -> /b -> /c -> /a
 	router.BeforeEach(func(to, from *Route, next NextFunc) {
@@ -46,7 +46,7 @@ func TestRouter_MaxRedirectDepth(t *testing.T) {
 
 	// Setup many routes
 	for i := 0; i < 15; i++ {
-		router.registry.Register("/route"+string(rune('0'+i)), "route"+string(rune('0'+i)), nil)
+		_ = router.registry.Register("/route"+string(rune('0'+i)), "route"+string(rune('0'+i)), nil)
 	}
 
 	// Setup deep redirect chain: /route0 -> /route1 -> /route2 -> ... -> /route14
@@ -93,9 +93,9 @@ func TestRouter_RedirectDepth_AllowedChain(t *testing.T) {
 	router := NewRouter()
 
 	// Setup routes
-	router.registry.Register("/start", "start", nil)
-	router.registry.Register("/middle", "middle", nil)
-	router.registry.Register("/end", "end", nil)
+	_ = router.registry.Register("/start", "start", nil)
+	_ = router.registry.Register("/middle", "middle", nil)
+	_ = router.registry.Register("/end", "end", nil)
 
 	// Setup short redirect chain: /start -> /middle -> /end (2 redirects, should succeed)
 	router.BeforeEach(func(to, from *Route, next NextFunc) {
@@ -122,7 +122,7 @@ func TestRouter_RedirectDepth_AllowedChain(t *testing.T) {
 func TestRouter_CircularRedirect_SelfRedirect(t *testing.T) {
 	router := NewRouter()
 
-	router.registry.Register("/loop", "loop", nil)
+	_ = router.registry.Register("/loop", "loop", nil)
 
 	// Setup self-redirect: /loop -> /loop
 	router.BeforeEach(func(to, from *Route, next NextFunc) {
@@ -147,9 +147,9 @@ func TestRouter_CircularRedirect_SelfRedirect(t *testing.T) {
 func TestRouter_RedirectTracking_ResetOnSuccess(t *testing.T) {
 	router := NewRouter()
 
-	router.registry.Register("/a", "a", nil)
-	router.registry.Register("/b", "b", nil)
-	router.registry.Register("/c", "c", nil)
+	_ = router.registry.Register("/a", "a", nil)
+	_ = router.registry.Register("/b", "b", nil)
+	_ = router.registry.Register("/c", "c", nil)
 
 	// First navigation: /a -> /b (1 redirect)
 	router.BeforeEach(func(to, from *Route, next NextFunc) {
@@ -179,8 +179,8 @@ func TestRouter_RedirectTracking_ResetOnSuccess(t *testing.T) {
 func TestRouter_RedirectDepth_WorksWithReplace(t *testing.T) {
 	router := NewRouter()
 
-	router.registry.Register("/a", "a", nil)
-	router.registry.Register("/b", "b", nil)
+	_ = router.registry.Register("/a", "a", nil)
+	_ = router.registry.Register("/b", "b", nil)
 
 	// Setup redirect
 	router.BeforeEach(func(to, from *Route, next NextFunc) {
@@ -215,8 +215,8 @@ func TestRouter_RedirectChain_ComplexScenario(t *testing.T) {
 			name:      "simple redirect",
 			startPath: "/login",
 			setupGuard: func(r *Router) {
-				r.registry.Register("/login", "login", nil)
-				r.registry.Register("/dashboard", "dashboard", nil)
+				_ = r.registry.Register("/login", "login", nil)
+				_ = r.registry.Register("/dashboard", "dashboard", nil)
 				r.BeforeEach(func(to, from *Route, next NextFunc) {
 					if to.Path == "/login" {
 						next(&NavigationTarget{Path: "/dashboard"})
@@ -232,9 +232,9 @@ func TestRouter_RedirectChain_ComplexScenario(t *testing.T) {
 			name:      "two-step redirect",
 			startPath: "/old",
 			setupGuard: func(r *Router) {
-				r.registry.Register("/old", "old", nil)
-				r.registry.Register("/new", "new", nil)
-				r.registry.Register("/current", "current", nil)
+				_ = r.registry.Register("/old", "old", nil)
+				_ = r.registry.Register("/new", "new", nil)
+				_ = r.registry.Register("/current", "current", nil)
 				r.BeforeEach(func(to, from *Route, next NextFunc) {
 					if to.Path == "/old" {
 						next(&NavigationTarget{Path: "/new"})
@@ -252,8 +252,8 @@ func TestRouter_RedirectChain_ComplexScenario(t *testing.T) {
 			name:      "circular redirect A->B->A",
 			startPath: "/a",
 			setupGuard: func(r *Router) {
-				r.registry.Register("/a", "a", nil)
-				r.registry.Register("/b", "b", nil)
+				_ = r.registry.Register("/a", "a", nil)
+				_ = r.registry.Register("/b", "b", nil)
 				r.BeforeEach(func(to, from *Route, next NextFunc) {
 					if to.Path == "/a" {
 						next(&NavigationTarget{Path: "/b"})

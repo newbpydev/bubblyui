@@ -67,9 +67,9 @@ func TestAuthHandler_Middleware_ValidToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a test handler that will be called if auth succeeds
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	// Wrap with auth middleware

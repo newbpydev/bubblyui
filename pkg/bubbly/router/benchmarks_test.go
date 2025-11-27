@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-	"runtime"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -635,31 +634,4 @@ func BenchmarkIntegration_WithComponents(b *testing.B) {
 			}
 		}
 	}
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-// benchName creates a consistent benchmark name
-func benchName(prefix string, value int) string {
-	return fmt.Sprintf("%s_%d", prefix, value)
-}
-
-// getAllocSize estimates allocation size in bytes
-func getAllocSize(b *testing.B, allocBytes uint64, allocCount uint64) int {
-	if allocCount == 0 {
-		return 0
-	}
-	return int(allocBytes / allocCount)
-}
-
-// printMemStats prints memory statistics (for manual inspection)
-func printMemStats() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	fmt.Printf("Alloc = %v MiB", m.Alloc/1024/1024)
-	fmt.Printf("\tTotalAlloc = %v MiB", m.TotalAlloc/1024/1024)
-	fmt.Printf("\tSys = %v MiB", m.Sys/1024/1024)
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 }

@@ -103,6 +103,99 @@ type ListProps[T any] struct {
 //	        handleSelection(item)
 //	    },
 //	})
+//
+// listSelectItem selects an item and adjusts scroll offset for virtual scrolling.
+func listSelectItem[T any](props ListProps[T], selectedIndex, scrollOffset *bubbly.Ref[int], index int) {
+	items := props.Items.Get().([]T)
+	if index < 0 || index >= len(items) {
+		return
+	}
+
+	selectedIndex.Set(index)
+
+	// Adjust scroll offset for virtual scrolling
+	height := props.Height
+	if height <= 0 {
+		height = 10
+	}
+	offset := scrollOffset.Get().(int)
+
+	// Scroll down if selected item is below visible area
+	if index >= offset+height {
+		scrollOffset.Set(index - height + 1)
+	}
+
+	// Scroll up if selected item is above visible area
+	if index < offset {
+		scrollOffset.Set(index)
+	}
+
+	// Trigger callback
+	if props.OnSelect != nil {
+		props.OnSelect(items[index], index)
+	}
+}
+
+// listHandleKeyDown handles the keyDown event for moving selection down.
+func listHandleKeyDown[T any](props ListProps[T], selectedIndex, scrollOffset *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		items := props.Items.Get().([]T)
+		if len(items) == 0 {
+			return
+		}
+
+		current := selectedIndex.Get().(int)
+		if current == -1 {
+			listSelectItem(props, selectedIndex, scrollOffset, 0)
+		} else if current < len(items)-1 {
+			listSelectItem(props, selectedIndex, scrollOffset, current+1)
+		}
+	}
+}
+
+// listHandleKeyUp handles the keyUp event for moving selection up.
+func listHandleKeyUp[T any](props ListProps[T], selectedIndex, scrollOffset *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		items := props.Items.Get().([]T)
+		if len(items) == 0 {
+			return
+		}
+
+		current := selectedIndex.Get().(int)
+		if current == -1 {
+			listSelectItem(props, selectedIndex, scrollOffset, len(items)-1)
+		} else if current > 0 {
+			listSelectItem(props, selectedIndex, scrollOffset, current-1)
+		}
+	}
+}
+
+// listHandleKeyEnter handles the keyEnter event for selecting current item.
+func listHandleKeyEnter[T any](props ListProps[T], selectedIndex *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		items := props.Items.Get().([]T)
+		current := selectedIndex.Get().(int)
+
+		if current >= 0 && current < len(items) && props.OnSelect != nil {
+			props.OnSelect(items[current], current)
+		}
+	}
+}
+
+// listHandleKeyHomeEnd handles the keyHome and keyEnd events for jumping to first/last.
+func listHandleKeyHomeEnd[T any](props ListProps[T], selectedIndex, scrollOffset *bubbly.Ref[int], toFirst bool) func(interface{}) {
+	return func(_ interface{}) {
+		items := props.Items.Get().([]T)
+		if len(items) > 0 {
+			if toFirst {
+				listSelectItem(props, selectedIndex, scrollOffset, 0)
+			} else {
+				listSelectItem(props, selectedIndex, scrollOffset, len(items)-1)
+			}
+		}
+	}
+}
+
 func List[T any](props ListProps[T]) bubbly.Component {
 	comp, err := bubbly.NewComponent("List").
 		Props(props).
@@ -119,102 +212,12 @@ func List[T any](props ListProps[T]) bubbly.Component {
 			ctx.Expose("scrollOffset", scrollOffset)
 			ctx.Expose("theme", theme)
 
-			// Helper function to get visible height
-			getHeight := func() int {
-				if props.Height > 0 {
-					return props.Height
-				}
-				return 10 // Default height
-			}
-
-			// Helper function to select an item
-			selectItem := func(index int) {
-				items := props.Items.Get().([]T)
-				if index < 0 || index >= len(items) {
-					return
-				}
-
-				selectedIndex.Set(index)
-
-				// Adjust scroll offset for virtual scrolling
-				height := getHeight()
-				offset := scrollOffset.Get().(int)
-
-				// Scroll down if selected item is below visible area
-				if index >= offset+height {
-					scrollOffset.Set(index - height + 1)
-				}
-
-				// Scroll up if selected item is above visible area
-				if index < offset {
-					scrollOffset.Set(index)
-				}
-
-				// Trigger callback
-				if props.OnSelect != nil {
-					props.OnSelect(items[index], index)
-				}
-			}
-
-			// Keyboard navigation: Move down
-			ctx.On("keyDown", func(_ interface{}) {
-				items := props.Items.Get().([]T)
-				if len(items) == 0 {
-					return
-				}
-
-				current := selectedIndex.Get().(int)
-				if current == -1 {
-					// No selection, select first item
-					selectItem(0)
-				} else if current < len(items)-1 {
-					// Move down
-					selectItem(current + 1)
-				}
-			})
-
-			// Keyboard navigation: Move up
-			ctx.On("keyUp", func(_ interface{}) {
-				items := props.Items.Get().([]T)
-				if len(items) == 0 {
-					return
-				}
-
-				current := selectedIndex.Get().(int)
-				if current == -1 {
-					// No selection, select last item
-					selectItem(len(items) - 1)
-				} else if current > 0 {
-					// Move up
-					selectItem(current - 1)
-				}
-			})
-
-			// Keyboard navigation: Select current item
-			ctx.On("keyEnter", func(_ interface{}) {
-				items := props.Items.Get().([]T)
-				current := selectedIndex.Get().(int)
-
-				if current >= 0 && current < len(items) && props.OnSelect != nil {
-					props.OnSelect(items[current], current)
-				}
-			})
-
-			// Keyboard navigation: Jump to first
-			ctx.On("keyHome", func(_ interface{}) {
-				items := props.Items.Get().([]T)
-				if len(items) > 0 {
-					selectItem(0)
-				}
-			})
-
-			// Keyboard navigation: Jump to last
-			ctx.On("keyEnd", func(_ interface{}) {
-				items := props.Items.Get().([]T)
-				if len(items) > 0 {
-					selectItem(len(items) - 1)
-				}
-			})
+			// Register keyboard navigation events using extracted handlers
+			ctx.On("keyDown", listHandleKeyDown(props, selectedIndex, scrollOffset))
+			ctx.On("keyUp", listHandleKeyUp(props, selectedIndex, scrollOffset))
+			ctx.On("keyEnter", listHandleKeyEnter(props, selectedIndex))
+			ctx.On("keyHome", listHandleKeyHomeEnd(props, selectedIndex, scrollOffset, true))
+			ctx.On("keyEnd", listHandleKeyHomeEnd(props, selectedIndex, scrollOffset, false))
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			p := ctx.Props().(ListProps[T])

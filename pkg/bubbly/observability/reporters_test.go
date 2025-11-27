@@ -269,6 +269,12 @@ func TestSentryReporter_New(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name:      "create with invalid DSN format",
+			dsn:       "invalid-dsn-format",
+			opts:      nil,
+			wantError: true, // Invalid DSN should cause an error
+		},
 	}
 
 	for _, tt := range tests {
@@ -278,6 +284,9 @@ func TestSentryReporter_New(t *testing.T) {
 			if tt.wantError {
 				assert.Error(t, err)
 				assert.Nil(t, reporter)
+				if err != nil {
+					assert.Contains(t, err.Error(), "failed to initialize Sentry")
+				}
 			} else {
 				assert.NoError(t, err)
 				require.NotNil(t, reporter)
@@ -374,6 +383,61 @@ func TestSentryReporter_ReportError(t *testing.T) {
 				Timestamp:     time.Now(),
 				Tags: map[string]string{
 					"field": "email",
+				},
+			},
+		},
+		{
+			name: "report error with event name",
+			err:  errors.New("submit failed"),
+			ctx: &ErrorContext{
+				ComponentName: "Form",
+				ComponentID:   "form-1",
+				EventName:     "submit",
+				Timestamp:     time.Now(),
+				Tags: map[string]string{
+					"form_type": "login",
+				},
+				Extra: map[string]interface{}{
+					"attempts": 3,
+				},
+			},
+		},
+		{
+			name: "report error without event name",
+			err:  errors.New("initialization error"),
+			ctx: &ErrorContext{
+				ComponentName: "App",
+				ComponentID:   "app-root",
+				EventName:     "",
+				Timestamp:     time.Now(),
+			},
+		},
+		{
+			name: "report error with breadcrumbs",
+			err:  errors.New("network timeout"),
+			ctx: &ErrorContext{
+				ComponentName: "DataFetcher",
+				ComponentID:   "fetcher-1",
+				EventName:     "fetch",
+				Timestamp:     time.Now(),
+				Breadcrumbs: []Breadcrumb{
+					{
+						Type:      "http",
+						Category:  "network",
+						Message:   "Request started",
+						Level:     "info",
+						Timestamp: time.Now().Add(-5 * time.Second),
+						Data: map[string]interface{}{
+							"url": "https://api.example.com",
+						},
+					},
+					{
+						Type:      "http",
+						Category:  "network",
+						Message:   "Request timed out",
+						Level:     "error",
+						Timestamp: time.Now(),
+					},
 				},
 			},
 		},
@@ -482,6 +546,29 @@ func TestSentryReporter_Options(t *testing.T) {
 			name: "with multiple options",
 			opts: []SentryOption{
 				WithDebug(true),
+				WithBeforeSend(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+					return event
+				}),
+			},
+		},
+		{
+			name: "with environment option",
+			opts: []SentryOption{
+				WithEnvironment("production"),
+			},
+		},
+		{
+			name: "with release option",
+			opts: []SentryOption{
+				WithRelease("v1.0.0"),
+			},
+		},
+		{
+			name: "with all options combined",
+			opts: []SentryOption{
+				WithDebug(false),
+				WithEnvironment("staging"),
+				WithRelease("v2.1.0"),
 				WithBeforeSend(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
 					return event
 				}),

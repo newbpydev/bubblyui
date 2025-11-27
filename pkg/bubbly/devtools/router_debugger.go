@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 )
 

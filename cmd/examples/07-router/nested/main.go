@@ -119,7 +119,7 @@ func (m model) View() string {
 		return "Loading..."
 	}
 
-	// Create RouterView for root level
+	// Create View for root level
 	routerView := router.NewRouterView(m.router, 0)
 
 	// Render header

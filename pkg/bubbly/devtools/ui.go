@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// DevToolsUI is the main UI component that integrates all dev tools panels.
+// UI is the main UI component that integrates all dev tools panels.
 //
 // It manages:
 // - Layout (split-pane, overlay, etc.)
@@ -30,7 +30,7 @@ import (
 //
 //	// In Bubbletea View()
 //	output := ui.View()
-type DevToolsUI struct {
+type UI struct {
 	mu sync.RWMutex
 
 	// layout manages the split-pane layout
@@ -57,9 +57,6 @@ type DevToolsUI struct {
 	// timeline is the command timeline panel
 	timeline *CommandTimeline
 
-	// router is the router debugger panel (optional, may be nil)
-	router *RouterDebugger
-
 	// activePanel is the index of the currently active panel
 	activePanel int
 
@@ -67,7 +64,7 @@ type DevToolsUI struct {
 	appContent string
 
 	// store is the dev tools data store
-	store *DevToolsStore
+	store *Store
 
 	// lastWidth is the cached terminal width to detect size changes
 	lastWidth int
@@ -99,9 +96,9 @@ type DevToolsUI struct {
 //   - store: The dev tools data store
 //
 // Returns:
-//   - *DevToolsUI: A new DevTools UI instance
-func NewDevToolsUI(store *DevToolsStore) *DevToolsUI {
-	ui := &DevToolsUI{
+//   - *UI: A new DevTools UI instance
+func NewDevToolsUI(store *Store) *UI {
+	ui := &UI{
 		store:       store,
 		activePanel: 0,
 		appContent:  "",
@@ -160,12 +157,12 @@ func NewDevToolsUI(store *DevToolsStore) *DevToolsUI {
 //
 // Returns:
 //   - tea.Cmd: Always returns nil
-func (ui *DevToolsUI) Init() tea.Cmd {
+func (ui *UI) Init() tea.Cmd {
 	return nil
 }
 
 // setupKeyboardShortcuts registers keyboard shortcuts for the UI.
-func (ui *DevToolsUI) setupKeyboardShortcuts() {
+func (ui *UI) setupKeyboardShortcuts() {
 	// F12/ctrl+t are handled by globalKeyInterceptor in wrapper.go
 	// No need to register here to avoid duplicate handling
 
@@ -198,7 +195,7 @@ func (ui *DevToolsUI) setupKeyboardShortcuts() {
 // Thread Safety:
 //
 //	Safe to call concurrently from multiple goroutines.
-func (ui *DevToolsUI) IsFocusMode() bool {
+func (ui *UI) IsFocusMode() bool {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 	return ui.focusMode
@@ -211,7 +208,7 @@ func (ui *DevToolsUI) IsFocusMode() bool {
 // Thread Safety:
 //
 //	Safe to call concurrently from multiple goroutines.
-func (ui *DevToolsUI) SetFocusMode(enabled bool) {
+func (ui *UI) SetFocusMode(enabled bool) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 	ui.focusMode = enabled
@@ -230,7 +227,7 @@ func (ui *DevToolsUI) SetFocusMode(enabled bool) {
 //
 //	func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //	    updatedUI, cmd := m.ui.Update(msg)
-//	    m.ui = updatedUI.(*DevToolsUI)
+//	    m.ui = updatedUI.(*UI)
 //	    return m, cmd
 //	}
 //
@@ -238,96 +235,84 @@ func (ui *DevToolsUI) SetFocusMode(enabled bool) {
 //   - msg: The Bubbletea message to process
 //
 // Returns:
-//   - tea.Model: The updated UI (cast to *DevToolsUI)
+//   - tea.Model: The updated UI (cast to *UI)
 //   - tea.Cmd: Optional command to execute
-func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+//
+// handleFocusModeToggle handles focus mode toggle keys.
+// Returns true if the key was consumed.
+func (ui *UI) handleFocusModeToggle(msg tea.KeyMsg) bool {
+	switch msg.Type {
+	case tea.KeyRunes:
+		if string(msg.Runes) == "/" {
+			ui.mu.Lock()
+			ui.focusMode = true
+			ui.mu.Unlock()
+			return true
+		}
+	case tea.KeyEsc:
+		ui.mu.Lock()
+		wasFocused := ui.focusMode
+		ui.focusMode = false
+		ui.mu.Unlock()
+		if wasFocused {
+			return true
+		}
+	}
+	return false
+}
+
+// handlePanelUpdate routes keyboard input to the active panel.
+func (ui *UI) handlePanelUpdate(msg tea.KeyMsg) tea.Cmd {
+	ui.mu.RLock()
+	activePanel := ui.activePanel
+	inFocusMode := ui.focusMode
+	ui.mu.RUnlock()
+
+	if !inFocusMode || activePanel != 0 {
+		return nil
+	}
+
+	ui.mu.Lock()
+	cmd := ui.inspector.Update(msg)
+	ui.mu.Unlock()
+	return cmd
+}
+
+// handleWindowResize handles window resize messages.
+func (ui *UI) handleWindowResize(msg tea.WindowSizeMsg) {
+	if msg.Width <= 0 || msg.Height <= 0 {
+		return
+	}
+	if msg.Width == ui.lastWidth && msg.Height == ui.lastHeight {
+		return
+	}
+
+	ui.lastWidth = msg.Width
+	ui.lastHeight = msg.Height
+	ui.layout.SetSize(msg.Width, msg.Height)
+
+	if !ui.manualLayoutOverride {
+		mode, ratio := CalculateResponsiveLayout(msg.Width)
+		ui.layout.SetMode(mode)
+		ui.layout.SetRatio(ratio)
+	}
+}
+
+func (ui *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle focus mode toggle keys FIRST (before any other processing)
-		switch msg.Type {
-		case tea.KeyRunes:
-			// '/' enters focus mode
-			if string(msg.Runes) == "/" {
-				ui.mu.Lock()
-				ui.focusMode = true
-				ui.mu.Unlock()
-				return ui, nil
-			}
-		case tea.KeyEsc:
-			// ESC exits focus mode
-			ui.mu.Lock()
-			wasFocused := ui.focusMode
-			ui.focusMode = false
-			ui.mu.Unlock()
-
-			// If we were in focus mode, ESC consumed (exit focus only)
-			// If we weren't in focus mode, let it pass through
-			if wasFocused {
-				return ui, nil
-			}
+		if ui.handleFocusModeToggle(msg) {
+			return ui, nil
 		}
-
-		// Try keyboard handler for global shortcuts (Tab, Shift+Tab)
-		cmd := ui.keyboard.Handle(msg)
-		if cmd != nil {
+		if cmd := ui.keyboard.Handle(msg); cmd != nil {
 			return ui, cmd
 		}
-
-		// Route to active panel's Update() ONLY if in focus mode
-		ui.mu.RLock()
-		activePanel := ui.activePanel
-		inFocusMode := ui.focusMode
-		ui.mu.RUnlock()
-
-		// Only route keyboard input to panels when in focus mode
-		if !inFocusMode {
-			return ui, nil
-		}
-
-		switch activePanel {
-		case 0: // Inspector
-			ui.mu.Lock()
-			cmd := ui.inspector.Update(msg) // CRITICAL: Capture return value!
-			ui.mu.Unlock()
-			return ui, cmd // Return cmd so updates trigger redraws
-		case 1: // State viewer doesn't have Update()
-			return ui, nil
-		case 2: // Event tracker doesn't have Update()
-			return ui, nil
-		case 3: // Performance monitor doesn't have Update()
-			return ui, nil
-		case 4: // Timeline doesn't have Update()
-			return ui, nil
-		}
+		return ui, ui.handlePanelUpdate(msg)
 
 	case tea.WindowSizeMsg:
 		ui.mu.Lock()
 		defer ui.mu.Unlock()
-
-		// Validate dimensions (ignore invalid sizes)
-		if msg.Width <= 0 || msg.Height <= 0 {
-			return ui, nil
-		}
-
-		// Check if size actually changed (use cache to avoid redundant updates)
-		if msg.Width == ui.lastWidth && msg.Height == ui.lastHeight {
-			return ui, nil
-		}
-
-		// Update cached size
-		ui.lastWidth = msg.Width
-		ui.lastHeight = msg.Height
-
-		// Update layout manager size
-		ui.layout.SetSize(msg.Width, msg.Height)
-
-		// Apply responsive layout if auto mode is enabled
-		if !ui.manualLayoutOverride {
-			mode, ratio := CalculateResponsiveLayout(msg.Width)
-			ui.layout.SetMode(mode)
-			ui.layout.SetRatio(ratio)
-		}
-
+		ui.handleWindowResize(msg)
 		return ui, nil
 	}
 
@@ -351,7 +336,7 @@ func (ui *DevToolsUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //
 // Returns:
 //   - string: The rendered UI
-func (ui *DevToolsUI) View() string {
+func (ui *UI) View() string {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 
@@ -379,7 +364,7 @@ func (ui *DevToolsUI) View() string {
 
 // updateInspectorFromStore updates the inspector with component data from the store.
 // Must be called with read lock held.
-func (ui *DevToolsUI) updateInspectorFromStore() {
+func (ui *UI) updateInspectorFromStore() {
 	// Get root components (those without parents) from store
 	// The store properly tracks component hierarchy via AddComponentChild
 	roots := ui.store.GetRootComponents()
@@ -393,7 +378,7 @@ func (ui *DevToolsUI) updateInspectorFromStore() {
 
 // renderFocusBadge renders the focus mode indicator badge.
 // Must be called with read lock held.
-func (ui *DevToolsUI) renderFocusBadge() string {
+func (ui *UI) renderFocusBadge() string {
 	badge := "🔧 DEVTOOLS FOCUS MODE  " +
 		"↑/↓: Navigate • Enter: Expand • →/←: Tabs • ESC: Exit"
 
@@ -409,7 +394,7 @@ func (ui *DevToolsUI) renderFocusBadge() string {
 
 // renderNormalModeHelp renders help text for normal mode.
 // Must be called with read lock held.
-func (ui *DevToolsUI) renderNormalModeHelp() string {
+func (ui *UI) renderNormalModeHelp() string {
 	helpText := "Press '/' to enter DevTools focus mode • Tab: Switch Tabs • F12: Toggle"
 
 	// Style with subtle grey
@@ -418,27 +403,6 @@ func (ui *DevToolsUI) renderNormalModeHelp() string {
 		Italic(true)
 
 	return style.Render(helpText)
-}
-
-// getActivePanelContent returns the content of the currently active panel.
-//
-// This is an internal helper method called by View().
-// Caller must hold read lock.
-func (ui *DevToolsUI) getActivePanelContent() string {
-	switch ui.activePanel {
-	case 0: // Inspector
-		return ui.inspector.View()
-	case 1: // State
-		return ui.state.Render()
-	case 2: // Events
-		return ui.events.Render()
-	case 3: // Performance
-		return ui.perf.Render(SortByAvgTime)
-	case 4: // Timeline
-		return ui.timeline.Render(80)
-	default:
-		return "Invalid panel"
-	}
 }
 
 // SetAppContent sets the application content to display in the layout.
@@ -456,7 +420,7 @@ func (ui *DevToolsUI) getActivePanelContent() string {
 //
 // Parameters:
 //   - content: The application content to display
-func (ui *DevToolsUI) SetAppContent(content string) {
+func (ui *UI) SetAppContent(content string) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -478,7 +442,7 @@ func (ui *DevToolsUI) SetAppContent(content string) {
 //
 // Returns:
 //   - int: The active panel index
-func (ui *DevToolsUI) GetActivePanel() int {
+func (ui *UI) GetActivePanel() int {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 
@@ -499,7 +463,7 @@ func (ui *DevToolsUI) GetActivePanel() int {
 //
 // Parameters:
 //   - index: The panel index (0-4)
-func (ui *DevToolsUI) SetActivePanel(index int) {
+func (ui *UI) SetActivePanel(index int) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -530,7 +494,7 @@ func (ui *DevToolsUI) SetActivePanel(index int) {
 //
 // Parameters:
 //   - mode: The layout mode to set
-func (ui *DevToolsUI) SetLayoutMode(mode LayoutMode) {
+func (ui *UI) SetLayoutMode(mode LayoutMode) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -545,7 +509,7 @@ func (ui *DevToolsUI) SetLayoutMode(mode LayoutMode) {
 //
 // Returns:
 //   - LayoutMode: The current layout mode
-func (ui *DevToolsUI) GetLayoutMode() LayoutMode {
+func (ui *UI) GetLayoutMode() LayoutMode {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 
@@ -567,7 +531,7 @@ func (ui *DevToolsUI) GetLayoutMode() LayoutMode {
 //
 // Parameters:
 //   - ratio: The split ratio (0.0-1.0)
-func (ui *DevToolsUI) SetLayoutRatio(ratio float64) {
+func (ui *UI) SetLayoutRatio(ratio float64) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -582,7 +546,7 @@ func (ui *DevToolsUI) SetLayoutRatio(ratio float64) {
 //
 // Returns:
 //   - float64: The current split ratio (0.0-1.0)
-func (ui *DevToolsUI) GetLayoutRatio() float64 {
+func (ui *UI) GetLayoutRatio() float64 {
 	ui.mu.RLock()
 	defer ui.mu.RUnlock()
 
@@ -606,7 +570,7 @@ func (ui *DevToolsUI) GetLayoutRatio() float64 {
 //
 // Parameters:
 //   - mode: The layout mode to set manually
-func (ui *DevToolsUI) SetManualLayoutMode(mode LayoutMode) {
+func (ui *UI) SetManualLayoutMode(mode LayoutMode) {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 
@@ -631,7 +595,7 @@ func (ui *DevToolsUI) SetManualLayoutMode(mode LayoutMode) {
 //	ui.SetManualLayoutMode(LayoutOverlay) // Disable auto layout
 //	// ... later ...
 //	ui.EnableAutoLayout() // Re-enable auto layout
-func (ui *DevToolsUI) EnableAutoLayout() {
+func (ui *UI) EnableAutoLayout() {
 	ui.mu.Lock()
 	defer ui.mu.Unlock()
 

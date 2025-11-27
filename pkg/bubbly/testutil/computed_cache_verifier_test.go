@@ -3,8 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestComputedCacheVerifier_BasicCaching tests basic caching behavior
@@ -435,8 +436,7 @@ func TestComputedCacheVerifier_CircularDependencyDetection(t *testing.T) {
 	computeCount := 0
 
 	// Create a computed that tries to access itself (circular)
-	var computed *bubbly.Computed[int]
-	computed = bubbly.NewComputed(func() int {
+	computed := bubbly.NewComputed(func() int {
 		computeCount++
 		// This would create a circular dependency if we tried to access computed.GetTyped()
 		// For this test, we just return a value

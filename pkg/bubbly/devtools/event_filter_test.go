@@ -349,7 +349,7 @@ func TestEventFilter_Concurrent(t *testing.T) {
 	// Concurrent writes
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			filter.WithNames("click", "submit")
 			filter.WithSources("button-1", "form-1")

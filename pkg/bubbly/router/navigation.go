@@ -3,8 +3,12 @@ package router
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // Message types are defined in messages.go
@@ -193,17 +197,6 @@ func (r *Router) matchTarget(target *NavigationTarget) (*Route, error) {
 		return nil, err
 	}
 
-	// Build full path with query and hash
-	fullPath := target.Path
-	if len(target.Query) > 0 {
-		parser := NewQueryParser()
-		queryString := parser.Build(target.Query)
-		fullPath += "?" + queryString
-	}
-	if target.Hash != "" {
-		fullPath += target.Hash
-	}
-
 	// Create Route object
 	route := NewRoute(
 		match.Route.Path, // Pattern path (e.g., "/user/:id")
@@ -238,6 +231,24 @@ func (r *Router) syncRegistryToMatcher() {
 	r.matcher = NewRouteMatcher()
 	for _, route := range routes {
 		// Use AddRouteRecord to preserve Component field (Task 4.2/4.3)
-		r.matcher.AddRouteRecord(route)
+		if err := r.matcher.AddRouteRecord(route); err != nil {
+			// Report error to observability but continue - partial routing is better than no routing
+			if reporter := observability.GetErrorReporter(); reporter != nil {
+				ctx := &observability.ErrorContext{
+					ComponentName: "Router",
+					ComponentID:   "syncRegistryToMatcher",
+					Timestamp:     time.Now(),
+					StackTrace:    debug.Stack(),
+					Tags: map[string]string{
+						"error_type": "add_route_failed",
+						"route_path": route.Path,
+					},
+					Extra: map[string]interface{}{
+						"route": route,
+					},
+				}
+				reporter.ReportError(err, ctx)
+			}
+		}
 	}
 }

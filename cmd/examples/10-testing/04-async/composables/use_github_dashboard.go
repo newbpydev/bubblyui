@@ -1,6 +1,8 @@
 package composables
 
 import (
+	"time"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
@@ -67,6 +69,9 @@ func UseGitHubDashboard(ctx *bubbly.Context, username string, api GitHubAPI) *Gi
 		errorRef.Set("")
 
 		go func() {
+			// Small delay to ensure template rendering completes before Ref.Set()
+			// This avoids race condition with inTemplate flag during initialization
+			time.Sleep(10 * time.Millisecond)
 			repos, err := api.FetchRepositories(usernameRef.Get().(string))
 			loadingRepos.Set(false)
 
@@ -84,6 +89,9 @@ func UseGitHubDashboard(ctx *bubbly.Context, username string, api GitHubAPI) *Gi
 		errorRef.Set("")
 
 		go func() {
+			// Small delay to ensure template rendering completes before Ref.Set()
+			// This avoids race condition with inTemplate flag during initialization
+			time.Sleep(10 * time.Millisecond)
 			acts, err := api.FetchActivity(usernameRef.Get().(string))
 			loadingActivity.Set(false)
 

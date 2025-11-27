@@ -5,8 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestAssertRefEquals tests the AssertRefEquals assertion method.

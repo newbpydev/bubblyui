@@ -2,24 +2,30 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 func TestRegisterExportTool(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func() *MCPServer
+		setup   func() *Server
 		wantErr bool
 	}{
 		{
 			name: "registers successfully with valid config",
-			setup: func() *MCPServer {
+			setup: func() *Server {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				server, _ := NewMCPServer(cfg, dt)
@@ -393,9 +399,67 @@ func TestExportTool_LargeExport(t *testing.T) {
 }
 
 // Helper function to call export tool (simulates MCP client call)
-// This will be implemented once we have the actual tool handler
-func callExportTool(ctx context.Context, server *MCPServer, params map[string]interface{}) (interface{}, error) {
-	// TODO: Implement actual tool call via MCP SDK
-	// For now, return placeholder
-	return nil, nil
+func callExportTool(ctx context.Context, server *Server, params map[string]interface{}) (interface{}, error) {
+	// Create MCP request
+	paramsJSON, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal params: %w", err)
+	}
+
+	request := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Arguments: paramsJSON,
+		},
+	}
+
+	// Call the handler directly
+	result, err := server.handleExportTool(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if result indicates an error
+	if result.IsError {
+		if len(result.Content) > 0 {
+			if textContent, ok := result.Content[0].(*mcp.TextContent); ok {
+				return nil, fmt.Errorf("tool error: %s", textContent.Text)
+			}
+		}
+		return nil, fmt.Errorf("tool error")
+	}
+
+	// Extract the actual result data
+	if len(result.Content) > 0 {
+		if textContent, ok := result.Content[0].(*mcp.TextContent); ok {
+			// Parse the formatted string response into a map for tests
+			responseText := textContent.Text
+			resultMap := make(map[string]interface{})
+
+			// Simple parsing of the expected format
+			lines := strings.Split(responseText, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "Path: ") {
+					resultMap["path"] = strings.TrimPrefix(line, "Path: ")
+				} else if strings.HasPrefix(line, "Size: ") {
+					sizeStr := strings.TrimPrefix(line, "Size: ")
+					sizeStr = strings.TrimSuffix(sizeStr, " bytes")
+					if size, err := strconv.Atoi(sizeStr); err == nil {
+						resultMap["size"] = size
+					}
+				} else if strings.HasPrefix(line, "Format: ") {
+					resultMap["format"] = strings.TrimPrefix(line, "Format: ")
+				} else if strings.HasPrefix(line, "Compressed: ") {
+					compressedStr := strings.TrimPrefix(line, "Compressed: ")
+					resultMap["compressed"] = compressedStr == "true"
+				} else if strings.HasPrefix(line, "Timestamp: ") {
+					resultMap["timestamp"] = strings.TrimPrefix(line, "Timestamp: ")
+				}
+			}
+
+			return resultMap, nil
+		}
+	}
+
+	return result, nil
 }

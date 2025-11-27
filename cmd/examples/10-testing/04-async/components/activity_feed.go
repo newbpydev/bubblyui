@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -25,45 +26,22 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 			ctx.Expose("loading", props.Loading)
 			ctx.Expose("width", props.Width)
 
-			// INJECT theme colors from parent
-			primaryColor := lipgloss.Color("35")   // Green
-			secondaryColor := lipgloss.Color("99") // Purple
-			mutedColor := lipgloss.Color("240")    // Dark grey
-			warningColor := lipgloss.Color("220")  // Yellow
-
-			if injected := ctx.Inject("primaryColor", nil); injected != nil {
-				primaryColor = injected.(lipgloss.Color)
-			}
-			if injected := ctx.Inject("secondaryColor", nil); injected != nil {
-				secondaryColor = injected.(lipgloss.Color)
-			}
-			if injected := ctx.Inject("mutedColor", nil); injected != nil {
-				mutedColor = injected.(lipgloss.Color)
-			}
-			if injected := ctx.Inject("warningColor", nil); injected != nil {
-				warningColor = injected.(lipgloss.Color)
-			}
-
-			ctx.Expose("primaryColor", primaryColor)
-			ctx.Expose("secondaryColor", secondaryColor)
-			ctx.Expose("mutedColor", mutedColor)
-			ctx.Expose("warningColor", warningColor)
+			// USE theme from parent (UseTheme pattern!)
+			theme := ctx.UseTheme(bubbly.DefaultTheme)
+			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			activityRef := ctx.Get("activity").(*bubbly.Ref[interface{}])
 			loadingRef := ctx.Get("loading").(*bubbly.Ref[interface{}])
 			width := ctx.Get("width").(int)
-			primaryColor := ctx.Get("primaryColor").(lipgloss.Color)
-			secondaryColor := ctx.Get("secondaryColor").(lipgloss.Color)
-			mutedColor := ctx.Get("mutedColor").(lipgloss.Color)
-			warningColor := ctx.Get("warningColor").(lipgloss.Color)
+			theme := ctx.Get("theme").(bubbly.Theme)
 
 			loading := loadingRef.Get().(bool)
 			activity := activityRef.Get().([]composables.Activity)
 
 			// Title style
 			titleStyle := lipgloss.NewStyle().
-				Foreground(primaryColor).
+				Foreground(theme.Primary).
 				Bold(true).
 				Padding(0, 1)
 
@@ -72,14 +50,14 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 			// Container style
 			containerStyle := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(primaryColor).
+				BorderForeground(theme.Primary).
 				Padding(1, 2).
 				Width(width)
 
 			// Loading state
 			if loading {
 				loadingStyle := lipgloss.NewStyle().
-					Foreground(mutedColor).
+					Foreground(theme.Muted).
 					Italic(true)
 				content := loadingStyle.Render("Loading activity...")
 				return containerStyle.Render(title + "\n\n" + content)
@@ -88,7 +66,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 			// Empty state
 			if len(activity) == 0 {
 				emptyStyle := lipgloss.NewStyle().
-					Foreground(mutedColor).
+					Foreground(theme.Muted).
 					Italic(true)
 				content := emptyStyle.Render("No recent activity")
 				return containerStyle.Render(title + "\n\n" + content)
@@ -103,19 +81,19 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 				switch act.Type {
 				case "push":
 					icon = "📝"
-					typeColor = primaryColor
+					typeColor = theme.Primary
 				case "pr":
 					icon = "🔀"
-					typeColor = secondaryColor
+					typeColor = theme.Secondary
 				case "issue":
 					icon = "🐛"
-					typeColor = warningColor
+					typeColor = theme.Warning
 				case "star":
 					icon = "⭐"
 					typeColor = lipgloss.Color("220")
 				default:
 					icon = "•"
-					typeColor = mutedColor
+					typeColor = theme.Muted
 				}
 
 				// Type style
@@ -125,15 +103,15 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 
 				// Repo style
 				repoStyle := lipgloss.NewStyle().
-					Foreground(secondaryColor)
+					Foreground(theme.Secondary)
 
 				// Message style
 				msgStyle := lipgloss.NewStyle().
-					Foreground(mutedColor)
+					Foreground(theme.Muted)
 
 				// Timestamp style
 				timeStyle := lipgloss.NewStyle().
-					Foreground(mutedColor).
+					Foreground(theme.Muted).
 					Italic(true)
 
 				// Build activity item
@@ -156,7 +134,7 @@ func CreateActivityFeed(props ActivityFeedProps) (bubbly.Component, error) {
 				// Add separator between activities (not after last one)
 				if i < len(activity)-1 {
 					separator := lipgloss.NewStyle().
-						Foreground(mutedColor).
+						Foreground(theme.Muted).
 						Render(strings.Repeat("─", width-4))
 					activityItems = append(activityItems, separator)
 				}

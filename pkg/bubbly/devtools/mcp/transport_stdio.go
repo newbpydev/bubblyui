@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
@@ -19,11 +20,11 @@ import (
 //   - Complete the initialization handshake with the client
 //   - Negotiate protocol version (2025-06-18)
 //   - Declare server capabilities (resources, tools, subscriptions)
-//   - Block until the client disconnects or context is cancelled
+//   - Block until the client disconnects or context is canceled
 //
 // The method blocks until one of the following occurs:
 //   - Client disconnects gracefully
-//   - Context is cancelled
+//   - Context is canceled
 //   - Transport error occurs
 //
 // Thread Safety:
@@ -55,19 +56,19 @@ import (
 //
 // Returns:
 //   - error: Connection error, session error, or nil on clean shutdown
-func (s *MCPServer) StartStdioServer(ctx context.Context) error {
+func (s *Server) StartStdioServer(ctx context.Context) error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "StartStdioServer",
 					PanicValue:    r,
 				}
 
 				errCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					ComponentID:   "stdio-transport",
 					EventName:     "StartStdioServer",
 					Timestamp:     time.Now(),
@@ -100,7 +101,7 @@ func (s *MCPServer) StartStdioServer(ctx context.Context) error {
 	// Wait for session to complete
 	// This blocks until:
 	// - Client disconnects
-	// - Context is cancelled
+	// - Context is canceled
 	// - Transport error occurs
 	err = session.Wait()
 	if err != nil {

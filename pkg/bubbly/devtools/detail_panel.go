@@ -9,6 +9,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// noComponentMsg is the message shown when no component is selected.
+const noComponentMsg = "No component"
+
 // DetailPanel displays detailed information about a selected component
 // with tabbed views for different aspects (State, Props, Events).
 //
@@ -234,7 +237,7 @@ func (dp *DetailPanel) GetComponent() *ComponentSnapshot {
 // renderStateTab renders the State tab content showing reactive refs.
 func renderStateTab(component *ComponentSnapshot) string {
 	if component == nil {
-		return "No component"
+		return noComponentMsg
 	}
 
 	if len(component.Refs) == 0 {
@@ -277,7 +280,7 @@ func renderStateTab(component *ComponentSnapshot) string {
 // renderPropsTab renders the Props tab content showing component properties.
 func renderPropsTab(component *ComponentSnapshot) string {
 	if component == nil {
-		return "No component"
+		return noComponentMsg
 	}
 
 	if len(component.Props) == 0 {
@@ -327,7 +330,7 @@ func renderPropsTab(component *ComponentSnapshot) string {
 // implemented in later tasks when EventLog integration is added.
 func renderEventsTab(component *ComponentSnapshot) string {
 	if component == nil {
-		return "No component"
+		return noComponentMsg
 	}
 
 	style := lipgloss.NewStyle().

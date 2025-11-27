@@ -8,8 +8,23 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
+
+// registerResource is a helper function to register a resource with the MCP server.
+// It reduces code duplication in resource registration methods.
+func (s *Server) registerResource(uri, name, description string, handler func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error)) {
+	s.server.AddResource(
+		&mcp.Resource{
+			URI:         uri,
+			Name:        name,
+			Description: description,
+			MIMEType:    "application/json",
+		},
+		handler,
+	)
+}
 
 // EventsResource represents the events log resource.
 //
@@ -42,7 +57,7 @@ type EventsResource struct {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Resource reads use DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Resource reads use Store's thread-safe methods.
 //
 // Example Response (bubblyui://events/log):
 //
@@ -65,18 +80,15 @@ type EventsResource struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterEventsResource() error {
+func (s *Server) RegisterEventsResource() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	// Register events log resource
-	s.server.AddResource(
-		&mcp.Resource{
-			URI:         "bubblyui://events/log",
-			Name:        "events-log",
-			Description: "All event records",
-			MIMEType:    "application/json",
-		},
+	s.registerResource(
+		"bubblyui://events/log",
+		"events-log",
+		"All event records",
 		func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 			return s.readEventsLogResource(ctx, req)
 		},
@@ -100,13 +112,13 @@ func (s *MCPServer) RegisterEventsResource() error {
 
 // readEventsLogResource handles reading the events log resource.
 //
-// This handler retrieves all events from the DevToolsStore
+// This handler retrieves all events from the Store
 // and returns them as a structured JSON response.
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readEventsLogResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readEventsLogResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Get event log from store
 	eventLog := s.store.GetEventLog()
 	events := eventLog.GetRecent(eventLog.Len())
@@ -138,13 +150,13 @@ func (s *MCPServer) readEventsLogResource(ctx context.Context, req *mcp.ReadReso
 
 // readEventResource handles reading an individual event resource.
 //
-// This handler retrieves a specific event by ID from the DevToolsStore
+// This handler retrieves a specific event by ID from the Store
 // and returns it as a structured JSON response.
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readEventResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readEventResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Extract event ID from URI
 	eventID := extractEventID(req.Params.URI)
 	if eventID == "" {

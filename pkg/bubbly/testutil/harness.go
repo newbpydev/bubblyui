@@ -93,11 +93,11 @@ func NewHarness(t *testing.T, opts ...HarnessOption) *TestHarness {
 
 	// Install framework hook to track events
 	hook := &testHook{tracker: h.events}
-	bubbly.RegisterHook(hook)
+	_ = bubbly.RegisterHook(hook)
 
 	// Register cleanup to unregister hook
 	h.RegisterCleanup(func() {
-		bubbly.UnregisterHook()
+		_ = bubbly.UnregisterHook()
 	})
 
 	// Register automatic cleanup with testing.T

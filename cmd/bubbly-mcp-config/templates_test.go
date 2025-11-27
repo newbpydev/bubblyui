@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -105,22 +104,15 @@ func TestFormatTemplate(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "valid vscode template",
-			template: vscodeTemplate(),
+			name:     "valid template",
+			template: mcpServerTemplate,
 			appPath:  "/usr/local/bin/myapp",
 			appName:  "myapp",
 			wantErr:  false,
 		},
 		{
-			name:     "valid cursor template",
-			template: cursorTemplate(),
-			appPath:  "/home/user/projects/myapp/bin/app",
-			appName:  "bubbly-app",
-			wantErr:  false,
-		},
-		{
 			name:     "app path with spaces",
-			template: windsurfTemplate(),
+			template: mcpServerTemplate,
 			appPath:  "/path/with spaces/myapp",
 			appName:  "my-app",
 			wantErr:  false,
@@ -179,27 +171,20 @@ func TestSupportedIDEs(t *testing.T) {
 }
 
 func TestTemplatesAreValidJSON(t *testing.T) {
-	// Test all templates have valid JSON structure after formatting
-	templates := []struct {
-		name     string
-		template string
-	}{
-		{"vscode", vscodeTemplate()},
-		{"cursor", cursorTemplate()},
-		{"windsurf", windsurfTemplate()},
-		{"claude", claudeTemplate()},
-	}
+	// Test all supported IDEs return valid JSON template after formatting
+	for _, ide := range SupportedIDEs() {
+		t.Run(ide, func(t *testing.T) {
+			template, err := GetTemplate(ide)
+			require.NoError(t, err)
 
-	for _, tt := range templates {
-		t.Run(tt.name, func(t *testing.T) {
 			// Format with sample values
-			formatted, err := FormatTemplate(tt.template, "/usr/local/bin/testapp", "testapp")
+			formatted, err := FormatTemplate(template, "/usr/local/bin/testapp", "testapp")
 			require.NoError(t, err)
 
 			// Verify it's valid JSON
 			var js interface{}
 			err = json.Unmarshal([]byte(formatted), &js)
-			require.NoError(t, err, "template %s should produce valid JSON", tt.name)
+			require.NoError(t, err, "template for %s should produce valid JSON", ide)
 
 			// Verify required fields exist
 			m := js.(map[string]interface{})
@@ -221,26 +206,18 @@ func TestTemplatesAreValidJSON(t *testing.T) {
 }
 
 func TestTemplateConsistency(t *testing.T) {
-	// All templates should have the same structure
-	templates := []string{
-		vscodeTemplate(),
-		cursorTemplate(),
-		windsurfTemplate(),
-		claudeTemplate(),
-	}
+	// All supported IDEs should return the same template since they all use mcpServerTemplate
+	var firstTemplate string
 
-	// Currently all templates are identical except for comments
-	// Verify they all have the same structure
-	for i, template := range templates {
-		// Remove whitespace for comparison
-		normalized := strings.Join(strings.Fields(template), "")
+	for _, ide := range SupportedIDEs() {
+		template, err := GetTemplate(ide)
+		require.NoError(t, err)
 
-		for j, other := range templates {
-			if i != j {
-				otherNormalized := strings.Join(strings.Fields(other), "")
-				assert.Equal(t, normalized, otherNormalized,
-					"templates %d and %d should have same structure", i, j)
-			}
+		if firstTemplate == "" {
+			firstTemplate = template
+		} else {
+			assert.Equal(t, firstTemplate, template,
+				"template for %s should match other templates", ide)
 		}
 	}
 }

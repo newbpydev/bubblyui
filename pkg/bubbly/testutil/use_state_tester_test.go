@@ -3,9 +3,10 @@ package testutil
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestUseStateTester_BasicOperations tests basic state operations

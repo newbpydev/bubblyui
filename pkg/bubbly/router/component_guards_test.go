@@ -335,10 +335,10 @@ func TestComponentGuards_CancelNavigation(t *testing.T) {
 
 	tracker.reset()
 
-	// Try to navigate to second route - should be cancelled by component1's BeforeRouteLeave
+	// Try to navigate to second route - should be canceled by component1's BeforeRouteLeave
 	router.Push(&NavigationTarget{Path: "/test2"})()
 
-	// Navigation should be cancelled (error or still on first route)
+	// Navigation should be canceled (error or still on first route)
 	currentRoute = router.CurrentRoute()
 	require.NotNil(t, currentRoute)
 	// Should still be on first route
@@ -346,7 +346,7 @@ func TestComponentGuards_CancelNavigation(t *testing.T) {
 
 	// BeforeRouteLeave should have been called
 	assert.Contains(t, tracker.calls, "BeforeRouteLeave")
-	// BeforeRouteEnter should NOT have been called (navigation cancelled)
+	// BeforeRouteEnter should NOT have been called (navigation canceled)
 	assert.NotContains(t, tracker.calls, "BeforeRouteEnter")
 }
 
@@ -547,14 +547,14 @@ func TestDebug_CancelFlow(t *testing.T) {
 		Component: &mockComponent{name: "Test2", content: "Content2"},
 	}
 
-	router.matcher.AddRouteRecord(route1)
-	router.matcher.AddRouteRecord(route2)
+	_ = router.matcher.AddRouteRecord(route1)
+	_ = router.matcher.AddRouteRecord(route2)
 
 	// Navigate to first route
 	msg1 := router.Push(&NavigationTarget{Path: "/test1"})()
 	t.Logf("First navigation: %T", msg1)
 
-	// Try to navigate away (should be cancelled)
+	// Try to navigate away (should be canceled)
 	msg2 := router.Push(&NavigationTarget{Path: "/test2"})()
 	t.Logf("Second navigation: %T", msg2)
 
@@ -585,9 +585,9 @@ func TestDebug_RedirectFlow(t *testing.T) {
 	route2 := &RouteRecord{Path: "/test2", Name: "test2", Component: &mockComponent{name: "Test2", content: "Content2"}}
 	route3 := &RouteRecord{Path: "/test3", Name: "test3", Component: &mockComponent{name: "Test3", content: "Content3"}}
 
-	router.matcher.AddRouteRecord(route1)
-	router.matcher.AddRouteRecord(route2)
-	router.matcher.AddRouteRecord(route3)
+	_ = router.matcher.AddRouteRecord(route1)
+	_ = router.matcher.AddRouteRecord(route2)
+	_ = router.matcher.AddRouteRecord(route3)
 
 	// Navigate to first route
 	msg1 := router.Push(&NavigationTarget{Path: "/test1"})()

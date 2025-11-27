@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestRegisterPerformanceResource tests registering the performance resource.
@@ -34,12 +35,12 @@ func TestRegisterPerformanceResource(t *testing.T) {
 func TestPerformanceMetricsResource(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(*devtools.DevToolsStore)
+		setup    func(*devtools.Store)
 		validate func(*testing.T, *PerformanceResource)
 	}{
 		{
 			name: "empty performance data",
-			setup: func(store *devtools.DevToolsStore) {
+			setup: func(store *devtools.Store) {
 				// No setup - empty data
 			},
 			validate: func(t *testing.T, resource *PerformanceResource) {
@@ -51,7 +52,7 @@ func TestPerformanceMetricsResource(t *testing.T) {
 		},
 		{
 			name: "single component performance",
-			setup: func(store *devtools.DevToolsStore) {
+			setup: func(store *devtools.Store) {
 				perf := store.GetPerformanceData()
 				perf.RecordRender("comp-1", "Counter", 5*time.Millisecond)
 				perf.RecordRender("comp-1", "Counter", 3*time.Millisecond)
@@ -70,7 +71,7 @@ func TestPerformanceMetricsResource(t *testing.T) {
 		},
 		{
 			name: "multiple components performance",
-			setup: func(store *devtools.DevToolsStore) {
+			setup: func(store *devtools.Store) {
 				perf := store.GetPerformanceData()
 				// Fast component
 				perf.RecordRender("comp-1", "Fast", 1*time.Millisecond)
@@ -90,7 +91,7 @@ func TestPerformanceMetricsResource(t *testing.T) {
 		},
 		{
 			name: "large dataset (1000 components)",
-			setup: func(store *devtools.DevToolsStore) {
+			setup: func(store *devtools.Store) {
 				perf := store.GetPerformanceData()
 				for i := 0; i < 1000; i++ {
 					compID := "comp-" + string(rune(i))

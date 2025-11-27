@@ -226,3 +226,48 @@ func TestTimerPool_DoubleRelease(t *testing.T) {
 	assert.False(t, pool.active[timer], "Timer should not be active")
 	pool.mu.RUnlock()
 }
+
+// TestEnableGlobalPool tests the EnableGlobalPool function
+func TestEnableGlobalPool(t *testing.T) {
+	// Reset global pool state for clean test
+	ResetGlobalPoolForTesting()
+	defer ResetGlobalPoolForTesting()
+
+	// Enable global pool
+	EnableGlobalPool()
+
+	// Should create a new pool
+	assert.NotNil(t, GlobalPool, "EnableGlobalPool should create GlobalPool")
+
+	// Save reference
+	pool1 := GlobalPool
+
+	// Enable again (idempotent)
+	EnableGlobalPool()
+
+	// Should be same pool
+	assert.Same(t, pool1, GlobalPool, "EnableGlobalPool should be idempotent")
+}
+
+// TestEnableGlobalPool_Concurrent tests concurrent EnableGlobalPool calls
+func TestEnableGlobalPool_Concurrent(t *testing.T) {
+	// Reset global pool state for clean test
+	ResetGlobalPoolForTesting()
+	defer ResetGlobalPoolForTesting()
+
+	var wg sync.WaitGroup
+	numGoroutines := 10
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			EnableGlobalPool()
+		}()
+	}
+
+	wg.Wait()
+
+	// Should have a valid pool
+	assert.NotNil(t, GlobalPool, "GlobalPool should be set after concurrent enables")
+}

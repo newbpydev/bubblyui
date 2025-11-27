@@ -175,6 +175,69 @@ func (s *Sanitizer) Preview(data *ExportData) *DryRunResult {
 	return result
 }
 
+// buildPath creates a path string by joining parent path and child name.
+func buildPath(parent, child string) string {
+	if parent != "" {
+		return fmt.Sprintf("%s.%s", parent, child)
+	}
+	return child
+}
+
+// collectMatchesMap handles map value traversal.
+func (s *Sanitizer) collectMatchesMap(v reflect.Value, path string, result *DryRunResult, opts SanitizeOptions) {
+	for _, key := range v.MapKeys() {
+		keyStr := fmt.Sprintf("%v", key.Interface())
+		mapPath := buildPath(path, keyStr)
+		mapValue := v.MapIndex(key).Interface()
+
+		if strValue, ok := mapValue.(string); ok {
+			kvPair := fmt.Sprintf(`"%s": "%s"`, keyStr, strValue)
+			s.collectStringMatches(kvPair, mapPath, result, opts)
+		} else {
+			s.collectMatches(mapValue, mapPath, result, opts)
+		}
+	}
+}
+
+// collectMatchesSlice handles slice/array value traversal.
+func (s *Sanitizer) collectMatchesSlice(v reflect.Value, path string, result *DryRunResult, opts SanitizeOptions) {
+	for i := 0; i < v.Len(); i++ {
+		slicePath := fmt.Sprintf("%s[%d]", path, i)
+		s.collectMatches(v.Index(i).Interface(), slicePath, result, opts)
+	}
+}
+
+// collectMatchesStruct handles struct type dispatch.
+func (s *Sanitizer) collectMatchesStruct(val interface{}, v reflect.Value, path string, result *DryRunResult, opts SanitizeOptions) {
+	switch val := val.(type) {
+	case ExportData:
+		s.collectMatchesExportData(&val, path, result, opts)
+	case *ExportData:
+		s.collectMatchesExportData(val, path, result, opts)
+	case ComponentSnapshot:
+		s.collectMatchesComponent(&val, path, result, opts)
+	case *ComponentSnapshot:
+		s.collectMatchesComponent(val, path, result, opts)
+	case StateChange:
+		s.collectMatchesStateChange(&val, path, result, opts)
+	case EventRecord:
+		s.collectMatchesEventRecord(&val, path, result, opts)
+	default:
+		s.collectMatchesGenericStruct(v, path, result, opts)
+	}
+}
+
+// collectMatchesGenericStruct handles generic struct field traversal.
+func (s *Sanitizer) collectMatchesGenericStruct(v reflect.Value, path string, result *DryRunResult, opts SanitizeOptions) {
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		if field.CanInterface() {
+			fieldPath := buildPath(path, v.Type().Field(i).Name)
+			s.collectMatches(field.Interface(), fieldPath, result, opts)
+		}
+	}
+}
+
 // collectMatches recursively traverses the data structure and collects pattern matches.
 func (s *Sanitizer) collectMatches(val interface{}, path string, result *DryRunResult, opts SanitizeOptions) {
 	if val == nil {
@@ -185,77 +248,14 @@ func (s *Sanitizer) collectMatches(val interface{}, path string, result *DryRunR
 
 	switch v.Kind() {
 	case reflect.String:
-		str := v.String()
-		s.collectStringMatches(str, path, result, opts)
-
+		s.collectStringMatches(v.String(), path, result, opts)
 	case reflect.Map:
-		for _, key := range v.MapKeys() {
-			keyStr := fmt.Sprintf("%v", key.Interface())
-			mapPath := path
-			if path != "" {
-				mapPath = fmt.Sprintf("%s.%s", path, keyStr)
-			} else {
-				mapPath = keyStr
-			}
-
-			// Get the value
-			mapValue := v.MapIndex(key).Interface()
-
-			// For string values, check the key-value pair format that patterns expect
-			if strValue, ok := mapValue.(string); ok {
-				// Create a string in the format patterns expect: "key": "value"
-				kvPair := fmt.Sprintf(`"%s": "%s"`, keyStr, strValue)
-				s.collectStringMatches(kvPair, mapPath, result, opts)
-			} else {
-				// For non-string values, recurse
-				s.collectMatches(mapValue, mapPath, result, opts)
-			}
-		}
-
+		s.collectMatchesMap(v, path, result, opts)
 	case reflect.Slice, reflect.Array:
-		for i := 0; i < v.Len(); i++ {
-			slicePath := fmt.Sprintf("%s[%d]", path, i)
-			s.collectMatches(v.Index(i).Interface(), slicePath, result, opts)
-		}
-
+		s.collectMatchesSlice(v, path, result, opts)
 	case reflect.Struct:
-		// Handle ExportData and its nested types
-		switch val := val.(type) {
-		case ExportData:
-			s.collectMatchesExportData(&val, path, result, opts)
-		case *ExportData:
-			s.collectMatchesExportData(val, path, result, opts)
-		case ComponentSnapshot:
-			s.collectMatchesComponent(&val, path, result, opts)
-		case *ComponentSnapshot:
-			s.collectMatchesComponent(val, path, result, opts)
-		case StateChange:
-			s.collectMatchesStateChange(&val, path, result, opts)
-		case EventRecord:
-			s.collectMatchesEventRecord(&val, path, result, opts)
-		default:
-			// Generic struct handling
-			for i := 0; i < v.NumField(); i++ {
-				field := v.Field(i)
-				if field.CanInterface() {
-					fieldName := v.Type().Field(i).Name
-					fieldPath := path
-					if path != "" {
-						fieldPath = fmt.Sprintf("%s.%s", path, fieldName)
-					} else {
-						fieldPath = fieldName
-					}
-					s.collectMatches(field.Interface(), fieldPath, result, opts)
-				}
-			}
-		}
-
-	case reflect.Ptr:
-		if !v.IsNil() {
-			s.collectMatches(v.Elem().Interface(), path, result, opts)
-		}
-
-	case reflect.Interface:
+		s.collectMatchesStruct(val, v, path, result, opts)
+	case reflect.Ptr, reflect.Interface:
 		if !v.IsNil() {
 			s.collectMatches(v.Elem().Interface(), path, result, opts)
 		}

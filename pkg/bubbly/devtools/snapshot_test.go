@@ -379,3 +379,74 @@ func (m *mockRef) GetType() string {
 func (m *mockRef) GetWatcherCount() int {
 	return 0
 }
+
+// TestGetTypeName tests the getTypeName function for various types
+func TestGetTypeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    interface{}
+		expected string
+	}{
+		{
+			name:     "nil value",
+			value:    nil,
+			expected: "nil",
+		},
+		{
+			name:     "string type",
+			value:    "hello",
+			expected: "string",
+		},
+		{
+			name:     "int type",
+			value:    42,
+			expected: "int",
+		},
+		{
+			name:     "bool type",
+			value:    true,
+			expected: "bool",
+		},
+		{
+			name:     "slice type",
+			value:    []string{"a", "b"},
+			expected: "[]string",
+		},
+		{
+			name:     "map type",
+			value:    map[string]int{"key": 1},
+			expected: "map[string]int",
+		},
+		{
+			name:     "struct type",
+			value:    ComponentSnapshot{ID: "test"},
+			expected: "github.com/newbpydev/bubblyui/pkg/bubbly/devtools.ComponentSnapshot",
+		},
+		{
+			name:     "pointer type",
+			value:    &ComponentSnapshot{ID: "test"},
+			expected: "*devtools.ComponentSnapshot",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getTypeName(tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGetTypeName_BuiltinTypes tests getTypeName with various built-in types
+func TestGetTypeName_BuiltinTypes(t *testing.T) {
+	// Test various numeric types
+	assert.Equal(t, "int8", getTypeName(int8(1)))
+	assert.Equal(t, "int16", getTypeName(int16(1)))
+	assert.Equal(t, "int32", getTypeName(int32(1)))
+	assert.Equal(t, "int64", getTypeName(int64(1)))
+	assert.Equal(t, "uint", getTypeName(uint(1)))
+	assert.Equal(t, "float32", getTypeName(float32(1.0)))
+	assert.Equal(t, "float64", getTypeName(float64(1.0)))
+	assert.Equal(t, "complex64", getTypeName(complex64(1+2i)))
+	assert.Equal(t, "complex128", getTypeName(complex128(1+2i)))
+}

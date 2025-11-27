@@ -60,6 +60,32 @@ func (h *History) CanGoForward() bool {
 	return len(h.entries) > 0 && h.current < len(h.entries)-1
 }
 
+// navigateHistory is a helper function that performs history navigation.
+// It updates the history index by delta and returns a RouteChangedMsg.
+func (r *Router) navigateHistory(delta int) tea.Cmd {
+	return func() tea.Msg {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		// Save current route for "from" in message
+		from := r.currentRoute
+
+		// Move in history by delta
+		r.history.mu.Lock()
+		r.history.current += delta
+		newRoute := r.history.entries[r.history.current].Route
+		r.history.mu.Unlock()
+
+		// Update current route
+		r.currentRoute = newRoute
+
+		return RouteChangedMsg{
+			To:   newRoute,
+			From: from,
+		}
+	}
+}
+
 // Back navigates to the previous entry in history.
 //
 // Back generates a Bubbletea command that moves to the previous history
@@ -108,27 +134,7 @@ func (r *Router) Back() tea.Cmd {
 		return nil // No-op
 	}
 
-	return func() tea.Msg {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		// Save current route for "from" in message
-		from := r.currentRoute
-
-		// Move back in history
-		r.history.mu.Lock()
-		r.history.current--
-		newRoute := r.history.entries[r.history.current].Route
-		r.history.mu.Unlock()
-
-		// Update current route
-		r.currentRoute = newRoute
-
-		return RouteChangedMsg{
-			To:   newRoute,
-			From: from,
-		}
-	}
+	return r.navigateHistory(-1)
 }
 
 // Forward navigates to the next entry in history.
@@ -179,27 +185,7 @@ func (r *Router) Forward() tea.Cmd {
 		return nil // No-op
 	}
 
-	return func() tea.Msg {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		// Save current route for "from" in message
-		from := r.currentRoute
-
-		// Move forward in history
-		r.history.mu.Lock()
-		r.history.current++
-		newRoute := r.history.entries[r.history.current].Route
-		r.history.mu.Unlock()
-
-		// Update current route
-		r.currentRoute = newRoute
-
-		return RouteChangedMsg{
-			To:   newRoute,
-			From: from,
-		}
-	}
+	return r.navigateHistory(1)
 }
 
 // Go navigates n steps in history (negative for back, positive for forward).

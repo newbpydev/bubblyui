@@ -159,124 +159,224 @@ type TableProps[T any] struct {
 //
 // The table uses reflection to extract field values from generic type T,
 // supporting string, int, float, bool, and other types with fmt.Sprintf formatting.
+// tableSelectRow selects a row and triggers callback if provided.
+func tableSelectRow[T any](props TableProps[T], selectedRow *bubbly.Ref[int], index int) {
+	items := props.Data.Get().([]T)
+	if index >= 0 && index < len(items) {
+		selectedRow.Set(index)
+		if props.OnRowClick != nil {
+			props.OnRowClick(items[index], index)
+		}
+	}
+}
+
+// tableHandleKeyUp handles the keyUp event for moving selection up.
+func tableHandleKeyUp[T any](props TableProps[T], selectedRow *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		currentRow := selectedRow.Get().(int)
+		items := props.Data.Get().([]T)
+
+		if len(items) == 0 {
+			return
+		}
+
+		if currentRow == -1 {
+			selectedRow.Set(len(items) - 1)
+		} else if currentRow > 0 {
+			selectedRow.Set(currentRow - 1)
+		}
+	}
+}
+
+// tableHandleKeyDown handles the keyDown event for moving selection down.
+func tableHandleKeyDown[T any](props TableProps[T], selectedRow *bubbly.Ref[int]) func(interface{}) {
+	return func(_ interface{}) {
+		currentRow := selectedRow.Get().(int)
+		items := props.Data.Get().([]T)
+
+		if len(items) == 0 {
+			return
+		}
+
+		if currentRow == -1 {
+			selectedRow.Set(0)
+		} else if currentRow < len(items)-1 {
+			selectedRow.Set(currentRow + 1)
+		}
+	}
+}
+
+// tableHandleSort handles the sort event for sorting table data.
+func tableHandleSort[T any](props TableProps[T], sortColumn *bubbly.Ref[string], sortAsc *bubbly.Ref[bool]) func(interface{}) {
+	return func(data interface{}) {
+		if !props.Sortable {
+			return
+		}
+
+		fieldName := data.(string)
+		currentSortColumn := sortColumn.Get().(string)
+
+		// Toggle direction if same column, otherwise set new column ascending
+		if currentSortColumn == fieldName {
+			sortAsc.Set(!sortAsc.Get().(bool))
+		} else {
+			sortColumn.Set(fieldName)
+			sortAsc.Set(true)
+		}
+
+		// Get current data
+		items := props.Data.Get().([]T)
+		if len(items) == 0 {
+			return
+		}
+
+		// Create a copy to sort
+		sortedItems := make([]T, len(items))
+		copy(sortedItems, items)
+
+		// Sort the copy
+		ascending := sortAsc.Get().(bool)
+		sort.Slice(sortedItems, func(i, j int) bool {
+			valI := getFieldValueForSort(sortedItems[i], fieldName)
+			valJ := getFieldValueForSort(sortedItems[j], fieldName)
+
+			cmp := compareValues(valI, valJ)
+			if ascending {
+				return cmp < 0
+			}
+			return cmp > 0
+		})
+
+		// Update the data ref with sorted data
+		props.Data.Set(sortedItems)
+	}
+}
+
+// tableRenderSortableHeader renders a sortable column header with sort indicator.
+func tableRenderSortableHeader[T any](col TableColumn[T], width int, currentSortColumn string, ascending bool) string {
+	const sortIndicatorWidth = 2
+	maxHeaderWidth := width - sortIndicatorWidth
+	if maxHeaderWidth < 1 {
+		maxHeaderWidth = 1
+	}
+
+	headerText := col.Header
+	if runeCount := utf8.RuneCountInString(headerText); runeCount > maxHeaderWidth {
+		runes := []rune(headerText)
+		if maxHeaderWidth <= 3 {
+			headerText = string(runes[:maxHeaderWidth])
+		} else {
+			headerText = string(runes[:maxHeaderWidth-3]) + "..."
+		}
+	}
+
+	indicator := "  "
+	if currentSortColumn == col.Field {
+		if ascending {
+			indicator = " ↑"
+		} else {
+			indicator = " ↓"
+		}
+	}
+
+	combined := headerText + indicator
+	if paddingNeeded := width - utf8.RuneCountInString(combined); paddingNeeded > 0 {
+		return combined + strings.Repeat(" ", paddingNeeded)
+	}
+	return combined
+}
+
+// tableRenderHeaderRow renders the complete header row.
+func tableRenderHeaderRow[T any](columns []TableColumn[T], sortable bool, currentSortColumn string, ascending bool, theme Theme) string {
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Primary).
+		Padding(0, 1)
+
+	headerParts := make([]string, 0, len(columns))
+	for _, col := range columns {
+		var finalHeader string
+		if sortable && col.Sortable {
+			finalHeader = tableRenderSortableHeader(col, col.Width, currentSortColumn, ascending)
+		} else {
+			finalHeader = padString(col.Header, col.Width)
+		}
+		headerParts = append(headerParts, finalHeader)
+	}
+
+	borderStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(theme.Secondary)
+
+	return borderStyle.Render(headerStyle.Render(strings.Join(headerParts, " ")))
+}
+
+// tableRenderDataRow renders a single data row.
+func tableRenderDataRow[T any](row T, rowIndex int, columns []TableColumn[T], selectedIndex int, theme Theme) string {
+	rowParts := make([]string, 0, len(columns))
+	for _, col := range columns {
+		var cellValue string
+		if col.Render != nil {
+			cellValue = col.Render(row)
+		} else {
+			cellValue = getFieldValue(row, col.Field)
+		}
+		rowParts = append(rowParts, padString(cellValue, col.Width))
+	}
+
+	rowText := strings.Join(rowParts, " ")
+	rowStyle := lipgloss.NewStyle().Padding(0, 1)
+
+	if rowIndex == selectedIndex {
+		rowStyle = rowStyle.Background(theme.Primary).Foreground(lipgloss.Color("230")).Bold(true)
+	} else if rowIndex%2 == 0 {
+		rowStyle = rowStyle.Foreground(theme.Foreground)
+	} else {
+		rowStyle = rowStyle.Foreground(theme.Muted)
+	}
+
+	return rowStyle.Render(rowText)
+}
+
+// tableRenderBody renders all data rows or empty state.
+func tableRenderBody[T any](data []T, columns []TableColumn[T], selectedIndex int, theme Theme) string {
+	if len(data) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(theme.Muted).
+			Italic(true).
+			Padding(1, 2)
+		return emptyStyle.Render("No data available")
+	}
+
+	var output strings.Builder
+	for i, row := range data {
+		output.WriteString(tableRenderDataRow(row, i, columns, selectedIndex, theme))
+		output.WriteString("\n")
+	}
+	return output.String()
+}
+
 func Table[T any](props TableProps[T]) bubbly.Component {
 	comp, err := bubbly.NewComponent("Table").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
 			theme := ctx.Inject("theme", DefaultTheme).(Theme)
-
-			// Create reactive state for selected row (-1 = none)
 			selectedRow := bubbly.NewRef(-1)
-
-			// Create reactive state for sorting
 			sortColumn := bubbly.NewRef("")
 			sortAsc := bubbly.NewRef(true)
 
-			// Helper function to select a row
-			selectRow := func(index int) {
-				items := props.Data.Get().([]T)
-				if index >= 0 && index < len(items) {
-					selectedRow.Set(index)
-					if props.OnRowClick != nil {
-						props.OnRowClick(items[index], index)
-					}
-				}
-			}
-
-			// Row click handler
 			ctx.On("rowClick", func(data interface{}) {
-				index := data.(int)
-				selectRow(index)
+				tableSelectRow(props, selectedRow, data.(int))
 			})
-
-			// Keyboard navigation: Up arrow or 'k' (vim-style)
-			ctx.On("keyUp", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				items := props.Data.Get().([]T)
-
-				if len(items) == 0 {
-					return
-				}
-
-				// If no row selected, select the last row
-				if currentRow == -1 {
-					selectedRow.Set(len(items) - 1)
-				} else if currentRow > 0 {
-					selectedRow.Set(currentRow - 1)
-				}
-			})
-
-			// Keyboard navigation: Down arrow or 'j' (vim-style)
-			ctx.On("keyDown", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				items := props.Data.Get().([]T)
-
-				if len(items) == 0 {
-					return
-				}
-
-				// If no row selected, select the first row
-				if currentRow == -1 {
-					selectedRow.Set(0)
-				} else if currentRow < len(items)-1 {
-					selectedRow.Set(currentRow + 1)
-				}
-			})
-
-			// Keyboard navigation: Enter or Space to confirm selection
+			ctx.On("keyUp", tableHandleKeyUp(props, selectedRow))
+			ctx.On("keyDown", tableHandleKeyDown(props, selectedRow))
 			ctx.On("keyEnter", func(_ interface{}) {
-				currentRow := selectedRow.Get().(int)
-				if currentRow >= 0 {
-					selectRow(currentRow)
+				if currentRow := selectedRow.Get().(int); currentRow >= 0 {
+					tableSelectRow(props, selectedRow, currentRow)
 				}
 			})
+			ctx.On("sort", tableHandleSort(props, sortColumn, sortAsc))
 
-			// Sorting: Sort by column
-			ctx.On("sort", func(data interface{}) {
-				if !props.Sortable {
-					return
-				}
-
-				fieldName := data.(string)
-				currentSortColumn := sortColumn.Get().(string)
-
-				// Toggle direction if same column, otherwise set new column ascending
-				if currentSortColumn == fieldName {
-					sortAsc.Set(!sortAsc.Get().(bool))
-				} else {
-					sortColumn.Set(fieldName)
-					sortAsc.Set(true)
-				}
-
-				// Get current data
-				items := props.Data.Get().([]T)
-				if len(items) == 0 {
-					return
-				}
-
-				// Create a copy to sort
-				sortedItems := make([]T, len(items))
-				copy(sortedItems, items)
-
-				// Sort the copy
-				ascending := sortAsc.Get().(bool)
-				sort.Slice(sortedItems, func(i, j int) bool {
-					valI := getFieldValueForSort(sortedItems[i], fieldName)
-					valJ := getFieldValueForSort(sortedItems[j], fieldName)
-
-					cmp := compareValues(valI, valJ)
-					if ascending {
-						return cmp < 0
-					}
-					return cmp > 0
-				})
-
-				// Update the data ref with sorted data
-				props.Data.Set(sortedItems)
-			})
-
-			// Expose state
 			ctx.Expose("selectedRow", selectedRow)
 			ctx.Expose("sortColumn", sortColumn)
 			ctx.Expose("sortAsc", sortAsc)
@@ -294,139 +394,16 @@ func Table[T any](props TableProps[T]) bubbly.Component {
 			ascending := sortAsc.Get().(bool)
 
 			var output strings.Builder
-
-			// Header row style
-			headerStyle := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(theme.Primary).
-				Padding(0, 1)
-
-			// Build header row with sort indicators
-			const sortIndicatorWidth = 2
-
-			var headerParts []string
-			for _, col := range p.Columns {
-				var finalHeader string
-
-				if p.Sortable && col.Sortable {
-					// For sortable columns, ensure header + indicator fits in width
-					// Calculate space needed for header text
-					maxHeaderWidth := col.Width - sortIndicatorWidth
-					if maxHeaderWidth < 1 {
-						maxHeaderWidth = 1
-					}
-
-					// Truncate header if needed (using rune count for visual width)
-					headerText := col.Header
-					headerRuneCount := utf8.RuneCountInString(headerText)
-					if headerRuneCount > maxHeaderWidth {
-						// Convert to runes for proper truncation
-						runes := []rune(headerText)
-						if maxHeaderWidth <= 3 {
-							headerText = string(runes[:maxHeaderWidth])
-						} else {
-							headerText = string(runes[:maxHeaderWidth-3]) + "..."
-						}
-					}
-
-					// Build the indicator string
-					var indicator string
-					if currentSortColumn == col.Field {
-						if ascending {
-							indicator = " ↑"
-						} else {
-							indicator = " ↓"
-						}
-					} else {
-						// Reserve space but leave invisible
-						indicator = "  "
-					}
-
-					// Combine header + indicator, then manually pad to exact width
-					// CRITICAL: Use RuneCountInString() to count visual characters, not bytes!
-					// The arrow "↑" is 3 bytes but displays as 1 character
-					combined := headerText + indicator
-					combinedRuneCount := utf8.RuneCountInString(combined)
-					paddingNeeded := col.Width - combinedRuneCount
-					if paddingNeeded > 0 {
-						finalHeader = combined + strings.Repeat(" ", paddingNeeded)
-					} else {
-						finalHeader = combined
-					}
-				} else {
-					// Non-sortable columns: use padString for full width
-					finalHeader = padString(col.Header, col.Width)
-				}
-
-				headerParts = append(headerParts, finalHeader)
-			}
-			headerRow := headerStyle.Render(strings.Join(headerParts, " "))
-
-			// Border style
-			borderStyle := lipgloss.NewStyle().
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderForeground(theme.Secondary)
-
-			output.WriteString(borderStyle.Render(headerRow))
+			output.WriteString(tableRenderHeaderRow(p.Columns, p.Sortable, currentSortColumn, ascending, theme))
 			output.WriteString("\n")
-
-			// Data rows
-			if len(data) == 0 {
-				// Empty state
-				emptyStyle := lipgloss.NewStyle().
-					Foreground(theme.Muted).
-					Italic(true).
-					Padding(1, 2)
-				output.WriteString(emptyStyle.Render("No data available"))
-			} else {
-				for i, row := range data {
-					var rowParts []string
-
-					// Build row cells
-					for _, col := range p.Columns {
-						var cellValue string
-
-						// Use custom render function if provided
-						if col.Render != nil {
-							cellValue = col.Render(row)
-						} else {
-							// Extract field value via reflection
-							cellValue = getFieldValue(row, col.Field)
-						}
-
-						rowParts = append(rowParts, padString(cellValue, col.Width))
-					}
-
-					rowText := strings.Join(rowParts, " ")
-
-					// Style based on selection
-					rowStyle := lipgloss.NewStyle().Padding(0, 1)
-
-					if i == selectedRow.Get().(int) {
-						// Selected row
-						rowStyle = rowStyle.
-							Background(theme.Primary).
-							Foreground(lipgloss.Color("230")).
-							Bold(true)
-					} else if i%2 == 0 {
-						// Even row
-						rowStyle = rowStyle.Foreground(theme.Foreground)
-					} else {
-						// Odd row
-						rowStyle = rowStyle.Foreground(theme.Muted)
-					}
-
-					output.WriteString(rowStyle.Render(rowText))
-					output.WriteString("\n")
-				}
-			}
+			output.WriteString(tableRenderBody(data, p.Columns, selectedRow.Get().(int), theme))
 
 			return output.String()
 		}).
 		Build()
 
 	if err != nil {
-		panic(err) // Should never happen with valid setup
+		panic(err)
 	}
 
 	return comp
@@ -516,6 +493,39 @@ func getFieldValueForSort[T any](row T, fieldName string) interface{} {
 // compareValues compares two values for sorting.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.
 // Handles string, int, int64, float64, and bool types.
+// compareNumerics compares numeric values and returns -1, 0, or 1.
+func compareNumerics[T int | int64 | float64](a, b T) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
+// compareBools compares boolean values (false < true).
+func compareBools(a, b bool) int {
+	if !a && b {
+		return -1
+	}
+	if a && !b {
+		return 1
+	}
+	return 0
+}
+
+// compareStrings compares string values.
+func compareStrings(a, b string) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
 func compareValues(a, b interface{}) int {
 	// Handle nil values
 	if a == nil && b == nil {
@@ -528,79 +538,30 @@ func compareValues(a, b interface{}) int {
 		return 1
 	}
 
-	// Try string comparison
-	if aStr, ok := a.(string); ok {
-		if bStr, ok := b.(string); ok {
-			if aStr < bStr {
-				return -1
-			}
-			if aStr > bStr {
-				return 1
-			}
-			return 0
+	// Use type switch for comparison
+	switch aVal := a.(type) {
+	case string:
+		if bVal, ok := b.(string); ok {
+			return compareStrings(aVal, bVal)
 		}
-	}
-
-	// Try int comparison
-	if aInt, ok := a.(int); ok {
-		if bInt, ok := b.(int); ok {
-			if aInt < bInt {
-				return -1
-			}
-			if aInt > bInt {
-				return 1
-			}
-			return 0
+	case int:
+		if bVal, ok := b.(int); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try int64 comparison
-	if aInt64, ok := a.(int64); ok {
-		if bInt64, ok := b.(int64); ok {
-			if aInt64 < bInt64 {
-				return -1
-			}
-			if aInt64 > bInt64 {
-				return 1
-			}
-			return 0
+	case int64:
+		if bVal, ok := b.(int64); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try float64 comparison
-	if aFloat, ok := a.(float64); ok {
-		if bFloat, ok := b.(float64); ok {
-			if aFloat < bFloat {
-				return -1
-			}
-			if aFloat > bFloat {
-				return 1
-			}
-			return 0
+	case float64:
+		if bVal, ok := b.(float64); ok {
+			return compareNumerics(aVal, bVal)
 		}
-	}
-
-	// Try bool comparison (false < true)
-	if aBool, ok := a.(bool); ok {
-		if bBool, ok := b.(bool); ok {
-			if !aBool && bBool {
-				return -1
-			}
-			if aBool && !bBool {
-				return 1
-			}
-			return 0
+	case bool:
+		if bVal, ok := b.(bool); ok {
+			return compareBools(aVal, bVal)
 		}
 	}
 
 	// Fallback to string comparison
-	aStr := fmt.Sprintf("%v", a)
-	bStr := fmt.Sprintf("%v", b)
-	if aStr < bStr {
-		return -1
-	}
-	if aStr > bStr {
-		return 1
-	}
-	return 0
+	return compareStrings(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
 }

@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestStartStdioServer_Success verifies that stdio transport starts successfully
@@ -67,7 +68,7 @@ func TestStartStdioServer_Success(t *testing.T) {
 	}
 }
 
-// TestStartStdioServer_ContextCancellation verifies that cancelling the context
+// TestStartStdioServer_ContextCancellation verifies that canceling the context
 // causes the server to shut down gracefully.
 func TestStartStdioServer_ContextCancellation(t *testing.T) {
 	dt := devtools.Enable()
@@ -213,7 +214,7 @@ func TestStartStdioServer_ThreadSafe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify concurrent access to server methods is safe
-	// This tests the mutex protection in MCPServer
+	// This tests the mutex protection in Server
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -299,8 +300,8 @@ func TestStartStdioServer_DirectCall_WithMockTransport(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	cancel() // Cancel immediately
 
-	// StartStdioServer should handle the cancelled context gracefully
-	// It may succeed (if Connect happens before cancel) or fail (if cancelled first)
+	// StartStdioServer should handle the canceled context gracefully
+	// It may succeed (if Connect happens before cancel) or fail (if canceled first)
 	_ = mcpServer.StartStdioServer(ctx)
 
 	// The key is that it doesn't panic and returns properly
@@ -312,13 +313,13 @@ func TestStartStdioServer_DirectCall_WithMockTransport(t *testing.T) {
 func TestStartStdioServer_CodeCoverage(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupServer func() (*MCPServer, error)
+		setupServer func() (*Server, error)
 		setupCtx    func() context.Context
 		expectPanic bool
 	}{
 		{
-			name: "normal server with cancelled context",
-			setupServer: func() (*MCPServer, error) {
+			name: "normal server with canceled context",
+			setupServer: func() (*Server, error) {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				return NewMCPServer(cfg, dt)
@@ -332,7 +333,7 @@ func TestStartStdioServer_CodeCoverage(t *testing.T) {
 		},
 		{
 			name: "normal server with timeout",
-			setupServer: func() (*MCPServer, error) {
+			setupServer: func() (*Server, error) {
 				dt := devtools.Enable()
 				cfg := DefaultMCPConfig()
 				return NewMCPServer(cfg, dt)
@@ -449,7 +450,7 @@ func TestStartStdioServer_SessionError(t *testing.T) {
 		Version: "1.0.0",
 	}, nil)
 
-	_, err = client.Connect(ctx, t2, nil)
+	_, _ = client.Connect(ctx, t2, nil)
 	// May or may not connect depending on timing
 
 	// Wait for server to complete with error
@@ -474,7 +475,7 @@ func TestStartStdioServer_AllPaths(t *testing.T) {
 		mcpServer, err := NewMCPServer(cfg, dt)
 		require.NoError(t, err)
 
-		// Create context that will be cancelled
+		// Create context that will be canceled
 		ctx, cancel := context.WithCancel(context.Background())
 
 		// Start server in background
@@ -509,7 +510,7 @@ func TestStartStdioServer_AllPaths(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		// Should handle cancelled context gracefully
+		// Should handle canceled context gracefully
 		_ = mcpServer.StartStdioServer(ctx)
 	})
 }

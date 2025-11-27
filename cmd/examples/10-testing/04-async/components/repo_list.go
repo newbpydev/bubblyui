@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -25,39 +26,22 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 			ctx.Expose("loading", props.Loading)
 			ctx.Expose("width", props.Width)
 
-			// INJECT theme colors from parent
-			primaryColor := lipgloss.Color("35")   // Green
-			secondaryColor := lipgloss.Color("99") // Purple
-			mutedColor := lipgloss.Color("240")    // Dark grey
-
-			if injected := ctx.Inject("primaryColor", nil); injected != nil {
-				primaryColor = injected.(lipgloss.Color)
-			}
-			if injected := ctx.Inject("secondaryColor", nil); injected != nil {
-				secondaryColor = injected.(lipgloss.Color)
-			}
-			if injected := ctx.Inject("mutedColor", nil); injected != nil {
-				mutedColor = injected.(lipgloss.Color)
-			}
-
-			ctx.Expose("primaryColor", primaryColor)
-			ctx.Expose("secondaryColor", secondaryColor)
-			ctx.Expose("mutedColor", mutedColor)
+			// USE theme from parent (UseTheme pattern!)
+			theme := ctx.UseTheme(bubbly.DefaultTheme)
+			ctx.Expose("theme", theme)
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
 			reposRef := ctx.Get("repositories").(*bubbly.Ref[interface{}])
 			loadingRef := ctx.Get("loading").(*bubbly.Ref[interface{}])
 			width := ctx.Get("width").(int)
-			primaryColor := ctx.Get("primaryColor").(lipgloss.Color)
-			secondaryColor := ctx.Get("secondaryColor").(lipgloss.Color)
-			mutedColor := ctx.Get("mutedColor").(lipgloss.Color)
+			theme := ctx.Get("theme").(bubbly.Theme)
 
 			loading := loadingRef.Get().(bool)
 			repos := reposRef.Get().([]composables.Repository)
 
 			// Title style
 			titleStyle := lipgloss.NewStyle().
-				Foreground(primaryColor).
+				Foreground(theme.Primary).
 				Bold(true).
 				Padding(0, 1)
 
@@ -66,14 +50,14 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 			// Container style
 			containerStyle := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(primaryColor).
+				BorderForeground(theme.Primary).
 				Padding(1, 2).
 				Width(width)
 
 			// Loading state
 			if loading {
 				loadingStyle := lipgloss.NewStyle().
-					Foreground(mutedColor).
+					Foreground(theme.Muted).
 					Italic(true)
 				content := loadingStyle.Render("Loading repositories...")
 				return containerStyle.Render(title + "\n\n" + content)
@@ -82,7 +66,7 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 			// Empty state
 			if len(repos) == 0 {
 				emptyStyle := lipgloss.NewStyle().
-					Foreground(mutedColor).
+					Foreground(theme.Muted).
 					Italic(true)
 				content := emptyStyle.Render("No repositories found")
 				return containerStyle.Render(title + "\n\n" + content)
@@ -93,12 +77,12 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 			for i, repo := range repos {
 				// Repo name style
 				nameStyle := lipgloss.NewStyle().
-					Foreground(secondaryColor).
+					Foreground(theme.Secondary).
 					Bold(true)
 
 				// Language badge style
 				langStyle := lipgloss.NewStyle().
-					Foreground(primaryColor).
+					Foreground(theme.Primary).
 					Background(lipgloss.Color("236")).
 					Padding(0, 1)
 
@@ -108,7 +92,7 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 
 				// Description style
 				descStyle := lipgloss.NewStyle().
-					Foreground(mutedColor)
+					Foreground(theme.Muted)
 
 				// Build repo item
 				name := nameStyle.Render(repo.Name)
@@ -130,7 +114,7 @@ func CreateRepoList(props RepoListProps) (bubbly.Component, error) {
 				// Add separator between repos (not after last one)
 				if i < len(repos)-1 {
 					separator := lipgloss.NewStyle().
-						Foreground(mutedColor).
+						Foreground(theme.Muted).
 						Render(strings.Repeat("─", width-4))
 					repoItems = append(repoItems, separator)
 				}

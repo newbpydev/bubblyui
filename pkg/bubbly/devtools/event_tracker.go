@@ -12,7 +12,7 @@ import (
 //
 // It provides event capture with pause/resume functionality, filtering,
 // and real-time display with Lipgloss styling. The tracker integrates
-// with the EventLog from the DevToolsStore.
+// with the EventLog from the Store.
 //
 // Thread Safety:
 //

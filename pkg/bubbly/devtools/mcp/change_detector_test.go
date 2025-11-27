@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestNewStateChangeDetector tests detector creation
@@ -731,7 +732,7 @@ func TestStateChangeDetector_ThreadSafety(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < numOperations; j++ {
 				// Mix different operations

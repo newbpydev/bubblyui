@@ -303,7 +303,7 @@ func (ci *ComponentInspector) SetRoot(root *ComponentSnapshot) {
 	ci.tree = NewTreeView(root)
 
 	// Restore expansion state if we had one
-	if previousExpanded != nil && len(previousExpanded) > 0 {
+	if len(previousExpanded) > 0 {
 		ci.tree.SetExpandedIDs(previousExpanded)
 	} else if root != nil {
 		// First time or no previous state: auto-expand root

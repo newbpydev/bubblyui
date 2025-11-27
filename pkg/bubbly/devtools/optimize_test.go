@@ -67,10 +67,10 @@ func TestTypeCache_BasicCaching(t *testing.T) {
 // TestTypeCache_StructFields tests caching of struct field information
 func TestTypeCache_StructFields(t *testing.T) {
 	type TestStruct struct {
-		Name     string
-		Age      int
-		Email    string
-		exported bool // unexported
+		Name  string
+		Age   int
+		Email string
+		_     bool // unexported field for test (linter compliant)
 	}
 
 	clearTypeCache()

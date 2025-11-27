@@ -21,7 +21,7 @@ func TestRouter_Push(t *testing.T) {
 		{
 			name: "push to valid path",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/users", "users-list", nil)
+				_ = r.registry.Register("/users", "users-list", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/users",
@@ -37,7 +37,7 @@ func TestRouter_Push(t *testing.T) {
 		{
 			name: "push with params",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/user/:id", "user-detail", nil)
+				_ = r.registry.Register("/user/:id", "user-detail", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/user/123",
@@ -54,7 +54,7 @@ func TestRouter_Push(t *testing.T) {
 		{
 			name: "push with query string",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/search", "search", nil)
+				_ = r.registry.Register("/search", "search", nil)
 			},
 			target: &NavigationTarget{
 				Path:  "/search",
@@ -72,7 +72,7 @@ func TestRouter_Push(t *testing.T) {
 		{
 			name: "push with hash",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/docs", "docs", nil)
+				_ = r.registry.Register("/docs", "docs", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/docs",
@@ -89,7 +89,7 @@ func TestRouter_Push(t *testing.T) {
 		{
 			name: "push to non-existent route",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/home", "home", nil)
+				_ = r.registry.Register("/home", "home", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/nonexistent",
@@ -172,8 +172,8 @@ func TestRouter_Replace(t *testing.T) {
 		{
 			name: "replace to valid path",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/home", "home", nil)
-				r.registry.Register("/about", "about", nil)
+				_ = r.registry.Register("/home", "home", nil)
+				_ = r.registry.Register("/about", "about", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/about",
@@ -188,7 +188,7 @@ func TestRouter_Replace(t *testing.T) {
 		{
 			name: "replace with params",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/user/:id", "user-detail", nil)
+				_ = r.registry.Register("/user/:id", "user-detail", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/user/456",
@@ -202,7 +202,7 @@ func TestRouter_Replace(t *testing.T) {
 		{
 			name: "replace to non-existent route",
 			setupRoutes: func(r *Router) {
-				r.registry.Register("/home", "home", nil)
+				_ = r.registry.Register("/home", "home", nil)
 			},
 			target: &NavigationTarget{
 				Path: "/invalid",
@@ -323,8 +323,8 @@ func TestRouter_NavigationTarget_Validation(t *testing.T) {
 // TestRouter_Push_UpdatesCurrentRoute verifies current route is updated
 func TestRouter_Push_UpdatesCurrentRoute(t *testing.T) {
 	router := NewRouter()
-	router.registry.Register("/home", "home", nil)
-	router.registry.Register("/about", "about", nil)
+	_ = router.registry.Register("/home", "home", nil)
+	_ = router.registry.Register("/about", "about", nil)
 
 	// Initially no route
 	assert.Nil(t, router.CurrentRoute())
@@ -353,8 +353,8 @@ func TestRouter_Push_UpdatesCurrentRoute(t *testing.T) {
 // TestRouter_RouteChangedMsg_FromTo verifies from/to routes in message
 func TestRouter_RouteChangedMsg_FromTo(t *testing.T) {
 	router := NewRouter()
-	router.registry.Register("/home", "home", nil)
-	router.registry.Register("/about", "about", nil)
+	_ = router.registry.Register("/home", "home", nil)
+	_ = router.registry.Register("/about", "about", nil)
 
 	// First navigation (from nil)
 	cmd := router.Push(&NavigationTarget{Path: "/home"})

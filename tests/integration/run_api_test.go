@@ -83,7 +83,7 @@ func TestRun_ErrorPropagation(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Create context that's already cancelled
+	// Create context that's already canceled
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -94,7 +94,7 @@ func TestRun_ErrorPropagation(t *testing.T) {
 		bubbly.WithContext(ctx),
 	)
 
-	// Should get context cancelled error
+	// Should get context canceled error
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }

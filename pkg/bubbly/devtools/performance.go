@@ -41,7 +41,7 @@ func (s SortBy) String() string {
 //
 // It provides methods to record render timing, sort components by various
 // metrics, and render a formatted table of performance data. The monitor
-// integrates with PerformanceData from the DevToolsStore.
+// integrates with PerformanceData from the Store.
 //
 // Thread Safety:
 //

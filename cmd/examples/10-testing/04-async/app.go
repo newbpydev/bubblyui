@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
+
 	localcomponents "github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/components"
 	"github.com/newbpydev/bubblyui/cmd/examples/10-testing/04-async/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
@@ -23,12 +24,8 @@ func CreateApp(api composables.GitHubAPI) (bubbly.Component, error) {
 			// Auto-refresh state
 			autoRefresh := ctx.Ref(true)
 
-			// PROVIDE theme colors to descendants (BubblyUI Provide/Inject pattern!)
-			ctx.Provide("primaryColor", lipgloss.Color("35"))   // Green
-			ctx.Provide("secondaryColor", lipgloss.Color("99")) // Purple
-			ctx.Provide("mutedColor", lipgloss.Color("240"))    // Dark grey
-			ctx.Provide("warningColor", lipgloss.Color("220"))  // Yellow
-			ctx.Provide("errorColor", lipgloss.Color("196"))    // Red
+			// PROVIDE theme to descendants (UseTheme/ProvideTheme pattern!)
+			ctx.ProvideTheme(bubbly.DefaultTheme)
 
 			// Create RepoList component
 			repoList, err := localcomponents.CreateRepoList(localcomponents.RepoListProps{

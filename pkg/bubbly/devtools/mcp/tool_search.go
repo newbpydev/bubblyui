@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
@@ -177,19 +178,19 @@ type FilterEventsResult struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterSearchComponentsTool() error {
+func (s *Server) RegisterSearchComponentsTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSearchComponentsTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSearchComponentsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -260,19 +261,19 @@ func (s *MCPServer) RegisterSearchComponentsTool() error {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterFilterEventsTool() error {
+func (s *Server) RegisterFilterEventsTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterFilterEventsTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterFilterEventsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -340,20 +341,20 @@ func (s *MCPServer) RegisterFilterEventsTool() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) handleSearchComponentsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) handleSearchComponentsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSearchComponentsTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSearchComponentsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -425,20 +426,20 @@ func (s *MCPServer) handleSearchComponentsTool(ctx context.Context, request *mcp
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) handleFilterEventsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) handleFilterEventsTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleFilterEventsTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleFilterEventsTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -597,50 +598,52 @@ func parseFilterEventsParams(args map[string]interface{}) (*FilterEventsParams, 
 	return params, nil
 }
 
+// checkFieldMatch checks if a field matches the query and updates best score.
+func checkFieldMatch(fieldValue, query, fieldName string, currentScore float64, currentField string) (float64, string) {
+	if strings.Contains(strings.ToLower(fieldValue), query) {
+		score := calculateMatchScore(fieldValue, query)
+		if score > currentScore {
+			return score, fieldName
+		}
+	}
+	return currentScore, currentField
+}
+
+// sortMatchesByScore sorts matches in descending order by score.
+func sortMatchesByScore(matches []ComponentMatch) {
+	for i := 0; i < len(matches)-1; i++ {
+		for j := i + 1; j < len(matches); j++ {
+			if matches[j].MatchScore > matches[i].MatchScore {
+				matches[i], matches[j] = matches[j], matches[i]
+			}
+		}
+	}
+}
+
 // searchComponents performs fuzzy search on components.
 func searchComponents(components []*devtools.ComponentSnapshot, params *SearchComponentsParams) []ComponentMatch {
 	matches := make([]ComponentMatch, 0)
 	query := strings.ToLower(params.Query)
 
-	// Determine which fields to search
 	searchAll := len(params.Fields) == 0
 	searchName := searchAll || contains(params.Fields, "name")
 	searchType := searchAll || contains(params.Fields, "type")
 	searchID := searchAll || contains(params.Fields, "id")
 
-	// Search each component
 	for _, comp := range components {
 		var matchScore float64
 		var matchedField string
 
-		// Check name field
-		if searchName && strings.Contains(strings.ToLower(comp.Name), query) {
-			score := calculateMatchScore(comp.Name, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "name"
-			}
+		if searchName {
+			matchScore, matchedField = checkFieldMatch(comp.Name, query, "name", matchScore, matchedField)
+		}
+		if searchType {
+			matchScore, matchedField = checkFieldMatch(comp.Type, query, "type", matchScore, matchedField)
+		}
+		if searchID {
+			matchScore, matchedField = checkFieldMatch(comp.ID, query, "id", matchScore, matchedField)
 		}
 
-		// Check type field
-		if searchType && strings.Contains(strings.ToLower(comp.Type), query) {
-			score := calculateMatchScore(comp.Type, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "type"
-			}
-		}
-
-		// Check ID field
-		if searchID && strings.Contains(strings.ToLower(comp.ID), query) {
-			score := calculateMatchScore(comp.ID, query)
-			if score > matchScore {
-				matchScore = score
-				matchedField = "id"
-			}
-		}
-
-		// Add to matches if score > 0
 		if matchScore > 0 {
 			matches = append(matches, ComponentMatch{
 				ID:           comp.ID,
@@ -653,16 +656,8 @@ func searchComponents(components []*devtools.ComponentSnapshot, params *SearchCo
 		}
 	}
 
-	// Sort by match score (descending)
-	for i := 0; i < len(matches)-1; i++ {
-		for j := i + 1; j < len(matches); j++ {
-			if matches[j].MatchScore > matches[i].MatchScore {
-				matches[i], matches[j] = matches[j], matches[i]
-			}
-		}
-	}
+	sortMatchesByScore(matches)
 
-	// Limit results
 	if len(matches) > params.MaxResults {
 		matches = matches[:params.MaxResults]
 	}

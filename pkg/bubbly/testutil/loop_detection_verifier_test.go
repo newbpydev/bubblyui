@@ -3,8 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/commands"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/commands"
 )
 
 // TestNewLoopDetectionVerifier tests the constructor with various inputs.

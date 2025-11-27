@@ -1,10 +1,58 @@
 package directives
 
 import (
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
+
+// showMockReporter is a test implementation of ErrorReporter for show directive tests
+type showMockReporter struct {
+	panicCalls []showMockPanicCall
+	errorCalls []showMockErrorCall
+	flushCalls int
+	flushError error
+	mu         sync.Mutex
+}
+
+type showMockPanicCall struct {
+	err *observability.HandlerPanicError
+	ctx *observability.ErrorContext
+}
+
+type showMockErrorCall struct {
+	err error
+	ctx *observability.ErrorContext
+}
+
+func (m *showMockReporter) ReportPanic(err *observability.HandlerPanicError, ctx *observability.ErrorContext) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.panicCalls = append(m.panicCalls, showMockPanicCall{err: err, ctx: ctx})
+}
+
+func (m *showMockReporter) ReportError(err error, ctx *observability.ErrorContext) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.errorCalls = append(m.errorCalls, showMockErrorCall{err: err, ctx: ctx})
+}
+
+func (m *showMockReporter) Flush(timeout time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.flushCalls++
+	return m.flushError
+}
+
+func (m *showMockReporter) getErrorCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.errorCalls)
+}
 
 // TestShowDirective_Visible tests basic Show directive visibility
 func TestShowDirective_Visible(t *testing.T) {
@@ -373,4 +421,158 @@ func BenchmarkShowDirective_Nested(b *testing.B) {
 			}).Render()
 		}).Render()
 	}
+}
+
+// TestShowDirective_PanicRecovery tests that Show recovers from panics in content functions
+func TestShowDirective_PanicRecovery(t *testing.T) {
+	t.Run("panic in visible content is recovered", func(t *testing.T) {
+		result := Show(true, func() string {
+			panic("test panic")
+		}).Render()
+
+		// The directive should not crash, returns empty string on panic
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic with transition visible is recovered", func(t *testing.T) {
+		result := Show(true, func() string {
+			panic("panic with transition")
+		}).WithTransition().Render()
+
+		// Still returns empty string on panic
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic with transition hidden is recovered", func(t *testing.T) {
+		result := Show(false, func() string {
+			panic("panic in hidden content")
+		}).WithTransition().Render()
+
+		// When hidden with transition, content is still evaluated
+		// Panic should be recovered, and [Hidden] prefix added to empty result
+		assert.Equal(t, "[Hidden]", result)
+	})
+
+	t.Run("nil pointer panic is recovered", func(t *testing.T) {
+		result := Show(true, func() string {
+			var ptr *string
+			return *ptr // nil pointer dereference
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic with non-string value is recovered", func(t *testing.T) {
+		result := Show(true, func() string {
+			panic(42) // panic with int value
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic with struct value is recovered", func(t *testing.T) {
+		type PanicData struct {
+			Code    int
+			Message string
+		}
+		result := Show(true, func() string {
+			panic(PanicData{Code: 500, Message: "internal error"})
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic after partial work is recovered", func(t *testing.T) {
+		counter := 0
+		result := Show(true, func() string {
+			counter++
+			panic("panic after increment")
+		}).Render()
+
+		assert.Equal(t, "", result)
+		assert.Equal(t, 1, counter, "counter should be incremented before panic")
+	})
+}
+
+// TestShowDirective_PanicRecoveryWithReporter tests panic recovery with error reporting
+func TestShowDirective_PanicRecoveryWithReporter(t *testing.T) {
+	t.Run("panic is reported when reporter is set", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &showMockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		result := Show(true, func() string {
+			panic("test panic for reporter")
+		}).Render()
+
+		// Directive should still recover
+		assert.Equal(t, "", result)
+
+		// Verify the error was reported
+		assert.Equal(t, 1, reporter.getErrorCallCount(), "panic should be reported to error reporter")
+	})
+
+	t.Run("panic in transition mode is reported", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &showMockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		result := Show(false, func() string {
+			panic("test panic in transition mode")
+		}).WithTransition().Render()
+
+		// Directive should still recover with [Hidden] prefix
+		assert.Equal(t, "[Hidden]", result)
+
+		// Verify the error was reported
+		assert.Equal(t, 1, reporter.getErrorCallCount(), "panic should be reported to error reporter")
+	})
+
+	t.Run("error context contains directive info", func(t *testing.T) {
+		// Set up mock reporter
+		reporter := &showMockReporter{}
+		observability.SetErrorReporter(reporter)
+		defer observability.SetErrorReporter(nil)
+
+		_ = Show(true, func() string {
+			panic("panic for context check")
+		}).Render()
+
+		// Verify context was set correctly
+		assert.Equal(t, 1, reporter.getErrorCallCount())
+		reporter.mu.Lock()
+		defer reporter.mu.Unlock()
+		if len(reporter.errorCalls) > 0 {
+			ctx := reporter.errorCalls[0].ctx
+			assert.Equal(t, "Show", ctx.ComponentName)
+			assert.Contains(t, ctx.Tags, "directive_type")
+			assert.Equal(t, "Show", ctx.Tags["directive_type"])
+		}
+	})
+}
+
+// TestShowDirective_PanicRecoveryEdgeCases tests edge cases in panic recovery
+func TestShowDirective_PanicRecoveryEdgeCases(t *testing.T) {
+	t.Run("panic with nil value is recovered", func(t *testing.T) {
+		result := Show(true, func() string {
+			panic(nil)
+		}).Render()
+
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("panic in nested show is isolated", func(t *testing.T) {
+		result := Show(true, func() string {
+			inner := Show(true, func() string {
+				panic("inner panic")
+			}).Render()
+			return "outer:" + inner
+		}).Render()
+
+		// Outer show also catches the panic from inner
+		// Since inner returns "", outer returns "outer:"
+		assert.Equal(t, "outer:", result)
+	})
 }

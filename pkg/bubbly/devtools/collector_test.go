@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestNewDataCollector_CreatesInstance tests that NewDataCollector creates a valid instance
@@ -292,4 +294,192 @@ func (m *mockPerformanceHook) OnRenderComplete(componentID string, duration time
 	m.renderCalled = true
 	m.componentID = componentID
 	m.duration = duration
+}
+
+// TestRemoveStateHook_RemovesHook tests removing a state hook
+func TestRemoveStateHook_RemovesHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockStateHook{}
+
+	collector.AddStateHook(hook)
+	collector.RemoveStateHook(hook)
+
+	// Verify hook was removed - should not be called
+	collector.FireRefChanged("ref-1", "old", "new")
+
+	assert.False(t, hook.refChangedCalled, "Hook should not be called after removal")
+}
+
+// TestRemoveStateHook_RemovesCorrectHook tests removing specific hook from multiple
+func TestRemoveStateHook_RemovesCorrectHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook1 := &mockStateHook{}
+	hook2 := &mockStateHook{}
+	hook3 := &mockStateHook{}
+
+	collector.AddStateHook(hook1)
+	collector.AddStateHook(hook2)
+	collector.AddStateHook(hook3)
+
+	// Remove middle hook
+	collector.RemoveStateHook(hook2)
+
+	// Fire event
+	collector.FireRefChanged("ref-1", "old", "new")
+
+	assert.True(t, hook1.refChangedCalled, "Hook 1 should still be called")
+	assert.False(t, hook2.refChangedCalled, "Hook 2 should not be called after removal")
+	assert.True(t, hook3.refChangedCalled, "Hook 3 should still be called")
+}
+
+// TestRemoveStateHook_NonExistentHook tests removing a hook that was never added
+func TestRemoveStateHook_NonExistentHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockStateHook{}
+
+	// Should not panic when removing non-existent hook
+	assert.NotPanics(t, func() {
+		collector.RemoveStateHook(hook)
+	}, "Removing non-existent hook should not panic")
+}
+
+// TestRemoveEventHook_RemovesHook tests removing an event hook
+func TestRemoveEventHook_RemovesHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockEventHook{}
+
+	collector.AddEventHook(hook)
+	collector.RemoveEventHook(hook)
+
+	// Verify hook was removed - should not be called
+	event := &EventRecord{ID: "evt-1", Name: "click"}
+	collector.FireEvent(event)
+
+	assert.False(t, hook.eventCalled, "Hook should not be called after removal")
+}
+
+// TestRemoveEventHook_RemovesCorrectHook tests removing specific hook from multiple
+func TestRemoveEventHook_RemovesCorrectHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook1 := &mockEventHook{}
+	hook2 := &mockEventHook{}
+	hook3 := &mockEventHook{}
+
+	collector.AddEventHook(hook1)
+	collector.AddEventHook(hook2)
+	collector.AddEventHook(hook3)
+
+	// Remove middle hook
+	collector.RemoveEventHook(hook2)
+
+	// Fire event
+	event := &EventRecord{ID: "evt-1", Name: "click"}
+	collector.FireEvent(event)
+
+	assert.True(t, hook1.eventCalled, "Hook 1 should still be called")
+	assert.False(t, hook2.eventCalled, "Hook 2 should not be called after removal")
+	assert.True(t, hook3.eventCalled, "Hook 3 should still be called")
+}
+
+// TestRemoveEventHook_NonExistentHook tests removing a hook that was never added
+func TestRemoveEventHook_NonExistentHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockEventHook{}
+
+	// Should not panic when removing non-existent hook
+	assert.NotPanics(t, func() {
+		collector.RemoveEventHook(hook)
+	}, "Removing non-existent hook should not panic")
+}
+
+// TestRemovePerformanceHook_RemovesHook tests removing a performance hook
+func TestRemovePerformanceHook_RemovesHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockPerformanceHook{}
+
+	collector.AddPerformanceHook(hook)
+	collector.RemovePerformanceHook(hook)
+
+	// Verify hook was removed - should not be called
+	collector.FireRenderComplete("comp-1", 5*time.Millisecond)
+
+	assert.False(t, hook.renderCalled, "Hook should not be called after removal")
+}
+
+// TestRemovePerformanceHook_RemovesCorrectHook tests removing specific hook from multiple
+func TestRemovePerformanceHook_RemovesCorrectHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook1 := &mockPerformanceHook{}
+	hook2 := &mockPerformanceHook{}
+	hook3 := &mockPerformanceHook{}
+
+	collector.AddPerformanceHook(hook1)
+	collector.AddPerformanceHook(hook2)
+	collector.AddPerformanceHook(hook3)
+
+	// Remove middle hook
+	collector.RemovePerformanceHook(hook2)
+
+	// Fire event
+	collector.FireRenderComplete("comp-1", 5*time.Millisecond)
+
+	assert.True(t, hook1.renderCalled, "Hook 1 should still be called")
+	assert.False(t, hook2.renderCalled, "Hook 2 should not be called after removal")
+	assert.True(t, hook3.renderCalled, "Hook 3 should still be called")
+}
+
+// TestRemovePerformanceHook_NonExistentHook tests removing a hook that was never added
+func TestRemovePerformanceHook_NonExistentHook(t *testing.T) {
+	collector := NewDataCollector()
+	hook := &mockPerformanceHook{}
+
+	// Should not panic when removing non-existent hook
+	assert.NotPanics(t, func() {
+		collector.RemovePerformanceHook(hook)
+	}, "Removing non-existent hook should not panic")
+}
+
+// TestHookPanic_WithErrorReporter tests panic recovery with error reporter configured
+func TestHookPanic_WithErrorReporter(t *testing.T) {
+	collector := NewDataCollector()
+
+	// Create a mock reporter to verify panic is reported
+	mockReporter := &mockPanicReporter{}
+	observability.SetErrorReporter(mockReporter)
+	defer observability.SetErrorReporter(nil)
+
+	// Add a panicking hook
+	panicHook := &panicComponentHook{}
+	collector.AddComponentHook(panicHook)
+
+	// Should not panic and reporter should receive the panic
+	assert.NotPanics(t, func() {
+		snapshot := &ComponentSnapshot{ID: "test-1", Name: "TestComponent"}
+		collector.FireComponentCreated(snapshot)
+	}, "Collector should recover from panic")
+
+	// Reporter should have received the panic
+	assert.True(t, mockReporter.reportedPanic, "Error reporter should receive panic report")
+}
+
+// mockPanicReporter implements observability.ErrorReporter for testing panic reporting
+type mockPanicReporter struct {
+	mu            sync.Mutex
+	reportedPanic bool
+	panicValue    interface{}
+}
+
+func (m *mockPanicReporter) ReportError(err error, ctx *observability.ErrorContext) {
+	// Not used in this test
+}
+
+func (m *mockPanicReporter) ReportPanic(err *observability.HandlerPanicError, ctx *observability.ErrorContext) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.reportedPanic = true
+	m.panicValue = err.PanicValue
+}
+
+func (m *mockPanicReporter) Flush(timeout time.Duration) error {
+	return nil
 }

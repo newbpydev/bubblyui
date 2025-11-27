@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // TestMockErrorReporter_Creation tests creating a new mock error reporter
@@ -256,7 +257,7 @@ func TestMockErrorReporter_ThreadSafety(t *testing.T) {
 	// Run concurrent operations
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
-		go func(id int) {
+		go func(_ int) {
 			reporter.ReportError(errors.New("error"), nil)
 			reporter.ReportPanic(&observability.HandlerPanicError{}, nil)
 			_ = reporter.GetErrors()

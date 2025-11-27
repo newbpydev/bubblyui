@@ -20,7 +20,7 @@ var (
 // Note: RouteRecord is defined in matcher.go and reused here for the builder.
 // It contains Path, Name, Meta, and Children fields.
 
-// RouterBuilder provides a fluent API for creating and configuring routers.
+// Builder provides a fluent API for creating and configuring routers.
 //
 // The builder pattern makes router configuration readable and type-safe.
 // It allows you to chain method calls to configure routes, guards, and hooks
@@ -46,7 +46,7 @@ var (
 // Thread Safety:
 // The builder is NOT thread-safe. It should be used in a single goroutine
 // during router setup. The built router IS thread-safe.
-type RouterBuilder struct {
+type Builder struct {
 	// routes is the list of route records to register
 	routes []*RouteRecord
 
@@ -57,7 +57,7 @@ type RouterBuilder struct {
 	afterHooks []AfterNavigationHook
 }
 
-// NewRouterBuilder creates a new RouterBuilder for building a router.
+// NewRouterBuilder creates a new Builder for building a router.
 //
 // This is the entry point for creating routers using the fluent API.
 // The builder starts empty and routes/guards are added via method chaining.
@@ -68,9 +68,9 @@ type RouterBuilder struct {
 //	builder.Route("/home", "home").Route("/about", "about")
 //
 // Returns:
-//   - *RouterBuilder: A builder instance ready for configuration
-func NewRouterBuilder() *RouterBuilder {
-	return &RouterBuilder{
+//   - *Builder: A builder instance ready for configuration
+func NewRouterBuilder() *Builder {
+	return &Builder{
 		routes:      make([]*RouteRecord, 0),
 		beforeHooks: make([]NavigationGuard, 0),
 		afterHooks:  make([]AfterNavigationHook, 0),
@@ -87,14 +87,14 @@ func NewRouterBuilder() *RouterBuilder {
 //   - name: The route name for named navigation
 //
 // Returns:
-//   - *RouterBuilder: The builder for method chaining
+//   - *Builder: The builder for method chaining
 //
 // Example:
 //
 //	builder.Route("/home", "home").
 //		Route("/about", "about").
 //		Route("/users/:id", "user-detail")
-func (rb *RouterBuilder) Route(path, name string) *RouterBuilder {
+func (rb *Builder) Route(path, name string) *Builder {
 	rb.routes = append(rb.routes, &RouteRecord{
 		Path: path,
 		Name: name,
@@ -114,7 +114,7 @@ func (rb *RouterBuilder) Route(path, name string) *RouterBuilder {
 //   - meta: Metadata map
 //
 // Returns:
-//   - *RouterBuilder: The builder for method chaining
+//   - *Builder: The builder for method chaining
 //
 // Example:
 //
@@ -123,7 +123,7 @@ func (rb *RouterBuilder) Route(path, name string) *RouterBuilder {
 //		"title": "Dashboard",
 //		"roles": []string{"admin", "user"},
 //	})
-func (rb *RouterBuilder) RouteWithMeta(path, name string, meta map[string]interface{}) *RouterBuilder {
+func (rb *Builder) RouteWithMeta(path, name string, meta map[string]interface{}) *Builder {
 	rb.routes = append(rb.routes, &RouteRecord{
 		Path: path,
 		Name: name,
@@ -143,7 +143,7 @@ func (rb *RouterBuilder) RouteWithMeta(path, name string, meta map[string]interf
 //   - opts: Variable number of RouteOption functions
 //
 // Returns:
-//   - *RouterBuilder: The builder for method chaining
+//   - *Builder: The builder for method chaining
 //
 // Example:
 //
@@ -155,7 +155,7 @@ func (rb *RouterBuilder) RouteWithMeta(path, name string, meta map[string]interf
 //		WithGuard(authGuard),
 //		WithChildren(overviewRoute, settingsRoute),
 //	)
-func (rb *RouterBuilder) RouteWithOptions(path string, opts ...RouteOption) *RouterBuilder {
+func (rb *Builder) RouteWithOptions(path string, opts ...RouteOption) *Builder {
 	record := &RouteRecord{
 		Path: path,
 	}
@@ -178,7 +178,7 @@ func (rb *RouterBuilder) RouteWithOptions(path string, opts ...RouteOption) *Rou
 //   - guard: The guard function to register
 //
 // Returns:
-//   - *RouterBuilder: The builder for method chaining
+//   - *Builder: The builder for method chaining
 //
 // Example:
 //
@@ -189,7 +189,7 @@ func (rb *RouterBuilder) RouteWithOptions(path string, opts ...RouteOption) *Rou
 //			next(nil)
 //		}
 //	})
-func (rb *RouterBuilder) BeforeEach(guard NavigationGuard) *RouterBuilder {
+func (rb *Builder) BeforeEach(guard NavigationGuard) *Builder {
 	rb.beforeHooks = append(rb.beforeHooks, guard)
 	return rb
 }
@@ -204,7 +204,7 @@ func (rb *RouterBuilder) BeforeEach(guard NavigationGuard) *RouterBuilder {
 //   - hook: The hook function to register
 //
 // Returns:
-//   - *RouterBuilder: The builder for method chaining
+//   - *Builder: The builder for method chaining
 //
 // Example:
 //
@@ -212,7 +212,7 @@ func (rb *RouterBuilder) BeforeEach(guard NavigationGuard) *RouterBuilder {
 //		analytics.TrackPageView(to.Path)
 //		log.Printf("Navigated to %s", to.Path)
 //	})
-func (rb *RouterBuilder) AfterEach(hook AfterNavigationHook) *RouterBuilder {
+func (rb *Builder) AfterEach(hook AfterNavigationHook) *Builder {
 	rb.afterHooks = append(rb.afterHooks, hook)
 	return rb
 }
@@ -242,7 +242,7 @@ func (rb *RouterBuilder) AfterEach(hook AfterNavigationHook) *RouterBuilder {
 //		log.Fatal(err)
 //	}
 //	// Use router...
-func (rb *RouterBuilder) Build() (*Router, error) {
+func (rb *Builder) Build() (*Router, error) {
 	// Validate routes
 	if err := rb.validate(); err != nil {
 		return nil, err
@@ -290,7 +290,7 @@ func (rb *RouterBuilder) Build() (*Router, error) {
 //
 // Returns:
 //   - error: Validation error if configuration is invalid, nil otherwise
-func (rb *RouterBuilder) validate() error {
+func (rb *Builder) validate() error {
 	// Track seen paths and names
 	seenPaths := make(map[string]bool)
 	seenNames := make(map[string]bool)

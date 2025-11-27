@@ -476,3 +476,125 @@ func TestErrorReporter_Flush(t *testing.T) {
 		})
 	}
 }
+
+// TestHandlerPanicError_Error tests the Error method of HandlerPanicError
+func TestHandlerPanicError_Error(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       *HandlerPanicError
+		wantParts []string
+	}{
+		{
+			name: "error message contains all fields",
+			err: &HandlerPanicError{
+				ComponentName: "TestButton",
+				EventName:     "click",
+				PanicValue:    "unexpected nil pointer",
+			},
+			wantParts: []string{
+				"panic in event handler",
+				"TestButton",
+				"click",
+				"unexpected nil pointer",
+			},
+		},
+		{
+			name: "error message with different values",
+			err: &HandlerPanicError{
+				ComponentName: "LoginForm",
+				EventName:     "submit",
+				PanicValue:    123,
+			},
+			wantParts: []string{
+				"panic in event handler",
+				"LoginForm",
+				"submit",
+				"123",
+			},
+		},
+		{
+			name: "error message with empty fields",
+			err: &HandlerPanicError{
+				ComponentName: "",
+				EventName:     "",
+				PanicValue:    nil,
+			},
+			wantParts: []string{
+				"panic in event handler",
+				"component ''",
+				"event ''",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errMsg := tt.err.Error()
+
+			for _, part := range tt.wantParts {
+				assert.Contains(t, errMsg, part, "error message should contain %q", part)
+			}
+		})
+	}
+}
+
+// TestCommandGenerationError_Error tests the Error method of CommandGenerationError
+func TestCommandGenerationError_Error(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       *CommandGenerationError
+		wantParts []string
+	}{
+		{
+			name: "error message contains all fields",
+			err: &CommandGenerationError{
+				ComponentID: "component-123",
+				RefID:       "ref-456",
+				PanicValue:  "failed to generate command",
+			},
+			wantParts: []string{
+				"panic in command generation",
+				"component-123",
+				"ref-456",
+				"failed to generate command",
+			},
+		},
+		{
+			name: "error message with integer panic value",
+			err: &CommandGenerationError{
+				ComponentID: "form-1",
+				RefID:       "counter",
+				PanicValue:  42,
+			},
+			wantParts: []string{
+				"panic in command generation",
+				"form-1",
+				"counter",
+				"42",
+			},
+		},
+		{
+			name: "error message with empty fields",
+			err: &CommandGenerationError{
+				ComponentID: "",
+				RefID:       "",
+				PanicValue:  nil,
+			},
+			wantParts: []string{
+				"panic in command generation",
+				"component ''",
+				"ref ''",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errMsg := tt.err.Error()
+
+			for _, part := range tt.wantParts {
+				assert.Contains(t, errMsg, part, "error message should contain %q", part)
+			}
+		})
+	}
+}

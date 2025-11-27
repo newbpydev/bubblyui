@@ -10,6 +10,48 @@ import (
 	"time"
 )
 
+// redactedValue is the replacement string for sanitized sensitive data.
+const redactedValue = "[REDACTED]"
+
+// writeWithCompression writes data to a file with optional gzip compression.
+// This helper function is used by both Export and ExportFormat to avoid code duplication.
+func writeWithCompression(file *os.File, data []byte, opts ExportOptions) error {
+	if opts.Compress {
+		// Set default compression level if not specified
+		level := opts.CompressionLevel
+		if level == 0 {
+			level = gzip.DefaultCompression
+		}
+
+		// Create gzip writer
+		gzWriter, err := gzip.NewWriterLevel(file, level)
+		if err != nil {
+			return fmt.Errorf("failed to create gzip writer: %w", err)
+		}
+		defer gzWriter.Close()
+
+		// Write compressed data
+		_, err = gzWriter.Write(data)
+		if err != nil {
+			return fmt.Errorf("failed to write compressed data: %w", err)
+		}
+
+		// Flush to ensure all data is written
+		err = gzWriter.Flush()
+		if err != nil {
+			return fmt.Errorf("failed to flush gzip writer: %w", err)
+		}
+	} else {
+		// Write uncompressed data
+		_, err := file.Write(data)
+		if err != nil {
+			return fmt.Errorf("failed to write export file: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ExportData represents the complete debug data export format.
 //
 // This structure is serialized to JSON when exporting dev tools data.
@@ -204,41 +246,8 @@ func (dt *DevTools) Export(filename string, opts ExportOptions) error {
 	}
 	defer file.Close()
 
-	// Write data (compressed or uncompressed)
-	if opts.Compress {
-		// Set default compression level if not specified
-		level := opts.CompressionLevel
-		if level == 0 && opts.Compress {
-			level = gzip.DefaultCompression
-		}
-
-		// Create gzip writer
-		gzWriter, err := gzip.NewWriterLevel(file, level)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip writer: %w", err)
-		}
-		defer gzWriter.Close()
-
-		// Write compressed data
-		_, err = gzWriter.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write compressed data: %w", err)
-		}
-
-		// Flush to ensure all data is written
-		err = gzWriter.Flush()
-		if err != nil {
-			return fmt.Errorf("failed to flush gzip writer: %w", err)
-		}
-	} else {
-		// Write uncompressed data
-		_, err = file.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write export file: %w", err)
-		}
-	}
-
-	return nil
+	// Write data with optional compression
+	return writeWithCompression(file, jsonData, opts)
 }
 
 // ExportFormat writes dev tools debug data to a file using the specified format.
@@ -336,41 +345,8 @@ func (dt *DevTools) ExportFormat(filename, formatName string, opts ExportOptions
 	}
 	defer file.Close()
 
-	// Write data (compressed or uncompressed)
-	if opts.Compress {
-		// Set default compression level if not specified
-		level := opts.CompressionLevel
-		if level == 0 && opts.Compress {
-			level = gzip.DefaultCompression
-		}
-
-		// Create gzip writer
-		gzWriter, err := gzip.NewWriterLevel(file, level)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip writer: %w", err)
-		}
-		defer gzWriter.Close()
-
-		// Write compressed data
-		_, err = gzWriter.Write(bytes)
-		if err != nil {
-			return fmt.Errorf("failed to write compressed data: %w", err)
-		}
-
-		// Flush to ensure all data is written
-		err = gzWriter.Flush()
-		if err != nil {
-			return fmt.Errorf("failed to flush gzip writer: %w", err)
-		}
-	} else {
-		// Write uncompressed data
-		_, err = file.Write(bytes)
-		if err != nil {
-			return fmt.Errorf("failed to write export file: %w", err)
-		}
-	}
-
-	return nil
+	// Write data with optional compression
+	return writeWithCompression(file, bytes, opts)
 }
 
 // ExportStream writes dev tools debug data to a file using streaming mode.
@@ -471,7 +447,7 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 		// Create sanitizer with patterns
 		sanitizer := NewSanitizer()
 		for _, pattern := range opts.RedactPatterns {
-			sanitizer.AddPattern(pattern, "[REDACTED]")
+			sanitizer.AddPattern(pattern, redactedValue)
 		}
 
 		// Create stream sanitizer
@@ -526,68 +502,72 @@ func (dt *DevTools) ExportStream(filename string, opts ExportOptions) error {
 //
 // Returns:
 //   - ExportData: Sanitized copy of the export data
+//
+// sanitizeMap sanitizes a map by redacting values matching patterns.
+func sanitizeMap(m map[string]interface{}, patterns []string) {
+	for key, val := range m {
+		if shouldRedact(key, patterns) || shouldRedactValue(val, patterns) {
+			m[key] = redactedValue
+		}
+	}
+}
+
+// sanitizeComponents sanitizes component data.
+func sanitizeComponents(components []*ComponentSnapshot, patterns []string) {
+	for _, comp := range components {
+		if comp.Props != nil {
+			sanitizeMap(comp.Props, patterns)
+		}
+		if comp.State != nil {
+			sanitizeMap(comp.State, patterns)
+		}
+		for _, ref := range comp.Refs {
+			if shouldRedact(ref.Name, patterns) || shouldRedactValue(ref.Value, patterns) {
+				ref.Value = redactedValue
+			}
+		}
+	}
+}
+
+// sanitizeStateHistory sanitizes state history entries.
+func sanitizeStateHistory(state []StateChange, patterns []string) {
+	for i := range state {
+		if shouldRedact(state[i].RefName, patterns) ||
+			shouldRedactValue(state[i].OldValue, patterns) ||
+			shouldRedactValue(state[i].NewValue, patterns) {
+			state[i].OldValue = redactedValue
+			state[i].NewValue = redactedValue
+		}
+	}
+}
+
+// sanitizeEvents sanitizes event entries.
+func sanitizeEvents(events []EventRecord, patterns []string) {
+	for i := range events {
+		if shouldRedact(events[i].Name, patterns) || shouldRedactValue(events[i].Payload, patterns) {
+			events[i].Payload = redactedValue
+		}
+	}
+}
+
 func sanitizeExportData(data ExportData, patterns []string) ExportData {
-	// If no patterns, return as-is
 	if len(patterns) == 0 {
 		return data
 	}
 
-	// Create lowercase patterns for case-insensitive matching
 	lowerPatterns := make([]string, len(patterns))
 	for i, p := range patterns {
 		lowerPatterns[i] = strings.ToLower(p)
 	}
 
-	// Sanitize components
 	if data.Components != nil {
-		for _, comp := range data.Components {
-			// Sanitize props
-			if comp.Props != nil {
-				for key, val := range comp.Props {
-					if shouldRedact(key, lowerPatterns) || shouldRedactValue(val, lowerPatterns) {
-						comp.Props[key] = "[REDACTED]"
-					}
-				}
-			}
-
-			// Sanitize state
-			if comp.State != nil {
-				for key, val := range comp.State {
-					if shouldRedact(key, lowerPatterns) || shouldRedactValue(val, lowerPatterns) {
-						comp.State[key] = "[REDACTED]"
-					}
-				}
-			}
-
-			// Sanitize refs
-			for _, ref := range comp.Refs {
-				if shouldRedact(ref.Name, lowerPatterns) || shouldRedactValue(ref.Value, lowerPatterns) {
-					ref.Value = "[REDACTED]"
-				}
-			}
-		}
+		sanitizeComponents(data.Components, lowerPatterns)
 	}
-
-	// Sanitize state history
 	if data.State != nil {
-		for i := range data.State {
-			if shouldRedact(data.State[i].RefName, lowerPatterns) ||
-				shouldRedactValue(data.State[i].OldValue, lowerPatterns) ||
-				shouldRedactValue(data.State[i].NewValue, lowerPatterns) {
-				data.State[i].OldValue = "[REDACTED]"
-				data.State[i].NewValue = "[REDACTED]"
-			}
-		}
+		sanitizeStateHistory(data.State, lowerPatterns)
 	}
-
-	// Sanitize events
 	if data.Events != nil {
-		for i := range data.Events {
-			if shouldRedact(data.Events[i].Name, lowerPatterns) ||
-				shouldRedactValue(data.Events[i].Payload, lowerPatterns) {
-				data.Events[i].Payload = "[REDACTED]"
-			}
-		}
+		sanitizeEvents(data.Events, lowerPatterns)
 	}
 
 	return data

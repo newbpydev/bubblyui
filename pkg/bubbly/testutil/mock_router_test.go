@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 )
 
 // TestNewMockRouter tests creating a new mock router.
@@ -596,7 +597,7 @@ func TestMockRouter_ConcurrentAccess(t *testing.T) {
 	// Concurrent pushes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			mr.Push(&router.NavigationTarget{Path: "/test"})
 		}(i)
@@ -605,7 +606,7 @@ func TestMockRouter_ConcurrentAccess(t *testing.T) {
 	// Concurrent replaces
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			mr.Replace(&router.NavigationTarget{Path: "/login"})
 		}(i)

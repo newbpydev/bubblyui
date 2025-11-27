@@ -50,6 +50,94 @@ type AccordionProps struct {
 	CommonProps
 }
 
+// accordionApplyDefaults sets default values for AccordionProps.
+func accordionApplyDefaults(props *AccordionProps) {
+	if props.Width == 0 {
+		props.Width = 50
+	}
+}
+
+// accordionContainsIndex checks if an index is in the expanded list.
+func accordionContainsIndex(indexes []int, target int) bool {
+	for _, idx := range indexes {
+		if idx == target {
+			return true
+		}
+	}
+	return false
+}
+
+// accordionToggleExpanded handles toggling an accordion item's expanded state.
+func accordionToggleExpanded(props AccordionProps, index int) {
+	if props.ExpandedIndexes == nil {
+		return
+	}
+
+	expanded := props.ExpandedIndexes.GetTyped()
+	isExpanded := accordionContainsIndex(expanded, index)
+
+	var newExpanded []int
+	if props.AllowMultiple {
+		for _, idx := range expanded {
+			if idx != index {
+				newExpanded = append(newExpanded, idx)
+			}
+		}
+	}
+
+	if !isExpanded {
+		newExpanded = append(newExpanded, index)
+	}
+
+	props.ExpandedIndexes.Set(newExpanded)
+
+	if props.OnToggle != nil {
+		props.OnToggle(index, !isExpanded)
+	}
+}
+
+// accordionRenderItem renders a single accordion item.
+func accordionRenderItem(item AccordionItem, _ int, isExpanded bool, width int, theme Theme, isLast bool) string {
+	var content strings.Builder
+
+	headerStyle := lipgloss.NewStyle().
+		Width(width-4).
+		Padding(0, 1).
+		Bold(true).
+		Foreground(theme.Primary)
+
+	indicator := "▶"
+	if isExpanded {
+		indicator = "▼"
+	}
+	content.WriteString(headerStyle.Render(indicator + " " + item.Title))
+	content.WriteString("\n")
+
+	if isExpanded {
+		contentStyle := lipgloss.NewStyle().
+			Width(width-6).
+			Padding(0, 2).
+			Foreground(theme.Foreground)
+
+		panelContent := item.Content
+		if item.Component != nil {
+			panelContent = item.Component.View()
+		}
+		content.WriteString(contentStyle.Render(panelContent))
+		content.WriteString("\n")
+	}
+
+	if !isLast {
+		separatorStyle := lipgloss.NewStyle().
+			Width(width - 4).
+			Foreground(theme.Muted)
+		content.WriteString(separatorStyle.Render(strings.Repeat("─", width-4)))
+		content.WriteString("\n")
+	}
+
+	return content.String()
+}
+
 // Accordion creates an accordion collapsible panels component.
 // The accordion displays a list of panels that can be expanded/collapsed.
 //
@@ -76,53 +164,16 @@ type AccordionProps struct {
 //	    AllowMultiple:   true,
 //	})
 func Accordion(props AccordionProps) bubbly.Component {
-	// Set defaults
-	if props.Width == 0 {
-		props.Width = 50
-	}
+	accordionApplyDefaults(&props)
 
 	component, _ := bubbly.NewComponent("Accordion").
 		Props(props).
 		Setup(func(ctx *bubbly.Context) {
-			// Inject theme
-			theme := DefaultTheme
-			if injected := ctx.Inject("theme", nil); injected != nil {
-				if t, ok := injected.(Theme); ok {
-					theme = t
-				}
-			}
+			theme := injectTheme(ctx)
 			ctx.Expose("theme", theme)
 
-			// Handle toggle event
 			ctx.On("toggle", func(data interface{}) {
-				index := data.(int)
-				if props.ExpandedIndexes != nil {
-					expanded := props.ExpandedIndexes.GetTyped()
-
-					// Check if index is in expanded list
-					isExpanded := false
-					newExpanded := []int{}
-					for _, idx := range expanded {
-						if idx == index {
-							isExpanded = true
-						} else {
-							if props.AllowMultiple {
-								newExpanded = append(newExpanded, idx)
-							}
-						}
-					}
-
-					// Toggle expansion
-					if !isExpanded {
-						newExpanded = append(newExpanded, index)
-					}
-
-					props.ExpandedIndexes.Set(newExpanded)
-
-					if props.OnToggle != nil {
-						props.OnToggle(index, !isExpanded)
-					}
-				}
+				accordionToggleExpanded(props, data.(int))
 			})
 		}).
 		Template(func(ctx bubbly.RenderContext) string {
@@ -133,79 +184,24 @@ func Accordion(props AccordionProps) bubbly.Component {
 				return ""
 			}
 
-			// Get expanded indexes
 			var expandedIndexes []int
 			if p.ExpandedIndexes != nil {
 				expandedIndexes = p.ExpandedIndexes.GetTyped()
 			}
 
-			// Helper to check if index is expanded
-			isExpanded := func(index int) bool {
-				for _, idx := range expandedIndexes {
-					if idx == index {
-						return true
-					}
-				}
-				return false
-			}
-
 			var content strings.Builder
-
-			// Render each accordion item
 			for i, item := range p.Items {
-				expanded := isExpanded(i)
-
-				// Render header
-				headerStyle := lipgloss.NewStyle().
-					Width(p.Width-4).
-					Padding(0, 1).
-					Bold(true).
-					Foreground(theme.Primary)
-
-				indicator := "▶"
-				if expanded {
-					indicator = "▼"
-				}
-
-				content.WriteString(headerStyle.Render(indicator + " " + item.Title))
-				content.WriteString("\n")
-
-				// Render content if expanded
-				if expanded {
-					contentStyle := lipgloss.NewStyle().
-						Width(p.Width-6).
-						Padding(0, 2).
-						Foreground(theme.Foreground)
-
-					var panelContent string
-					if item.Component != nil {
-						panelContent = item.Component.View()
-					} else {
-						panelContent = item.Content
-					}
-
-					content.WriteString(contentStyle.Render(panelContent))
-					content.WriteString("\n")
-				}
-
-				// Add separator between items
-				if i < len(p.Items)-1 {
-					separatorStyle := lipgloss.NewStyle().
-						Width(p.Width - 4).
-						Foreground(theme.Muted)
-					content.WriteString(separatorStyle.Render(strings.Repeat("─", p.Width-4)))
-					content.WriteString("\n")
-				}
+				isExpanded := accordionContainsIndex(expandedIndexes, i)
+				isLast := i == len(p.Items)-1
+				content.WriteString(accordionRenderItem(item, i, isExpanded, p.Width, theme, isLast))
 			}
 
-			// Create accordion container style
 			accordionStyle := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(theme.Secondary).
 				Width(p.Width).
 				Padding(1)
 
-			// Apply custom style if provided
 			if p.Style != nil {
 				accordionStyle = accordionStyle.Inherit(*p.Style)
 			}

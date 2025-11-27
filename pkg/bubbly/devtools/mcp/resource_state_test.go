@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
 // TestRegisterStateResource_Success tests successful registration of state resources.
@@ -18,7 +19,7 @@ func TestRegisterStateResource_Success(t *testing.T) {
 	dt := devtools.Enable()
 	defer devtools.Disable()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -44,7 +45,7 @@ func TestStateResource_RefsEmpty(t *testing.T) {
 	// Clear any residual state
 	dt.GetStore().Clear()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -119,7 +120,7 @@ func TestStateResource_RefsWithData(t *testing.T) {
 	store.RegisterRefOwner("comp-1", "ref-1")
 	store.RegisterRefOwner("comp-1", "ref-2")
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -181,7 +182,7 @@ func TestStateHistoryResource_Empty(t *testing.T) {
 	dt := devtools.Enable()
 	defer devtools.Disable()
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -245,7 +246,7 @@ func TestStateHistoryResource_WithChanges(t *testing.T) {
 		Source:    "increment",
 	})
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -309,7 +310,7 @@ func TestStateResource_JSONSchema(t *testing.T) {
 	store.AddComponent(snapshot)
 	store.RegisterRefOwner("comp-1", "ref-1")
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -378,7 +379,7 @@ func TestStateResource_ThreadSafe(t *testing.T) {
 	store.AddComponent(snapshot)
 	store.RegisterRefOwner("comp-1", "ref-1")
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,
@@ -440,7 +441,7 @@ func TestStateResource_LargeHistory(t *testing.T) {
 		})
 	}
 
-	config := &MCPConfig{
+	config := &Config{
 		Transport:            MCPTransportStdio,
 		WriteEnabled:         false,
 		MaxClients:           5,

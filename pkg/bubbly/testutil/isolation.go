@@ -95,7 +95,7 @@ func (ti *TestIsolation) Isolate(t *testing.T) {
 	}
 
 	// Clear global state for isolation
-	bubbly.UnregisterHook()
+	_ = bubbly.UnregisterHook()
 	observability.SetErrorReporter(nil)
 
 	// Register automatic restoration with t.Cleanup
@@ -127,7 +127,7 @@ func (ti *TestIsolation) Restore() {
 	// Restore framework hook if one was saved
 	if hook, ok := ti.savedGlobals["frameworkHook"]; ok {
 		if hook != nil {
-			bubbly.RegisterHook(hook.(bubbly.FrameworkHook))
+			_ = bubbly.RegisterHook(hook.(bubbly.FrameworkHook))
 		}
 	}
 

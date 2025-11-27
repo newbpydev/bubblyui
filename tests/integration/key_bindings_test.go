@@ -193,8 +193,7 @@ func TestKeyBindingsAutoCommands_WithWrap(t *testing.T) {
 
 	// Simulate space keypress
 	spaceMsg := tea.KeyMsg{Type: tea.KeySpace}
-	model, cmd := wrapped.Update(spaceMsg)
-	wrapped = model.(tea.Model)
+	wrapped, cmd = wrapped.Update(spaceMsg)
 
 	// Verify update happened immediately
 	assert.Equal(t, "Count: 1", wrapped.View())
@@ -204,7 +203,7 @@ func TestKeyBindingsAutoCommands_WithWrap(t *testing.T) {
 
 	// Test quit key
 	quitMsg := tea.KeyMsg{Type: tea.KeyCtrlC}
-	model, cmd = wrapped.Update(quitMsg)
+	_, cmd = wrapped.Update(quitMsg)
 
 	// Should return tea.Quit
 	assert.NotNil(t, cmd, "Expected quit command")

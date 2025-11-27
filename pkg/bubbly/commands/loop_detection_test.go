@@ -197,7 +197,7 @@ func TestLoopDetector_ResetConcurrentAccess(t *testing.T) {
 			for cycle := 0; cycle < cycles; cycle++ {
 				// Generate some commands
 				for j := 0; j < 10; j++ {
-					detector.CheckLoop(componentID, refID)
+					_ = detector.CheckLoop(componentID, refID)
 				}
 
 				// Reset

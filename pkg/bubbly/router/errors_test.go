@@ -65,18 +65,18 @@ func TestErrorCode_String(t *testing.T) {
 	}
 }
 
-// TestRouterError_Error tests error message formatting
-func TestRouterError_Error(t *testing.T) {
+// TestError_Error tests error message formatting
+func TestError_Error(t *testing.T) {
 	homeRoute := &Route{Path: "/home"}
 
 	tests := []struct {
 		name    string
-		err     *RouterError
+		err     *Error
 		wantMsg string
 	}{
 		{
 			name: "basic error with code and message",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeRouteNotFound,
 				Message: "No route matches '/invalid'",
 			},
@@ -84,7 +84,7 @@ func TestRouterError_Error(t *testing.T) {
 		},
 		{
 			name: "error with from route",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeRouteNotFound,
 				Message: "No route matches '/invalid'",
 				From:    homeRoute,
@@ -93,7 +93,7 @@ func TestRouterError_Error(t *testing.T) {
 		},
 		{
 			name: "error with to target (path)",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeRouteNotFound,
 				Message: "No route matches '/invalid'",
 				To:      &NavigationTarget{Path: "/invalid"},
@@ -102,7 +102,7 @@ func TestRouterError_Error(t *testing.T) {
 		},
 		{
 			name: "error with to target (name)",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeRouteNotFound,
 				Message: "No route matches 'invalid-route'",
 				To:      &NavigationTarget{Name: "invalid-route"},
@@ -111,7 +111,7 @@ func TestRouterError_Error(t *testing.T) {
 		},
 		{
 			name: "error with from and to",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeGuardRejected,
 				Message: "Authentication required",
 				From:    homeRoute,
@@ -121,7 +121,7 @@ func TestRouterError_Error(t *testing.T) {
 		},
 		{
 			name: "error with cause",
-			err: &RouterError{
+			err: &Error{
 				Code:    ErrCodeRouteNotFound,
 				Message: "No route matches '/invalid'",
 				From:    homeRoute,
@@ -140,16 +140,16 @@ func TestRouterError_Error(t *testing.T) {
 	}
 }
 
-// TestRouterError_Unwrap tests error unwrapping
-func TestRouterError_Unwrap(t *testing.T) {
+// TestError_Unwrap tests error unwrapping
+func TestError_Unwrap(t *testing.T) {
 	tests := []struct {
 		name      string
-		err       *RouterError
+		err       *Error
 		wantCause error
 	}{
 		{
 			name: "error with cause",
-			err: &RouterError{
+			err: &Error{
 				Code:  ErrCodeRouteNotFound,
 				Cause: ErrNoMatch,
 			},
@@ -157,7 +157,7 @@ func TestRouterError_Unwrap(t *testing.T) {
 		},
 		{
 			name: "error without cause",
-			err: &RouterError{
+			err: &Error{
 				Code: ErrCodeRouteNotFound,
 			},
 			wantCause: nil,
@@ -369,8 +369,8 @@ func TestNewCircularRedirectError(t *testing.T) {
 	}
 }
 
-// TestRouterError_ObservabilityIntegration tests error reporting to observability system
-func TestRouterError_ObservabilityIntegration(t *testing.T) {
+// TestError_ObservabilityIntegration tests error reporting to observability system
+func TestError_ObservabilityIntegration(t *testing.T) {
 	// Create a mock reporter to capture reported errors
 	mockReporter := &mockErrorReporter{
 		errors: make([]reportedError, 0),
@@ -417,8 +417,8 @@ func TestRouterError_ObservabilityIntegration(t *testing.T) {
 	assert.NotEmpty(t, reported.ctx.StackTrace)
 }
 
-// TestRouterError_StackTraceCapture tests stack trace capture
-func TestRouterError_StackTraceCapture(t *testing.T) {
+// TestError_StackTraceCapture tests stack trace capture
+func TestError_StackTraceCapture(t *testing.T) {
 	// Create error with stack trace
 	_ = NewRouteNotFoundError("/invalid", nil, ErrNoMatch)
 	stackTrace := debug.Stack()
@@ -426,14 +426,14 @@ func TestRouterError_StackTraceCapture(t *testing.T) {
 	// Verify stack trace contains relevant information
 	stackStr := string(stackTrace)
 	assert.Contains(t, stackStr, "errors_test.go")
-	assert.Contains(t, stackStr, "TestRouterError_StackTraceCapture")
+	assert.Contains(t, stackStr, "TestError_StackTraceCapture")
 }
 
-// TestRouterError_ErrorCategorization tests error categorization
-func TestRouterError_ErrorCategorization(t *testing.T) {
+// TestError_ErrorCategorization tests error categorization
+func TestError_ErrorCategorization(t *testing.T) {
 	tests := []struct {
 		name         string
-		err          *RouterError
+		err          *Error
 		wantCode     ErrorCode
 		wantCategory string
 	}{
@@ -483,11 +483,11 @@ func TestRouterError_ErrorCategorization(t *testing.T) {
 	}
 }
 
-// TestRouterError_ClearErrorMessages tests error message clarity
-func TestRouterError_ClearErrorMessages(t *testing.T) {
+// TestError_ClearErrorMessages tests error message clarity
+func TestError_ClearErrorMessages(t *testing.T) {
 	tests := []struct {
 		name            string
-		err             *RouterError
+		err             *Error
 		wantContains    []string
 		wantNotContains []string
 	}{
@@ -576,11 +576,11 @@ func (m *mockErrorReporter) Flush(timeout time.Duration) error {
 	return nil
 }
 
-// TestRouterError_ErrorRecovery tests error recovery patterns
-func TestRouterError_ErrorRecovery(t *testing.T) {
+// TestError_ErrorRecovery tests error recovery patterns
+func TestError_ErrorRecovery(t *testing.T) {
 	tests := []struct {
 		name            string
-		err             *RouterError
+		err             *Error
 		wantRecoverable bool
 		recoveryAction  string
 	}{
@@ -627,8 +627,8 @@ func TestRouterError_ErrorRecovery(t *testing.T) {
 	}
 }
 
-// TestRouterError_ConcurrentReporting tests concurrent error reporting
-func TestRouterError_ConcurrentReporting(t *testing.T) {
+// TestError_ConcurrentReporting tests concurrent error reporting
+func TestError_ConcurrentReporting(t *testing.T) {
 	mockReporter := &mockErrorReporter{
 		errors: make([]reportedError, 0),
 	}

@@ -80,7 +80,7 @@ func TestSingleMigration(t *testing.T) {
 			return data, nil
 		},
 	}
-	RegisterMigration(migration)
+	_ = RegisterMigration(migration)
 	defer clearMigrationRegistry() // Clean up after test
 
 	tests := []struct {
@@ -126,7 +126,7 @@ func TestSingleMigration(t *testing.T) {
 // TestMigrationChain tests chaining multiple migrations
 func TestMigrationChain(t *testing.T) {
 	// Register migration chain: 1.0 → 1.5 → 2.0
-	RegisterMigration(&testMigration{
+	err := RegisterMigration(&testMigration{
 		from: "1.0",
 		to:   "1.5",
 		transform: func(data map[string]interface{}) (map[string]interface{}, error) {
@@ -134,7 +134,8 @@ func TestMigrationChain(t *testing.T) {
 			return data, nil
 		},
 	})
-	RegisterMigration(&testMigration{
+	require.NoError(t, err)
+	err = RegisterMigration(&testMigration{
 		from: "1.5",
 		to:   "2.0",
 		transform: func(data map[string]interface{}) (map[string]interface{}, error) {
@@ -142,6 +143,7 @@ func TestMigrationChain(t *testing.T) {
 			return data, nil
 		},
 	})
+	require.NoError(t, err)
 	defer clearMigrationRegistry()
 
 	tests := []struct {
@@ -256,7 +258,7 @@ func TestInvalidVersionFormat(t *testing.T) {
 
 // TestDataIntegrityPreservation tests that migrations preserve data
 func TestDataIntegrityPreservation(t *testing.T) {
-	RegisterMigration(&testMigration{
+	err := RegisterMigration(&testMigration{
 		from: "1.0",
 		to:   "2.0",
 		transform: func(data map[string]interface{}) (map[string]interface{}, error) {
@@ -265,6 +267,7 @@ func TestDataIntegrityPreservation(t *testing.T) {
 			return data, nil
 		},
 	})
+	require.NoError(t, err)
 	defer clearMigrationRegistry()
 
 	input := map[string]interface{}{
@@ -348,7 +351,7 @@ func TestMigrationValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			clearMigrationRegistry()
 			for _, m := range tt.migrations {
-				RegisterMigration(m)
+				_ = RegisterMigration(m)
 			}
 
 			err := ValidateMigrationChain()
@@ -363,8 +366,11 @@ func TestMigrationValidation(t *testing.T) {
 
 // TestImportWithMigration tests Import() with version migration
 func TestImportWithMigration(t *testing.T) {
+	// Clear any existing migrations from previous tests
+	clearMigrationRegistry()
+
 	// Register migration for test
-	RegisterMigration(&testMigration{
+	err := RegisterMigration(&testMigration{
 		from: "1.0",
 		to:   "2.0",
 		transform: func(data map[string]interface{}) (map[string]interface{}, error) {
@@ -375,6 +381,7 @@ func TestImportWithMigration(t *testing.T) {
 			return data, nil
 		},
 	})
+	require.NoError(t, err)
 	defer clearMigrationRegistry()
 
 	// Create test export with old version

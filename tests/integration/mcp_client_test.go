@@ -8,16 +8,17 @@ import (
 	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
 )
 
 // testMCPSetup holds the test MCP server and client setup
 type testMCPSetup struct {
 	devtools  *devtools.DevTools
-	mcpServer *mcp.MCPServer
+	mcpServer *mcp.Server
 	client    *mcpsdk.Client
 	session   *mcpsdk.ClientSession
 	cleanup   func()
@@ -26,7 +27,7 @@ type testMCPSetup struct {
 }
 
 // createTestMCPServer creates a test MCP server with populated data
-func createTestMCPServer(t *testing.T, config *mcp.MCPConfig) (*devtools.DevTools, *mcp.MCPServer) {
+func createTestMCPServer(t *testing.T, config *mcp.Config) (*devtools.DevTools, *mcp.Server) {
 	t.Helper()
 
 	// Ensure clean state - disable any existing DevTools instance
@@ -44,8 +45,8 @@ func createTestMCPServer(t *testing.T, config *mcp.MCPConfig) (*devtools.DevTool
 	mcpServerIface := dt.GetMCPServer()
 	require.NotNil(t, mcpServerIface, "MCP server should not be nil")
 
-	mcpServer, ok := mcpServerIface.(*mcp.MCPServer)
-	require.True(t, ok, "MCP server should be *mcp.MCPServer type")
+	mcpServer, ok := mcpServerIface.(*mcp.Server)
+	require.True(t, ok, "MCP server should be *mcp.Server type")
 
 	// Populate test data
 	populateTestData(t, dt)
@@ -133,7 +134,7 @@ func populateTestData(t *testing.T, dt *devtools.DevTools) {
 }
 
 // setupMCPClientServer creates a complete MCP client-server setup with in-memory transport
-func setupMCPClientServer(t *testing.T, config *mcp.MCPConfig) *testMCPSetup {
+func setupMCPClientServer(t *testing.T, config *mcp.Config) *testMCPSetup {
 	t.Helper()
 
 	// Create context with timeout
@@ -146,16 +147,16 @@ func setupMCPClientServer(t *testing.T, config *mcp.MCPConfig) *testMCPSetup {
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
 	// Register all resources and tools before connecting
-	mcpServer.RegisterComponentsResource()
-	mcpServer.RegisterComponentResource()
-	mcpServer.RegisterStateResource()
-	mcpServer.RegisterEventsResource()
-	mcpServer.RegisterPerformanceResource()
-	mcpServer.RegisterExportTool()
-	mcpServer.RegisterClearStateHistoryTool()
-	mcpServer.RegisterClearEventLogTool()
-	mcpServer.RegisterSearchComponentsTool()
-	mcpServer.RegisterFilterEventsTool()
+	_ = mcpServer.RegisterComponentsResource()
+	_ = mcpServer.RegisterComponentResource()
+	_ = mcpServer.RegisterStateResource()
+	_ = mcpServer.RegisterEventsResource()
+	_ = mcpServer.RegisterPerformanceResource()
+	_ = mcpServer.RegisterExportTool()
+	_ = mcpServer.RegisterClearStateHistoryTool()
+	_ = mcpServer.RegisterClearEventLogTool()
+	_ = mcpServer.RegisterSearchComponentsTool()
+	_ = mcpServer.RegisterFilterEventsTool()
 	if config.WriteEnabled {
 		err := mcpServer.RegisterSetRefValueTool()
 		if err != nil {
@@ -675,17 +676,20 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Create error channel for server connections
+	serverErrCh := make(chan error, 1)
+
 	// Register all resources (done once for the shared server)
-	mcpServer.RegisterComponentsResource()
-	mcpServer.RegisterComponentResource()
-	mcpServer.RegisterStateResource()
-	mcpServer.RegisterEventsResource()
-	mcpServer.RegisterPerformanceResource()
-	mcpServer.RegisterExportTool()
-	mcpServer.RegisterClearStateHistoryTool()
-	mcpServer.RegisterClearEventLogTool()
-	mcpServer.RegisterSearchComponentsTool()
-	mcpServer.RegisterFilterEventsTool()
+	_ = mcpServer.RegisterComponentsResource()
+	_ = mcpServer.RegisterComponentResource()
+	_ = mcpServer.RegisterStateResource()
+	_ = mcpServer.RegisterEventsResource()
+	_ = mcpServer.RegisterPerformanceResource()
+	_ = mcpServer.RegisterExportTool()
+	_ = mcpServer.RegisterClearStateHistoryTool()
+	_ = mcpServer.RegisterClearEventLogTool()
+	_ = mcpServer.RegisterSearchComponentsTool()
+	_ = mcpServer.RegisterFilterEventsTool()
 
 	// Create multiple clients
 	numClients := 3
@@ -696,7 +700,10 @@ func TestMCPClientServer_MultipleClients(t *testing.T) {
 
 		// Each client needs its own server connection
 		go func() {
-			mcpServer.GetSDKServer().Connect(ctx, servTransport, nil)
+			_, err := mcpServer.GetSDKServer().Connect(ctx, servTransport, nil)
+			if err != nil {
+				serverErrCh <- err
+			}
 		}()
 
 		client := mcpsdk.NewClient(&mcpsdk.Implementation{

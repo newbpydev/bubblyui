@@ -585,3 +585,84 @@ func TestCommandTimeline_Render_ConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 }
+
+// TestCommandTimeline_Append tests the Append method which is an alias for RecordCommand
+func TestCommandTimeline_Append(t *testing.T) {
+	tests := []struct {
+		name          string
+		maxSize       int
+		appendCount   int
+		expectedCount int
+	}{
+		{
+			name:          "single append",
+			maxSize:       10,
+			appendCount:   1,
+			expectedCount: 1,
+		},
+		{
+			name:          "multiple appends",
+			maxSize:       10,
+			appendCount:   5,
+			expectedCount: 5,
+		},
+		{
+			name:          "append respects max size",
+			maxSize:       5,
+			appendCount:   10,
+			expectedCount: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			timeline := NewCommandTimeline(tt.maxSize)
+
+			for i := 0; i < tt.appendCount; i++ {
+				record := CommandRecord{
+					ID:        fmt.Sprintf("append-%d", i),
+					Type:      "TestCommand",
+					Source:    "test",
+					Generated: time.Now(),
+					Executed:  time.Now(),
+					Duration:  time.Millisecond,
+				}
+				timeline.Append(record)
+			}
+
+			assert.Equal(t, tt.expectedCount, timeline.GetCommandCount())
+		})
+	}
+}
+
+// TestCommandTimeline_Append_IsAliasForRecordCommand tests that Append behaves identically to RecordCommand
+func TestCommandTimeline_Append_IsAliasForRecordCommand(t *testing.T) {
+	timeline1 := NewCommandTimeline(10)
+	timeline2 := NewCommandTimeline(10)
+
+	record := CommandRecord{
+		ID:        "test-cmd",
+		Type:      "TestCommand",
+		Source:    "test",
+		Generated: time.Now(),
+		Executed:  time.Now(),
+		Duration:  time.Millisecond,
+	}
+
+	// Use RecordCommand on timeline1
+	timeline1.RecordCommand(record)
+
+	// Use Append on timeline2
+	timeline2.Append(record)
+
+	// Both should have same count
+	assert.Equal(t, timeline1.GetCommandCount(), timeline2.GetCommandCount())
+
+	// Both should have the same command
+	cmds1 := timeline1.GetCommands()
+	cmds2 := timeline2.GetCommands()
+
+	assert.Equal(t, len(cmds1), len(cmds2))
+	assert.Equal(t, cmds1[0].ID, cmds2[0].ID)
+	assert.Equal(t, cmds1[0].Type, cmds2[0].Type)
+}

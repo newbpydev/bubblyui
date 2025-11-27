@@ -879,3 +879,106 @@ func TestDetectCompression_OneByteFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, isCompressed, "Single byte file should not be detected as compressed")
 }
+
+// TestRestorePerformanceData tests restorePerformanceData function
+func TestRestorePerformanceData(t *testing.T) {
+	resetSingleton()
+	dt := Enable()
+
+	// Create performance data with multiple components
+	perf := NewPerformanceData()
+	perf.RecordRender("comp-1", "Counter", 10*time.Millisecond)
+	perf.RecordRender("comp-1", "Counter", 20*time.Millisecond)
+	perf.RecordRender("comp-2", "Form", 15*time.Millisecond)
+
+	// Restore performance data
+	dt.restorePerformanceData(perf)
+
+	// Verify performance data was restored
+	restoredPerf := dt.store.performance.GetComponent("comp-1")
+	assert.NotNil(t, restoredPerf)
+	assert.Equal(t, int64(2), restoredPerf.RenderCount)
+
+	restoredPerf2 := dt.store.performance.GetComponent("comp-2")
+	assert.NotNil(t, restoredPerf2)
+	assert.Equal(t, int64(1), restoredPerf2.RenderCount)
+}
+
+// TestRestorePerformanceData_EmptyPerformance tests with empty performance data
+func TestRestorePerformanceData_EmptyPerformance(t *testing.T) {
+	resetSingleton()
+	dt := Enable()
+
+	// Create empty performance data
+	perf := NewPerformanceData()
+
+	// Should not panic
+	assert.NotPanics(t, func() {
+		dt.restorePerformanceData(perf)
+	})
+}
+
+// TestRestoreExportData_WithPerformance tests restoreExportData with performance data
+func TestRestoreExportData_WithPerformance(t *testing.T) {
+	resetSingleton()
+	dt := Enable()
+
+	// Create performance data
+	perf := NewPerformanceData()
+	perf.RecordRender("comp-1", "Counter", 10*time.Millisecond)
+
+	// Create export data
+	exportData := &ExportData{
+		Version:   "1.0",
+		Timestamp: time.Now(),
+		Components: []*ComponentSnapshot{
+			{
+				ID:   "comp-1",
+				Name: "Counter",
+			},
+		},
+		State: []StateChange{
+			{
+				RefID:     "ref-1",
+				OldValue:  0,
+				NewValue:  1,
+				Timestamp: time.Now(),
+			},
+		},
+		Events: []EventRecord{
+			{
+				ID:        "evt-1",
+				Name:      "click",
+				Timestamp: time.Now(),
+			},
+		},
+		Performance: perf,
+	}
+
+	// Restore export data
+	dt.restoreExportData(exportData)
+
+	// Verify all data was restored
+	assert.NotNil(t, dt.store.GetComponent("comp-1"))
+	assert.Equal(t, 1, len(dt.store.stateHistory.GetAll()))
+	assert.Equal(t, 1, dt.store.events.Len())
+	assert.NotNil(t, dt.store.performance.GetComponent("comp-1"))
+}
+
+// TestRestoreExportData_NilPerformance tests restoreExportData without performance data
+func TestRestoreExportData_NilPerformance(t *testing.T) {
+	resetSingleton()
+	dt := Enable()
+
+	// Create export data without performance
+	exportData := &ExportData{
+		Version:     "1.0",
+		Timestamp:   time.Now(),
+		Performance: nil,
+	}
+
+	// Should not panic
+	assert.NotPanics(t, func() {
+		dt.restoreExportData(exportData)
+	})
+}

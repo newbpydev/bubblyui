@@ -190,8 +190,9 @@ func TestConditionalBindingsModes(t *testing.T) {
 	// Test 1: Space in navigation mode (toggle)
 	assert.Equal(t, "Mode: NAVIGATION | Text: ''", component.View())
 
+	var cmd tea.Cmd
 	spaceMsg := tea.KeyMsg{Type: tea.KeySpace}
-	model, cmd := component.Update(spaceMsg)
+	model, _ := component.Update(spaceMsg)
 	component = model.(bubbly.Component)
 
 	time.Sleep(10 * time.Millisecond)
@@ -315,13 +316,12 @@ func TestNestedComponentsIndependentBindings(t *testing.T) {
 	// Test 2: Child key (parent doesn't have binding)
 	childMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}
 	model, _ = parent.Update(childMsg)
-	parent = model.(bubbly.Component)
+	_ = model.(bubbly.Component)
 
 	time.Sleep(10 * time.Millisecond)
 
 	mu.Lock()
 	ph = parentKeyHandled
-	ch = childKeyHandled
 	mu.Unlock()
 
 	assert.False(t, ph, "Parent should not handle child's key")
@@ -400,7 +400,7 @@ func TestMessageHandlerWithWindowSize(t *testing.T) {
 	// Simulate window resize
 	resizeMsg := tea.WindowSizeMsg{Width: 120, Height: 40}
 	model, _ := component.Update(resizeMsg)
-	component = model.(bubbly.Component)
+	_ = model.(bubbly.Component)
 
 	time.Sleep(10 * time.Millisecond)
 

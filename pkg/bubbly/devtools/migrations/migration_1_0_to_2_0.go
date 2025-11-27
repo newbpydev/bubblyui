@@ -1,6 +1,6 @@
 package migrations
 
-// Migration_1_0_to_2_0 migrates export data from version 1.0 to 2.0.
+// Migration1_0To2_0 migrates export data from version 1.0 to 2.0.
 //
 // This is an example migration that demonstrates the migration pattern.
 // In a real scenario, this would transform data structures, add new fields,
@@ -16,20 +16,20 @@ package migrations
 //
 // Example:
 //
-//	migration := &Migration_1_0_to_2_0{}
+//	migration := &Migration1_0To2_0{}
 //	migrated, err := migration.Migrate(oldData)
 //	if err != nil {
 //	    log.Printf("Migration failed: %v", err)
 //	}
-type Migration_1_0_to_2_0 struct{}
+type Migration1_0To2_0 struct{}
 
 // From returns the source version this migration applies to.
-func (m *Migration_1_0_to_2_0) From() string {
+func (m *Migration1_0To2_0) From() string {
 	return "1.0"
 }
 
 // To returns the target version this migration produces.
-func (m *Migration_1_0_to_2_0) To() string {
+func (m *Migration1_0To2_0) To() string {
 	return "2.0"
 }
 
@@ -44,7 +44,7 @@ func (m *Migration_1_0_to_2_0) To() string {
 // Returns:
 //   - map[string]interface{}: The migrated data in version 2.0 format
 //   - error: nil on success, error if migration fails
-func (m *Migration_1_0_to_2_0) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
+func (m *Migration1_0To2_0) Migrate(data map[string]interface{}) (map[string]interface{}, error) {
 	// Create a copy to avoid modifying the input
 	result := make(map[string]interface{})
 	for k, v := range data {
@@ -55,7 +55,7 @@ func (m *Migration_1_0_to_2_0) Migrate(data map[string]interface{}) (map[string]
 	result["metadata"] = map[string]interface{}{
 		"migrated_from": "1.0",
 		"migrated_to":   "2.0",
-		"migration":     "Migration_1_0_to_2_0",
+		"migration":     "Migration1_0To2_0",
 	}
 
 	// Update version field to 2.0

@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
 // SetRefValueParams defines the parameters for the set_ref_value tool.
 //
 // This structure is used by AI agents to modify ref values for testing purposes.
-// This is a WRITE operation and requires WriteEnabled=true in MCPConfig.
+// This is a WRITE operation and requires WriteEnabled=true in Config.
 //
 // Example:
 //
@@ -77,7 +78,7 @@ type SetRefResult struct {
 // RegisterSetRefValueTool registers the set_ref_value tool with the MCP server.
 //
 // This tool allows AI agents to modify ref values for testing purposes.
-// It is a WRITE operation and only registers if WriteEnabled=true in MCPConfig.
+// It is a WRITE operation and only registers if WriteEnabled=true in Config.
 //
 // The tool performs type checking to prevent invalid value assignments and
 // supports dry-run mode for validation without side effects.
@@ -96,19 +97,19 @@ type SetRefResult struct {
 //
 // Returns:
 //   - error: nil on success, error if WriteEnabled=false or registration fails
-func (s *MCPServer) RegisterSetRefValueTool() error {
+func (s *Server) RegisterSetRefValueTool() error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSetRefValueTool",
 					PanicValue:    r,
 				}
 
 				ctx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "RegisterSetRefValueTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -124,7 +125,7 @@ func (s *MCPServer) RegisterSetRefValueTool() error {
 
 	// Only register if write operations are enabled
 	if !s.config.WriteEnabled {
-		return fmt.Errorf("set_ref_value tool requires WriteEnabled=true in MCPConfig")
+		return fmt.Errorf("set_ref_value tool requires WriteEnabled=true in Config")
 	}
 
 	// Define tool metadata
@@ -164,20 +165,20 @@ func (s *MCPServer) RegisterSetRefValueTool() error {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) handleSetRefValueTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) handleSetRefValueTool(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSetRefValueTool",
 					PanicValue:    r,
 				}
 
 				errorCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "handleSetRefValueTool",
 					Timestamp:     time.Now(),
 					StackTrace:    debug.Stack(),
@@ -317,7 +318,7 @@ func parseSetRefValueParams(args map[string]interface{}) (*SetRefValueParams, er
 }
 
 // getRefValueAndOwner retrieves the current value and owner of a ref.
-func (s *MCPServer) getRefValueAndOwner(refID string) (ownerID string, value interface{}, err error) {
+func (s *Server) getRefValueAndOwner(refID string) (ownerID string, value interface{}, err error) {
 	// Get all components to find the ref
 	allComponents := s.store.GetAllComponents()
 
@@ -364,11 +365,11 @@ func checkTypeCompatibility(oldValue, newValue interface{}) bool {
 }
 
 // logRefModification logs a ref modification for audit trail.
-func (s *MCPServer) logRefModification(refID string, oldValue, newValue interface{}, ownerID string) {
+func (s *Server) logRefModification(refID string, oldValue, newValue interface{}, ownerID string) {
 	// Report to observability system for audit trail
 	if reporter := observability.GetErrorReporter(); reporter != nil {
 		ctx := &observability.ErrorContext{
-			ComponentName: "MCPServer",
+			ComponentName: "Server",
 			EventName:     "RefModification",
 			Timestamp:     time.Now(),
 			Tags: map[string]string{

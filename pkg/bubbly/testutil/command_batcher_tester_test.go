@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/newbpydev/bubblyui/pkg/bubbly/commands"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/commands"
 )
 
 // TestNewBatcherTester verifies constructor creates valid instance

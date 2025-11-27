@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
 )
 
@@ -72,7 +73,7 @@ type PerformanceSummary struct {
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Resource reads use DevToolsStore's thread-safe methods.
+//	Safe to call concurrently. Resource reads use Store's thread-safe methods.
 //
 // Example Response (bubblyui://performance/metrics):
 //
@@ -105,7 +106,7 @@ type PerformanceSummary struct {
 //
 // Returns:
 //   - error: nil on success, error describing the failure otherwise
-func (s *MCPServer) RegisterPerformanceResource() error {
+func (s *Server) RegisterPerformanceResource() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -127,13 +128,13 @@ func (s *MCPServer) RegisterPerformanceResource() error {
 
 // readPerformanceMetricsResource handles reading the performance metrics resource.
 //
-// This handler retrieves all performance metrics from the DevToolsStore,
+// This handler retrieves all performance metrics from the Store,
 // calculates summary statistics, and returns them as a structured JSON response.
 //
 // Thread Safety:
 //
-//	Safe to call concurrently. Uses DevToolsStore's thread-safe methods.
-func (s *MCPServer) readPerformanceMetricsResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+//	Safe to call concurrently. Uses Store's thread-safe methods.
+func (s *Server) readPerformanceMetricsResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	// Get all performance data from store
 	components := s.store.GetPerformanceData().GetAll()
 
@@ -182,7 +183,7 @@ func (s *MCPServer) readPerformanceMetricsResource(ctx context.Context, req *mcp
 //
 // Returns:
 //   - *PerformanceSummary: Aggregated statistics
-func (s *MCPServer) calculatePerformanceSummary(components map[string]*devtools.ComponentPerformance) *PerformanceSummary {
+func (s *Server) calculatePerformanceSummary(components map[string]*devtools.ComponentPerformance) *PerformanceSummary {
 	summary := &PerformanceSummary{
 		TotalComponents: len(components),
 	}

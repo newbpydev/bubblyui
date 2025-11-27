@@ -12,6 +12,19 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+// Format names and file extensions as constants.
+const (
+	formatNameJSON    = "json"
+	formatNameYAML    = "yaml"
+	formatNameMsgpack = "msgpack"
+
+	extJSON    = ".json"
+	extYAML    = ".yaml"
+	extYML     = ".yml"
+	extMsgpack = ".msgpack"
+	extMP      = ".mp"
+)
+
 // ExportFormat defines the interface for different export formats.
 //
 // Implementations must provide marshaling and unmarshaling capabilities
@@ -243,12 +256,12 @@ func DetectFormat(filename string) (string, error) {
 
 	// Detect by extension
 	switch strings.ToLower(ext) {
-	case ".json":
-		return "json", nil
-	case ".yaml", ".yml":
-		return "yaml", nil
-	case ".msgpack", ".mp":
-		return "msgpack", nil
+	case extJSON:
+		return formatNameJSON, nil
+	case extYAML, extYML:
+		return formatNameYAML, nil
+	case extMsgpack, extMP:
+		return formatNameMsgpack, nil
 	default:
 		return "", fmt.Errorf("unknown format for extension: %s", ext)
 	}
@@ -266,12 +279,12 @@ type JSONFormat struct{}
 
 // Name returns "json".
 func (f *JSONFormat) Name() string {
-	return "json"
+	return formatNameJSON
 }
 
 // Extension returns ".json".
 func (f *JSONFormat) Extension() string {
-	return ".json"
+	return extJSON
 }
 
 // ContentType returns "application/json".
@@ -315,12 +328,12 @@ type YAMLFormat struct{}
 
 // Name returns "yaml".
 func (f *YAMLFormat) Name() string {
-	return "yaml"
+	return formatNameYAML
 }
 
 // Extension returns ".yaml".
 func (f *YAMLFormat) Extension() string {
-	return ".yaml"
+	return extYAML
 }
 
 // ContentType returns "application/x-yaml".
@@ -364,12 +377,12 @@ type MessagePackFormat struct{}
 
 // Name returns "msgpack".
 func (f *MessagePackFormat) Name() string {
-	return "msgpack"
+	return formatNameMsgpack
 }
 
 // Extension returns ".msgpack".
 func (f *MessagePackFormat) Extension() string {
-	return ".msgpack"
+	return extMsgpack
 }
 
 // ContentType returns "application/msgpack".

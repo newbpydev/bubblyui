@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestNewMockCommandGenerator tests mock creation with configured command
@@ -229,7 +230,7 @@ func TestMockCommandGenerator_ThreadSafe(t *testing.T) {
 	wg.Add(goroutines)
 
 	for i := 0; i < goroutines; i++ {
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < callsPerGoroutine; j++ {
 				mock.Generate("comp", "ref", j, j+1)

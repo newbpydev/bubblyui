@@ -613,6 +613,83 @@ func (ctx *Context) Inject(key string, defaultValue interface{}) interface{} {
 	return ctx.component.inject(key, defaultValue)
 }
 
+// UseTheme retrieves the theme from parent via injection or returns the default.
+// This eliminates the boilerplate of manual inject+expose for theme colors.
+//
+// The method checks if a parent component has provided a theme via ProvideTheme().
+// If found, it returns the injected theme. If not found or if the type assertion
+// fails (wrong type provided), it returns the defaultTheme parameter.
+//
+// This is type-safe - if a parent provides a non-Theme value under the "theme" key,
+// the type assertion will fail gracefully and the default will be used.
+//
+// Usage in child component:
+//
+//	Setup(func(ctx *Context) {
+//	    // Get theme from parent or use default
+//	    theme := ctx.UseTheme(bubbly.DefaultTheme)
+//
+//	    // Use theme colors in styles
+//	    titleStyle := lipgloss.NewStyle().Foreground(theme.Primary)
+//	    errorStyle := lipgloss.NewStyle().Foreground(theme.Error)
+//
+//	    // Expose for template if needed
+//	    ctx.Expose("theme", theme)
+//	})
+//
+// Example with custom default:
+//
+//	customDefault := bubbly.Theme{
+//	    Primary:    lipgloss.Color("99"),
+//	    Secondary:  lipgloss.Color("120"),
+//	    // ... other colors
+//	}
+//	theme := ctx.UseTheme(customDefault)
+//
+// This method is thread-safe and can be called concurrently.
+func (ctx *Context) UseTheme(defaultTheme Theme) Theme {
+	if injected := ctx.Inject("theme", nil); injected != nil {
+		if theme, ok := injected.(Theme); ok {
+			return theme
+		}
+	}
+	return defaultTheme
+}
+
+// ProvideTheme provides a theme to all descendant components.
+// This is a convenience method that wraps ctx.Provide("theme", theme) to eliminate
+// boilerplate when sharing theme colors across the component hierarchy.
+//
+// Parent components should call this in their Setup function to make the theme
+// available to all descendants. Child components can then retrieve the theme using
+// ctx.UseTheme(defaultTheme).
+//
+// The theme is propagated down the component tree via the standard Provide/Inject
+// mechanism. Children can override the theme for their subtree by calling ProvideTheme
+// with a different theme, which will take precedence for their descendants.
+//
+// Usage in parent component:
+//
+//	Setup(func(ctx *Context) {
+//	    // Provide custom theme to all descendants
+//	    customTheme := bubbly.DefaultTheme
+//	    customTheme.Primary = lipgloss.Color("99")  // Override primary color
+//	    ctx.ProvideTheme(customTheme)
+//	})
+//
+// Usage in child component:
+//
+//	Setup(func(ctx *Context) {
+//	    // Retrieve theme from parent
+//	    theme := ctx.UseTheme(bubbly.DefaultTheme)
+//	    titleStyle := lipgloss.NewStyle().Foreground(theme.Primary)
+//	})
+//
+// This method is thread-safe and can be called concurrently.
+func (ctx *Context) ProvideTheme(theme Theme) {
+	ctx.Provide("theme", theme)
+}
+
 // EnableAutoCommands enables automatic command generation for reactive state changes.
 // When enabled, calling Ref.Set() automatically generates Bubbletea commands that
 // trigger UI updates without manual event emission.

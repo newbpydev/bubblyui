@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/newbpydev/bubblyui/cmd/examples/09-devtools/02-component-inspection/components"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )

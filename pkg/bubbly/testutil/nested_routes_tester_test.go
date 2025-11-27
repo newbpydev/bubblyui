@@ -3,8 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 )
 
 // TestNewNestedRoutesTester tests the constructor
@@ -83,7 +84,7 @@ func TestAssertActiveRoutes_NestedRoutes(t *testing.T) {
 	// Create nested route structure using Child() API
 	childStats := router.Child("/stats", router.WithName("dashboard-stats"))
 
-	// Create router with nested routes using RouterBuilder
+	// Create router with nested routes using Builder
 	rb := router.NewRouterBuilder()
 	rb.RouteWithOptions("/dashboard",
 		router.WithName("dashboard"),

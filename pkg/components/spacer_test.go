@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -172,5 +173,45 @@ func TestSpacer_ZeroDimensions(t *testing.T) {
 	view := spacer.View()
 
 	// Should render even with zero dimensions
+	assert.NotNil(t, view)
+}
+
+// ============================================================================
+// SPACER WITH CUSTOM STYLE TESTS - Additional Coverage
+// ============================================================================
+
+func TestSpacer_WithCustomStyle(t *testing.T) {
+	customStyle := lipgloss.NewStyle().Background(lipgloss.Color("99"))
+
+	spacer := Spacer(SpacerProps{
+		Width:  10,
+		Height: 2,
+		CommonProps: CommonProps{
+			Style: &customStyle,
+		},
+	})
+	require.NotNil(t, spacer)
+
+	spacer.Init()
+	view := spacer.View()
+
+	assert.NotNil(t, view)
+}
+
+func TestSpacer_WidthOnlyWithStyle(t *testing.T) {
+	customStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("50"))
+
+	spacer := Spacer(SpacerProps{
+		Width: 15,
+		// No height
+		CommonProps: CommonProps{
+			Style: &customStyle,
+		},
+	})
+	require.NotNil(t, spacer)
+
+	spacer.Init()
+	view := spacer.View()
+
 	assert.NotNil(t, view)
 }

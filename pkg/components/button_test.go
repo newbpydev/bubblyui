@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -349,4 +350,77 @@ func TestButton_EmptyLabel(t *testing.T) {
 
 	// Should render even with empty label
 	assert.NotEmpty(t, view)
+}
+
+// ============================================================================
+// BUTTON NO BORDER TESTS - Additional Coverage
+// ============================================================================
+
+func TestButton_NoBorder_Enabled(t *testing.T) {
+	button := Button(ButtonProps{
+		Label:    "No Border Button",
+		Variant:  ButtonPrimary,
+		NoBorder: true,
+	})
+	require.NotNil(t, button)
+
+	button.Init()
+	view := button.View()
+
+	assert.NotEmpty(t, view)
+	assert.Contains(t, view, "No Border Button")
+}
+
+func TestButton_NoBorder_Disabled(t *testing.T) {
+	button := Button(ButtonProps{
+		Label:    "Disabled No Border",
+		Variant:  ButtonSecondary,
+		Disabled: true,
+		NoBorder: true,
+	})
+	require.NotNil(t, button)
+
+	button.Init()
+	view := button.View()
+
+	assert.NotEmpty(t, view)
+	assert.Contains(t, view, "Disabled No Border")
+}
+
+func TestButton_WithCustomStyle(t *testing.T) {
+	customStyle := lipgloss.NewStyle().Italic(true)
+
+	button := Button(ButtonProps{
+		Label:   "Styled Button",
+		Variant: ButtonSuccess,
+		CommonProps: CommonProps{
+			Style: &customStyle,
+		},
+	})
+	require.NotNil(t, button)
+
+	button.Init()
+	view := button.View()
+
+	assert.NotEmpty(t, view)
+	assert.Contains(t, view, "Styled Button")
+}
+
+func TestButton_NoBorder_WithClick(t *testing.T) {
+	clicked := false
+
+	button := Button(ButtonProps{
+		Label:    "Click Me",
+		Variant:  ButtonDanger,
+		NoBorder: true,
+		OnClick: func() {
+			clicked = true
+		},
+	})
+	require.NotNil(t, button)
+
+	button.Init()
+	button.Emit("click", nil)
+
+	assert.True(t, clicked, "Click handler should be called")
 }

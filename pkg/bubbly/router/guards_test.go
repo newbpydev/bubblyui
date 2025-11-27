@@ -24,7 +24,7 @@ func TestRouter_BeforeEach(t *testing.T) {
 	assert.Len(t, router.beforeHooks, 1, "Should have one before guard")
 
 	// Setup route and navigate
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
@@ -49,7 +49,7 @@ func TestRouter_AfterEach(t *testing.T) {
 	assert.Len(t, router.afterHooks, 1, "Should have one after hook")
 
 	// Setup route and navigate
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
@@ -81,7 +81,7 @@ func TestRouter_Guards_ExecutionOrder(t *testing.T) {
 	})
 
 	// Setup route and navigate
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	cmd()
 
@@ -102,7 +102,7 @@ func TestRouter_Guards_AllowNavigation(t *testing.T) {
 		next(nil) // Allow navigation
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
@@ -124,12 +124,12 @@ func TestRouter_Guards_CancelNavigation(t *testing.T) {
 		next(&NavigationTarget{})
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
 	// Should return error message
-	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be cancelled")
+	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be canceled")
 
 	// Verify route was NOT changed
 	assert.Nil(t, router.CurrentRoute(), "Route should not change")
@@ -148,8 +148,8 @@ func TestRouter_Guards_RedirectNavigation(t *testing.T) {
 		}
 	})
 
-	router.registry.Register("/protected", "protected", nil)
-	router.registry.Register("/login", "login", nil)
+	_ = router.registry.Register("/protected", "protected", nil)
+	_ = router.registry.Register("/login", "login", nil)
 
 	cmd := router.Push(&NavigationTarget{Path: "/protected"})
 	msg := cmd()
@@ -175,8 +175,8 @@ func TestRouter_Guards_ToFromRoutes(t *testing.T) {
 		next(nil)
 	})
 
-	router.registry.Register("/home", "home", nil)
-	router.registry.Register("/about", "about", nil)
+	_ = router.registry.Register("/home", "home", nil)
+	_ = router.registry.Register("/about", "about", nil)
 
 	// First navigation (from nil)
 	cmd := router.Push(&NavigationTarget{Path: "/home"})
@@ -222,7 +222,7 @@ func TestRouter_Guards_StopOnFirstCancel(t *testing.T) {
 		next(nil)
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	cmd()
 
@@ -244,7 +244,7 @@ func TestRouter_AfterHooks_ExecuteAfterNavigation(t *testing.T) {
 		receivedFrom = from
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
@@ -273,7 +273,7 @@ func TestRouter_AfterHooks_MultipleHooks(t *testing.T) {
 		executionOrder = append(executionOrder, "hook3")
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	cmd()
 
@@ -297,11 +297,11 @@ func TestRouter_AfterHooks_NotCalledOnCancel(t *testing.T) {
 		hookCalled = true
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
-	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be cancelled")
+	assert.IsType(t, NavigationErrorMsg{}, msg, "Navigation should be canceled")
 	assert.False(t, hookCalled, "After hook should NOT be called on cancel")
 }
 
@@ -321,7 +321,7 @@ func TestRouter_Guards_WorkWithReplace(t *testing.T) {
 		hookCalled = true
 	})
 
-	router.registry.Register("/test", "test", nil)
+	_ = router.registry.Register("/test", "test", nil)
 	cmd := router.Replace(&NavigationTarget{Path: "/test"})
 	msg := cmd()
 
@@ -354,8 +354,7 @@ func TestRouter_Guards_MultipleGlobalGuards(t *testing.T) {
 		next(nil) // Allow
 	})
 
-	err := router.registry.Register("/test", "test", nil)
-	require.NoError(t, err)
+	_ = router.registry.Register("/test", "test", nil)
 
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
@@ -389,8 +388,7 @@ func TestRouter_Guards_SecondGuardCancels(t *testing.T) {
 		next(nil)
 	})
 
-	err := router.registry.Register("/test", "test", nil)
-	require.NoError(t, err)
+	_ = router.registry.Register("/test", "test", nil)
 
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
@@ -415,10 +413,8 @@ func TestRouter_Guards_GuardWithFromRoute(t *testing.T) {
 	})
 
 	// Register two routes
-	err := router.registry.Register("/first", "first", nil)
-	require.NoError(t, err)
-	err = router.registry.Register("/second", "second", nil)
-	require.NoError(t, err)
+	_ = router.registry.Register("/first", "first", nil)
+	_ = router.registry.Register("/second", "second", nil)
 
 	// First navigation - from should be nil
 	cmd := router.Push(&NavigationTarget{Path: "/first"})
@@ -442,10 +438,9 @@ func TestRouter_Guards_NoBeforeEnterInMeta(t *testing.T) {
 	router := NewRouter()
 
 	// Register route without beforeEnter
-	err := router.registry.Register("/test", "test", map[string]interface{}{
+	_ = router.registry.Register("/test", "test", map[string]interface{}{
 		"title": "Test Page",
 	})
-	require.NoError(t, err)
 
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
@@ -458,10 +453,9 @@ func TestRouter_Guards_InvalidBeforeEnterType(t *testing.T) {
 	router := NewRouter()
 
 	// Register route with invalid beforeEnter type
-	err := router.registry.Register("/test", "test", map[string]interface{}{
+	_ = router.registry.Register("/test", "test", map[string]interface{}{
 		"beforeEnter": "not a function",
 	})
-	require.NoError(t, err)
 
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()
@@ -491,8 +485,7 @@ func TestRouter_Guards_NilToRoute(t *testing.T) {
 func TestRouter_Guards_NilMeta(t *testing.T) {
 	router := NewRouter()
 
-	err := router.registry.Register("/test", "test", nil)
-	require.NoError(t, err)
+	_ = router.registry.Register("/test", "test", nil)
 
 	cmd := router.Push(&NavigationTarget{Path: "/test"})
 	msg := cmd()

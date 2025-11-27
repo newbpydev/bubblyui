@@ -246,11 +246,9 @@ func TestTestSetup_Run_TeardownExecutesOnPanic(t *testing.T) {
 	// Use a subtest to contain the panic
 	t.Run("subtest", func(t *testing.T) {
 		defer func() {
-			// Recover from panic
-			if r := recover(); r != nil {
-				// Expected panic - teardown will execute via t.Cleanup
-				// We verify teardownExecuted after the subtest completes
-			}
+			// Recover from panic - expected in this test
+			// teardown will execute via t.Cleanup
+			_ = recover()
 		}()
 
 		setup.Run(t, func(t *testing.T) {

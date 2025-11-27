@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly/router"
 )
 
 // TestNewHistoryTester tests the constructor.

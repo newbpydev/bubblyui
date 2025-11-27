@@ -167,7 +167,7 @@ func TestRun_ContextCancellation(t *testing.T) {
 		bubbly.WithContext(ctx),
 	)
 
-	// Should get context cancelled error
+	// Should get context canceled error
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }
@@ -272,9 +272,8 @@ func TestRun_Coexistence_WithWrap(t *testing.T) {
 	wrapped := bubbly.Wrap(component)
 	require.NotNil(t, wrapped)
 
-	// Verify it's a tea.Model
-	_, ok := wrapped.(tea.Model)
-	assert.True(t, ok, "Wrap() should return tea.Model")
+	// wrapped is already tea.Model type from Wrap()
+	assert.NotNil(t, wrapped, "Wrap() should return tea.Model")
 
 	// Test Init (may return nil if no lifecycle hooks)
 	_ = wrapped.Init()

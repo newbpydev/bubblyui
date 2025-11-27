@@ -479,7 +479,7 @@ func (pd *PerformanceData) Clear() {
 	pd.components = make(map[string]*ComponentPerformance)
 }
 
-// DevToolsStore holds all collected debug data in memory.
+// Store holds all collected debug data in memory.
 //
 // It provides thread-safe storage for component snapshots, state history,
 // events, performance metrics, and command timeline. The store acts as the
@@ -499,7 +499,7 @@ func (pd *PerformanceData) Clear() {
 //
 //	// Get component
 //	comp := store.GetComponent("comp-1")
-type DevToolsStore struct {
+type Store struct {
 	// components maps component ID to snapshot
 	components map[string]*ComponentSnapshot
 
@@ -539,9 +539,9 @@ type DevToolsStore struct {
 //   - maxCommands: Maximum number of commands to keep
 //
 // Returns:
-//   - *DevToolsStore: A new store instance
-func NewDevToolsStore(maxStateHistory, maxEvents, maxCommands int) *DevToolsStore {
-	return &DevToolsStore{
+//   - *Store: A new store instance
+func NewDevToolsStore(maxStateHistory, maxEvents, maxCommands int) *Store {
+	return &Store{
 		components:      make(map[string]*ComponentSnapshot),
 		componentRefs:   make(map[string][]string),
 		refOwners:       make(map[string]string),
@@ -572,7 +572,7 @@ func NewDevToolsStore(maxStateHistory, maxEvents, maxCommands int) *DevToolsStor
 //
 // Parameters:
 //   - snapshot: The component snapshot to add
-func (s *DevToolsStore) AddComponent(snapshot *ComponentSnapshot) {
+func (s *Store) AddComponent(snapshot *ComponentSnapshot) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.components[snapshot.ID] = snapshot
@@ -589,7 +589,7 @@ func (s *DevToolsStore) AddComponent(snapshot *ComponentSnapshot) {
 //
 // Returns:
 //   - *ComponentSnapshot: The component snapshot, or nil if not found
-func (s *DevToolsStore) GetComponent(id string) *ComponentSnapshot {
+func (s *Store) GetComponent(id string) *ComponentSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.components[id]
@@ -603,7 +603,7 @@ func (s *DevToolsStore) GetComponent(id string) *ComponentSnapshot {
 //
 // Returns:
 //   - []*ComponentSnapshot: All component snapshots
-func (s *DevToolsStore) GetAllComponents() []*ComponentSnapshot {
+func (s *Store) GetAllComponents() []*ComponentSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -622,7 +622,7 @@ func (s *DevToolsStore) GetAllComponents() []*ComponentSnapshot {
 //
 // Parameters:
 //   - id: The component ID to remove
-func (s *DevToolsStore) RemoveComponent(id string) {
+func (s *Store) RemoveComponent(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.components, id)
@@ -643,7 +643,7 @@ func (s *DevToolsStore) RemoveComponent(id string) {
 // Parameters:
 //   - componentID: The component that owns the ref
 //   - refID: The ref ID being owned
-func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
+func (s *Store) RegisterRefOwner(componentID, refID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -699,7 +699,7 @@ func (s *DevToolsStore) RegisterRefOwner(componentID, refID string) {
 // Returns:
 //   - string: The owning component ID
 //   - bool: Whether the update was applied
-func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (string, bool) {
+func (s *Store) UpdateRefValue(refID string, newValue interface{}) (string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -756,7 +756,7 @@ func (s *DevToolsStore) UpdateRefValue(refID string, newValue interface{}) (stri
 // Parameters:
 //   - parentID: The parent component ID
 //   - childID: The child component ID
-func (s *DevToolsStore) AddComponentChild(parentID, childID string) {
+func (s *Store) AddComponentChild(parentID, childID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -795,7 +795,7 @@ func (s *DevToolsStore) AddComponentChild(parentID, childID string) {
 // Parameters:
 //   - parentID: The parent component ID
 //   - childID: The child component ID to remove
-func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
+func (s *Store) RemoveComponentChild(parentID, childID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -836,7 +836,7 @@ func (s *DevToolsStore) RemoveComponentChild(parentID, childID string) {
 //
 // Returns:
 //   - []string: List of child component IDs
-func (s *DevToolsStore) GetComponentChildren(componentID string) []string {
+func (s *Store) GetComponentChildren(componentID string) []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -859,7 +859,7 @@ func (s *DevToolsStore) GetComponentChildren(componentID string) []string {
 //
 // Returns:
 //   - []*ComponentSnapshot: List of root components
-func (s *DevToolsStore) GetRootComponents() []*ComponentSnapshot {
+func (s *Store) GetRootComponents() []*ComponentSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -891,7 +891,7 @@ func extractRefName(refID string) string {
 //
 // Returns:
 //   - *StateHistory: The state history instance
-func (s *DevToolsStore) GetStateHistory() *StateHistory {
+func (s *Store) GetStateHistory() *StateHistory {
 	return s.stateHistory
 }
 
@@ -899,7 +899,7 @@ func (s *DevToolsStore) GetStateHistory() *StateHistory {
 //
 // Returns:
 //   - *EventLog: The event log instance
-func (s *DevToolsStore) GetEventLog() *EventLog {
+func (s *Store) GetEventLog() *EventLog {
 	return s.events
 }
 
@@ -907,7 +907,7 @@ func (s *DevToolsStore) GetEventLog() *EventLog {
 //
 // Returns:
 //   - *PerformanceData: The performance data instance
-func (s *DevToolsStore) GetPerformanceData() *PerformanceData {
+func (s *Store) GetPerformanceData() *PerformanceData {
 	return s.performance
 }
 
@@ -916,7 +916,7 @@ func (s *DevToolsStore) GetPerformanceData() *PerformanceData {
 // Thread Safety:
 //
 //	Safe to call concurrently from multiple goroutines.
-func (s *DevToolsStore) Clear() {
+func (s *Store) Clear() {
 	s.mu.Lock()
 	s.components = make(map[string]*ComponentSnapshot)
 	s.mu.Unlock()
@@ -954,7 +954,7 @@ func (s *DevToolsStore) Clear() {
 // Returns:
 //   - *IncrementalExportData: The filtered incremental data
 //   - error: nil on success, error describing the failure otherwise
-func (s *DevToolsStore) GetSince(checkpoint *ExportCheckpoint) (*IncrementalExportData, error) {
+func (s *Store) GetSince(checkpoint *ExportCheckpoint) (*IncrementalExportData, error) {
 	if checkpoint == nil {
 		return nil, fmt.Errorf("checkpoint is nil")
 	}

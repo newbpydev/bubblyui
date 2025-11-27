@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/newbpydev/bubblyui/pkg/bubbly/observability"
 )
 
@@ -32,7 +33,7 @@ type httpServerState struct {
 //   - Handle graceful shutdown on context cancellation
 //
 // The method starts the HTTP server in a goroutine and blocks until:
-//   - Context is cancelled (graceful shutdown)
+//   - Context is canceled (graceful shutdown)
 //   - Server encounters a fatal error
 //
 // Thread Safety:
@@ -57,7 +58,7 @@ type httpServerState struct {
 //	    log.Fatal(err)
 //	}
 //
-//	// Start HTTP server (blocks until context cancelled)
+//	// Start HTTP server (blocks until context canceled)
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
 //
@@ -70,19 +71,19 @@ type httpServerState struct {
 //
 // Returns:
 //   - error: Configuration error, bind error, or nil on clean shutdown
-func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
+func (s *Server) StartHTTPServer(ctx context.Context) error {
 	// Panic recovery with observability integration
 	defer func() {
 		if r := recover(); r != nil {
 			if reporter := observability.GetErrorReporter(); reporter != nil {
 				panicErr := &observability.HandlerPanicError{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					EventName:     "StartHTTPServer",
 					PanicValue:    r,
 				}
 
 				errCtx := &observability.ErrorContext{
-					ComponentName: "MCPServer",
+					ComponentName: "Server",
 					ComponentID:   "http-transport",
 					EventName:     "StartHTTPServer",
 					Timestamp:     time.Now(),
@@ -146,9 +147,12 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status": "healthy",
-		})
+		}); err != nil {
+			// If encoding fails, log but don't crash health check
+			fmt.Fprintf(w, `{"status":"error","message":"encoding failed"}`)
+		}
 	})
 
 	// Create HTTP server
@@ -181,7 +185,7 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 	// Wait for context cancellation or server error
 	select {
 	case <-ctx.Done():
-		// Context cancelled - perform graceful shutdown
+		// Context canceled - perform graceful shutdown
 		return s.shutdownHTTPServer(state)
 	case err := <-errCh:
 		// Server error
@@ -190,7 +194,7 @@ func (s *MCPServer) StartHTTPServer(ctx context.Context) error {
 }
 
 // shutdownHTTPServer performs graceful shutdown of the HTTP server
-func (s *MCPServer) shutdownHTTPServer(state *httpServerState) error {
+func (s *Server) shutdownHTTPServer(state *httpServerState) error {
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
@@ -219,7 +223,7 @@ func (s *MCPServer) shutdownHTTPServer(state *httpServerState) error {
 //
 // Note: This is a helper method for testing. In production, the port
 // should be configured explicitly.
-func (s *MCPServer) GetHTTPAddr() string {
+func (s *Server) GetHTTPAddr() string {
 	// This would require storing the listener in the server state
 	// For now, return the configured address
 	s.mu.RLock()
@@ -236,7 +240,7 @@ func (s *MCPServer) GetHTTPAddr() string {
 // Returns 0 if HTTP server is not running or port is not yet assigned.
 //
 // This is useful for testing with random port assignment (port 0).
-func (s *MCPServer) GetHTTPPort() int {
+func (s *Server) GetHTTPPort() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

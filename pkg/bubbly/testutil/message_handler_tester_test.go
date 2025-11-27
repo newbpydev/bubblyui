@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/newbpydev/bubblyui/pkg/bubbly"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
 // TestNewMessageHandlerTester_CreatesInstance tests that constructor creates valid instance
@@ -84,7 +85,7 @@ func TestSendMessage_IdentifiesMessageTypes(t *testing.T) {
 		},
 		{
 			name:         "MouseMsg",
-			msg:          tea.MouseMsg{X: 10, Y: 5, Type: tea.MouseLeft},
+			msg:          tea.MouseMsg{X: 10, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress},
 			expectedType: "tea.MouseMsg",
 		},
 	}

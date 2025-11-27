@@ -4,9 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
@@ -52,34 +50,18 @@ func (m *MockGitHubAPI) SetShouldFail(fail bool) {
 	m.shouldFail = fail
 }
 
-func (m *MockGitHubAPI) FetchRepositories(username string) tea.Cmd {
-	return func() tea.Msg {
-		if m.shouldFail {
-			return struct {
-				Repos []Repository
-				Error error
-			}{Error: errors.New("failed to fetch repos")}
-		}
-		return struct {
-			Repos []Repository
-			Error error
-		}{Repos: m.repos}
+func (m *MockGitHubAPI) FetchRepositories(username string) ([]Repository, error) {
+	if m.shouldFail {
+		return nil, errors.New("failed to fetch repos")
 	}
+	return m.repos, nil
 }
 
-func (m *MockGitHubAPI) FetchActivity(username string) tea.Cmd {
-	return func() tea.Msg {
-		if m.shouldFail {
-			return struct {
-				Activity []Activity
-				Error    error
-			}{Error: errors.New("failed to fetch activity")}
-		}
-		return struct {
-			Activity []Activity
-			Error    error
-		}{Activity: m.activity}
+func (m *MockGitHubAPI) FetchActivity(username string) ([]Activity, error) {
+	if m.shouldFail {
+		return nil, errors.New("failed to fetch activity")
 	}
+	return m.activity, nil
 }
 
 // TestUseGitHubDashboard_Initialization tests initial state
@@ -103,11 +85,10 @@ func TestUseGitHubDashboard_FetchRepos(t *testing.T) {
 	mockAPI := NewMockAPI()
 	dashboard := UseGitHubDashboard(ctx, "testuser", mockAPI)
 
-	// Fetch repos
-	cmd := dashboard.FetchRepos()
-	require.NotNil(t, cmd)
+	// Fetch repos (triggers goroutine)
+	dashboard.FetchRepos()
 
-	// Should set loading state
+	// Should set loading state immediately
 	assert.True(t, dashboard.LoadingRepos.Get().(bool))
 	assert.Equal(t, "", dashboard.Error.Get().(string))
 }
@@ -158,11 +139,10 @@ func TestUseGitHubDashboard_FetchActivity(t *testing.T) {
 	mockAPI := NewMockAPI()
 	dashboard := UseGitHubDashboard(ctx, "testuser", mockAPI)
 
-	// Fetch activity
-	cmd := dashboard.FetchActivity()
-	require.NotNil(t, cmd)
+	// Fetch activity (triggers goroutine)
+	dashboard.FetchActivity()
 
-	// Should set loading state
+	// Should set loading state immediately
 	assert.True(t, dashboard.LoadingActivity.Get().(bool))
 	assert.Equal(t, "", dashboard.Error.Get().(string))
 }
@@ -213,11 +193,10 @@ func TestUseGitHubDashboard_Refresh(t *testing.T) {
 	mockAPI := NewMockAPI()
 	dashboard := UseGitHubDashboard(ctx, "testuser", mockAPI)
 
-	// Refresh
-	cmd := dashboard.Refresh()
-	require.NotNil(t, cmd)
+	// Refresh (triggers both goroutines)
+	dashboard.Refresh()
 
-	// Should set both loading states
+	// Should set both loading states immediately
 	assert.True(t, dashboard.LoadingRepos.Get().(bool))
 	assert.True(t, dashboard.LoadingActivity.Get().(bool))
 }
