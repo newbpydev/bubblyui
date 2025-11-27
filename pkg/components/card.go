@@ -148,6 +148,8 @@ func cardCreateStyle(p CardProps, theme Theme) lipgloss.Style {
 //	    Footer:  "Last updated: 2024-01-01",
 //	    Width:   50,
 //	})
+//
+//nolint:dupl // Component creation pattern is intentionally similar across all components
 func Card(props CardProps) bubbly.Component {
 	cardApplyDefaults(&props)
 
