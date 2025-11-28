@@ -4,6 +4,7 @@ package main
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	localComponents "github.com/newbpydev/bubblyui/cmd/examples/17-enhanced-composables/components"
@@ -99,6 +100,19 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("i", "actionI", "Info").
 		WithKeyBinding("w", "actionW", "Warning").
 		WithKeyBinding("s", "actionS", "Success").
+		// Handle window resize messages from Bubbletea
+		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+			switch msg := msg.(type) {
+			case tea.WindowSizeMsg:
+				// Emit resize event with actual terminal dimensions
+				comp.Emit("resize", map[string]int{
+					"width":  msg.Width,
+					"height": msg.Height,
+				})
+				return nil
+			}
+			return nil
+		}).
 		Setup(func(ctx *bubbly.Context) {
 			ctx.ProvideTheme(bubbly.DefaultTheme)
 			theme := ctx.UseTheme(bubbly.DefaultTheme)

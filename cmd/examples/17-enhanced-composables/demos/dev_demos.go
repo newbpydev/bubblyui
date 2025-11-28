@@ -56,27 +56,26 @@ logger.Clear()`
 				"ERROR": theme.Error,
 			}
 
-			var logContent strings.Builder
+			var logLines []string
 			for _, entry := range entries {
 				color := levelColors[entry.Level]
 				if color == "" {
 					color = lipgloss.Color("252")
 				}
-				style := lipgloss.NewStyle().Foreground(color)
-				// Use fixed-width level formatting for alignment
-				logContent.WriteString(style.Render(fmt.Sprintf(
-					"  [%-5s] %s\n",
-					entry.Level, entry.Message,
-				)))
+				levelStyle := lipgloss.NewStyle().Foreground(color)
+				// Format: [LEVEL] message - style only the level tag
+				line := fmt.Sprintf("[%s] %s", levelStyle.Render(fmt.Sprintf("%-5s", entry.Level)), entry.Message)
+				logLines = append(logLines, line)
 			}
+			logContent := strings.Join(logLines, "\n")
 
 			if len(entries) == 0 {
-				logContent.WriteString("  (no logs - press d/i/w/e to add)\n")
+				logContent = "(no logs - press d/i/w/e to add)"
 			}
 
 			stateContent := fmt.Sprintf(
-				"Log Entries (%d):\n%s\nPress d: debug | i: info | w: warn | e: error | c: clear",
-				len(entries), logContent.String(),
+				"Log Entries (%d):\n%s\n\nPress d: debug | i: info | w: warn |\n      e: error | c: clear",
+				len(entries), logContent,
 			)
 
 			stateCard := components.Card(components.CardProps{
