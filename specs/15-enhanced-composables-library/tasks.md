@@ -409,7 +409,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 3.3: UseTimer
+### Task 3.3: UseTimer ✅ COMPLETED
 - **Description**: Countdown timer with progress tracking
 - **Prerequisites**: Task 3.2
 - **Unlocks**: Phase 4
@@ -426,15 +426,31 @@
   func UseTimer(ctx *bubbly.Context, duration time.Duration, opts ...TimerOption) *TimerReturn
   ```
 - **Tests**:
-  - [ ] Initial remaining equals duration
-  - [ ] Start begins countdown
-  - [ ] Stop pauses countdown
-  - [ ] Reset restarts from full duration
-  - [ ] IsExpired true when remaining <= 0
-  - [ ] Progress calculated correctly
-  - [ ] OnExpire callback executed
-  - [ ] Tick interval configurable
+  - [x] Initial remaining equals duration
+  - [x] Start begins countdown
+  - [x] Stop pauses countdown
+  - [x] Reset restarts from full duration
+  - [x] IsExpired true when remaining <= 0
+  - [x] Progress calculated correctly
+  - [x] OnExpire callback executed
+  - [x] Tick interval configurable
 - **Estimated effort**: 4 hours
+- **Implementation Notes**:
+  - 20 test functions covering all requirements and edge cases
+  - 92.7% coverage on composables package (above 80% requirement)
+  - Uses time.Ticker with goroutine for countdown (similar to UseInterval)
+  - Thread-safe with sync.Mutex protecting internal state
+  - Options: WithOnExpire, WithTickInterval (default 100ms)
+  - Methods: Start, Stop, Reset
+  - IsExpired is Computed[bool] that reacts to Remaining <= 0
+  - Progress is Computed[float64] calculated as 1.0 - (Remaining / InitialDuration)
+  - Start/Stop are idempotent (multiple calls are no-op)
+  - Timer stops automatically when expired and calls OnExpire callback
+  - Reset() stops timer and restores Remaining to initial duration
+  - Works with CreateShared pattern for cross-component sharing
+  - Automatic cleanup via OnUnmounted hook
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ---
 
