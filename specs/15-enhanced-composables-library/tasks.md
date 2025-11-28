@@ -671,7 +671,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 5.2: UseNotification
+### Task 5.2: UseNotification ✅ COMPLETED
 - **Description**: Toast notification system
 - **Prerequisites**: Task 5.1
 - **Unlocks**: Task 5.3
@@ -687,14 +687,34 @@
   func UseNotification(ctx *bubbly.Context, opts ...NotificationOption) *NotificationReturn
   ```
 - **Tests**:
-  - [ ] Show adds notification
-  - [ ] Info/Success/Warning/Error convenience methods
-  - [ ] Dismiss removes by ID
-  - [ ] DismissAll clears all
-  - [ ] Duration configurable
-  - [ ] Max notifications enforced
-  - [ ] Auto-dismiss after duration
+  - [x] Show adds notification
+  - [x] Info/Success/Warning/Error convenience methods
+  - [x] Dismiss removes by ID
+  - [x] DismissAll clears all
+  - [x] Duration configurable
+  - [x] Max notifications enforced
+  - [x] Auto-dismiss after duration
 - **Estimated effort**: 3 hours
+- **Implementation Notes**:
+  - 25 test functions with 40+ sub-tests covering all requirements and edge cases
+  - 100% coverage on UseNotification function and all methods
+  - 94.8% coverage on composables package (above 80% requirement)
+  - NotificationType constants: NotificationInfo, NotificationSuccess, NotificationWarning, NotificationError
+  - Notification struct with: ID, Type, Title, Message, Duration, CreatedAt fields
+  - Methods: Show, Info, Success, Warning, Error, Dismiss, DismissAll
+  - Options: WithDefaultDuration (default 3s), WithMaxNotifications (default 5)
+  - Auto-dismiss uses time.AfterFunc for efficient one-shot timing
+  - Thread-safe with sync.Mutex protecting notification operations
+  - Timers stored in map[int]*time.Timer for proper cleanup
+  - Manual dismiss cancels associated timer
+  - DismissAll cancels all timers
+  - Zero duration means no auto-dismiss (persistent notification)
+  - Max notifications enforced by dropping oldest when limit reached
+  - Works with CreateShared pattern for cross-component sharing
+  - Notifications ref is reactive (can be watched for changes)
+  - Automatic cleanup via OnUnmounted hook
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 5.3: Documentation & Examples
 - **Description**: Update manuals and create example app
