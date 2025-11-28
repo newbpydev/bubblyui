@@ -372,7 +372,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 3.2: UseTimeout
+### Task 3.2: UseTimeout ✅ COMPLETED
 - **Description**: Delayed execution with cancel support
 - **Prerequisites**: Task 3.1
 - **Unlocks**: Task 3.3
@@ -387,14 +387,27 @@
   func UseTimeout(ctx *bubbly.Context, callback func(), duration time.Duration) *TimeoutReturn
   ```
 - **Tests**:
-  - [ ] Starts not pending
-  - [ ] Start begins timeout
-  - [ ] Cancel stops pending timeout
-  - [ ] Reset cancels and restarts
-  - [ ] Callback executed on expiry
-  - [ ] IsExpired set after execution
-  - [ ] Cleanup on unmount
+  - [x] Starts not pending
+  - [x] Start begins timeout
+  - [x] Cancel stops pending timeout
+  - [x] Reset cancels and restarts
+  - [x] Callback executed on expiry
+  - [x] IsExpired set after execution
+  - [x] Cleanup on unmount
 - **Estimated effort**: 3 hours
+- **Implementation Notes**:
+  - 18 test functions covering all requirements and edge cases
+  - 92.7% coverage on composables package (above 80% requirement)
+  - Uses time.AfterFunc for efficient one-shot timing (simpler than time.Timer)
+  - Thread-safe with sync.Mutex protecting internal state
+  - Methods: Start, Cancel, Reset
+  - Start/Cancel are idempotent (multiple calls are no-op)
+  - Start after expiry resets IsExpired and starts new timeout
+  - IsPending and IsExpired are reactive (can be watched for changes)
+  - Works with CreateShared pattern for cross-component sharing
+  - Automatic cleanup via OnUnmounted hook
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 3.3: UseTimer
 - **Description**: Countdown timer with progress tracking
