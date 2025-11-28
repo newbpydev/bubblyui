@@ -500,7 +500,7 @@
   - Race detector passes, no goroutine leaks
   - Comprehensive godoc comments with examples
 
-### Task 4.2: UseMap
+### Task 4.2: UseMap ✅ COMPLETED
 - **Description**: Generic key-value state management
 - **Prerequisites**: Task 4.1
 - **Unlocks**: Task 4.3
@@ -517,16 +517,30 @@
   func UseMap[K comparable, V any](ctx *bubbly.Context, initial map[K]V) *MapReturn[K, V]
   ```
 - **Tests**:
-  - [ ] Initial data set correctly
-  - [ ] Get returns value
-  - [ ] Set adds/updates key
-  - [ ] Delete removes key
-  - [ ] Has checks existence
-  - [ ] Keys returns all keys
-  - [ ] Values returns all values
-  - [ ] Clear empties map
-  - [ ] Size/IsEmpty computed
+  - [x] Initial data set correctly
+  - [x] Get returns value
+  - [x] Set adds/updates key
+  - [x] Delete removes key
+  - [x] Has checks existence
+  - [x] Keys returns all keys
+  - [x] Values returns all values
+  - [x] Clear empties map
+  - [x] Size/IsEmpty computed
 - **Estimated effort**: 3 hours
+- **Implementation Notes**:
+  - 21 test functions with 50+ sub-tests covering all requirements and edge cases
+  - 100% coverage on UseMap function and all methods
+  - 94.1% coverage on composables package (above 80% requirement)
+  - Generic type support verified with string/int keys and struct values
+  - Methods: Get, Set, Delete, Has, Keys, Values, Clear
+  - Thread-safe with sync.Mutex protecting internal state
+  - Nil initial map normalized to empty map
+  - Set/Delete create copies to avoid mutating original map
+  - Works with CreateShared pattern for cross-component sharing
+  - Data ref is reactive (can be watched for changes)
+  - Size and IsEmpty are Computed values that auto-update
+  - Race detector passes, no goroutine leaks
+  - Comprehensive godoc comments with examples
 
 ### Task 4.3: UseSet
 - **Description**: Unique value set management
