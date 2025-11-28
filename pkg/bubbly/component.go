@@ -648,7 +648,17 @@ func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Notify framework hooks that component is updating
 	notifyHookComponentUpdate(c.id, msg)
 
-	// Call message handler first (Automatic Reactive Bridge - Task 8.4)
+	// Auto-handle WindowSizeMsg - emit "windowResize" event (Task 6.1: Zero Bubbletea Boilerplate)
+	// This fires BEFORE messageHandler to ensure backward compatibility with existing code
+	// that uses WithMessageHandler for resize handling.
+	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+		c.Emit("windowResize", map[string]int{
+			"width":  wsMsg.Width,
+			"height": wsMsg.Height,
+		})
+	}
+
+	// Call message handler (Automatic Reactive Bridge - Task 8.4)
 	if c.messageHandler != nil {
 		if cmd := c.messageHandler(c, msg); cmd != nil {
 			cmds = append(cmds, cmd)

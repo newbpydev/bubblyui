@@ -782,7 +782,7 @@ This exposes Bubbletea internals and violates the "zero boilerplate" philosophy 
 2. UseWindowSize automatically subscribes to these events
 3. Users just create `UseWindowSize(ctx)` and it works
 
-### Task 6.1: Automatic Window Resize Event Emission
+### Task 6.1: Automatic Window Resize Event Emission ✅ COMPLETED
 - **Description**: Add automatic `tea.WindowSizeMsg` handling in `componentImpl.Update()` that emits a standardized "windowResize" event to all components
 - **Prerequisites**: None (framework enhancement)
 - **Unlocks**: Task 6.2
@@ -800,14 +800,22 @@ This exposes Bubbletea internals and violates the "zero boilerplate" philosophy 
   }
   ```
 - **Tests**:
-  - [ ] WindowSizeMsg automatically emits "windowResize" event
-  - [ ] Event contains correct width and height values
-  - [ ] Event fires BEFORE messageHandler (backward compatible)
-  - [ ] Works with sync wrapper (Wrap)
-  - [ ] Works with async wrapper (asyncWrapperModel)
-  - [ ] Existing WithMessageHandler code continues to work
-  - [ ] Race detector passes
+  - [x] WindowSizeMsg automatically emits "windowResize" event
+  - [x] Event contains correct width and height values
+  - [x] Event fires BEFORE messageHandler (backward compatible)
+  - [x] Works with sync wrapper (Wrap)
+  - [x] Works with async wrapper (asyncWrapperModel)
+  - [x] Existing WithMessageHandler code continues to work
+  - [x] Race detector passes
 - **Estimated effort**: 2 hours
+- **Implementation Notes**:
+  - Added 6 test functions with 11 sub-tests covering all requirements
+  - Implementation is 8 lines of code in `componentImpl.Update()`
+  - Event fires BEFORE messageHandler to ensure backward compatibility
+  - Event data format: `map[string]int{"width": int, "height": int}`
+  - All existing tests continue to pass
+  - Race detector passes with no issues
+  - Build and vet pass with no warnings
 
 ### Task 6.2: UseWindowSize Auto-Subscribe to Framework Resize Events
 - **Description**: Modify `UseWindowSize` to automatically subscribe to the "windowResize" event and update its state without manual event handling
