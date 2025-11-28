@@ -107,9 +107,11 @@ type DemoStateComposable struct {
 
 	// === Timing Demo State ===
 	// UseInterval demo
+	Interval        *composables.IntervalReturn
 	IntervalRunning *bubbly.Ref[bool]
 	IntervalCount   *bubbly.Ref[int]
 	// UseTimeout demo
+	Timeout          *composables.TimeoutReturn
 	TimeoutPending   *bubbly.Ref[bool]
 	TimeoutTriggered *bubbly.Ref[bool]
 
@@ -387,40 +389,39 @@ func (d *DemoStateComposable) LocalCounterReset() {
 
 // === Timing Demo Methods ===
 
-// IntervalToggle toggles the interval
+// IntervalToggle toggles the interval running state and starts/stops the composable
 func (d *DemoStateComposable) IntervalToggle() {
-	d.IntervalRunning.Set(!d.IntervalRunning.GetTyped())
+	if d.IntervalRunning.GetTyped() {
+		// Stop the interval
+		d.Interval.Stop()
+		d.IntervalRunning.Set(false)
+	} else {
+		// Start the interval
+		d.IntervalRunning.Set(true)
+		d.Interval.Start()
+	}
 }
 
-// IntervalReset resets the interval count
+// IntervalReset resets the interval count and stops the interval
 func (d *DemoStateComposable) IntervalReset() {
+	d.Interval.Stop()
+	d.IntervalRunning.Set(false)
 	d.IntervalCount.Set(0)
 }
 
-// IntervalTick increments the interval count (called by interval)
-func (d *DemoStateComposable) IntervalTick() {
-	if d.IntervalRunning.GetTyped() {
-		d.IntervalCount.Set(d.IntervalCount.GetTyped() + 1)
-	}
-}
-
-// TimeoutStart starts the timeout
+// TimeoutStart starts the timeout composable
 func (d *DemoStateComposable) TimeoutStart() {
 	if !d.TimeoutPending.GetTyped() && !d.TimeoutTriggered.GetTyped() {
 		d.TimeoutPending.Set(true)
+		d.Timeout.Start()
 	}
 }
 
-// TimeoutReset resets the timeout
+// TimeoutReset resets the timeout state and composable
 func (d *DemoStateComposable) TimeoutReset() {
+	d.Timeout.Cancel()
 	d.TimeoutPending.Set(false)
 	d.TimeoutTriggered.Set(false)
-}
-
-// TimeoutTrigger triggers the timeout (called when timeout fires)
-func (d *DemoStateComposable) TimeoutTrigger() {
-	d.TimeoutPending.Set(false)
-	d.TimeoutTriggered.Set(true)
 }
 
 // TimerReset resets the timer
@@ -652,6 +653,28 @@ func UseDemoState(ctx *bubbly.Context) *DemoStateComposable {
 		composables.WithMaxNotifications(3),
 	)
 
+	// Create refs for interval demo that will be updated by the interval callback
+	intervalCount := bubbly.NewRef(0)
+	intervalRunning := bubbly.NewRef(false)
+
+	// Create the actual interval composable
+	interval := composables.UseInterval(ctx, func() {
+		// Only increment if running
+		if intervalRunning.GetTyped() {
+			intervalCount.Set(intervalCount.GetTyped() + 1)
+		}
+	}, 500*time.Millisecond)
+
+	// Create refs for timeout demo
+	timeoutPending := bubbly.NewRef(false)
+	timeoutTriggered := bubbly.NewRef(false)
+
+	// Create the actual timeout composable
+	timeout := composables.UseTimeout(ctx, func() {
+		timeoutPending.Set(false)
+		timeoutTriggered.Set(true)
+	}, 3*time.Second)
+
 	tagsSlice := tags.ToSlice()
 	sort.Strings(tagsSlice)
 
@@ -701,10 +724,12 @@ func UseDemoState(ctx *bubbly.Context) *DemoStateComposable {
 		LocalCounterMax: 100,
 
 		// === Timing Demo State ===
-		IntervalRunning:  bubbly.NewRef(false),
-		IntervalCount:    bubbly.NewRef(0),
-		TimeoutPending:   bubbly.NewRef(false),
-		TimeoutTriggered: bubbly.NewRef(false),
+		Interval:         interval,
+		IntervalRunning:  intervalRunning,
+		IntervalCount:    intervalCount,
+		Timeout:          timeout,
+		TimeoutPending:   timeoutPending,
+		TimeoutTriggered: timeoutTriggered,
 
 		// === Collections Demo State ===
 		ListDemoItems:  bubbly.NewRef([]string{"Item A", "Item B", "Item C"}),
