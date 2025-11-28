@@ -764,6 +764,138 @@
 
 ---
 
+## Phase 6: Framework-Level Window Resize Integration (Zero Bubbletea Boilerplate)
+
+### Overview
+This phase eliminates the need for users to use ANY Bubbletea types (`tea.WindowSizeMsg`, `tea.Msg`) when building responsive TUI applications. The framework will automatically handle window resize events and update UseWindowSize composables.
+
+### Problem Statement
+Currently, users must write 15+ lines of boilerplate including:
+1. `WithMessageHandler` to catch `tea.WindowSizeMsg`
+2. Manual event emission for resize
+3. Manual event handler in Setup to call `windowSize.SetSize()`
+
+This exposes Bubbletea internals and violates the "zero boilerplate" philosophy of BubblyUI.
+
+### Solution
+1. Framework automatically detects and emits "windowResize" events
+2. UseWindowSize automatically subscribes to these events
+3. Users just create `UseWindowSize(ctx)` and it works
+
+### Task 6.1: Automatic Window Resize Event Emission
+- **Description**: Add automatic `tea.WindowSizeMsg` handling in `componentImpl.Update()` that emits a standardized "windowResize" event to all components
+- **Prerequisites**: None (framework enhancement)
+- **Unlocks**: Task 6.2
+- **Files**:
+  - `pkg/bubbly/component.go` (modify Update method)
+  - `pkg/bubbly/component_test.go` (add tests)
+- **Implementation**:
+  ```go
+  // In componentImpl.Update(), BEFORE messageHandler call:
+  if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+      c.Emit("windowResize", map[string]int{
+          "width":  wsMsg.Width,
+          "height": wsMsg.Height,
+      })
+  }
+  ```
+- **Tests**:
+  - [ ] WindowSizeMsg automatically emits "windowResize" event
+  - [ ] Event contains correct width and height values
+  - [ ] Event fires BEFORE messageHandler (backward compatible)
+  - [ ] Works with sync wrapper (Wrap)
+  - [ ] Works with async wrapper (asyncWrapperModel)
+  - [ ] Existing WithMessageHandler code continues to work
+  - [ ] Race detector passes
+- **Estimated effort**: 2 hours
+
+### Task 6.2: UseWindowSize Auto-Subscribe to Framework Resize Events
+- **Description**: Modify `UseWindowSize` to automatically subscribe to the "windowResize" event and update its state without manual event handling
+- **Prerequisites**: Task 6.1
+- **Unlocks**: Task 6.3
+- **Files**:
+  - `pkg/bubbly/composables/use_window_size.go`
+  - `pkg/bubbly/composables/use_window_size_test.go`
+- **Implementation**:
+  ```go
+  // In UseWindowSize(), after creating WindowSizeReturn:
+  if ctx != nil {
+      ctx.On("windowResize", func(data interface{}) {
+          if sizeData, ok := data.(map[string]int); ok {
+              ws.SetSize(sizeData["width"], sizeData["height"])
+          }
+      })
+  }
+  ```
+- **Tests**:
+  - [ ] UseWindowSize automatically updates on resize events
+  - [ ] Works without any manual event handler setup
+  - [ ] Graceful handling with nil context (for testing)
+  - [ ] Breakpoint, SidebarVisible, GridColumns update correctly
+  - [ ] Multiple UseWindowSize instances all receive events
+  - [ ] Works with CreateShared pattern
+  - [ ] Race detector passes
+- **Estimated effort**: 2 hours
+
+### Task 6.3: Update Example App & Documentation
+- **Description**: Remove manual Bubbletea resize handling from example app and update all documentation to reflect the zero-boilerplate approach
+- **Prerequisites**: Task 6.2
+- **Unlocks**: Phase 6 complete
+- **Files**:
+  - `cmd/examples/17-enhanced-composables/app.go` (remove WithMessageHandler for resize)
+  - `cmd/examples/15-responsive-layouts/app.go` (simplify if needed)
+  - `docs/BUBBLY_AI_MANUAL_COMPACT.md` (update responsive pattern section)
+  - `docs/BUBBLY_AI_MANUAL_SYSTEMATIC.md` (update UseWindowSize section)
+- **Tasks**:
+  - [ ] Remove `WithMessageHandler` for WindowSizeMsg from example 17
+  - [ ] Remove manual "resize" event handler from example 17
+  - [ ] Verify example 17 still works with automatic resize
+  - [ ] Update compact manual responsive pattern (lines 363-374)
+  - [ ] Update systematic manual UseWindowSize documentation
+  - [ ] Add note about automatic resize in composables README
+- **Estimated effort**: 2 hours
+
+### User Experience After Phase 6
+
+**BEFORE (15+ lines, requires Bubbletea knowledge):**
+```go
+bubbly.NewComponent("App").
+    WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
+        if wmsg, ok := msg.(tea.WindowSizeMsg); ok {
+            comp.Emit("resize", map[string]int{
+                "width": wmsg.Width, "height": wmsg.Height,
+            })
+        }
+        return nil
+    }).
+    Setup(func(ctx *bubbly.Context) {
+        ws := composables.UseWindowSize(ctx)
+        ctx.On("resize", func(data interface{}) {
+            if size, ok := data.(map[string]int); ok {
+                ws.SetSize(size["width"], size["height"])
+            }
+        })
+        ctx.Expose("windowSize", ws)
+    })
+```
+
+**AFTER (2 lines, ZERO Bubbletea knowledge required):**
+```go
+bubbly.NewComponent("App").
+    Setup(func(ctx *bubbly.Context) {
+        ws := composables.UseWindowSize(ctx)
+        ctx.Expose("windowSize", ws)
+        // That's it! Window resize is automatic
+    })
+```
+
+### Backward Compatibility
+- Existing code using `WithMessageHandler` for resize continues to work
+- The automatic "windowResize" event fires BEFORE messageHandler
+- No breaking changes to existing APIs
+
+---
+
 ## Task Dependency Graph
 
 ```
@@ -815,6 +947,13 @@ Phase 5: Development & Docs
     │       ↓
     └─► 5.4 Integration Tests
             ↓
+Phase 6: Framework-Level Window Resize (Zero Bubbletea)
+    ├─► 6.1 Auto Window Resize Event Emission
+    │       ↓
+    ├─► 6.2 UseWindowSize Auto-Subscribe
+    │       ↓
+    └─► 6.3 Update Examples & Docs
+            ↓
         FEATURE COMPLETE
 ```
 
@@ -844,7 +983,8 @@ Phase 5: Development & Docs
 | Phase 3 | 3 | 10 |
 | Phase 4 | 4 | 12 |
 | Phase 5 | 4 | 15 |
-| **Total** | **20** | **62** |
+| Phase 6 | 3 | 6 |
+| **Total** | **23** | **68** |
 
 ---
 

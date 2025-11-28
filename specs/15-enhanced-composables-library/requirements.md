@@ -47,6 +47,7 @@ A comprehensive set of production-ready composables that provide common patterns
 - Calculate optimal grid columns for current width
 - Handle minimum dimension enforcement
 - Support custom breakpoint configuration
+- **Zero Bubbletea Boilerplate**: Automatically receive window resize events without requiring `WithMessageHandler` or manual `tea.WindowSizeMsg` handling (Phase 6 enhancement)
 
 #### 1.2 UseFocus
 - Track current focused pane with generic type support
@@ -235,6 +236,13 @@ A comprehensive set of production-ready composables that provide common patterns
 - [ ] UseNotification implemented with stacking
 - [ ] All composables documented in manuals
 - [ ] Example app demonstrating all composables
+
+### Phase 6: Framework-Level Window Resize (Zero Bubbletea)
+- [ ] Framework automatically emits "windowResize" events on tea.WindowSizeMsg
+- [ ] UseWindowSize auto-subscribes to "windowResize" events
+- [ ] No manual WithMessageHandler required for window resize
+- [ ] No Bubbletea types (tea.Msg, tea.WindowSizeMsg) exposed to users
+- [ ] Backward compatible with existing resize handling code
 
 ## Dependencies
 - **Requires**: 04-composition-api (composables foundation)
