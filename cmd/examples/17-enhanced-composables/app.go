@@ -18,51 +18,52 @@ func getStatusTextForView(view localComposables.ViewType, focusedPane localCompo
 	}
 
 	// Main pane - show view-specific controls
+	// Note: UseFocus hijacks tab, so we show esc for that view
 	switch view {
 	case localComposables.ViewHome:
-		return "HOME | +/-: counter | u/r: undo/redo | t: timer | space: toggle | n: notify | h: home | tab: sidebar"
+		return "HOME | +/-: counter | u/r: undo/redo | t: timer | space: toggle | n: notify | esc: sidebar"
 	case localComposables.ViewUseWindowSize:
-		return "UseWindowSize | (display only - resize terminal to see changes) | h: home | tab: sidebar"
+		return "UseWindowSize | (resize terminal to see changes) | esc: sidebar"
 	case localComposables.ViewUseFocus:
-		return "UseFocus | 1/2/3: focus pane | tab: cycle | h: home | tab: sidebar"
+		return "UseFocus | 1/2/3: focus pane | tab: cycle demo panes | esc: sidebar"
 	case localComposables.ViewUseScroll:
-		return "UseScroll | jk: scroll | g: top | G: bottom | h: home | tab: sidebar"
+		return "UseScroll | jk: scroll | g: top | G: bottom | esc: sidebar"
 	case localComposables.ViewUseSelection:
-		return "UseSelection | jk: move | space: toggle select | h: home | tab: sidebar"
+		return "UseSelection | jk: move | space: toggle select | esc: sidebar"
 	case localComposables.ViewUseMode:
-		return "UseMode | 1: normal | 2: insert | 3: visual | 4: command | h: home | tab: sidebar"
+		return "UseMode | 1: normal | 2: insert | 3: visual | 4: command | esc: sidebar"
 	case localComposables.ViewUseToggle:
-		return "UseToggle | 1/2/3: toggle each | h: home | tab: sidebar"
+		return "UseToggle | 1/2/3: toggle each | esc: sidebar"
 	case localComposables.ViewUseCounter:
-		return "UseCounter | +/-: change | r: reset | h: home | tab: sidebar"
+		return "UseCounter | +/-: change | r: reset | esc: sidebar"
 	case localComposables.ViewUsePrevious:
-		return "UsePrevious | +/-: change counter (see previous) | h: home | tab: sidebar"
+		return "UsePrevious | +/-: change counter (see previous) | esc: sidebar"
 	case localComposables.ViewUseHistory:
-		return "UseHistory | +/-: change | u: undo | r: redo | h: home | tab: sidebar"
+		return "UseHistory | +/-: change | u: undo | r: redo | esc: sidebar"
 	case localComposables.ViewUseInterval:
-		return "UseInterval | space: start/stop | r: reset count | h: home | tab: sidebar"
+		return "UseInterval | space: start/stop | r: reset count | esc: sidebar"
 	case localComposables.ViewUseTimeout:
-		return "UseTimeout | space: start | r: reset | h: home | tab: sidebar"
+		return "UseTimeout | space: start | r: reset | esc: sidebar"
 	case localComposables.ViewUseTimer:
-		return "UseTimer | space: start/stop | r: reset | h: home | tab: sidebar"
+		return "UseTimer | space: start/stop | r: reset | esc: sidebar"
 	case localComposables.ViewUseList:
-		return "UseList | jk: move | a: add | d: delete | c: clear | h: home | tab: sidebar"
+		return "UseList | jk: move | a: add | d: delete | c: clear | esc: sidebar"
 	case localComposables.ViewUseMap:
-		return "UseMap | a: add | d: delete | c: clear | h: home | tab: sidebar"
+		return "UseMap | a: add | d: delete | c: clear | esc: sidebar"
 	case localComposables.ViewUseSet:
-		return "UseSet | a: add | d: delete | t: toggle 'bubbly' | c: clear | h: home | tab: sidebar"
+		return "UseSet | a: add | d: delete | t: toggle 'bubbly' | c: clear | esc: sidebar"
 	case localComposables.ViewUseQueue:
-		return "UseQueue | e: enqueue | d: dequeue | c: clear | h: home | tab: sidebar"
+		return "UseQueue | e: enqueue | d: dequeue | c: clear | esc: sidebar"
 	case localComposables.ViewUseLogger:
-		return "UseLogger | d: debug | i: info | w: warn | e: error | c: clear | h: home | tab: sidebar"
+		return "UseLogger | d: debug | i: info | w: warn | e: error | c: clear | esc: sidebar"
 	case localComposables.ViewUseNotification:
-		return "UseNotification | s: success | e: error | w: warning | i: info | c: clear | h: home | tab: sidebar"
+		return "UseNotification | s: success | e: error | w: warning | i: info | c: clear | esc: sidebar"
 	case localComposables.ViewCreateShared:
-		return "CreateShared | +/-: change shared counter | h: home | tab: sidebar"
+		return "CreateShared | +/-: change shared counter | esc: sidebar"
 	case localComposables.ViewCreateSharedReset:
-		return "CreateSharedWithReset | +/-: change | r: reset | h: home | tab: sidebar"
+		return "CreateSharedWithReset | +/-: change | r: reset | esc: sidebar"
 	default:
-		return "h: home | tab: sidebar"
+		return "esc: sidebar"
 	}
 }
 
@@ -83,6 +84,7 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("n", "notify", "Show notification").
 		WithKeyBinding("enter", "select", "Select item").
 		WithKeyBinding("h", "goHome", "Go to home").
+		WithKeyBinding("esc", "focusSidebar", "Focus sidebar").
 		WithKeyBinding("g", "actionG", "Go to top").
 		WithKeyBinding("G", "actionShiftG", "Go to bottom").
 		WithKeyBinding("1", "action1", "Action 1").
@@ -264,6 +266,10 @@ func CreateApp() (bubbly.Component, error) {
 
 			ctx.On("goHome", func(_ interface{}) {
 				state.GoHome()
+			})
+
+			ctx.On("focusSidebar", func(_ interface{}) {
+				state.FocusedPane.Set(localComposables.FocusSidebar)
 			})
 
 			ctx.On("actionG", func(_ interface{}) {

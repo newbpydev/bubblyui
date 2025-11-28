@@ -145,7 +145,7 @@ focus.Set(FocusSidebar)  // Set directly`
 			}
 
 			stateContent := fmt.Sprintf(
-				"Focused Pane: %s (index: %d)\n\n%s\nPress 1/2/3 to focus pane\nPress TAB to cycle",
+				"Focused Pane: %s (index: %d)\n\n%s\n1/2/3: focus pane | TAB: cycle\nESC: return to sidebar",
 				paneNames[focusIndex], focusIndex, panes.String(),
 			)
 
