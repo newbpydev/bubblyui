@@ -9,6 +9,7 @@ import (
 	localComponents "github.com/newbpydev/bubblyui/cmd/examples/17-enhanced-composables/components"
 	localComposables "github.com/newbpydev/bubblyui/cmd/examples/17-enhanced-composables/composables"
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
+	"github.com/newbpydev/bubblyui/pkg/bubbly/composables"
 )
 
 // getStatusTextForView returns the appropriate status bar text for the given view.
@@ -530,11 +531,31 @@ func CreateApp() (bubbly.Component, error) {
 			if len(notifications) > 0 {
 				var notifLines []string
 				for _, n := range notifications {
+					// Use notification type to determine color
+					var bgColor lipgloss.Color
+					var icon string
+					switch n.Type {
+					case composables.NotificationSuccess:
+						bgColor = lipgloss.Color("22") // Green
+						icon = "✓"
+					case composables.NotificationError:
+						bgColor = lipgloss.Color("124") // Red
+						icon = "✗"
+					case composables.NotificationWarning:
+						bgColor = lipgloss.Color("208") // Orange/Yellow
+						icon = "⚠"
+					case composables.NotificationInfo:
+						bgColor = lipgloss.Color("33") // Blue
+						icon = "ℹ"
+					default:
+						bgColor = lipgloss.Color("240") // Gray
+						icon = "●"
+					}
 					notifStyle := lipgloss.NewStyle().
-						Background(lipgloss.Color("22")).
+						Background(bgColor).
 						Foreground(lipgloss.Color("15")).
 						Padding(0, 1)
-					notifLines = append(notifLines, notifStyle.Render("OK "+n.Title+": "+n.Message))
+					notifLines = append(notifLines, notifStyle.Render(icon+" "+n.Title+": "+n.Message))
 				}
 				notifOverlay = "\n" + strings.Join(notifLines, "\n")
 			}

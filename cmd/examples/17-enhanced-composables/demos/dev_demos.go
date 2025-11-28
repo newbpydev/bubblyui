@@ -63,8 +63,9 @@ logger.Clear()`
 					color = lipgloss.Color("252")
 				}
 				style := lipgloss.NewStyle().Foreground(color)
+				// Use fixed-width level formatting for alignment
 				logContent.WriteString(style.Render(fmt.Sprintf(
-					"  [%s] %s\n",
+					"  [%-5s] %s\n",
 					entry.Level, entry.Message,
 				)))
 			}

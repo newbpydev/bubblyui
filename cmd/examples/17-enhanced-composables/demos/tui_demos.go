@@ -31,10 +31,12 @@ func CreateUseWindowSizeDemo() (bubbly.Component, error) {
 			state := ctx.Get("state").(*localComposables.DemoStateComposable)
 			windowSize := ctx.Get("windowSize").(*composables.WindowSizeReturn)
 
-			width := state.Width.GetTyped()
-			height := state.Height.GetTyped()
+			// Sync windowSize with shared state dimensions
+			windowSize.SetSize(state.Width.GetTyped(), state.Height.GetTyped())
 
-			// Get breakpoint info
+			// Get values from windowSize composable
+			width := windowSize.Width.GetTyped()
+			height := windowSize.Height.GetTyped()
 			breakpoint := windowSize.Breakpoint.GetTyped()
 			sidebarVisible := windowSize.SidebarVisible.GetTyped()
 			gridColumns := windowSize.GridColumns.GetTyped()
