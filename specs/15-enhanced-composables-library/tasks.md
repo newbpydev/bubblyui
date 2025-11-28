@@ -817,7 +817,7 @@ This exposes Bubbletea internals and violates the "zero boilerplate" philosophy 
   - Race detector passes with no issues
   - Build and vet pass with no warnings
 
-### Task 6.2: UseWindowSize Auto-Subscribe to Framework Resize Events
+### Task 6.2: UseWindowSize Auto-Subscribe to Framework Resize Events ✅ COMPLETED
 - **Description**: Modify `UseWindowSize` to automatically subscribe to the "windowResize" event and update its state without manual event handling
 - **Prerequisites**: Task 6.1
 - **Unlocks**: Task 6.3
@@ -836,14 +836,23 @@ This exposes Bubbletea internals and violates the "zero boilerplate" philosophy 
   }
   ```
 - **Tests**:
-  - [ ] UseWindowSize automatically updates on resize events
-  - [ ] Works without any manual event handler setup
-  - [ ] Graceful handling with nil context (for testing)
-  - [ ] Breakpoint, SidebarVisible, GridColumns update correctly
-  - [ ] Multiple UseWindowSize instances all receive events
-  - [ ] Works with CreateShared pattern
-  - [ ] Race detector passes
+  - [x] UseWindowSize automatically updates on resize events
+  - [x] Works without any manual event handler setup
+  - [x] Graceful handling with nil context (for testing)
+  - [x] Breakpoint, SidebarVisible, GridColumns update correctly
+  - [x] Multiple UseWindowSize instances all receive events
+  - [x] Works with CreateShared pattern
+  - [x] Race detector passes
 - **Estimated effort**: 2 hours
+- **Implementation Notes**:
+  - Added 7 test functions covering all requirements
+  - Implementation is 7 lines of code in `UseWindowSize()`
+  - Gracefully handles nil context (for testing scenarios)
+  - Ignores invalid event data (wrong type, nil)
+  - Updated godoc documentation with new automatic resize behavior
+  - All existing tests continue to pass
+  - Race detector passes with no issues
+  - Build and vet pass with no warnings
 
 ### Task 6.3: Update Example App & Documentation
 - **Description**: Remove manual Bubbletea resize handling from example app and update all documentation to reflect the zero-boilerplate approach

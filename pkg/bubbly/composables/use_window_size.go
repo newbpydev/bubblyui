@@ -251,8 +251,20 @@ func (w *WindowSizeReturn) calculateGridColumns(bp Breakpoint) int {
 // This composable is essential for building responsive TUI applications
 // that adapt to different terminal sizes.
 //
+// AUTOMATIC RESIZE HANDLING (Task 6.2):
+// UseWindowSize automatically subscribes to the framework's "windowResize" event.
+// You do NOT need to:
+//   - Use WithMessageHandler to catch tea.WindowSizeMsg
+//   - Manually emit or handle resize events
+//   - Call SetSize() manually on window resize
+//
+// The framework automatically:
+//  1. Detects tea.WindowSizeMsg in componentImpl.Update()
+//  2. Emits a "windowResize" event with width/height
+//  3. UseWindowSize receives this event and updates automatically
+//
 // Parameters:
-//   - ctx: The component context (required for all composables)
+//   - ctx: The component context (can be nil for testing, but auto-resize won't work)
 //   - opts: Optional configuration (breakpoints, min dimensions, sidebar width)
 //
 // Returns:
@@ -265,17 +277,12 @@ func (w *WindowSizeReturn) calculateGridColumns(bp Breakpoint) int {
 //   - LG: 120-159 cols (3 grid columns, sidebar visible)
 //   - XL: 160+ cols (4 grid columns, sidebar visible)
 //
-// Example:
+// Example (Zero Boilerplate - Automatic Resize):
 //
 //	Setup(func(ctx *bubbly.Context) {
 //	    ws := composables.UseWindowSize(ctx)
 //	    ctx.Expose("windowSize", ws)
-//
-//	    ctx.On("resize", func(data interface{}) {
-//	        if size, ok := data.(map[string]int); ok {
-//	            ws.SetSize(size["width"], size["height"])
-//	        }
-//	    })
+//	    // That's it! Window resize is automatic
 //	})
 //
 // Custom Configuration:
@@ -285,17 +292,6 @@ func (w *WindowSizeReturn) calculateGridColumns(bp Breakpoint) int {
 //	    WithMinDimensions(40, 10),
 //	    WithSidebarWidth(25),
 //	)
-//
-// Integration with tea.WindowSizeMsg:
-//
-//	WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-//	    if wmsg, ok := msg.(tea.WindowSizeMsg); ok {
-//	        comp.Emit("resize", map[string]int{
-//	            "width": wmsg.Width, "height": wmsg.Height,
-//	        })
-//	    }
-//	    return nil
-//	})
 func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn {
 	// Record metrics if monitoring is enabled
 	start := time.Now()
@@ -327,6 +323,16 @@ func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeRet
 
 	// Initialize derived values based on default dimensions
 	ws.SetSize(defaultWidth, defaultHeight)
+
+	// Task 6.2: Auto-subscribe to framework's "windowResize" event
+	// This eliminates the need for manual WithMessageHandler and ctx.On("resize", ...) boilerplate
+	if ctx != nil {
+		ctx.On("windowResize", func(data interface{}) {
+			if sizeData, ok := data.(map[string]int); ok {
+				ws.SetSize(sizeData["width"], sizeData["height"])
+			}
+		})
+	}
 
 	return ws
 }

@@ -323,3 +323,223 @@ func TestUseWindowSize_BreakpointConstants(t *testing.T) {
 	assert.Equal(t, Breakpoint("lg"), BreakpointLG)
 	assert.Equal(t, Breakpoint("xl"), BreakpointXL)
 }
+
+// =============================================================================
+// Task 6.2: UseWindowSize Auto-Subscribe to Framework Resize Events Tests
+// =============================================================================
+
+// TestUseWindowSize_AutoSubscribesToWindowResizeEvent tests that UseWindowSize
+// automatically subscribes to the "windowResize" event from the framework.
+func TestUseWindowSize_AutoSubscribesToWindowResizeEvent(t *testing.T) {
+	t.Run("automatically_updates_on_windowResize_event", func(t *testing.T) {
+		var ws *WindowSizeReturn
+
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws = UseWindowSize(ctx)
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Verify initial defaults
+		assert.Equal(t, 80, ws.Width.GetTyped(), "Initial width should be 80")
+		assert.Equal(t, 24, ws.Height.GetTyped(), "Initial height should be 24")
+
+		// Emit windowResize event (simulating what the framework does on tea.WindowSizeMsg)
+		component.Emit("windowResize", map[string]int{
+			"width":  120,
+			"height": 40,
+		})
+
+		// Verify UseWindowSize automatically updated
+		assert.Equal(t, 120, ws.Width.GetTyped(), "Width should be updated to 120")
+		assert.Equal(t, 40, ws.Height.GetTyped(), "Height should be updated to 40")
+	})
+
+	t.Run("works_without_manual_event_handler_setup", func(t *testing.T) {
+		var ws *WindowSizeReturn
+
+		// No ctx.On("windowResize", ...) needed - UseWindowSize handles it internally
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws = UseWindowSize(ctx)
+				// Note: NO ctx.On("windowResize", ...) here!
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Emit resize event
+		component.Emit("windowResize", map[string]int{
+			"width":  160,
+			"height": 50,
+		})
+
+		// Should still work without manual event handler
+		assert.Equal(t, 160, ws.Width.GetTyped())
+		assert.Equal(t, 50, ws.Height.GetTyped())
+	})
+
+	t.Run("graceful_handling_with_nil_context", func(t *testing.T) {
+		// UseWindowSize should not panic with nil context
+		assert.NotPanics(t, func() {
+			ws := UseWindowSize(nil)
+			assert.NotNil(t, ws)
+			assert.Equal(t, 80, ws.Width.GetTyped(), "Should use default width")
+			assert.Equal(t, 24, ws.Height.GetTyped(), "Should use default height")
+		})
+	})
+
+	t.Run("breakpoint_sidebar_gridcolumns_update_correctly", func(t *testing.T) {
+		var ws *WindowSizeReturn
+
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws = UseWindowSize(ctx)
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Test XS breakpoint (< 60)
+		component.Emit("windowResize", map[string]int{"width": 40, "height": 24})
+		assert.Equal(t, BreakpointXS, ws.Breakpoint.GetTyped())
+		assert.False(t, ws.SidebarVisible.GetTyped())
+		assert.Equal(t, 1, ws.GridColumns.GetTyped())
+
+		// Test SM breakpoint (60-79)
+		component.Emit("windowResize", map[string]int{"width": 70, "height": 24})
+		assert.Equal(t, BreakpointSM, ws.Breakpoint.GetTyped())
+		assert.False(t, ws.SidebarVisible.GetTyped())
+		assert.Equal(t, 2, ws.GridColumns.GetTyped())
+
+		// Test MD breakpoint (80-119)
+		component.Emit("windowResize", map[string]int{"width": 100, "height": 24})
+		assert.Equal(t, BreakpointMD, ws.Breakpoint.GetTyped())
+		assert.True(t, ws.SidebarVisible.GetTyped())
+		assert.Equal(t, 2, ws.GridColumns.GetTyped())
+
+		// Test LG breakpoint (120-159)
+		component.Emit("windowResize", map[string]int{"width": 140, "height": 24})
+		assert.Equal(t, BreakpointLG, ws.Breakpoint.GetTyped())
+		assert.True(t, ws.SidebarVisible.GetTyped())
+		assert.Equal(t, 3, ws.GridColumns.GetTyped())
+
+		// Test XL breakpoint (160+)
+		component.Emit("windowResize", map[string]int{"width": 200, "height": 24})
+		assert.Equal(t, BreakpointXL, ws.Breakpoint.GetTyped())
+		assert.True(t, ws.SidebarVisible.GetTyped())
+		assert.Equal(t, 4, ws.GridColumns.GetTyped())
+	})
+
+	t.Run("multiple_instances_all_receive_events", func(t *testing.T) {
+		var ws1, ws2 *WindowSizeReturn
+
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws1 = UseWindowSize(ctx)
+				ws2 = UseWindowSize(ctx)
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Emit resize event
+		component.Emit("windowResize", map[string]int{
+			"width":  150,
+			"height": 45,
+		})
+
+		// Both instances should receive the event
+		assert.Equal(t, 150, ws1.Width.GetTyped())
+		assert.Equal(t, 45, ws1.Height.GetTyped())
+		assert.Equal(t, 150, ws2.Width.GetTyped())
+		assert.Equal(t, 45, ws2.Height.GetTyped())
+	})
+
+	t.Run("works_with_CreateShared_pattern", func(t *testing.T) {
+		sharedWindowSize := CreateShared(func(ctx *bubbly.Context) *WindowSizeReturn {
+			return UseWindowSize(ctx)
+		})
+
+		var ws1, ws2 *WindowSizeReturn
+
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws1 = sharedWindowSize(ctx)
+				ws2 = sharedWindowSize(ctx)
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Emit resize event
+		component.Emit("windowResize", map[string]int{
+			"width":  180,
+			"height": 55,
+		})
+
+		// Shared instance should be updated
+		assert.Equal(t, 180, ws1.Width.GetTyped())
+		assert.Equal(t, 55, ws1.Height.GetTyped())
+
+		// Both references point to same instance
+		assert.Equal(t, ws1.Width.GetTyped(), ws2.Width.GetTyped())
+		assert.Equal(t, ws1.Height.GetTyped(), ws2.Height.GetTyped())
+	})
+
+	t.Run("ignores_invalid_event_data", func(t *testing.T) {
+		var ws *WindowSizeReturn
+
+		component, err := bubbly.NewComponent("TestComponent").
+			Setup(func(ctx *bubbly.Context) {
+				ws = UseWindowSize(ctx)
+			}).
+			Template(func(ctx bubbly.RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		assert.NoError(t, err)
+		component.Init()
+
+		// Initial values
+		initialWidth := ws.Width.GetTyped()
+		initialHeight := ws.Height.GetTyped()
+
+		// Emit invalid event data (wrong type)
+		component.Emit("windowResize", "invalid data")
+
+		// Should not change
+		assert.Equal(t, initialWidth, ws.Width.GetTyped())
+		assert.Equal(t, initialHeight, ws.Height.GetTyped())
+
+		// Emit nil data
+		component.Emit("windowResize", nil)
+
+		// Should not change
+		assert.Equal(t, initialWidth, ws.Width.GetTyped())
+		assert.Equal(t, initialHeight, ws.Height.GetTyped())
+	})
+}
