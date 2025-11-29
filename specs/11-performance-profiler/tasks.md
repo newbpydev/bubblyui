@@ -613,7 +613,7 @@ func (rp *RenderProfiler) GetDroppedFramePercent() float64
 
 ---
 
-### Task 3.2: FPS Calculator
+### Task 3.2: FPS Calculator ✅ COMPLETED
 **Description**: Calculate frames per second metrics
 
 **Prerequisites**: Task 3.1
@@ -638,13 +638,33 @@ func (fc *FPSCalculator) GetMax() float64
 ```
 
 **Tests**:
-- [ ] Sample collection
-- [ ] Average calculation
-- [ ] Min/max tracking
-- [ ] Window size respected
-- [ ] Accuracy validation
+- [x] Sample collection
+- [x] Average calculation
+- [x] Min/max tracking
+- [x] Window size respected
+- [x] Accuracy validation
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `fps.go` with full `FPSCalculator` implementation
+- Implemented `NewFPSCalculator()` and `NewFPSCalculatorWithWindowSize()` constructors
+- Implemented core methods: `AddSample()`, `GetAverage()`, `GetMin()`, `GetMax()`, `GetMinMax()`
+- Added `DefaultFPSWindowSize` constant (60 samples)
+- Implemented sliding window with automatic oldest sample removal
+- Added statistical methods: `GetStandardDeviation()`, `GetPercentile()`, `IsStable()`
+- Added helper methods: `SampleCount()`, `GetSamples()`, `GetWindowSize()`, `SetWindowSize()`, `Reset()`
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 18 table-driven tests covering all functionality:
+  - Sample collection and window size limits
+  - Average, min, max calculations
+  - Standard deviation and percentile calculations
+  - Stability detection with threshold
+  - Thread-safe concurrent access (50 goroutines)
+  - Accuracy validation with floating point precision
+- **Coverage: 96.7%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
