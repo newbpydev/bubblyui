@@ -466,6 +466,85 @@ func TestMetricCollector_Reset(t *testing.T) {
 	assert.True(t, mc.IsEnabled())
 }
 
+// TestMetricCollector_GetTimings tests direct access to timing tracker.
+func TestMetricCollector_GetTimings(t *testing.T) {
+	mc := NewMetricCollector()
+	mc.Enable()
+
+	mc.Measure("test.op", func() {
+		time.Sleep(time.Millisecond)
+	})
+
+	timings := mc.GetTimings()
+	require.NotNil(t, timings)
+
+	stats := timings.GetStats("test.op")
+	require.NotNil(t, stats)
+	assert.Equal(t, int64(1), stats.Count)
+}
+
+// TestMetricCollector_GetMemory tests direct access to memory tracker.
+func TestMetricCollector_GetMemory(t *testing.T) {
+	mc := NewMetricCollector()
+	mc.Enable()
+
+	mc.RecordMemory("test.alloc", 1024)
+
+	memory := mc.GetMemory()
+	require.NotNil(t, memory)
+
+	alloc := memory.GetAllocation("test.alloc")
+	require.NotNil(t, alloc)
+	assert.Equal(t, int64(1), alloc.Count)
+}
+
+// TestMetricCollector_GetCounters tests direct access to counter tracker.
+func TestMetricCollector_GetCounters(t *testing.T) {
+	mc := NewMetricCollector()
+	mc.Enable()
+
+	mc.IncrementCounter("test.counter")
+
+	counters := mc.GetCounters()
+	require.NotNil(t, counters)
+
+	counter := counters.GetCounter("test.counter")
+	require.NotNil(t, counter)
+	assert.Equal(t, int64(1), counter.Count)
+}
+
+// TestMemoryTracker_GetAllAllocations tests getting all allocations.
+func TestMemoryTracker_GetAllAllocations(t *testing.T) {
+	mc := NewMetricCollector()
+	mc.Enable()
+
+	mc.RecordMemory("alloc1", 1024)
+	mc.RecordMemory("alloc2", 2048)
+
+	memory := mc.GetMemory()
+	allocs := memory.GetAllAllocations()
+
+	assert.Len(t, allocs, 2)
+	assert.Contains(t, allocs, "alloc1")
+	assert.Contains(t, allocs, "alloc2")
+}
+
+// TestCounterTracker_GetAllCounters tests getting all counters.
+func TestCounterTracker_GetAllCounters(t *testing.T) {
+	mc := NewMetricCollector()
+	mc.Enable()
+
+	mc.IncrementCounter("counter1")
+	mc.IncrementCounter("counter2")
+
+	counters := mc.GetCounters()
+	allCounters := counters.GetAllCounters()
+
+	assert.Len(t, allCounters, 2)
+	assert.Contains(t, allCounters, "counter1")
+	assert.Contains(t, allCounters, "counter2")
+}
+
 // TestMetricCollector_ConcurrentEnableDisable tests toggling while collecting.
 func TestMetricCollector_ConcurrentEnableDisable(t *testing.T) {
 	mc := NewMetricCollector()

@@ -49,35 +49,7 @@ type MetricCollector struct {
 	mu sync.RWMutex
 }
 
-// TimingTracker tracks operation timing statistics.
-//
-// This is the stub implementation for Task 1.2.
-// Full implementation will be in Task 1.3.
-type TimingTracker struct {
-	operations map[string]*TimingStats
-	mu         sync.RWMutex
-}
-
-// TimingStats holds statistics for an operation.
-type TimingStats struct {
-	// Count is the number of times the operation was recorded
-	Count int64
-
-	// Total is the cumulative duration
-	Total time.Duration
-
-	// Min is the shortest duration recorded
-	Min time.Duration
-
-	// Max is the longest duration recorded
-	Max time.Duration
-
-	// Mean is the average duration
-	Mean time.Duration
-
-	// samples stores individual samples for percentile calculation
-	samples []time.Duration
-}
+// TimingTracker and TimingStats are defined in timing.go (Task 1.3)
 
 // MemoryTracker tracks memory allocation statistics.
 //
@@ -136,9 +108,7 @@ func NewMetricCollector() *MetricCollector {
 
 // newTimingTracker creates a new timing tracker.
 func newTimingTracker() *TimingTracker {
-	return &TimingTracker{
-		operations: make(map[string]*TimingStats),
-	}
+	return NewTimingTracker()
 }
 
 // newMemoryTracker creates a new memory tracker.
@@ -335,79 +305,7 @@ func (mc *MetricCollector) GetCounters() *CounterTracker {
 	return mc.counters
 }
 
-// --- TimingTracker methods ---
-
-// Record records a duration for an operation.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (tt *TimingTracker) Record(name string, duration time.Duration) {
-	tt.mu.Lock()
-	defer tt.mu.Unlock()
-
-	stats, ok := tt.operations[name]
-	if !ok {
-		stats = &TimingStats{
-			Min:     duration,
-			Max:     duration,
-			samples: make([]time.Duration, 0, 1000),
-		}
-		tt.operations[name] = stats
-	}
-
-	stats.Count++
-	stats.Total += duration
-
-	if duration < stats.Min {
-		stats.Min = duration
-	}
-	if duration > stats.Max {
-		stats.Max = duration
-	}
-
-	// Update mean
-	stats.Mean = time.Duration(int64(stats.Total) / stats.Count)
-
-	// Keep samples for percentile calculation (reservoir sampling)
-	if len(stats.samples) < 10000 {
-		stats.samples = append(stats.samples, duration)
-	} else {
-		// Simple reservoir sampling
-		// In future tasks, this will be more sophisticated
-		stats.samples[stats.Count%10000] = duration
-	}
-}
-
-// GetStats returns statistics for an operation.
-//
-// Returns nil if the operation has not been recorded.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (tt *TimingTracker) GetStats(name string) *TimingStats {
-	tt.mu.RLock()
-	defer tt.mu.RUnlock()
-
-	return tt.operations[name]
-}
-
-// GetAllStats returns statistics for all operations.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (tt *TimingTracker) GetAllStats() map[string]*TimingStats {
-	tt.mu.RLock()
-	defer tt.mu.RUnlock()
-
-	result := make(map[string]*TimingStats, len(tt.operations))
-	for k, v := range tt.operations {
-		result[k] = v
-	}
-	return result
-}
+// TimingTracker methods are defined in timing.go (Task 1.3)
 
 // --- MemoryTracker methods ---
 
