@@ -239,7 +239,7 @@ func (mt *MemoryTracker) TrackAllocation(location string, size int64)
 
 ---
 
-### Task 1.5: Configuration System
+### Task 1.5: Configuration System ✅ COMPLETED
 **Description**: Profiler configuration and options
 
 **Prerequisites**: Task 1.4
@@ -268,13 +268,31 @@ func WithThreshold(operation string, threshold time.Duration) Option
 ```
 
 **Tests**:
-- [ ] Default config
-- [ ] Options pattern
-- [ ] Validation
-- [ ] Override behavior
-- [ ] Env var loading
+- [x] Default config
+- [x] Options pattern
+- [x] Validation
+- [x] Override behavior
+- [x] Env var loading
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes (Completed 2024-11-28)**:
+- Created `config.go` with dedicated configuration management
+- Implemented environment variable loading via `ConfigFromEnv()` and `LoadFromEnv()` methods
+- Environment variables supported:
+  - `BUBBLY_PROFILER_ENABLED` (bool: "true", "1", "false", "0")
+  - `BUBBLY_PROFILER_SAMPLING_RATE` (float64: 0.0 to 1.0)
+  - `BUBBLY_PROFILER_MAX_SAMPLES` (int: positive integer)
+  - `BUBBLY_PROFILER_MINIMAL_METRICS` (bool)
+- Invalid env var values silently use defaults (safe deployment)
+- Added `Clone()` method for deep copying Config
+- Added `String()` method for debugging
+- Added `ApplyOptions()` helper function
+- Override behavior: defaults → env vars → options (options win)
+- 20 table-driven tests covering all functionality
+- **Coverage: 97.9%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
