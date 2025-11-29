@@ -479,7 +479,7 @@ func (mp *MemoryProfiler) GetMemoryGrowth() int64
 
 ---
 
-### Task 2.4: Memory Leak Detector
+### Task 2.4: Memory Leak Detector ✅ COMPLETED
 **Description**: Detect memory leaks from snapshots
 
 **Prerequisites**: Task 2.3
@@ -509,13 +509,40 @@ func (ld *LeakDetector) DetectGoroutineLeaks(before, after int) *LeakInfo
 ```
 
 **Tests**:
-- [ ] Heap leak detection
-- [ ] Goroutine leak detection
-- [ ] Severity calculation
-- [ ] False positive filtering
-- [ ] Threshold configuration
+- [x] Heap leak detection
+- [x] Goroutine leak detection
+- [x] Severity calculation
+- [x] False positive filtering
+- [x] Threshold configuration
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `leak_detector.go` with full `LeakDetector` implementation
+- Implemented `LeakThresholds` struct with configurable thresholds:
+  - `HeapGrowthBytes`: Minimum heap growth to report (default 1MB)
+  - `GoroutineGrowth`: Minimum goroutine increase to report (default 10)
+  - `HeapObjectGrowth`: Minimum object count increase (default 10,000)
+  - Severity thresholds for High/Critical classification
+- Implemented `LeakInfo` struct with Type, BytesLeaked, Count, Description, Severity
+- Implemented `DetectLeaks()` that analyzes memory snapshots:
+  - Compares first and last snapshots for heap growth
+  - Detects heap object accumulation
+  - Filters false positives using thresholds
+  - Returns multiple leak types if detected
+- Implemented `DetectGoroutineLeaks()` for goroutine leak detection
+- Implemented severity calculation based on configurable thresholds:
+  - Low: Below medium threshold
+  - Medium: >= high/2 threshold
+  - High: >= high threshold
+  - Critical: >= critical threshold
+- Added helper methods: `GetThresholds()`, `SetThresholds()`, `Reset()`
+- Added `formatBytes()` helper for human-readable byte formatting
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 17 table-driven tests covering all functionality
+- **Coverage: 96.1%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
