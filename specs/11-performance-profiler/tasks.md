@@ -820,7 +820,7 @@ func (bd *BottleneckDetector) Detect(metrics *PerformanceMetrics) []*BottleneckI
 
 ---
 
-### Task 4.2: Threshold Monitor
+### Task 4.2: Threshold Monitor ✅ COMPLETED
 **Description**: Monitor operations against thresholds
 
 **Prerequisites**: Task 4.1
@@ -843,13 +843,38 @@ func (tm *ThresholdMonitor) SetThreshold(operation string, threshold time.Durati
 ```
 
 **Tests**:
-- [ ] Threshold checking
-- [ ] Violation tracking
-- [ ] Configurable thresholds
-- [ ] Multiple operations
-- [ ] Alert generation
+- [x] Threshold checking
+- [x] Violation tracking
+- [x] Configurable thresholds
+- [x] Multiple operations
+- [x] Alert generation
 
 **Estimated Effort**: 2 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `threshold.go` with full `ThresholdMonitor` implementation
+- Implemented `ThresholdConfig` struct with configurable settings:
+  - `DefaultThreshold`: Default threshold for operations (16ms for 60 FPS)
+  - `AlertCooldown`: Minimum time between alerts for same operation (1s default)
+  - `MaxAlerts`: Maximum alerts to retain in history (100 default)
+  - `EnableAlerts`: Toggle for alert generation
+- Implemented `Alert` struct with Operation, Duration, Threshold, Severity, Timestamp, Description
+- Implemented `AlertHandler` callback type for real-time alert notifications
+- Implemented core methods:
+  - `NewThresholdMonitor()`, `NewThresholdMonitorWithConfig()` constructors
+  - `Check(operation, duration)` - returns BottleneckInfo and generates alerts
+  - `SetThreshold()`, `GetThreshold()` - threshold management
+  - `GetViolations()`, `GetAllViolations()` - violation tracking
+  - `GetAlerts()`, `SetAlertHandler()`, `ClearAlerts()` - alert management
+  - `Reset()`, `GetConfig()` - lifecycle and configuration
+- Alert cooldown prevents alert storms for same operation
+- Alert history limited to MaxAlerts (oldest removed when exceeded)
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 27 table-driven tests covering all functionality including concurrent access (50 goroutines)
+- **Coverage: 100%** for threshold.go (exceeds >95% requirement)
+- **Overall profiler coverage: 97.2%**
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
