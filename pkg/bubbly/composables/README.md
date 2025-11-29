@@ -635,16 +635,24 @@ BubblyUI provides 30 composables organized into 6 categories:
 
 ### UseWindowSize
 
-**Terminal dimensions and responsive breakpoints.**
+**Terminal dimensions and responsive breakpoints with AUTOMATIC resize handling.**
+
+> **Zero Bubbletea Boilerplate:** UseWindowSize automatically subscribes to the framework's
+> `"windowResize"` event. You do NOT need `WithMessageHandler` or manual event handlers!
 
 ```go
+// Basic usage - automatic resize handling included!
+windowSize := composables.UseWindowSize(ctx)
+// That's it! Window resize is automatic.
+
+// With options
 windowSize := composables.UseWindowSize(ctx,
     composables.WithBreakpoints(composables.BreakpointConfig{XS: 0, SM: 60, MD: 80, LG: 120, XL: 160}),
     composables.WithMinDimensions(40, 10),
     composables.WithSidebarWidth(25),
 )
 
-// Reactive values
+// Reactive values (automatically updated on terminal resize)
 width := windowSize.Width.Get()           // int
 height := windowSize.Height.Get()         // int
 bp := windowSize.Breakpoint.Get()         // Breakpoint (xs, sm, md, lg, xl)
@@ -654,7 +662,6 @@ cols := windowSize.GridColumns.Get()      // int
 // Helper methods
 contentWidth := windowSize.GetContentWidth()
 cardWidth := windowSize.GetCardWidth()
-windowSize.SetSize(width, height)  // Update on resize
 ```
 
 ### UseFocus

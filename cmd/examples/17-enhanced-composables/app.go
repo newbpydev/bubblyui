@@ -4,7 +4,6 @@ package main
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	localComponents "github.com/newbpydev/bubblyui/cmd/examples/17-enhanced-composables/components"
@@ -100,19 +99,8 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("i", "actionI", "Info").
 		WithKeyBinding("w", "actionW", "Warning").
 		WithKeyBinding("s", "actionS", "Success").
-		// Handle window resize messages from Bubbletea
-		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-			switch msg := msg.(type) {
-			case tea.WindowSizeMsg:
-				// Emit resize event with actual terminal dimensions
-				comp.Emit("resize", map[string]int{
-					"width":  msg.Width,
-					"height": msg.Height,
-				})
-				return nil
-			}
-			return nil
-		}).
+		// NOTE: Window resize is now handled AUTOMATICALLY by the framework (Task 6.1/6.2)
+		// No WithMessageHandler needed for tea.WindowSizeMsg - UseWindowSize auto-subscribes
 		Setup(func(ctx *bubbly.Context) {
 			ctx.ProvideTheme(bubbly.DefaultTheme)
 			theme := ctx.UseTheme(bubbly.DefaultTheme)
@@ -127,11 +115,8 @@ func CreateApp() (bubbly.Component, error) {
 			_ = ctx.ExposeComponent("sidebarList", sidebarList)
 			_ = ctx.ExposeComponent("contentArea", contentArea)
 
-			ctx.On("resize", func(data interface{}) {
-				if sizeData, ok := data.(map[string]int); ok {
-					state.SetSize(sizeData["width"], sizeData["height"])
-				}
-			})
+			// NOTE: Window resize is now handled AUTOMATICALLY inside UseDemoState
+			// via ctx.On("windowResize", ...) - no manual handler needed here
 
 			ctx.On("navUp", func(_ interface{}) {
 				view := state.ActiveView.GetTyped()

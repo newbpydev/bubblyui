@@ -681,9 +681,24 @@ func UseDemoState(ctx *bubbly.Context) *DemoStateComposable {
 	// Initialize mode demo modes
 	modeModes := []string{"normal", "insert", "visual", "command"}
 
+	// Create refs for window size
+	width := bubbly.NewRef(80)
+	height := bubbly.NewRef(24)
+
+	// Task 6.1/6.2: Auto-subscribe to framework's "windowResize" event
+	// No manual WithMessageHandler needed - the framework emits this automatically
+	if ctx != nil {
+		ctx.On("windowResize", func(data interface{}) {
+			if sizeData, ok := data.(map[string]int); ok {
+				width.Set(sizeData["width"])
+				height.Set(sizeData["height"])
+			}
+		})
+	}
+
 	return &DemoStateComposable{
-		Width:          bubbly.NewRef(80),
-		Height:         bubbly.NewRef(24),
+		Width:          width,
+		Height:         height,
 		SidebarWidth:   26,
 		FocusedPane:    bubbly.NewRef(FocusSidebar),
 		SidebarIndex:   bubbly.NewRef(0),

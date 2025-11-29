@@ -1796,16 +1796,13 @@ ctx.Emit("refresh", nil)  // Triggers all listeners
 ```go
 // Signature: func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn
 
+// AUTOMATIC RESIZE HANDLING (Zero Bubbletea Boilerplate):
+// UseWindowSize automatically subscribes to the framework's "windowResize" event.
+// You do NOT need WithMessageHandler or manual event handlers!
 windowSize := composables.UseWindowSize(ctx)
+// That's it! Window resize is automatic.
 
-// Handle resize events
-ctx.On("resize", func(data interface{}) {
-    if size, ok := data.(map[string]int); ok {
-        windowSize.SetSize(size["width"], size["height"])
-    }
-})
-
-// Access reactive values
+// Access reactive values (automatically updated on terminal resize)
 width := windowSize.Width.Get()           // int
 height := windowSize.Height.Get()         // int
 bp := windowSize.Breakpoint.Get()         // Breakpoint (xs, sm, md, lg, xl)

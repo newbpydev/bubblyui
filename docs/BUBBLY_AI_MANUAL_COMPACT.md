@@ -171,7 +171,7 @@ cleanup := composables.UseEffect(ctx, func() composables.UseEffectCleanup {
 ### TUI-Specific (5) - NEW
 | Composable | Signature | Purpose |
 |------------|-----------|---------|
-| `UseWindowSize` | `(ctx, opts...)` | Terminal dimensions & breakpoints |
+| `UseWindowSize` | `(ctx, opts...)` | Terminal dimensions & breakpoints (auto-resize!) |
 | `UseFocus[T]` | `(ctx, initial, order)` | Multi-pane focus management |
 | `UseScroll` | `(ctx, total, visible)` | Viewport scrolling |
 | `UseSelection[T]` | `(ctx, items, opts...)` | List/table selection |
@@ -216,8 +216,8 @@ cleanup := composables.UseEffect(ctx, func() composables.UseEffectCleanup {
 
 **Quick Examples:**
 ```go
-// TUI-Specific
-windowSize := composables.UseWindowSize(ctx)
+// TUI-Specific (UseWindowSize has AUTOMATIC resize handling - zero boilerplate!)
+windowSize := composables.UseWindowSize(ctx)  // Auto-subscribes to windowResize events
 focus := composables.UseFocus(ctx, FocusMain, []FocusPane{FocusSidebar, FocusMain})
 scroll := composables.UseScroll(ctx, 100, 10)
 selection := composables.UseSelection(ctx, items, composables.WithWrap(true))
