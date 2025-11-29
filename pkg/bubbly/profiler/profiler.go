@@ -88,12 +88,7 @@ type Profiler struct {
 
 // MetricCollector is defined in collector.go (Task 1.2)
 // CPUProfiler is defined in cpu.go (Task 2.1)
-
-// MemoryProfiler handles memory profiling with pprof integration.
-// This is a stub for Task 2.3.
-type MemoryProfiler struct {
-	mu sync.Mutex // nolint:unused // Will be used in Task 2.3
-}
+// MemoryProfiler is defined in heap.go (Task 2.3)
 
 // RenderProfiler tracks render performance and FPS.
 // This is a stub for Task 3.1.
@@ -425,7 +420,7 @@ func New(opts ...Option) *Profiler {
 		config:     cfg,
 		collector:  NewMetricCollector(),
 		cpuProf:    NewCPUProfiler(),
-		memProf:    &MemoryProfiler{},
+		memProf:    NewMemoryProfiler(),
 		renderProf: &RenderProfiler{},
 		detector: &BottleneckDetector{
 			thresholds: make(map[string]time.Duration),
