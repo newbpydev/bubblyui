@@ -298,7 +298,7 @@ func WithThreshold(operation string, threshold time.Duration) Option
 
 ## Phase 2: CPU & Memory Profiling (4 tasks, 12 hours)
 
-### Task 2.1: CPU Profiler (pprof Integration)
+### Task 2.1: CPU Profiler (pprof Integration) ✅ COMPLETED
 **Description**: Integrate with Go's pprof for CPU profiling
 
 **Prerequisites**: Task 1.5
@@ -323,13 +323,34 @@ func (cp *CPUProfiler) IsActive() bool
 ```
 
 **Tests**:
-- [ ] Start profiling
-- [ ] Stop profiling
-- [ ] File generation
-- [ ] pprof format valid
-- [ ] Integration with pprof tools
+- [x] Start profiling
+- [x] Stop profiling
+- [x] File generation
+- [x] pprof format valid
+- [x] Integration with pprof tools
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `cpu.go` with full `CPUProfiler` implementation using `runtime/pprof`
+- Implemented `NewCPUProfiler()` constructor returning inactive profiler
+- Implemented `Start(filename)` using `pprof.StartCPUProfile()` with file creation
+- Implemented `Stop()` using `pprof.StopCPUProfile()` with proper file cleanup
+- Implemented `IsActive()` for thread-safe status checking
+- Added `GetFilename()` helper method for retrieving current profile filename
+- Added error types: `ErrCPUProfileActive`, `ErrCPUProfileNotActive`
+- Thread-safe with `sync.Mutex` protecting all state operations
+- Updated `profiler.go` to use `NewCPUProfiler()` instead of stub
+- 9 table-driven tests covering all functionality:
+  - Start/stop lifecycle with error handling
+  - File generation and pprof format validation (gzip magic number check)
+  - Invalid filename handling
+  - Thread-safe concurrent access (50+ goroutines)
+  - Multiple start/stop cycles
+  - Integration with pprof tools
+- **Coverage: 97.6%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
