@@ -114,6 +114,17 @@ func WithMinDimensions(minWidth, minHeight int) WindowSizeOption
 func WithSidebarWidth(width int) WindowSizeOption
 
 // UseWindowSize creates a window size composable for responsive layouts.
+// 
+// IMPORTANT (Phase 6 Enhancement): UseWindowSize automatically subscribes to
+// the framework's "windowResize" event. Users do NOT need to:
+// - Use WithMessageHandler to catch tea.WindowSizeMsg
+// - Manually emit or handle resize events
+// - Call SetSize() manually on window resize
+//
+// The framework automatically:
+// 1. Detects tea.WindowSizeMsg in componentImpl.Update()
+// 2. Emits a "windowResize" event with width/height
+// 3. UseWindowSize receives this event and updates automatically
 func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn
 
 // =====================================
@@ -873,6 +884,61 @@ ctx.On("intervalTick", func(_ interface{}) {
 **Problem**: Composables with internal state need cleanup.
 
 **Solution**: Use OnUnmounted hook to clean up timers, cancel pending operations.
+
+## Framework-Level Window Resize Integration (Phase 6)
+
+### Overview
+The framework automatically handles `tea.WindowSizeMsg` and emits events so that composables like `UseWindowSize` work without any Bubbletea boilerplate.
+
+### Component Update Enhancement
+```go
+// In componentImpl.Update(), BEFORE messageHandler:
+func (c *componentImpl) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var cmds []tea.Cmd
+    
+    // Auto-handle WindowSizeMsg - emit "windowResize" event (zero-boilerplate)
+    if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
+        c.Emit("windowResize", map[string]int{
+            "width":  wsMsg.Width,
+            "height": wsMsg.Height,
+        })
+    }
+    
+    // ... rest of existing Update logic
+}
+```
+
+### UseWindowSize Auto-Subscribe
+```go
+func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn {
+    // ... existing setup code ...
+    
+    // Auto-subscribe to framework's "windowResize" event
+    if ctx != nil {
+        ctx.On("windowResize", func(data interface{}) {
+            if sizeData, ok := data.(map[string]int); ok {
+                ws.SetSize(sizeData["width"], sizeData["height"])
+            }
+        })
+    }
+    
+    return ws
+}
+```
+
+### Event Data Format
+```go
+// The "windowResize" event data is always:
+map[string]int{
+    "width":  int,  // Terminal width in columns
+    "height": int,  // Terminal height in rows
+}
+```
+
+### Backward Compatibility
+- Event fires BEFORE messageHandler, allowing existing code to work
+- Users can still use WithMessageHandler for custom handling
+- No breaking changes to existing APIs
 
 ## Future Enhancements
 

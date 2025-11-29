@@ -7,7 +7,8 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Standard Composables](#standard-composables)
+- [Composables Overview (30 Total)](#composables-overview-30-total)
+- [Standard Composables (8)](#standard-composables-8)
   - [UseState](#usestate)
   - [UseEffect](#useeffect)
   - [UseAsync](#useasync)
@@ -16,6 +17,34 @@
   - [UseForm](#useform)
   - [UseLocalStorage](#uselocalstorage)
   - [UseEventListener](#useeventlistener)
+- [TUI-Specific Composables (5)](#tui-specific-composables-5)
+  - [UseWindowSize](#usewindowsize)
+  - [UseFocus](#usefocus)
+  - [UseScroll](#usescroll)
+  - [UseSelection](#useselection)
+  - [UseMode](#usemode)
+- [State Utility Composables (4)](#state-utility-composables-4)
+  - [UseToggle](#usetoggle)
+  - [UseCounter](#usecounter)
+  - [UsePrevious](#useprevious)
+  - [UseHistory](#usehistory)
+- [Timing Composables (3)](#timing-composables-3)
+  - [UseInterval](#useinterval)
+  - [UseTimeout](#usetimeout)
+  - [UseTimer](#usetimer)
+- [Collection Composables (4)](#collection-composables-4)
+  - [UseList](#uselist)
+  - [UseMap](#usemap)
+  - [UseSet](#useset)
+  - [UseQueue](#usequeue)
+- [Development Composables (2)](#development-composables-2)
+  - [UseLogger](#uselogger)
+  - [UseNotification](#usenotification)
+- [Utility Composables (4)](#utility-composables-4)
+  - [UseTextInput](#usetextinput)
+  - [UseDoubleCounter](#usedoublecounter)
+  - [CreateShared](#createshared)
+  - [CreateSharedWithReset](#createsharedwithreset)
 - [Common Patterns](#common-patterns)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
@@ -582,6 +611,448 @@ Setup(func(ctx *bubbly.Context) {
 
     ctx.Expose("clickCount", clickCount)
 })
+```
+
+---
+
+## Composables Overview (30 Total)
+
+BubblyUI provides 30 composables organized into 6 categories:
+
+| Category | Count | Composables |
+|----------|-------|-------------|
+| **Standard** | 8 | UseState, UseAsync, UseEffect, UseDebounce, UseThrottle, UseForm, UseLocalStorage, UseEventListener |
+| **TUI-Specific** | 5 | UseWindowSize, UseFocus, UseScroll, UseSelection, UseMode |
+| **State Utilities** | 4 | UseToggle, UseCounter, UsePrevious, UseHistory |
+| **Timing** | 3 | UseInterval, UseTimeout, UseTimer |
+| **Collections** | 4 | UseList, UseMap, UseSet, UseQueue |
+| **Development** | 2 | UseLogger, UseNotification |
+| **Utilities** | 4 | UseTextInput, UseDoubleCounter, CreateShared, CreateSharedWithReset |
+
+---
+
+## TUI-Specific Composables (5)
+
+### UseWindowSize
+
+**Terminal dimensions and responsive breakpoints with AUTOMATIC resize handling.**
+
+> **Zero Bubbletea Boilerplate:** UseWindowSize automatically subscribes to the framework's
+> `"windowResize"` event. You do NOT need `WithMessageHandler` or manual event handlers!
+
+```go
+// Basic usage - automatic resize handling included!
+windowSize := composables.UseWindowSize(ctx)
+// That's it! Window resize is automatic.
+
+// With options
+windowSize := composables.UseWindowSize(ctx,
+    composables.WithBreakpoints(composables.BreakpointConfig{XS: 0, SM: 60, MD: 80, LG: 120, XL: 160}),
+    composables.WithMinDimensions(40, 10),
+    composables.WithSidebarWidth(25),
+)
+
+// Reactive values (automatically updated on terminal resize)
+width := windowSize.Width.Get()           // int
+height := windowSize.Height.Get()         // int
+bp := windowSize.Breakpoint.Get()         // Breakpoint (xs, sm, md, lg, xl)
+showSidebar := windowSize.SidebarVisible.Get()  // bool
+cols := windowSize.GridColumns.Get()      // int
+
+// Helper methods
+contentWidth := windowSize.GetContentWidth()
+cardWidth := windowSize.GetCardWidth()
+```
+
+### UseFocus
+
+**Multi-pane focus management with generic type support.**
+
+```go
+type FocusPane int
+const (FocusSidebar FocusPane = iota; FocusMain; FocusFooter)
+
+focus := composables.UseFocus(ctx, FocusMain, []FocusPane{FocusSidebar, FocusMain, FocusFooter})
+
+focus.Next()                    // Cycle to next
+focus.Previous()                // Cycle to previous
+focus.Focus(FocusSidebar)       // Focus specific pane
+isFocused := focus.IsFocused(FocusMain)
+current := focus.Current.Get()  // FocusPane
+```
+
+### UseScroll
+
+**Viewport scrolling management.**
+
+```go
+scroll := composables.UseScroll(ctx, 100, 10)  // 100 items, 10 visible
+
+scroll.ScrollUp()               // Move up by 1
+scroll.ScrollDown()             // Move down by 1
+scroll.ScrollTo(50)             // Jump to offset
+scroll.ScrollToTop()            // Jump to start
+scroll.ScrollToBottom()         // Jump to end
+scroll.PageUp()                 // Move up by visible count
+scroll.PageDown()               // Move down by visible count
+scroll.SetTotalItems(200)       // Update total
+scroll.SetVisibleCount(15)      // Update visible
+
+isTop := scroll.IsAtTop()       // bool
+isBottom := scroll.IsAtBottom() // bool
+offset := scroll.Offset.Get()   // int
+```
+
+### UseSelection
+
+**List/table selection with multi-select support.**
+
+```go
+selection := composables.UseSelection(ctx, items,
+    composables.WithWrap(true),
+    composables.WithMultiSelect(false),
+)
+
+selection.Select(1)             // Select index
+selection.SelectNext()          // Move to next
+selection.SelectPrevious()      // Move to previous
+selection.ToggleSelection(2)    // Toggle at index (multi-select)
+selection.ClearSelection()      // Clear all
+selection.SetItems(newItems)    // Update items
+
+idx := selection.SelectedIndex.Get()      // int
+item := selection.SelectedItem.Get()      // T (computed)
+indices := selection.SelectedIndices.Get() // []int (multi-select)
+```
+
+### UseMode
+
+**Navigation/input mode management.**
+
+```go
+type Mode string
+const (ModeNavigation Mode = "navigation"; ModeInput Mode = "input")
+
+mode := composables.UseMode(ctx, ModeNavigation)
+
+mode.Switch(ModeInput)                    // Change mode
+mode.Toggle(ModeNavigation, ModeInput)    // Toggle between two
+isNav := mode.IsMode(ModeNavigation)      // Check current
+
+current := mode.Current.Get()   // Mode
+previous := mode.Previous.Get() // Mode
+```
+
+---
+
+## State Utility Composables (4)
+
+### UseToggle
+
+**Boolean toggle state management.**
+
+```go
+toggle := composables.UseToggle(ctx, false)
+
+toggle.Toggle()     // Flip value
+toggle.Set(true)    // Set explicit value
+toggle.On()         // Set to true
+toggle.Off()        // Set to false
+
+isOn := toggle.Value.Get()  // bool
+```
+
+### UseCounter
+
+**Bounded counter with step support.**
+
+```go
+counter := composables.UseCounter(ctx, 50,
+    composables.WithMin(0),
+    composables.WithMax(100),
+    composables.WithStep(5),
+)
+
+counter.Increment()       // +step (respects max)
+counter.Decrement()       // -step (respects min)
+counter.IncrementBy(10)   // +10 (respects max)
+counter.DecrementBy(10)   // -10 (respects min)
+counter.Set(75)           // Set value (clamped)
+counter.Reset()           // Reset to initial
+
+count := counter.Count.Get()  // int
+```
+
+### UsePrevious
+
+**Previous value tracking.**
+
+```go
+count := bubbly.NewRef(0)
+previous := composables.UsePrevious(ctx, count)
+
+count.Set(5)
+count.Set(10)
+
+prev := previous.Get()  // *T (nil if no previous, pointer to 5 after second Set)
+```
+
+### UseHistory
+
+**Undo/redo state management.**
+
+```go
+history := composables.UseHistory(ctx, "initial", 50)  // Max 50 undo steps
+
+history.Push("state 1")   // Add to history (clears redo)
+history.Push("state 2")
+history.Undo()            // Revert to previous
+history.Redo()            // Restore next
+history.Clear()           // Clear all history
+
+current := history.Current.Get()    // T
+canUndo := history.CanUndo.Get()    // bool (computed)
+canRedo := history.CanRedo.Get()    // bool (computed)
+```
+
+---
+
+## Timing Composables (3)
+
+### UseInterval
+
+**Periodic execution with start/stop control.**
+
+```go
+interval := composables.UseInterval(ctx, func() {
+    refreshData()
+}, 5*time.Second)
+
+interval.Start()    // Begin interval
+interval.Stop()     // Pause interval
+interval.Toggle()   // Start if stopped, stop if running
+interval.Reset()    // Stop and restart
+
+isRunning := interval.IsRunning.Get()  // bool
+// Auto-cleanup on unmount
+```
+
+### UseTimeout
+
+**Delayed execution with cancel support.**
+
+```go
+timeout := composables.UseTimeout(ctx, func() {
+    showNotification()
+}, 3*time.Second)
+
+timeout.Start()     // Begin timeout
+timeout.Cancel()    // Cancel pending timeout
+timeout.Reset()     // Cancel and restart
+
+isPending := timeout.IsPending.Get()  // bool
+isExpired := timeout.IsExpired.Get()  // bool
+// Auto-cleanup on unmount
+```
+
+### UseTimer
+
+**Countdown timer with progress tracking.**
+
+```go
+timer := composables.UseTimer(ctx, 60*time.Second,
+    composables.WithOnExpire(func() { playAlarm() }),
+    composables.WithTickInterval(100*time.Millisecond),
+)
+
+timer.Start()       // Begin countdown
+timer.Stop()        // Pause countdown
+timer.Reset()       // Reset to initial duration
+
+remaining := timer.Remaining.Get()  // time.Duration
+isRunning := timer.IsRunning.Get()  // bool
+isExpired := timer.IsExpired.Get()  // bool (computed)
+progress := timer.Progress.Get()    // float64 (0.0 to 1.0, computed)
+// Auto-cleanup on unmount
+```
+
+---
+
+## Collection Composables (4)
+
+### UseList
+
+**Generic list CRUD operations.**
+
+```go
+list := composables.UseList(ctx, []string{"a", "b", "c"})
+
+list.Push("d", "e")           // Add to end
+item, ok := list.Pop()        // Remove from end
+item, ok := list.Shift()      // Remove from start
+list.Unshift("z")             // Add to start
+list.Insert(1, "x")           // Insert at index
+item, ok := list.RemoveAt(2)  // Remove at index
+list.UpdateAt(0, "new")       // Update at index
+list.Clear()                  // Remove all
+item, ok := list.Get(0)       // Get at index
+list.Set(newItems)            // Replace all
+
+items := list.Items.Get()     // []T
+length := list.Length.Get()   // int (computed)
+isEmpty := list.IsEmpty.Get() // bool (computed)
+```
+
+### UseMap
+
+**Generic key-value state management.**
+
+```go
+m := composables.UseMap(ctx, map[string]int{"a": 1, "b": 2})
+
+m.Set("c", 3)                 // Add/update key
+val, ok := m.Get("a")         // Get value
+deleted := m.Delete("b")      // Remove key
+exists := m.Has("c")          // Check existence
+keys := m.Keys()              // Get all keys
+values := m.Values()          // Get all values
+m.Clear()                     // Remove all
+
+data := m.Data.Get()          // map[K]V
+size := m.Size.Get()          // int (computed)
+isEmpty := m.IsEmpty.Get()    // bool (computed)
+```
+
+### UseSet
+
+**Unique value set management.**
+
+```go
+set := composables.UseSet(ctx, []string{"a", "b", "c"})
+
+set.Add("d")                  // Add value
+deleted := set.Delete("a")    // Remove value
+exists := set.Has("b")        // Check existence
+set.Toggle("c")               // Add if absent, remove if present
+set.Clear()                   // Remove all
+slice := set.ToSlice()        // Convert to slice
+
+values := set.Values.Get()    // map[T]struct{}
+size := set.Size.Get()        // int (computed)
+isEmpty := set.IsEmpty.Get()  // bool (computed)
+```
+
+### UseQueue
+
+**FIFO queue operations.**
+
+```go
+queue := composables.UseQueue(ctx, []int{1, 2, 3})
+
+queue.Enqueue(4)              // Add to back
+item, ok := queue.Dequeue()   // Remove from front
+item, ok := queue.Peek()      // View front without removing
+queue.Clear()                 // Remove all
+
+items := queue.Items.Get()    // []T
+size := queue.Size.Get()      // int (computed)
+isEmpty := queue.IsEmpty.Get() // bool (computed)
+front := queue.Front.Get()    // *T (computed, nil if empty)
+```
+
+---
+
+## Development Composables (2)
+
+### UseLogger
+
+**Component debug logging with levels.**
+
+```go
+logger := composables.UseLogger(ctx, "MyComponent")
+
+logger.Debug("Debug message", extraData)
+logger.Info("Info message")
+logger.Warn("Warning message")
+logger.Error("Error message", err)
+logger.Clear()  // Clear log history
+
+logger.Level.Set(composables.LogLevelWarn)  // Only warn and error
+
+logs := logger.Logs.Get()     // []LogEntry
+level := logger.Level.Get()   // LogLevel
+```
+
+### UseNotification
+
+**Toast notification system.**
+
+```go
+notifications := composables.UseNotification(ctx,
+    composables.WithDefaultDuration(3*time.Second),
+    composables.WithMaxNotifications(5),
+)
+
+notifications.Show(composables.NotificationSuccess, "Title", "Message", 5*time.Second)
+notifications.Info("Info", "Information message")
+notifications.Success("Success", "Operation completed")
+notifications.Warning("Warning", "Be careful")
+notifications.Error("Error", "Something went wrong")
+notifications.Dismiss(id)     // Dismiss by ID
+notifications.DismissAll()    // Dismiss all
+
+notifs := notifications.Notifications.Get()  // []Notification
+// Auto-dismiss after duration, auto-cleanup on unmount
+```
+
+---
+
+## Utility Composables (4)
+
+### UseTextInput
+
+See [UseTextInput](#usetextinput-1) in Standard Composables section.
+
+### UseDoubleCounter
+
+```go
+count, increment, decrement := composables.UseDoubleCounter(ctx, 0)
+increment()  // +2
+decrement()  // -2
+```
+
+### CreateShared
+
+**Singleton composables for cross-component state.**
+
+```go
+var UseSharedCounter = composables.CreateShared(
+    func(ctx *bubbly.Context) *CounterReturn {
+        return composables.UseCounter(ctx, 0)
+    },
+)
+
+// In Component A:
+counter := UseSharedCounter(ctx)  // Creates instance
+counter.Increment()
+
+// In Component B (same instance!):
+counter := UseSharedCounter(ctx)  // Returns existing instance
+```
+
+### CreateSharedWithReset
+
+**Resettable singleton composables.**
+
+```go
+shared := composables.CreateSharedWithReset(
+    func(ctx *bubbly.Context) *CounterReturn {
+        return composables.UseCounter(ctx, 0)
+    },
+)
+
+counter := shared.Use(ctx)  // Get or create instance
+shared.Reset()              // Reset to allow new instance
 ```
 
 ---

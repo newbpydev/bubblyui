@@ -154,8 +154,9 @@ cleanup := composables.UseEffect(ctx, func() composables.UseEffectCleanup {
 
 ---
 
-## Composables (12 Total)
+## Composables (30 Total)
 
+### Standard (8)
 | Composable | Signature | Purpose |
 |------------|-----------|---------|
 | `UseState[T]` | `(ctx, initial T)` | Simple reactive state |
@@ -166,17 +167,86 @@ cleanup := composables.UseEffect(ctx, func() composables.UseEffectCleanup {
 | `UseForm[T]` | `(ctx, form, validator)` | Form with validation |
 | `UseLocalStorage[T]` | `(ctx, key, initial, storage)` | Persistent state |
 | `UseEventListener` | `(ctx, event, handler)` | Event subscription |
-| `UseTextInput` | `(config)` | Bubbles textinput wrapper |
-| `UseCounter` | `(ctx, initial)` | Counter with Inc/Dec/Reset |
-| `UseDoubleCounter` | `(ctx, initial)` | Counter with ±2 steps |
-| `CreateShared[T]` | `(factory)` | **NEW:** Singleton composable |
 
-**CreateShared Example:**
+### TUI-Specific (5) - NEW
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseWindowSize` | `(ctx, opts...)` | Terminal dimensions & breakpoints (auto-resize!) |
+| `UseFocus[T]` | `(ctx, initial, order)` | Multi-pane focus management |
+| `UseScroll` | `(ctx, total, visible)` | Viewport scrolling |
+| `UseSelection[T]` | `(ctx, items, opts...)` | List/table selection |
+| `UseMode[T]` | `(ctx, initial)` | Navigation/input mode |
+
+### State Utilities (4) - NEW
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseToggle` | `(ctx, initial)` | Boolean toggle |
+| `UseCounter` | `(ctx, initial, opts...)` | Bounded counter with step |
+| `UsePrevious[T]` | `(ctx, ref)` | Previous value tracking |
+| `UseHistory[T]` | `(ctx, initial, maxSize)` | Undo/redo state |
+
+### Timing (3) - NEW
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseInterval` | `(ctx, callback, duration)` | Periodic execution |
+| `UseTimeout` | `(ctx, callback, duration)` | Delayed execution |
+| `UseTimer` | `(ctx, duration, opts...)` | Countdown timer |
+
+### Collections (4) - NEW
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseList[T]` | `(ctx, initial)` | Generic list CRUD |
+| `UseMap[K,V]` | `(ctx, initial)` | Key-value state |
+| `UseSet[T]` | `(ctx, initial)` | Unique value set |
+| `UseQueue[T]` | `(ctx, initial)` | FIFO queue |
+
+### Development (2) - NEW
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseLogger` | `(ctx, componentName)` | Debug logging with levels |
+| `UseNotification` | `(ctx, opts...)` | Toast notifications |
+
+### Utilities (4)
+| Composable | Signature | Purpose |
+|------------|-----------|---------|
+| `UseTextInput` | `(config)` | Bubbles textinput wrapper |
+| `UseDoubleCounter` | `(ctx, initial)` | Counter with ±2 steps |
+| `CreateShared[T]` | `(factory)` | Singleton composable |
+| `CreateSharedWithReset[T]` | `(factory)` | Resettable singleton |
+
+**Quick Examples:**
 ```go
-var UseSharedCounter = composables.CreateShared(func(ctx *bubbly.Context) *CounterComposable {
-    return UseCounter(ctx, 0)
+// TUI-Specific (UseWindowSize has AUTOMATIC resize handling - zero boilerplate!)
+windowSize := composables.UseWindowSize(ctx)  // Auto-subscribes to windowResize events
+focus := composables.UseFocus(ctx, FocusMain, []FocusPane{FocusSidebar, FocusMain})
+scroll := composables.UseScroll(ctx, 100, 10)
+selection := composables.UseSelection(ctx, items, composables.WithWrap(true))
+mode := composables.UseMode(ctx, ModeNavigation)
+
+// State Utilities
+toggle := composables.UseToggle(ctx, false)
+counter := composables.UseCounter(ctx, 0, composables.WithMin(0), composables.WithMax(100))
+history := composables.UseHistory(ctx, "initial", 50)
+
+// Timing
+interval := composables.UseInterval(ctx, refreshData, 5*time.Second)
+timeout := composables.UseTimeout(ctx, showNotif, 3*time.Second)
+timer := composables.UseTimer(ctx, 60*time.Second, composables.WithOnExpire(playAlarm))
+
+// Collections
+list := composables.UseList(ctx, []string{"a", "b"})
+m := composables.UseMap(ctx, map[string]int{"a": 1})
+set := composables.UseSet(ctx, []string{"a", "b"})
+queue := composables.UseQueue(ctx, []int{1, 2, 3})
+
+// Development
+logger := composables.UseLogger(ctx, "MyComponent")
+notifications := composables.UseNotification(ctx, composables.WithDefaultDuration(3*time.Second))
+
+// CreateShared
+var UseSharedCounter = composables.CreateShared(func(ctx *bubbly.Context) *CounterReturn {
+    return composables.UseCounter(ctx, 0)
 })
-// Same instance across all components - thread-safe via sync.Once
 ```
 
 ---

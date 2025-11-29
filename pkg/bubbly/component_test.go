@@ -1244,3 +1244,200 @@ func TestComponent_Init_SetupRunsOnlyOnce(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Task 6.1: Automatic Window Resize Event Emission Tests
+// =============================================================================
+
+// TestComponentUpdate_WindowSizeMsg_AutoEmitsEvent tests that tea.WindowSizeMsg
+// automatically emits a "windowResize" event without requiring WithMessageHandler.
+func TestComponentUpdate_WindowSizeMsg_AutoEmitsEvent(t *testing.T) {
+	t.Run("emits_windowResize_event_on_WindowSizeMsg", func(t *testing.T) {
+		var receivedWidth, receivedHeight int
+		eventReceived := false
+
+		component, err := NewComponent("TestComponent").
+			Setup(func(ctx *Context) {
+				ctx.On("windowResize", func(data interface{}) {
+					eventReceived = true
+					if sizeData, ok := data.(map[string]int); ok {
+						receivedWidth = sizeData["width"]
+						receivedHeight = sizeData["height"]
+					}
+				})
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+		component.Init()
+
+		// Send WindowSizeMsg
+		component.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+		assert.True(t, eventReceived, "windowResize event should be emitted")
+		assert.Equal(t, 120, receivedWidth, "Width should be 120")
+		assert.Equal(t, 40, receivedHeight, "Height should be 40")
+	})
+
+	t.Run("event_contains_correct_width_and_height", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			width  int
+			height int
+		}{
+			{"small_terminal", 80, 24},
+			{"medium_terminal", 120, 40},
+			{"large_terminal", 200, 60},
+			{"wide_terminal", 300, 20},
+			{"tall_terminal", 80, 100},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var receivedWidth, receivedHeight int
+
+				component, err := NewComponent("TestComponent").
+					Setup(func(ctx *Context) {
+						ctx.On("windowResize", func(data interface{}) {
+							if sizeData, ok := data.(map[string]int); ok {
+								receivedWidth = sizeData["width"]
+								receivedHeight = sizeData["height"]
+							}
+						})
+					}).
+					Template(func(ctx RenderContext) string {
+						return "test"
+					}).
+					Build()
+
+				require.NoError(t, err)
+				component.Init()
+
+				component.Update(tea.WindowSizeMsg{Width: tt.width, Height: tt.height})
+
+				assert.Equal(t, tt.width, receivedWidth)
+				assert.Equal(t, tt.height, receivedHeight)
+			})
+		}
+	})
+
+	t.Run("event_fires_before_messageHandler", func(t *testing.T) {
+		var order []string
+
+		component, err := NewComponent("TestComponent").
+			WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+				if _, ok := msg.(tea.WindowSizeMsg); ok {
+					order = append(order, "messageHandler")
+				}
+				return nil
+			}).
+			Setup(func(ctx *Context) {
+				ctx.On("windowResize", func(data interface{}) {
+					order = append(order, "windowResize")
+				})
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+		component.Init()
+
+		component.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+		require.Len(t, order, 2, "Both handlers should be called")
+		assert.Equal(t, "windowResize", order[0], "windowResize event should fire first")
+		assert.Equal(t, "messageHandler", order[1], "messageHandler should fire second")
+	})
+
+	t.Run("existing_messageHandler_still_works", func(t *testing.T) {
+		messageHandlerCalled := false
+		windowResizeEventReceived := false
+
+		component, err := NewComponent("TestComponent").
+			WithMessageHandler(func(comp Component, msg tea.Msg) tea.Cmd {
+				if _, ok := msg.(tea.WindowSizeMsg); ok {
+					messageHandlerCalled = true
+				}
+				return nil
+			}).
+			Setup(func(ctx *Context) {
+				ctx.On("windowResize", func(data interface{}) {
+					windowResizeEventReceived = true
+				})
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+		component.Init()
+
+		component.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+		assert.True(t, messageHandlerCalled, "MessageHandler should still be called")
+		assert.True(t, windowResizeEventReceived, "windowResize event should also be emitted")
+	})
+
+	t.Run("does_not_emit_for_other_message_types", func(t *testing.T) {
+		windowResizeEventReceived := false
+
+		component, err := NewComponent("TestComponent").
+			Setup(func(ctx *Context) {
+				ctx.On("windowResize", func(data interface{}) {
+					windowResizeEventReceived = true
+				})
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+		component.Init()
+
+		// Send various non-WindowSizeMsg messages
+		component.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+		component.Update(tea.MouseMsg{})
+		component.Update(tea.QuitMsg{})
+
+		assert.False(t, windowResizeEventReceived, "windowResize should not be emitted for other message types")
+	})
+
+	t.Run("multiple_resize_events_all_emit", func(t *testing.T) {
+		resizeCount := 0
+		var lastWidth, lastHeight int
+
+		component, err := NewComponent("TestComponent").
+			Setup(func(ctx *Context) {
+				ctx.On("windowResize", func(data interface{}) {
+					resizeCount++
+					if sizeData, ok := data.(map[string]int); ok {
+						lastWidth = sizeData["width"]
+						lastHeight = sizeData["height"]
+					}
+				})
+			}).
+			Template(func(ctx RenderContext) string {
+				return "test"
+			}).
+			Build()
+
+		require.NoError(t, err)
+		component.Init()
+
+		// Send multiple resize events
+		component.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+		component.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+		component.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+		assert.Equal(t, 3, resizeCount, "All resize events should emit")
+		assert.Equal(t, 120, lastWidth, "Last width should be 120")
+		assert.Equal(t, 40, lastHeight, "Last height should be 40")
+	})
+}

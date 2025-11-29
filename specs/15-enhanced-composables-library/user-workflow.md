@@ -23,25 +23,12 @@ import (
 ```go
 func CreateApp() (bubbly.Component, error) {
     return bubbly.NewComponent("App").
-        WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
-            if wmsg, ok := msg.(tea.WindowSizeMsg); ok {
-                comp.Emit("resize", map[string]int{
-                    "width": wmsg.Width, "height": wmsg.Height,
-                })
-            }
-            return nil
-        }).
         Setup(func(ctx *bubbly.Context) {
-            // Create window size composable
+            // Create window size composable - THAT'S IT!
+            // UseWindowSize automatically receives resize events from the framework
+            // No WithMessageHandler or manual event handling needed
             windowSize := composables.UseWindowSize(ctx)
             ctx.Expose("windowSize", windowSize)
-            
-            // Handle resize events
-            ctx.On("resize", func(data interface{}) {
-                if size, ok := data.(map[string]int); ok {
-                    windowSize.SetSize(size["width"], size["height"])
-                }
-            })
         }).
         Template(func(ctx bubbly.RenderContext) string {
             ws := ctx.Get("windowSize").(*composables.WindowSizeReturn)
@@ -58,6 +45,13 @@ func CreateApp() (bubbly.Component, error) {
 ```
 
 **UI Feedback:** Layout automatically adapts when terminal is resized.
+
+**Note (Phase 6 Enhancement):** The framework automatically:
+1. Detects `tea.WindowSizeMsg` in component updates
+2. Emits a "windowResize" event
+3. UseWindowSize auto-subscribes and updates its state
+
+Users never need to import or handle Bubbletea types for responsive layouts.
 
 ### Step 3: Add Multi-Pane Focus Management
 **User Action:** Implement focus cycling between panes

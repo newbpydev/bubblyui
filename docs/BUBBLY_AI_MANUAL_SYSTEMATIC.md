@@ -1661,7 +1661,20 @@ form := components.Form(components.FormProps{
 
 ---
 
-## Part 9: Composables - Complete List (11 Total)
+## Part 9: Composables - Complete List (30 Total)
+
+BubblyUI provides 30 composables organized into 6 categories:
+- **Standard (8)**: UseState, UseAsync, UseEffect, UseDebounce, UseThrottle, UseForm, UseLocalStorage, UseEventListener
+- **TUI-Specific (5)**: UseWindowSize, UseFocus, UseScroll, UseSelection, UseMode
+- **State Utilities (4)**: UseToggle, UseCounter, UsePrevious, UseHistory
+- **Timing (3)**: UseInterval, UseTimeout, UseTimer
+- **Collections (4)**: UseList, UseMap, UseSet, UseQueue
+- **Development (2)**: UseLogger, UseNotification
+- **Utilities (4)**: UseTextInput, UseDoubleCounter, CreateShared, CreateSharedWithReset
+
+---
+
+### Category A: Standard Composables (8)
 
 ### 1. UseState - Simple state
 ```go
@@ -1775,16 +1788,439 @@ cleanup := composables.UseEventListener(ctx, "refresh", func() {
 ctx.Emit("refresh", nil)  // Triggers all listeners
 ```
 
-### 9. UseTextInput - Bubbles integration
+---
+
+### Category B: TUI-Specific Composables (5)
+
+### 9. UseWindowSize - Terminal dimensions & breakpoints
+```go
+// Signature: func UseWindowSize(ctx *bubbly.Context, opts ...WindowSizeOption) *WindowSizeReturn
+
+// AUTOMATIC RESIZE HANDLING (Zero Bubbletea Boilerplate):
+// UseWindowSize automatically subscribes to the framework's "windowResize" event.
+// You do NOT need WithMessageHandler or manual event handlers!
+windowSize := composables.UseWindowSize(ctx)
+// That's it! Window resize is automatic.
+
+// Access reactive values (automatically updated on terminal resize)
+width := windowSize.Width.Get()           // int
+height := windowSize.Height.Get()         // int
+bp := windowSize.Breakpoint.Get()         // Breakpoint (xs, sm, md, lg, xl)
+showSidebar := windowSize.SidebarVisible.Get()  // bool
+cols := windowSize.GridColumns.Get()      // int
+
+// Helper methods
+contentWidth := windowSize.GetContentWidth()  // Width minus sidebar
+cardWidth := windowSize.GetCardWidth()        // Optimal card width
+
+// Options
+windowSize := composables.UseWindowSize(ctx,
+    composables.WithBreakpoints(composables.BreakpointConfig{
+        XS: 0, SM: 60, MD: 80, LG: 120, XL: 160,
+    }),
+    composables.WithMinDimensions(40, 10),
+    composables.WithSidebarWidth(25),
+)
+```
+
+### 10. UseFocus - Multi-pane focus management
+```go
+// Signature: func UseFocus[T comparable](ctx *bubbly.Context, initial T, order []T) *FocusReturn[T]
+
+type FocusPane int
+const (
+    FocusSidebar FocusPane = iota
+    FocusMain
+    FocusFooter
+)
+
+focus := composables.UseFocus(ctx, FocusMain, []FocusPane{
+    FocusSidebar, FocusMain, FocusFooter,
+})
+
+// Methods
+focus.Next()                    // Cycle to next pane
+focus.Previous()                // Cycle to previous pane
+focus.Focus(FocusSidebar)       // Focus specific pane
+isFocused := focus.IsFocused(FocusMain)  // Check if focused
+
+// Access current focus
+current := focus.Current.Get()  // FocusPane
+```
+
+### 11. UseScroll - Viewport scrolling
+```go
+// Signature: func UseScroll(ctx *bubbly.Context, totalItems, visibleCount int) *ScrollReturn
+
+scroll := composables.UseScroll(ctx, 100, 10)  // 100 items, 10 visible
+
+// Methods
+scroll.ScrollUp()               // Move up by 1
+scroll.ScrollDown()             // Move down by 1
+scroll.ScrollTo(50)             // Jump to offset 50
+scroll.ScrollToTop()            // Jump to start
+scroll.ScrollToBottom()         // Jump to end
+scroll.PageUp()                 // Move up by visible count
+scroll.PageDown()               // Move down by visible count
+
+// State checks
+isTop := scroll.IsAtTop()       // bool
+isBottom := scroll.IsAtBottom() // bool
+
+// Dynamic updates
+scroll.SetTotalItems(200)       // Update total
+scroll.SetVisibleCount(15)      // Update visible
+
+// Access reactive values
+offset := scroll.Offset.Get()         // int
+maxOffset := scroll.MaxOffset.Get()   // int
+```
+
+### 12. UseSelection - List/table selection
+```go
+// Signature: func UseSelection[T any](ctx *bubbly.Context, items []T, opts ...SelectionOption) *SelectionReturn[T]
+
+items := []string{"Apple", "Banana", "Cherry"}
+selection := composables.UseSelection(ctx, items,
+    composables.WithWrap(true),        // Wrap at boundaries
+    composables.WithMultiSelect(false), // Single selection
+)
+
+// Methods
+selection.Select(1)             // Select index 1
+selection.SelectNext()          // Move to next
+selection.SelectPrevious()      // Move to previous
+isSelected := selection.IsSelected(0)  // Check if selected
+selection.SetItems(newItems)    // Update items
+
+// Multi-select mode
+selection.ToggleSelection(2)    // Toggle selection at index
+selection.ClearSelection()      // Clear all selections
+
+// Access reactive values
+idx := selection.SelectedIndex.Get()      // int
+item := selection.SelectedItem.Get()      // T (computed)
+indices := selection.SelectedIndices.Get() // []int (multi-select)
+```
+
+### 13. UseMode - Navigation/input mode management
+```go
+// Signature: func UseMode[T comparable](ctx *bubbly.Context, initial T) *ModeReturn[T]
+
+type Mode string
+const (
+    ModeNavigation Mode = "navigation"
+    ModeInput      Mode = "input"
+)
+
+mode := composables.UseMode(ctx, ModeNavigation)
+
+// Methods
+mode.Switch(ModeInput)                    // Change mode
+mode.Toggle(ModeNavigation, ModeInput)    // Toggle between two
+isNav := mode.IsMode(ModeNavigation)      // Check current mode
+
+// Access reactive values
+current := mode.Current.Get()   // Mode
+previous := mode.Previous.Get() // Mode (for transitions)
+```
+
+---
+
+### Category C: State Utility Composables (4)
+
+### 14. UseToggle - Boolean toggle
+```go
+// Signature: func UseToggle(ctx *bubbly.Context, initial bool) *ToggleReturn
+
+toggle := composables.UseToggle(ctx, false)
+
+// Methods
+toggle.Toggle()     // Flip value
+toggle.Set(true)    // Set explicit value
+toggle.On()         // Set to true
+toggle.Off()        // Set to false
+
+// Access reactive value
+isOn := toggle.Value.Get()  // bool
+```
+
+### 15. UseCounter - Bounded counter with step
+```go
+// Signature: func UseCounter(ctx *bubbly.Context, initial int, opts ...CounterOption) *CounterReturn
+
+counter := composables.UseCounter(ctx, 50,
+    composables.WithMin(0),
+    composables.WithMax(100),
+    composables.WithStep(5),
+)
+
+// Methods
+counter.Increment()       // +step (respects max)
+counter.Decrement()       // -step (respects min)
+counter.IncrementBy(10)   // +10 (respects max)
+counter.DecrementBy(10)   // -10 (respects min)
+counter.Set(75)           // Set value (clamped to bounds)
+counter.Reset()           // Reset to initial
+
+// Access reactive value
+count := counter.Count.Get()  // int
+```
+
+### 16. UsePrevious - Previous value tracking
+```go
+// Signature: func UsePrevious[T any](ctx *bubbly.Context, ref *bubbly.Ref[T]) *PreviousReturn[T]
+
+count := bubbly.NewRef(0)
+previous := composables.UsePrevious(ctx, count)
+
+count.Set(5)
+count.Set(10)
+
+// Access previous value
+prev := previous.Get()  // *T (nil if no previous, pointer to 5 after second Set)
+```
+
+### 17. UseHistory - Undo/redo state management
+```go
+// Signature: func UseHistory[T any](ctx *bubbly.Context, initial T, maxSize int) *HistoryReturn[T]
+
+history := composables.UseHistory(ctx, "initial", 50)  // Max 50 undo steps
+
+// Methods
+history.Push("state 1")   // Add to history (clears redo)
+history.Push("state 2")
+history.Undo()            // Revert to previous
+history.Redo()            // Restore next
+history.Clear()           // Clear all history
+
+// Access reactive values
+current := history.Current.Get()    // T
+canUndo := history.CanUndo.Get()    // bool (computed)
+canRedo := history.CanRedo.Get()    // bool (computed)
+```
+
+---
+
+### Category D: Timing Composables (3)
+
+### 18. UseInterval - Periodic execution
+```go
+// Signature: func UseInterval(ctx *bubbly.Context, callback func(), duration time.Duration) *IntervalReturn
+
+interval := composables.UseInterval(ctx, func() {
+    refreshData()
+}, 5*time.Second)
+
+// Methods
+interval.Start()    // Begin interval
+interval.Stop()     // Pause interval
+interval.Toggle()   // Start if stopped, stop if running
+interval.Reset()    // Stop and restart
+
+// Access reactive value
+isRunning := interval.IsRunning.Get()  // bool
+
+// Auto-cleanup on unmount
+```
+
+### 19. UseTimeout - Delayed execution
+```go
+// Signature: func UseTimeout(ctx *bubbly.Context, callback func(), duration time.Duration) *TimeoutReturn
+
+timeout := composables.UseTimeout(ctx, func() {
+    showNotification()
+}, 3*time.Second)
+
+// Methods
+timeout.Start()     // Begin timeout
+timeout.Cancel()    // Cancel pending timeout
+timeout.Reset()     // Cancel and restart
+
+// Access reactive values
+isPending := timeout.IsPending.Get()  // bool
+isExpired := timeout.IsExpired.Get()  // bool
+
+// Auto-cleanup on unmount
+```
+
+### 20. UseTimer - Countdown timer with progress
+```go
+// Signature: func UseTimer(ctx *bubbly.Context, duration time.Duration, opts ...TimerOption) *TimerReturn
+
+timer := composables.UseTimer(ctx, 60*time.Second,
+    composables.WithOnExpire(func() {
+        playAlarm()
+    }),
+    composables.WithTickInterval(100*time.Millisecond),
+)
+
+// Methods
+timer.Start()       // Begin countdown
+timer.Stop()        // Pause countdown
+timer.Reset()       // Reset to initial duration
+
+// Access reactive values
+remaining := timer.Remaining.Get()  // time.Duration
+isRunning := timer.IsRunning.Get()  // bool
+isExpired := timer.IsExpired.Get()  // bool (computed)
+progress := timer.Progress.Get()    // float64 (0.0 to 1.0, computed)
+
+// Auto-cleanup on unmount
+```
+
+---
+
+### Category E: Collection Composables (4)
+
+### 21. UseList - Generic list CRUD
+```go
+// Signature: func UseList[T any](ctx *bubbly.Context, initial []T) *ListReturn[T]
+
+list := composables.UseList(ctx, []string{"a", "b", "c"})
+
+// Methods
+list.Push("d", "e")           // Add to end
+item, ok := list.Pop()        // Remove from end
+item, ok := list.Shift()      // Remove from start
+list.Unshift("z")             // Add to start
+list.Insert(1, "x")           // Insert at index
+item, ok := list.RemoveAt(2)  // Remove at index
+list.UpdateAt(0, "new")       // Update at index
+list.Clear()                  // Remove all
+item, ok := list.Get(0)       // Get at index
+list.Set(newItems)            // Replace all
+
+// Access reactive values
+items := list.Items.Get()     // []T
+length := list.Length.Get()   // int (computed)
+isEmpty := list.IsEmpty.Get() // bool (computed)
+```
+
+### 22. UseMap - Generic key-value state
+```go
+// Signature: func UseMap[K comparable, V any](ctx *bubbly.Context, initial map[K]V) *MapReturn[K, V]
+
+m := composables.UseMap(ctx, map[string]int{"a": 1, "b": 2})
+
+// Methods
+m.Set("c", 3)                 // Add/update key
+val, ok := m.Get("a")         // Get value
+deleted := m.Delete("b")      // Remove key
+exists := m.Has("c")          // Check existence
+keys := m.Keys()              // Get all keys
+values := m.Values()          // Get all values
+m.Clear()                     // Remove all
+
+// Access reactive values
+data := m.Data.Get()          // map[K]V
+size := m.Size.Get()          // int (computed)
+isEmpty := m.IsEmpty.Get()    // bool (computed)
+```
+
+### 23. UseSet - Unique value set
+```go
+// Signature: func UseSet[T comparable](ctx *bubbly.Context, initial []T) *SetReturn[T]
+
+set := composables.UseSet(ctx, []string{"a", "b", "c"})
+
+// Methods
+set.Add("d")                  // Add value
+deleted := set.Delete("a")    // Remove value
+exists := set.Has("b")        // Check existence
+set.Toggle("c")               // Add if absent, remove if present
+set.Clear()                   // Remove all
+slice := set.ToSlice()        // Convert to slice
+
+// Access reactive values
+values := set.Values.Get()    // map[T]struct{}
+size := set.Size.Get()        // int (computed)
+isEmpty := set.IsEmpty.Get()  // bool (computed)
+```
+
+### 24. UseQueue - FIFO queue
+```go
+// Signature: func UseQueue[T any](ctx *bubbly.Context, initial []T) *QueueReturn[T]
+
+queue := composables.UseQueue(ctx, []int{1, 2, 3})
+
+// Methods
+queue.Enqueue(4)              // Add to back
+item, ok := queue.Dequeue()   // Remove from front
+item, ok := queue.Peek()      // View front without removing
+queue.Clear()                 // Remove all
+
+// Access reactive values
+items := queue.Items.Get()    // []T
+size := queue.Size.Get()      // int (computed)
+isEmpty := queue.IsEmpty.Get() // bool (computed)
+front := queue.Front.Get()    // *T (computed, nil if empty)
+```
+
+---
+
+### Category F: Development Composables (2)
+
+### 25. UseLogger - Component debug logging
+```go
+// Signature: func UseLogger(ctx *bubbly.Context, componentName string) *LoggerReturn
+
+logger := composables.UseLogger(ctx, "MyComponent")
+
+// Methods (respects current level)
+logger.Debug("Debug message", extraData)
+logger.Info("Info message")
+logger.Warn("Warning message")
+logger.Error("Error message", err)
+logger.Clear()  // Clear log history
+
+// Set log level
+logger.Level.Set(composables.LogLevelWarn)  // Only warn and error
+
+// Access reactive values
+logs := logger.Logs.Get()     // []LogEntry
+level := logger.Level.Get()   // LogLevel
+
+// LogEntry struct:
+// Time, Level, Component, Message, Data
+```
+
+### 26. UseNotification - Toast notifications
+```go
+// Signature: func UseNotification(ctx *bubbly.Context, opts ...NotificationOption) *NotificationReturn
+
+notifications := composables.UseNotification(ctx,
+    composables.WithDefaultDuration(3*time.Second),
+    composables.WithMaxNotifications(5),
+)
+
+// Methods
+notifications.Show(composables.NotificationSuccess, "Title", "Message", 5*time.Second)
+notifications.Info("Info", "Information message")
+notifications.Success("Success", "Operation completed")
+notifications.Warning("Warning", "Be careful")
+notifications.Error("Error", "Something went wrong")
+notifications.Dismiss(id)     // Dismiss by ID
+notifications.DismissAll()    // Dismiss all
+
+// Access reactive value
+notifs := notifications.Notifications.Get()  // []Notification
+
+// Notification struct:
+// ID, Type, Title, Message, Duration, CreatedAt
+
+// Auto-dismiss after duration (0 = persistent)
+// Auto-cleanup on unmount
+```
+
+---
+
+### Category G: Utility Composables (4)
+
+### 27. UseTextInput - Bubbles integration
 ```go
 // ⚠️ SIGNATURE DIFFERS: Takes config struct, NOT context!
 // Signature: func UseTextInput(config UseTextInputConfig) *TextInputResult
-
-type UseTextInputConfig struct {
-    Placeholder string
-    Width       int
-    EchoMode    textinput.EchoMode  // EchoNormal, EchoPassword, EchoNone
-}
 
 result := composables.UseTextInput(composables.UseTextInputConfig{
     Placeholder: "Type here...",
@@ -1794,42 +2230,28 @@ result := composables.UseTextInput(composables.UseTextInputConfig{
 
 result.Insert("Hello")
 text := result.Value.Get()      // "Hello"
-result.MoveCursor(-1)            // Move back
-result.Delete()                  // Delete at cursor
-result.Clear()                   // Clear all
-result.Focus()                   // Enable input
-result.Blur()                    // Disable input
+result.MoveCursor(-1)           // Move back
+result.Delete()                 // Delete at cursor
+result.Clear()                  // Clear all
+result.Focus()                  // Enable input
+result.Blur()                   // Disable input
 ```
 
-### 10. UseCounter - Counter utility
-```go
-// Signature: func UseCounter(ctx *bubbly.Context, initial int) 
-//            (*bubbly.Ref[int], func(), func())
-
-// Actually returns struct - source shows:
-// type CounterComposable struct { ... }
-// func UseCounter(...) *CounterComposable
-
-count, increment, decrement := composables.UseCounter(ctx, 0)
-increment()  // +1
-decrement()  // -1
-```
-
-### 11. UseDoubleCounter - Double-step counter
+### 28. UseDoubleCounter - Double-step counter
 ```go
 count, increment, decrement := composables.UseDoubleCounter(ctx, 0)
 increment()  // +2
 decrement()  // -2
 ```
 
-### 12. CreateShared - Singleton Composables (NEW)
+### 29. CreateShared - Singleton composables
 ```go
 // Signature: func CreateShared[T any](factory func(*bubbly.Context) T) func(*bubbly.Context) T
 
 // Define shared composable - factory called exactly ONCE
 var UseSharedCounter = composables.CreateShared(
-    func(ctx *bubbly.Context) *CounterComposable {
-        return UseCounter(ctx, 0)
+    func(ctx *bubbly.Context) *CounterReturn {
+        return composables.UseCounter(ctx, 0)
     },
 )
 
@@ -1846,33 +2268,20 @@ counter := UseSharedCounter(ctx)  // Returns existing instance
 - **Global state**: Share state across unrelated components
 - **Singleton services**: API clients, WebSocket connections
 - **Cross-component communication**: Without prop drilling
-- **Shared business logic**: Reusable across component tree
 
-**Thread-safe:**
+### 30. CreateSharedWithReset - Resettable singleton
 ```go
-// sync.Once ensures factory called exactly once
-// Safe for concurrent access from multiple goroutines
-var UseSharedAPI = composables.CreateShared(
-    func(ctx *bubbly.Context) *APIClient {
-        return NewAPIClient("https://api.example.com")
+// Signature: func CreateSharedWithReset[T any](factory func(*bubbly.Context) T) SharedComposable[T]
+
+shared := composables.CreateSharedWithReset(
+    func(ctx *bubbly.Context) *CounterReturn {
+        return composables.UseCounter(ctx, 0)
     },
 )
+
+counter := shared.Use(ctx)  // Get or create instance
+shared.Reset()              // Reset to allow new instance
 ```
-
-**Inspired by VueUse:**
-```go
-// VueUse pattern:
-// const useSharedCounter = createSharedComposable(useCounter)
-
-// BubblyUI equivalent:
-var UseSharedCounter = composables.CreateShared(UseCounter)
-```
-
-**Benefits:**
-- **Memory efficient**: Single instance vs N instances
-- **State synchronization**: Changes visible across all components
-- **No prop drilling**: Access from anywhere in component tree
-- **Type-safe**: Go generics ensure compile-time safety
 
 ---
 
