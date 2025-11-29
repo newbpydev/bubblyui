@@ -50,27 +50,7 @@ type MetricCollector struct {
 }
 
 // TimingTracker and TimingStats are defined in timing.go (Task 1.3)
-
-// MemoryTracker tracks memory allocation statistics.
-//
-// This is the stub implementation for Task 1.2.
-// Full implementation will be in Task 1.4.
-type MemoryTracker struct {
-	allocations map[string]*AllocationStats
-	mu          sync.RWMutex
-}
-
-// AllocationStats holds statistics for a memory allocation location.
-type AllocationStats struct {
-	// Count is the number of allocations
-	Count int64
-
-	// TotalSize is the cumulative bytes allocated
-	TotalSize int64
-
-	// AvgSize is the average allocation size
-	AvgSize int64
-}
+// MemoryTracker and AllocationStats are defined in memory.go (Task 1.4)
 
 // CounterTracker tracks generic counter metrics.
 //
@@ -113,9 +93,7 @@ func newTimingTracker() *TimingTracker {
 
 // newMemoryTracker creates a new memory tracker.
 func newMemoryTracker() *MemoryTracker {
-	return &MemoryTracker{
-		allocations: make(map[string]*AllocationStats),
-	}
+	return NewMemoryTracker()
 }
 
 // newCounterTracker creates a new counter tracker.
@@ -306,58 +284,7 @@ func (mc *MetricCollector) GetCounters() *CounterTracker {
 }
 
 // TimingTracker methods are defined in timing.go (Task 1.3)
-
-// --- MemoryTracker methods ---
-
-// TrackAllocation records a memory allocation.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (mt *MemoryTracker) TrackAllocation(location string, size int64) {
-	mt.mu.Lock()
-	defer mt.mu.Unlock()
-
-	stats, ok := mt.allocations[location]
-	if !ok {
-		stats = &AllocationStats{}
-		mt.allocations[location] = stats
-	}
-
-	stats.Count++
-	stats.TotalSize += size
-	stats.AvgSize = stats.TotalSize / stats.Count
-}
-
-// GetAllocation returns statistics for an allocation location.
-//
-// Returns nil if the location has not been recorded.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (mt *MemoryTracker) GetAllocation(location string) *AllocationStats {
-	mt.mu.RLock()
-	defer mt.mu.RUnlock()
-
-	return mt.allocations[location]
-}
-
-// GetAllAllocations returns statistics for all allocation locations.
-//
-// Thread Safety:
-//
-//	Safe to call concurrently from multiple goroutines.
-func (mt *MemoryTracker) GetAllAllocations() map[string]*AllocationStats {
-	mt.mu.RLock()
-	defer mt.mu.RUnlock()
-
-	result := make(map[string]*AllocationStats, len(mt.allocations))
-	for k, v := range mt.allocations {
-		result[k] = v
-	}
-	return result
-}
+// MemoryTracker methods are defined in memory.go (Task 1.4)
 
 // --- CounterTracker methods ---
 
