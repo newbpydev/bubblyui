@@ -178,6 +178,9 @@ type ComponentMetrics struct {
 	// MaxRenderTime is the longest render
 	MaxRenderTime time.Duration
 
+	// MinRenderTime is the shortest render
+	MinRenderTime time.Duration
+
 	// MemoryUsage is estimated memory usage
 	MemoryUsage uint64
 }
