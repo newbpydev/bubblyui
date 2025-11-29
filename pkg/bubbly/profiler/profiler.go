@@ -86,37 +86,32 @@ type Profiler struct {
 	mu sync.RWMutex
 }
 
-// MetricCollector collects performance metrics.
-// This is a stub for Task 1.2.
-type MetricCollector struct {
-	enabled bool
-	mu      sync.RWMutex
-}
+// MetricCollector is defined in collector.go (Task 1.2)
 
 // CPUProfiler handles CPU profiling with pprof integration.
 // This is a stub for Task 2.1.
 type CPUProfiler struct {
-	active bool
-	mu     sync.Mutex
+	active bool       // nolint:unused // Will be used in Task 2.1
+	mu     sync.Mutex // nolint:unused // Will be used in Task 2.1
 }
 
 // MemoryProfiler handles memory profiling with pprof integration.
 // This is a stub for Task 2.3.
 type MemoryProfiler struct {
-	mu sync.Mutex
+	mu sync.Mutex // nolint:unused // Will be used in Task 2.3
 }
 
 // RenderProfiler tracks render performance and FPS.
 // This is a stub for Task 3.1.
 type RenderProfiler struct {
-	mu sync.RWMutex
+	mu sync.RWMutex // nolint:unused // Will be used in Task 3.1
 }
 
 // BottleneckDetector detects performance bottlenecks.
 // This is a stub for Task 4.1.
 type BottleneckDetector struct {
 	thresholds map[string]time.Duration
-	mu         sync.RWMutex
+	mu         sync.RWMutex // nolint:unused // Will be used in Task 4.1
 }
 
 // Config holds profiler configuration.
@@ -432,11 +427,9 @@ func New(opts ...Option) *Profiler {
 	}
 
 	p := &Profiler{
-		enabled: cfg.Enabled,
-		config:  cfg,
-		collector: &MetricCollector{
-			enabled: false,
-		},
+		enabled:    cfg.Enabled,
+		config:     cfg,
+		collector:  NewMetricCollector(),
 		cpuProf:    &CPUProfiler{},
 		memProf:    &MemoryProfiler{},
 		renderProf: &RenderProfiler{},
@@ -473,9 +466,7 @@ func (p *Profiler) Start() error {
 	}
 
 	p.enabled = true
-	p.collector.mu.Lock()
-	p.collector.enabled = true
-	p.collector.mu.Unlock()
+	p.collector.Enable()
 
 	return nil
 }
@@ -497,9 +488,7 @@ func (p *Profiler) Stop() error {
 	}
 
 	p.enabled = false
-	p.collector.mu.Lock()
-	p.collector.enabled = false
-	p.collector.mu.Unlock()
+	p.collector.Disable()
 
 	return nil
 }
