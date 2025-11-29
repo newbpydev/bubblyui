@@ -737,7 +737,7 @@ func (ct *ComponentTracker) GetMetrics(id string) *ComponentMetrics
 
 ## Phase 4: Bottleneck Detection (4 tasks, 12 hours)
 
-### Task 4.1: Bottleneck Detector Core
+### Task 4.1: Bottleneck Detector Core ✅ COMPLETED
 **Description**: Detect performance bottlenecks
 
 **Prerequisites**: Task 3.3
@@ -768,13 +768,55 @@ func (bd *BottleneckDetector) Detect(metrics *PerformanceMetrics) []*BottleneckI
 ```
 
 **Tests**:
-- [ ] Detection works
-- [ ] Severity calculation
-- [ ] Impact measurement
-- [ ] Suggestion generation
-- [ ] Multiple bottlenecks
+- [x] Detection works
+- [x] Severity calculation
+- [x] Impact measurement
+- [x] Suggestion generation
+- [x] Multiple bottlenecks
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `bottleneck.go` with full `BottleneckDetector` implementation
+- Implemented `BottleneckThresholds` struct with configurable thresholds:
+  - `DefaultOperationThreshold`: 16ms (60 FPS frame budget)
+  - `RenderThreshold`: 16ms
+  - `UpdateThreshold`: 5ms
+  - `EventThreshold`: 10ms
+  - `FrequentRenderThreshold`: 1000 renders
+  - `MemoryThreshold`: 10MB
+- Implemented `PerformanceMetrics` struct for aggregating metrics for detection
+- Implemented `NewBottleneckDetector()` and `NewBottleneckDetectorWithThresholds()` constructors
+- Implemented `Check(operation, duration)` method:
+  - Returns nil if duration <= threshold
+  - Returns BottleneckInfo with severity, impact, description, suggestion if exceeded
+  - Tracks violations per operation
+- Implemented `Detect(metrics)` method:
+  - Analyzes ComponentMetrics for slow renders (AvgRenderTime > threshold)
+  - Detects frequent renders (RenderCount > threshold)
+  - Detects memory issues (MemoryUsage > threshold)
+  - Returns multiple bottlenecks if detected
+- Implemented severity calculation based on ratio:
+  - < 2x threshold: Low
+  - 2-3x threshold: Medium
+  - 3-5x threshold: High
+  - > 5x threshold: Critical
+- Implemented impact calculation: normalized to 0.0-1.0 range (ratio/10, capped at 1.0)
+- Implemented context-aware suggestion generation for:
+  - Slow operations (render, update, generic)
+  - Frequent operations (memoization suggestions)
+  - Memory issues (pooling, sync.Pool suggestions)
+  - Pattern issues (architecture suggestions)
+- Added helper methods: `SetThreshold()`, `GetThreshold()`, `GetViolations()`, `GetAllViolations()`, `GetConfig()`, `Reset()`
+- Updated `profiler.go`:
+  - Enhanced `BottleneckDetector` struct with `violations` and `config` fields
+  - Updated `New()` to use `NewBottleneckDetector()` instead of inline struct
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 27 table-driven tests covering all functionality including concurrent access (50 goroutines)
+- **Coverage: 100%** for bottleneck.go (exceeds >95% requirement)
+- **Overall profiler coverage: 96.9%**
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 

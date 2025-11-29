@@ -92,10 +92,33 @@ type Profiler struct {
 // RenderProfiler is defined in render.go (Task 3.1)
 
 // BottleneckDetector detects performance bottlenecks.
-// This is a stub for Task 4.1.
+//
+// It monitors operations against configurable thresholds, tracks violations,
+// and provides actionable suggestions for optimization.
+//
+// Thread Safety:
+//
+//	All methods are thread-safe and can be called concurrently.
+//
+// Example:
+//
+//	bd := NewBottleneckDetector()
+//	bd.SetThreshold("render", 16*time.Millisecond)
+//	if bottleneck := bd.Check("render", duration); bottleneck != nil {
+//	    fmt.Printf("Bottleneck: %s\n", bottleneck.Description)
+//	}
 type BottleneckDetector struct {
+	// thresholds maps operation names to their duration thresholds
 	thresholds map[string]time.Duration
-	mu         sync.RWMutex // nolint:unused // Will be used in Task 4.1
+
+	// violations tracks the number of threshold violations per operation
+	violations map[string]int
+
+	// config holds the bottleneck detection configuration
+	config *BottleneckThresholds
+
+	// mu protects concurrent access to detector state
+	mu sync.RWMutex
 }
 
 // Config holds profiler configuration.
@@ -420,14 +443,12 @@ func New(opts ...Option) *Profiler {
 		cpuProf:    NewCPUProfiler(),
 		memProf:    NewMemoryProfiler(),
 		renderProf: &RenderProfiler{},
-		detector: &BottleneckDetector{
-			thresholds: make(map[string]time.Duration),
-		},
+		detector:   NewBottleneckDetector(),
 	}
 
 	// Copy thresholds to detector
 	for k, v := range cfg.Thresholds {
-		p.detector.thresholds[k] = v
+		p.detector.SetThreshold(k, v)
 	}
 
 	return p
