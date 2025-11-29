@@ -548,7 +548,7 @@ func (ld *LeakDetector) DetectGoroutineLeaks(before, after int) *LeakInfo
 
 ## Phase 3: Render Performance (3 tasks, 9 hours)
 
-### Task 3.1: Render Profiler
+### Task 3.1: Render Profiler ✅ COMPLETED
 **Description**: Track render performance and FPS
 
 **Prerequisites**: Task 2.4
@@ -579,13 +579,37 @@ func (rp *RenderProfiler) GetDroppedFramePercent() float64
 ```
 
 **Tests**:
-- [ ] Frame recording
-- [ ] FPS calculation
-- [ ] Dropped frame detection
-- [ ] Statistics accurate
-- [ ] Performance acceptable
+- [x] Frame recording
+- [x] FPS calculation
+- [x] Dropped frame detection
+- [x] Statistics accurate
+- [x] Performance acceptable
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `render.go` with full `RenderProfiler` implementation
+- Implemented `RenderConfig` struct with configurable settings:
+  - `TargetFPS`: Target frames per second (default 60)
+  - `MaxFrames`: Maximum frames to store (default 1000)
+  - `MaxFPSSamples`: Maximum FPS samples for averaging (default 60)
+  - `DroppedFrameThreshold`: Duration above which frame is dropped (~16.67ms for 60fps)
+- Implemented `FrameInfo` struct with Timestamp, Duration, Dropped fields
+- Implemented `RecordFrame()` that:
+  - Records frame with timestamp and duration
+  - Detects dropped frames exceeding threshold
+  - Calculates instantaneous FPS from frame intervals
+  - Maintains frame and FPS sample limits
+- Implemented `GetFPS()` returning average FPS from recent samples
+- Implemented `GetDroppedFramePercent()` returning percentage of dropped frames
+- Added helper methods: `GetFrames()`, `GetFrameCount()`, `GetAverageFrameDuration()`, `GetMinMaxFrameDuration()`
+- Added configuration methods: `GetConfig()`, `SetConfig()`, `Reset()`
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 17 table-driven tests covering all functionality including performance tests
+- Removed stub `RenderProfiler` from profiler.go
+- **Coverage: 96.6%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 

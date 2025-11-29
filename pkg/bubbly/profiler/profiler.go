@@ -89,12 +89,7 @@ type Profiler struct {
 // MetricCollector is defined in collector.go (Task 1.2)
 // CPUProfiler is defined in cpu.go (Task 2.1)
 // MemoryProfiler is defined in heap.go (Task 2.3)
-
-// RenderProfiler tracks render performance and FPS.
-// This is a stub for Task 3.1.
-type RenderProfiler struct {
-	mu sync.RWMutex // nolint:unused // Will be used in Task 3.1
-}
+// RenderProfiler is defined in render.go (Task 3.1)
 
 // BottleneckDetector detects performance bottlenecks.
 // This is a stub for Task 4.1.
