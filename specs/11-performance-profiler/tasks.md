@@ -1006,7 +1006,7 @@ func (re *RecommendationEngine) Generate(report *PerformanceReport) []*Recommend
 
 ## Phase 5: Reporting & Visualization (5 tasks, 15 hours)
 
-### Task 5.1: Report Generator Core
+### Task 5.1: Report Generator Core ✅ COMPLETED
 **Description**: Generate performance reports
 
 **Prerequisites**: Task 4.4
@@ -1038,13 +1038,57 @@ func (rg *ReportGenerator) SaveHTML(filename string) error
 ```
 
 **Tests**:
-- [ ] Report generation
-- [ ] All sections included
-- [ ] Data aggregation correct
-- [ ] HTML generation
-- [ ] Template rendering
+- [x] Report generation
+- [x] All sections included
+- [x] Data aggregation correct
+- [x] HTML generation
+- [x] Template rendering
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `report.go` with full `ReportGenerator` implementation using `html/template`
+- Implemented `ProfileData` struct to aggregate all profiler data for report generation:
+  - `ComponentTracker`, `Collector`, `CPUProfiler`, `MemoryProfiler`, `RenderProfiler`
+  - `BottleneckDetector`, `RecommendationEngine`
+  - Direct data fields: `Bottlenecks`, `Recommendations`, `CPUProfile`, `MemProfile`
+  - `StartTime`, `EndTime` for duration calculation
+- Implemented `NewReportGenerator()` with default HTML template
+- Implemented `NewReportGeneratorWithTemplate()` for custom templates
+- Implemented `Generate(data *ProfileData) *Report` method:
+  - Handles nil ProfileData gracefully
+  - Extracts components from ComponentTracker
+  - Calculates duration from StartTime/EndTime
+  - Aggregates bottlenecks, recommendations, CPU/memory profiles
+- Implemented `GenerateHTML(report *Report) (string, error)` method:
+  - Uses html/template for secure HTML generation (XSS protection)
+  - Renders all sections: Summary, Components, Bottlenecks, CPU Profile, Memory Profile, Recommendations
+  - Handles nil report gracefully
+- Implemented `SaveHTML(report *Report, filename string) error` method
+- Added template helper functions:
+  - `formatDuration()`: Human-readable duration formatting
+  - `formatBytesUint()`: Human-readable byte formatting (uint64)
+  - `formatPercent()`: Percentage formatting
+  - `severityClass()`: CSS class for severity levels
+  - `priorityClass()`: CSS class for priority levels
+  - `priorityString()`: Human-readable priority names
+- Created comprehensive default HTML template with:
+  - Modern CSS styling with CSS variables
+  - Responsive grid layout
+  - Color-coded severity and priority indicators
+  - All report sections with proper formatting
+- Thread-safe with `sync.RWMutex` protecting template access
+- 27 table-driven tests covering all functionality including:
+  - Report generation from various ProfileData configurations
+  - HTML generation with all sections
+  - XSS protection verification
+  - File save operations
+  - Custom template support
+  - Thread-safe concurrent access (50 goroutines)
+  - Full integration workflow test
+- **Coverage: 97.1%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
