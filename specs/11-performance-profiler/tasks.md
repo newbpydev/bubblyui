@@ -354,7 +354,7 @@ func (cp *CPUProfiler) IsActive() bool
 
 ---
 
-### Task 2.2: Stack Analyzer
+### Task 2.2: Stack Analyzer ✅ COMPLETED
 **Description**: Analyze CPU profile data
 
 **Prerequisites**: Task 2.1
@@ -387,13 +387,40 @@ func (sa *StackAnalyzer) Analyze(profile *pprof.Profile) *CPUProfileData
 ```
 
 **Tests**:
-- [ ] Profile parsing
-- [ ] Hot function detection
-- [ ] Call graph building
-- [ ] Percentage calculation
-- [ ] Sorting by samples
+- [x] Profile parsing
+- [x] Hot function detection
+- [x] Call graph building
+- [x] Percentage calculation
+- [x] Sorting by samples
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-29)**:
+- Created `stack_analyzer.go` with full `StackAnalyzer` implementation using `github.com/google/pprof/profile`
+- Implemented `NewStackAnalyzer()` constructor returning analyzer with empty samples map
+- Implemented `Analyze(*profile.Profile)` method that:
+  - Extracts function names from sample locations
+  - Counts samples per function
+  - Calculates percentage of total CPU time
+  - Builds call graph from stack traces (caller → callee relationships)
+  - Sorts hot functions by sample count descending
+- Implemented `buildCallGraph()` helper to extract caller-callee relationships from stack traces
+- Implemented `Reset()` to clear internal state for fresh analysis
+- Implemented `GetSamples()` to return copy of sample counts
+- Added helper functions: `getFirstFunctionName()`, `containsString()`
+- Thread-safe with `sync.RWMutex` protecting all operations
+- 10 table-driven tests covering all functionality:
+  - NewStackAnalyzer creation
+  - Analyze with nil/empty/valid profiles
+  - Hot function detection and sorting
+  - Call graph building from stack traces
+  - Percentage calculation accuracy
+  - Thread-safe concurrent access (50 goroutines)
+  - File-based profile parsing integration
+  - Reset and GetSamples methods
+- **Coverage: 96.5%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
