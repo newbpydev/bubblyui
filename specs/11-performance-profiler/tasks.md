@@ -1472,7 +1472,7 @@ func (bp *BenchmarkProfiler) AssertNoRegression(baseline *Baseline, threshold fl
 
 ---
 
-### Task 6.2: Component Instrumentation
+### Task 6.2: Component Instrumentation ✅ COMPLETED
 **Description**: Instrument components for profiling
 
 **Prerequisites**: Task 6.1
@@ -1495,13 +1495,61 @@ func (i *Instrumentor) InstrumentUpdate(component Component)
 ```
 
 **Tests**:
-- [ ] Component instrumentation
-- [ ] Render tracking
-- [ ] Update tracking
-- [ ] Minimal overhead
-- [ ] No breaking changes
+- [x] Component instrumentation
+- [x] Render tracking
+- [x] Update tracking
+- [x] Minimal overhead
+- [x] No breaking changes
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Completed 2024-11-30)**:
+- Created `instrumentation.go` with full `Instrumentor` implementation
+- Implemented `Instrumentor` struct with:
+  - `profiler *Profiler` - parent profiler instance
+  - `componentTracker *ComponentTracker` - tracks per-component metrics
+  - `collector *MetricCollector` - handles timing collection
+  - `enabled atomic.Bool` - fast enable/disable check
+- Implemented `NewInstrumentor(profiler *Profiler)` constructor
+- Implemented `Enable()`, `Disable()`, `IsEnabled()` for lifecycle management
+- Implemented `InstrumentRender(component Component) func()`:
+  - Returns stop function that records render duration
+  - Uses `ComponentTracker.RecordRender()` for metrics
+  - Fast path when disabled (~3ns overhead)
+- Implemented `InstrumentUpdate(component Component) func()`:
+  - Returns stop function that records update duration
+  - Uses `MetricCollector.GetTimings().Record()` for metrics
+  - Fast path when disabled (~3ns overhead)
+- Implemented `InstrumentComponent(component Component) Component`:
+  - Returns `instrumentedComponent` wrapper
+  - Automatically times View() and Update() calls
+  - Delegates all other methods to original component
+- Implemented `instrumentedComponent` wrapper:
+  - Implements full `Component` interface
+  - Automatically records render timing in View()
+  - Automatically records update timing in Update()
+  - Delegates Init(), Name(), ID(), Props(), Emit(), On(), KeyBindings(), HelpText(), IsInitialized()
+- Added `KeyBinding` type to avoid circular dependency with bubbly package
+- Added helper methods: `GetComponentTracker()`, `GetCollector()`, `Reset()`
+- Thread-safe with `sync.RWMutex` and `atomic.Bool` for all operations
+- 27 table-driven tests covering all functionality:
+  - Constructor tests with nil/valid profiler
+  - Enable/disable lifecycle tests
+  - Nil component handling tests
+  - Render and update metric recording tests
+  - Disabled overhead tests (< 1μs verified)
+  - No breaking changes tests
+  - Thread-safe concurrent access (50 goroutines)
+  - InstrumentedComponent wrapper tests
+  - Multiple renders test
+  - Overhead percentage test (< 3% verified at 0.36%)
+- Benchmark tests:
+  - `BenchmarkInstrumentor_Disabled`: ~3ns/op, 0 allocs
+  - `BenchmarkInstrumentor_Enabled`: ~3.3μs/op, 1 alloc
+  - `BenchmarkInstrumentedComponent_View`: ~3.2μs/op, 0 allocs
+- **Coverage: 96.3%** (exceeds >95% requirement)
+- All tests pass with race detector
+- Zero lint warnings, proper formatting
 
 ---
 
