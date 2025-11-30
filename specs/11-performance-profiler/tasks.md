@@ -1639,7 +1639,7 @@ func (dti *DevToolsIntegration) RegisterPanel()
 
 ---
 
-### Task 6.4: pprof HTTP Handlers
+### Task 6.4: pprof HTTP Handlers ✅ COMPLETED
 **Description**: HTTP handlers for pprof access
 
 **Prerequisites**: Task 6.3
@@ -1658,13 +1658,24 @@ func ServeHeapProfile(w http.ResponseWriter, r *http.Request)
 ```
 
 **Tests**:
-- [ ] Handlers register
-- [ ] CPU profile served
-- [ ] Heap profile served
-- [ ] HTTP integration
-- [ ] Production-safe
+- [x] Handlers register
+- [x] CPU profile served
+- [x] Heap profile served
+- [x] HTTP integration
+- [x] Production-safe
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes**:
+- Created `HTTPHandler` struct with production-safe defaults (disabled by default)
+- Implemented all pprof endpoints: profile, heap, goroutine, block, mutex, threadcreate, allocs, trace, symbol, index
+- Added `Enable()`/`Disable()` methods for production safety
+- Added `SetMaxCPUProfileDuration()` and `SetMaxTraceDuration()` for resource protection
+- Comprehensive HTML index page with links to all profiles
+- Thread-safe implementation using `sync.RWMutex` and `atomic.Bool`
+- 40+ table-driven tests with 95.3% coverage
+- All tests pass with race detector
+- Follows Go's net/http/pprof patterns for compatibility with `go tool pprof`
 
 ---
 
