@@ -1856,6 +1856,39 @@ func ServeHeapProfile(w http.ResponseWriter, r *http.Request)
 - **Zero Bubbletea**: All BubblyUI framework, no raw tea.Model implementation
 - **README.md**: Comprehensive documentation with architecture, patterns, controls
 
+**Implementation Notes (CPU Example - Completed 2024-11-30)**:
+- Created modular CPU profiler dashboard following BubblyUI patterns
+- **Directory Structure**:
+  - `cmd/examples/11-profiler/cpu/main.go` - Entry point with bubbly.Run()
+  - `cmd/examples/11-profiler/cpu/app.go` - Root component with 3-pane layout
+  - `cmd/examples/11-profiler/cpu/composables/use_cpu_profiler.go` - Custom composable
+  - `cmd/examples/11-profiler/cpu/components/` - 4 focused components
+- **Composables Used**:
+  - `UseCPUProfiler` - Custom composable wrapping profiler.CPUProfiler
+  - `UseInterval` - Built-in composable for live duration updates
+  - State machine: Idle → Profiling → Complete → Analyzed
+  - Typed refs with `bubbly.NewRef[T]()` for type safety
+- **Components Created**:
+  - `ProfilePanel` - Profile status (idle/profiling/complete)
+  - `ControlsPanel` - Start/Stop/Analyze/Reset controls
+  - `ResultsPanel` - Hot functions list with pprof hint
+  - `StatusBar` - State badge, duration, focus, help text
+- **BubblyUI Components Used**:
+  - `components.Card` - Content containers
+  - Lipgloss for layout composition only
+- **Key Features**:
+  - 3-pane focus management (Profile → Controls → Results)
+  - State machine workflow with clear transitions
+  - Dynamic key bindings based on state and focus
+  - Visual feedback (green border = focused)
+  - pprof integration for CPU analysis
+  - Context-aware help text
+- **Test Coverage**:
+  - `composables/`: 100% coverage
+  - `components/`: 98.7% coverage
+- **Zero Bubbletea**: All BubblyUI framework, no raw tea.Model implementation
+- **README.md**: Comprehensive documentation with architecture, workflow, controls
+
 ---
 
 ### Task 7.4: Update AI Manuals ✅ COMPLETED
