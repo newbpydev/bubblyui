@@ -37,8 +37,8 @@ type StatusBarProps struct {
 	// IsRunning indicates if the profiler is running
 	IsRunning *bubbly.Ref[bool]
 
-	// Duration is the profiling duration
-	Duration *bubbly.Computed[interface{}]
+	// StartTime is when profiling started (used to calculate duration)
+	StartTime *bubbly.Ref[time.Time]
 
 	// FocusedPane indicates which panel is focused
 	FocusedPane *bubbly.Ref[FocusPane]
@@ -58,7 +58,7 @@ func CreateStatusBar(props StatusBarProps) (bubbly.Component, error) {
 	builder = builder.Setup(func(ctx *bubbly.Context) {
 		// Expose props for template access
 		ctx.Expose("isRunning", props.IsRunning)
-		ctx.Expose("duration", props.Duration)
+		ctx.Expose("startTime", props.StartTime)
 		ctx.Expose("focusedPane", props.FocusedPane)
 		ctx.Expose("lastExport", props.LastExport)
 
@@ -70,14 +70,14 @@ func CreateStatusBar(props StatusBarProps) (bubbly.Component, error) {
 	builder = builder.Template(func(ctx bubbly.RenderContext) string {
 		// Get current values from reactive state
 		isRunning := ctx.Get("isRunning").(*bubbly.Ref[bool]).GetTyped()
-		durationVal := ctx.Get("duration").(*bubbly.Computed[interface{}]).Get()
+		startTime := ctx.Get("startTime").(*bubbly.Ref[time.Time]).GetTyped()
 		focusedPane := ctx.Get("focusedPane").(*bubbly.Ref[FocusPane]).GetTyped()
 		lastExport := ctx.Get("lastExport").(*bubbly.Ref[string]).GetTyped()
 
-		// Convert duration
+		// Calculate duration fresh on each render
 		duration := time.Duration(0)
-		if d, ok := durationVal.(time.Duration); ok {
-			duration = d
+		if !startTime.IsZero() {
+			duration = time.Since(startTime)
 		}
 
 		// Status badge

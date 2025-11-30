@@ -89,6 +89,15 @@ func UseProfiler(ctx *bubbly.Context) *ProfilerComposable {
 	startTime := bubbly.NewRef(time.Time{})
 	lastExport := bubbly.NewRef("")
 
+	// Internal tracking state for FPS calculation
+	// These are not exposed as refs since they're internal implementation details
+	var (
+		sampleCount      int
+		renderCount      int
+		lastSampleTime   time.Time
+		frameTimeSamples []time.Duration
+	)
+
 	// Create computed duration
 	duration := ctx.Computed(func() interface{} {
 		start := startTime.GetTyped()
@@ -155,6 +164,12 @@ func UseProfiler(ctx *bubbly.Context) *ProfilerComposable {
 		startTime.Set(time.Time{})
 		lastExport.Set("")
 
+		// Reset internal tracking state
+		sampleCount = 0
+		renderCount = 0
+		lastSampleTime = time.Time{}
+		frameTimeSamples = nil
+
 		// If running, restart the profiler
 		if isRunning.GetTyped() {
 			prof.Stop()
@@ -168,7 +183,61 @@ func UseProfiler(ctx *bubbly.Context) *ProfilerComposable {
 		comp.mu.Lock()
 		defer comp.mu.Unlock()
 
-		report := prof.GenerateReport()
+		// Get current metrics from our reactive state
+		currentMetrics := metrics.GetTyped()
+
+		// Calculate average FPS for report
+		var avgFPS float64
+		if len(frameTimeSamples) > 0 {
+			var totalTime time.Duration
+			for _, ft := range frameTimeSamples {
+				totalTime += ft
+			}
+			avgFrameTime := totalTime / time.Duration(len(frameTimeSamples))
+			if avgFrameTime > 0 {
+				avgFPS = float64(time.Second) / float64(avgFrameTime)
+			}
+		}
+
+		// Count bottlenecks for report
+		bottleneckCount := 0
+		for _, ft := range frameTimeSamples {
+			if ft > 100*time.Millisecond {
+				bottleneckCount++
+			}
+		}
+
+		// Build bottleneck info if any
+		var bottlenecks []*profiler.BottleneckInfo
+		if bottleneckCount > 0 {
+			bottlenecks = append(bottlenecks, &profiler.BottleneckInfo{
+				Type:        profiler.BottleneckTypeSlow,
+				Location:    "Frame rendering",
+				Severity:    profiler.SeverityMedium,
+				Impact:      float64(bottleneckCount) / float64(len(frameTimeSamples)),
+				Description: "Some frames took longer than 100ms to render",
+				Suggestion:  "Optimize component rendering or reduce update frequency",
+			})
+		}
+
+		// Build a report with actual data from our metrics
+		// The profiler's GenerateReport() returns empty data, so we populate it ourselves
+		report := &profiler.Report{
+			Summary: &profiler.Summary{
+				Duration:        time.Since(startTime.GetTyped()),
+				TotalOperations: int64(sampleCount),
+				AverageFPS:      avgFPS,
+				MemoryUsage:     currentMetrics.MemoryUsage,
+				GoroutineCount:  currentMetrics.GoroutineCount,
+			},
+			Components:      make([]*profiler.ComponentMetrics, 0),
+			Bottlenecks:     bottlenecks,
+			CPUProfile:      &profiler.CPUProfileData{},
+			MemProfile:      &profiler.MemProfileData{HeapAlloc: currentMetrics.MemoryUsage},
+			Recommendations: make([]*profiler.Recommendation, 0),
+			Timestamp:       time.Now(),
+		}
+
 		exporter := profiler.NewExporter()
 		err := exporter.ExportHTML(report, filename)
 		if err != nil {
@@ -184,36 +253,58 @@ func UseProfiler(ctx *bubbly.Context) *ProfilerComposable {
 		comp.mu.Lock()
 		defer comp.mu.Unlock()
 
+		// Only track if profiler is running
+		if !isRunning.GetTyped() {
+			return
+		}
+
+		now := time.Now()
+
+		// Calculate frame time since last sample
+		var frameTime time.Duration
+		if !lastSampleTime.IsZero() {
+			frameTime = now.Sub(lastSampleTime)
+			// Keep last 60 samples for FPS calculation (rolling window)
+			frameTimeSamples = append(frameTimeSamples, frameTime)
+			if len(frameTimeSamples) > 60 {
+				frameTimeSamples = frameTimeSamples[1:]
+			}
+		}
+		lastSampleTime = now
+
+		// Increment counters
+		sampleCount++
+		renderCount++ // Each refresh is a "render" in this demo
+
+		// Calculate FPS from frame time samples
+		var fps float64
+		if len(frameTimeSamples) > 0 {
+			var totalTime time.Duration
+			for _, ft := range frameTimeSamples {
+				totalTime += ft
+			}
+			avgFrameTime := totalTime / time.Duration(len(frameTimeSamples))
+			if avgFrameTime > 0 {
+				fps = float64(time.Second) / float64(avgFrameTime)
+			}
+		}
+
 		// Get memory stats
 		var memStats runtime.MemStats
 		runtime.ReadMemStats(&memStats)
 
-		// Get current metrics from profiler
-		report := prof.GenerateReport()
-
-		// Calculate FPS and frame time from report
-		var fps float64
-		var renderCount int
-		var bottleneckCount int
-		var sampleCount int
-
-		if report != nil && report.Summary != nil {
-			fps = report.Summary.AverageFPS
-			sampleCount = int(report.Summary.TotalOperations)
-		}
-
-		if report != nil {
-			bottleneckCount = len(report.Bottlenecks)
-			// Count total renders from component metrics
-			for _, cm := range report.Components {
-				renderCount += int(cm.RenderCount)
+		// Detect bottlenecks (simple heuristic: frame time > 100ms is a bottleneck)
+		bottleneckCount := 0
+		for _, ft := range frameTimeSamples {
+			if ft > 100*time.Millisecond {
+				bottleneckCount++
 			}
 		}
 
 		// Update metrics ref
 		metrics.Set(&ProfilerMetrics{
 			FPS:             fps,
-			FrameTime:       time.Duration(0), // Will be calculated from FPS if needed
+			FrameTime:       frameTime,
 			MemoryUsage:     memStats.Alloc,
 			GoroutineCount:  runtime.NumGoroutine(),
 			RenderCount:     renderCount,

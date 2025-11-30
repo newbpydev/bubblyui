@@ -34,25 +34,11 @@ func TestCreateStatusBar_Creation(t *testing.T) {
 	isRunning := bubbly.NewRef(false)
 	focusedPane := bubbly.NewRef(FocusControls)
 	lastExport := bubbly.NewRef("")
-
-	// Create a mock context for computed
-	var duration *bubbly.Computed[interface{}]
-	comp, err := bubbly.NewComponent("TestComponent").
-		Setup(func(ctx *bubbly.Context) {
-			duration = ctx.Computed(func() interface{} {
-				return time.Duration(0)
-			})
-		}).
-		Template(func(ctx bubbly.RenderContext) string {
-			return "test"
-		}).
-		Build()
-	require.NoError(t, err)
-	comp.Init()
+	startTime := bubbly.NewRef(time.Time{})
 
 	statusBar, err := CreateStatusBar(StatusBarProps{
 		IsRunning:   isRunning,
-		Duration:    duration,
+		StartTime:   startTime,
 		FocusedPane: focusedPane,
 		LastExport:  lastExport,
 	})
@@ -67,24 +53,11 @@ func TestCreateStatusBar_Render(t *testing.T) {
 	isRunning := bubbly.NewRef(false)
 	focusedPane := bubbly.NewRef(FocusControls)
 	lastExport := bubbly.NewRef("")
-
-	var duration *bubbly.Computed[interface{}]
-	comp, err := bubbly.NewComponent("TestComponent").
-		Setup(func(ctx *bubbly.Context) {
-			duration = ctx.Computed(func() interface{} {
-				return time.Duration(0)
-			})
-		}).
-		Template(func(ctx bubbly.RenderContext) string {
-			return "test"
-		}).
-		Build()
-	require.NoError(t, err)
-	comp.Init()
+	startTime := bubbly.NewRef(time.Time{})
 
 	statusBar, err := CreateStatusBar(StatusBarProps{
 		IsRunning:   isRunning,
-		Duration:    duration,
+		StartTime:   startTime,
 		FocusedPane: focusedPane,
 		LastExport:  lastExport,
 	})
@@ -104,24 +77,11 @@ func TestCreateStatusBar_RunningState(t *testing.T) {
 	isRunning := bubbly.NewRef(true)
 	focusedPane := bubbly.NewRef(FocusMetrics)
 	lastExport := bubbly.NewRef("")
-
-	var duration *bubbly.Computed[interface{}]
-	comp, err := bubbly.NewComponent("TestComponent").
-		Setup(func(ctx *bubbly.Context) {
-			duration = ctx.Computed(func() interface{} {
-				return 5 * time.Second
-			})
-		}).
-		Template(func(ctx bubbly.RenderContext) string {
-			return "test"
-		}).
-		Build()
-	require.NoError(t, err)
-	comp.Init()
+	startTime := bubbly.NewRef(time.Now().Add(-5 * time.Second)) // Started 5 seconds ago
 
 	statusBar, err := CreateStatusBar(StatusBarProps{
 		IsRunning:   isRunning,
-		Duration:    duration,
+		StartTime:   startTime,
 		FocusedPane: focusedPane,
 		LastExport:  lastExport,
 	})
@@ -150,24 +110,11 @@ func TestCreateStatusBar_ExportStatus(t *testing.T) {
 			isRunning := bubbly.NewRef(false)
 			focusedPane := bubbly.NewRef(FocusControls)
 			lastExport := bubbly.NewRef(tt.lastExport)
-
-			var duration *bubbly.Computed[interface{}]
-			comp, err := bubbly.NewComponent("TestComponent").
-				Setup(func(ctx *bubbly.Context) {
-					duration = ctx.Computed(func() interface{} {
-						return time.Duration(0)
-					})
-				}).
-				Template(func(ctx bubbly.RenderContext) string {
-					return "test"
-				}).
-				Build()
-			require.NoError(t, err)
-			comp.Init()
+			startTime := bubbly.NewRef(time.Time{})
 
 			statusBar, err := CreateStatusBar(StatusBarProps{
 				IsRunning:   isRunning,
-				Duration:    duration,
+				StartTime:   startTime,
 				FocusedPane: focusedPane,
 				LastExport:  lastExport,
 			})

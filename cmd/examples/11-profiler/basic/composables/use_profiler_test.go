@@ -160,7 +160,12 @@ func TestUseProfiler_RefreshMetrics(t *testing.T) {
 	require.NoError(t, err)
 	comp.Init()
 
-	// Refresh metrics
+	// Start profiler first (RefreshMetrics only works when running)
+	profiler.Start()
+
+	// Refresh metrics multiple times to build up samples
+	profiler.RefreshMetrics()
+	time.Sleep(10 * time.Millisecond)
 	profiler.RefreshMetrics()
 
 	// Verify metrics are populated
@@ -168,6 +173,10 @@ func TestUseProfiler_RefreshMetrics(t *testing.T) {
 	assert.NotNil(t, metrics)
 	assert.GreaterOrEqual(t, metrics.GoroutineCount, 1, "Should have at least 1 goroutine")
 	assert.Greater(t, metrics.MemoryUsage, uint64(0), "Should have some memory usage")
+	assert.GreaterOrEqual(t, metrics.SampleCount, 2, "Should have at least 2 samples")
+	assert.GreaterOrEqual(t, metrics.RenderCount, 2, "Should have at least 2 renders")
+
+	profiler.Stop()
 }
 
 // TestFormatBytes tests the FormatBytes function.

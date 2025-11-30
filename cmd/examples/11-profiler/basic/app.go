@@ -83,7 +83,7 @@ func CreateApp() (bubbly.Component, error) {
 
 		statusBar, err := components.CreateStatusBar(components.StatusBarProps{
 			IsRunning:   profiler.IsRunning,
-			Duration:    profiler.Duration,
+			StartTime:   profiler.StartTime,
 			FocusedPane: focusedPane,
 			LastExport:  profiler.LastExport,
 		})
