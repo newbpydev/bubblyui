@@ -1,10 +1,12 @@
 # Master Tasks Checklist - BubblyUI
 
-**Last Updated:** November 26, 2025  
-**Total Features:** 14 (00-13, 14)  
-**Specifications Complete:** 14/14 (100%)  
-**Implementation Complete:** 4/14 (29%)  
-**Total Estimated Effort:** ~786 hours
+**Last Updated:** November 30, 2025
+**Total Features:** 17 (00-16)
+**Specifications Complete:** 17/17 (100%)
+**Implementation Complete:** ~14/17 (82%)
+**Total Estimated Effort:** ~792 hours
+
+> **Note:** Features 00-15 are implemented with >90% test coverage. Feature 16 (Deployment Release) is specification-only, covering release automation and documentation.
 
 ---
 
@@ -521,6 +523,78 @@
 - **Box**: Generic container with padding/border/title
 - **Divider**: Visual separator lines
 - **Container**: Width-constrained centered container
+
+---
+
+### 15-enhanced-composables-library
+**Status:** Specified, Partially Implemented
+**Coverage:** ~95%
+**Prerequisites:** 04-composition-api
+**Unlocks:** Enhanced developer experience, VueUse-inspired patterns
+
+#### Requirements
+- [x] requirements.md complete
+- [x] designs.md complete
+- [x] user-workflow.md complete
+- [x] tasks.md complete
+
+#### Implementation
+- [x] Timer pool for efficient resource management
+- [x] Reflect cache for type introspection
+- [x] Performance optimizations
+- [ ] Additional composables (ongoing)
+
+#### Testing
+- [x] Unit tests (>90% coverage)
+- [x] Performance benchmarks
+- [x] Integration tests
+
+---
+
+### 16-deployment-release
+**Status:** Specified, Ready for Implementation
+**Coverage:** N/A (documentation/configuration)
+**Prerequisites:** All features 00-15 implemented and tested
+**Unlocks:** Public release, pkg.go.dev publication, community adoption
+
+#### Requirements
+- [x] requirements.md complete
+- [x] designs.md complete
+- [x] user-workflow.md complete
+- [x] tasks.md complete (12 tasks, ~6 hours)
+
+#### Implementation (12 tasks, ~6 hours)
+- [ ] Phase 1: Documentation Foundation (2 hours)
+  - [ ] Task 1.1: Comprehensive CHANGELOG Update (45 min)
+  - [ ] Task 1.2: README Accuracy Audit (30 min)
+  - [ ] Task 1.3: Godoc Coverage Audit (45 min)
+- [ ] Phase 2: Root Package Creation (1.5 hours)
+  - [ ] Task 2.1: Create Root Package bubblyui.go (45 min)
+  - [ ] Task 2.2: Verify No Import Cycles (15 min)
+  - [ ] Task 2.3: Update Example Imports (30 min)
+- [ ] Phase 3: Release Automation (1.5 hours)
+  - [ ] Task 3.1: Create GoReleaser Configuration (30 min)
+  - [ ] Task 3.2: Create GitHub Actions Release Workflow (30 min)
+  - [ ] Task 3.3: Test Release Workflow (Dry Run) (30 min)
+- [ ] Phase 4: Version Tagging (1 hour)
+  - [ ] Task 4.1: Identify Historical Commits (20 min)
+  - [ ] Task 4.2: Create Retroactive Tags (Optional) (20 min)
+  - [ ] Task 4.3: Create v0.12.0 Tag (10 min)
+  - [ ] Task 4.4: Verify Release (10 min)
+
+#### Testing
+- [ ] Root package imports compile
+- [ ] No import cycles
+- [ ] GoReleaser dry-run succeeds
+- [ ] GitHub Actions workflow valid YAML
+- [ ] Examples work with new imports
+
+#### Key Deliverables
+- **Root Package**: `import "github.com/newbpydev/bubblyui"` works
+- **GoReleaser**: `.goreleaser.yml` for library releases
+- **CI/CD**: `.github/workflows/release.yml` for automation
+- **Documentation**: Comprehensive CHANGELOG with all features
+- **Version Tags**: v0.2.0 through v0.12.0 for all features
 
 ---
 

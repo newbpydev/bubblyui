@@ -1,6 +1,6 @@
 # BubblyUI Compact Manual for AI Agents
 
-**Version:** 3.2 | **Updated:** November 27, 2025 | **Status:** VERIFIED (Feature 13-14)  
+**Version:** 3.3 | **Updated:** November 30, 2025 | **Status:** VERIFIED (Feature 11-14)  
 **Philosophy:** Zero boilerplate TUI framework with Vue-inspired composables
 
 ---
@@ -24,6 +24,7 @@ import (
     composables "github.com/newbpydev/bubblyui/pkg/bubbly/composables"
     directives "github.com/newbpydev/bubblyui/pkg/bubbly/directives"
     csrouter "github.com/newbpydev/bubblyui/pkg/bubbly/router"
+    "github.com/newbpydev/bubblyui/pkg/bubbly/profiler"  // Performance profiling
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
 )
@@ -489,6 +490,109 @@ func TestCounter(t *testing.T) {
 
 ---
 
+## Performance Profiler (Feature 11)
+
+### Essential Import
+```go
+import "github.com/newbpydev/bubblyui/pkg/bubbly/profiler"
+```
+
+### Quick Start
+```go
+// Create and start profiler
+prof := profiler.New(
+    profiler.WithEnabled(true),
+    profiler.WithSamplingRate(0.1),  // 10% sampling
+)
+prof.Start()
+defer prof.Stop()
+
+// Run app, then generate report
+report := prof.GenerateReport()
+exporter := profiler.NewExporter()
+exporter.ExportHTML(report, "report.html")
+```
+
+### Core Components
+| Component | Purpose |
+|-----------|---------|
+| `profiler.New()` | Main profiler with options |
+| `NewCPUProfiler()` | CPU profiling (pprof) |
+| `NewMemoryProfiler()` | Heap profiling & leak detection |
+| `NewRenderProfiler()` | FPS & frame timing |
+| `NewComponentTracker()` | Per-component metrics |
+| `NewBottleneckDetector()` | Performance issue detection |
+| `NewRecommendationEngine()` | Optimization suggestions |
+
+### CPU Profiling
+```go
+cpuProf := profiler.NewCPUProfiler()
+cpuProf.Start("cpu.prof")
+// ... run workload
+cpuProf.Stop()
+// Analyze: go tool pprof cpu.prof
+```
+
+### Memory & Leak Detection
+```go
+memProf := profiler.NewMemoryProfiler()
+memProf.TakeSnapshot()
+// ... run workload
+memProf.TakeSnapshot()
+growth := memProf.GetMemoryGrowth()
+
+ld := profiler.NewLeakDetector()
+leaks := ld.DetectLeaks(memProf.GetSnapshots())
+```
+
+### Component Tracking
+```go
+tracker := profiler.NewComponentTracker()
+start := time.Now()
+output := component.View()
+tracker.RecordRender(component.ID(), component.Name(), time.Since(start))
+
+// Get slowest components
+top := tracker.GetTopComponents(5, profiler.SortByAvgRenderTime)
+```
+
+### Benchmarking Integration
+```go
+func BenchmarkComponent(b *testing.B) {
+    bp := profiler.NewBenchmarkProfiler(b)
+    for i := 0; i < b.N; i++ {
+        bp.Measure(func() { component.View() })
+    }
+    
+    // Regression detection
+    baseline, _ := profiler.LoadBaseline("baseline.json")
+    bp.AssertNoRegression(baseline, 0.10)  // 10% threshold
+}
+```
+
+### HTTP Endpoints (Remote Profiling)
+```go
+h := profiler.NewHTTPHandler(prof)
+h.Enable()  // Disabled by default for safety
+h.RegisterHandlers(mux, "/debug/pprof")
+// Endpoints: /profile, /heap, /goroutine, /block, /mutex, /trace
+```
+
+### Export Formats
+```go
+exporter := profiler.NewExporter()
+exporter.ExportHTML(report, "report.html")  // Visual report
+exporter.ExportJSON(report, "report.json")  // Machine-readable
+exporter.ExportCSV(report, "report.csv")    // Spreadsheet
+```
+
+### Performance Overhead
+- **Disabled:** < 0.1% overhead
+- **Enabled:** < 3% overhead
+- **Sampling:** Configurable rate reduces overhead
+
+---
+
 ## ❌ Anti-Patterns
 
 | Wrong | Right |
@@ -561,4 +665,4 @@ func CreateApp() (bubbly.Component, error) {
 
 ---
 
-**Total: ~550 lines vs 3000+ lines (82% reduction) - All essential APIs preserved including Feature 14 layouts**
+**Total: ~670 lines vs 3500+ lines (81% reduction) - All essential APIs preserved including Feature 11 (Profiler) & Feature 14 (Layouts)**
