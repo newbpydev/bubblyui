@@ -691,7 +691,7 @@ func TestRecommendationEngine_ConcurrentAccess(t *testing.T) {
 	// Test concurrent writes
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
-		go func(idx int) {
+		go func() {
 			defer wg.Done()
 			re.AddRule(RecommendationRule{
 				Name:      "concurrent_rule",
@@ -699,7 +699,7 @@ func TestRecommendationEngine_ConcurrentAccess(t *testing.T) {
 				Priority:  PriorityLow,
 			})
 			re.RemoveRule("concurrent_rule")
-		}(i)
+		}()
 	}
 
 	wg.Wait()

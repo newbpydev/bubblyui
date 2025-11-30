@@ -632,7 +632,7 @@ func TestTimelineGenerator_GenerateHTML_LargeEventCount(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		events[i] = &TimedEvent{
 			Name:      "Event",
-			Type:      EventType([]EventType{EventTypeRender, EventTypeUpdate, EventTypeLifecycle}[i%3]),
+			Type:      []EventType{EventTypeRender, EventTypeUpdate, EventTypeLifecycle}[i%3],
 			StartTime: baseTime.Add(time.Duration(i) * time.Millisecond),
 			Duration:  time.Millisecond,
 		}

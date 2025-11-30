@@ -275,7 +275,7 @@ func TestRenderProfiler_GetFrames(t *testing.T) {
 
 		// Verify it's a copy
 		originalLen := len(rp.GetFrames())
-		frames = append(frames, FrameInfo{})
+		_ = append(frames, FrameInfo{})
 		assert.Len(t, rp.GetFrames(), originalLen)
 	})
 }

@@ -212,12 +212,37 @@ func (h *HTTPHandler) checkEnabled(w http.ResponseWriter) bool {
 }
 
 // checkMethod returns an error response if the method is not allowed.
-func checkMethod(w http.ResponseWriter, r *http.Request, allowed string) bool {
-	if r.Method != allowed {
+func checkMethod(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return false
 	}
 	return true
+}
+
+// servePprofLookup serves a named pprof profile.
+// This helper eliminates code duplication across block, mutex, threadcreate, and allocs profiles.
+func (h *HTTPHandler) servePprofLookup(w http.ResponseWriter, r *http.Request, profileName, filename string) {
+	if !checkMethod(w, r) {
+		return
+	}
+	if !h.checkEnabled(w) {
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+
+	p := pprof.Lookup(profileName)
+	if p == nil {
+		http.Error(w, profileName+" profile not found", http.StatusInternalServerError)
+		return
+	}
+
+	if err := p.WriteTo(w, 0); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // ServeCPUProfile serves CPU profile data.
@@ -227,7 +252,7 @@ func checkMethod(w http.ResponseWriter, r *http.Request, allowed string) bool {
 //
 // The profile is written in pprof format (gzip compressed).
 func (h *HTTPHandler) ServeCPUProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
+	if !checkMethod(w, r) {
 		return
 	}
 	if !h.checkEnabled(w) {
@@ -277,7 +302,7 @@ func (h *HTTPHandler) ServeCPUProfile(w http.ResponseWriter, r *http.Request) {
 //
 // The profile is written in pprof format (gzip compressed).
 func (h *HTTPHandler) ServeHeapProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
+	if !checkMethod(w, r) {
 		return
 	}
 	if !h.checkEnabled(w) {
@@ -306,7 +331,7 @@ func (h *HTTPHandler) ServeHeapProfile(w http.ResponseWriter, r *http.Request) {
 // With debug=0, the profile is in pprof format.
 // With debug=1 or debug=2, the profile is in human-readable text format.
 func (h *HTTPHandler) ServeGoroutineProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
+	if !checkMethod(w, r) {
 		return
 	}
 	if !h.checkEnabled(w) {
@@ -345,104 +370,28 @@ func (h *HTTPHandler) ServeGoroutineProfile(w http.ResponseWriter, r *http.Reque
 //
 // The profile shows where goroutines block waiting on synchronization primitives.
 func (h *HTTPHandler) ServeBlockProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
-		return
-	}
-	if !h.checkEnabled(w) {
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=block.pb.gz")
-
-	p := pprof.Lookup("block")
-	if p == nil {
-		http.Error(w, "block profile not found", http.StatusInternalServerError)
-		return
-	}
-
-	if err := p.WriteTo(w, 0); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	h.servePprofLookup(w, r, "block", "block.pb.gz")
 }
 
 // ServeMutexProfile serves mutex profile data.
 //
 // The profile shows mutex contention.
 func (h *HTTPHandler) ServeMutexProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
-		return
-	}
-	if !h.checkEnabled(w) {
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=mutex.pb.gz")
-
-	p := pprof.Lookup("mutex")
-	if p == nil {
-		http.Error(w, "mutex profile not found", http.StatusInternalServerError)
-		return
-	}
-
-	if err := p.WriteTo(w, 0); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	h.servePprofLookup(w, r, "mutex", "mutex.pb.gz")
 }
 
 // ServeThreadcreateProfile serves threadcreate profile data.
 //
 // The profile shows stack traces that led to the creation of new OS threads.
 func (h *HTTPHandler) ServeThreadcreateProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
-		return
-	}
-	if !h.checkEnabled(w) {
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=threadcreate.pb.gz")
-
-	p := pprof.Lookup("threadcreate")
-	if p == nil {
-		http.Error(w, "threadcreate profile not found", http.StatusInternalServerError)
-		return
-	}
-
-	if err := p.WriteTo(w, 0); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	h.servePprofLookup(w, r, "threadcreate", "threadcreate.pb.gz")
 }
 
 // ServeAllocsProfile serves allocation profile data.
 //
 // The profile shows a sampling of all past memory allocations.
 func (h *HTTPHandler) ServeAllocsProfile(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
-		return
-	}
-	if !h.checkEnabled(w) {
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=allocs.pb.gz")
-
-	p := pprof.Lookup("allocs")
-	if p == nil {
-		http.Error(w, "allocs profile not found", http.StatusInternalServerError)
-		return
-	}
-
-	if err := p.WriteTo(w, 0); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	h.servePprofLookup(w, r, "allocs", "allocs.pb.gz")
 }
 
 // indexTemplate is the HTML template for the index page
@@ -485,7 +434,7 @@ Example: <code>go tool pprof http://localhost:8080/debug/pprof/heap</code>
 
 // ServeIndex serves the index page listing all available profiles.
 func (h *HTTPHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
+	if !checkMethod(w, r) {
 		return
 	}
 	if !h.checkEnabled(w) {
@@ -523,7 +472,7 @@ func (h *HTTPHandler) ServeSymbol(w http.ResponseWriter, r *http.Request) {
 //
 // The trace can be viewed with: go tool trace <file>
 func (h *HTTPHandler) ServeTrace(w http.ResponseWriter, r *http.Request) {
-	if !checkMethod(w, r, http.MethodGet) {
+	if !checkMethod(w, r) {
 		return
 	}
 	if !h.checkEnabled(w) {

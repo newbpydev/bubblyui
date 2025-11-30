@@ -610,7 +610,7 @@ func TestHTTPHandler_ThreadSafety(t *testing.T) {
 
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
 				// Mix of operations
@@ -635,7 +635,7 @@ func TestHTTPHandler_ThreadSafety(t *testing.T) {
 					_ = h.GetProfiler()
 				}
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()

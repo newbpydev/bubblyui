@@ -627,8 +627,8 @@ func TestFPSCalculator_GetSamples(t *testing.T) {
 		samples := fc.GetSamples()
 		originalLen := len(samples)
 
-		// Modify returned slice
-		samples = append(samples, 999.0)
+		// Modify returned slice (verify it's a copy)
+		_ = append(samples, 999.0)
 
 		// Original should be unchanged
 		assert.Equal(t, originalLen, fc.SampleCount())
