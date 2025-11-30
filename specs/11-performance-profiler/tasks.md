@@ -1801,7 +1801,7 @@ func ServeHeapProfile(w http.ResponseWriter, r *http.Request)
 
 ---
 
-### Task 7.3: Example Applications
+### Task 7.3: Example Applications (Basic - COMPLETED ✅)
 **Description**: Complete profiling examples
 
 **Prerequisites**: Task 7.2
@@ -1809,19 +1809,52 @@ func ServeHeapProfile(w http.ResponseWriter, r *http.Request)
 **Unlocks**: Feature complete
 
 **Files**:
-- `cmd/examples/11-profiler/basic/main.go`
+- `cmd/examples/11-profiler/basic/main.go` ✅
 - `cmd/examples/11-profiler/cpu/main.go`
 - `cmd/examples/11-profiler/memory/main.go`
 - `cmd/examples/11-profiler/benchmark/main_test.go`
 
 **Examples**:
-- Basic profiling
+- Basic profiling ✅
 - CPU profiling workflow
 - Memory leak detection
 - Benchmark examples
 - CI integration
 
 **Estimated Effort**: 3 hours
+
+**Implementation Notes (Basic Example - Completed 2024-11-30)**:
+- Created modular profiler dashboard following BubblyUI patterns
+- **Directory Structure**:
+  - `cmd/examples/11-profiler/basic/main.go` - Entry point with bubbly.Wrap()
+  - `cmd/examples/11-profiler/basic/app.go` - Root component with multi-pane layout
+  - `cmd/examples/11-profiler/basic/composables/use_profiler.go` - Custom composable
+  - `cmd/examples/11-profiler/basic/components/` - 3 focused components
+- **Composables Used**:
+  - `UseProfiler` - Custom composable wrapping profiler.Profiler with reactive state
+  - `UseInterval` - Built-in composable for live metric updates (100ms)
+  - Typed refs with `bubbly.NewRef[T]()` for type safety
+  - Computed values for derived state (duration)
+- **Components Created**:
+  - `MetricsPanel` - Live metrics display (FPS, memory, goroutines, renders, bottlenecks)
+  - `ControlsPanel` - Start/stop/reset/export controls with focus indicator
+  - `StatusBar` - Status badge, duration, focus indicator, export status, help text
+- **BubblyUI Components Used**:
+  - `components.Card` - Content containers
+  - `components.Text` - Styled text labels
+  - `components.Spacer` - Layout spacing
+- **Key Features**:
+  - Multi-pane focus management with Tab navigation
+  - Dynamic key bindings (Space only works when Controls focused)
+  - Visual feedback (green border = focused, gray = unfocused)
+  - Color-coded metrics (FPS: green/yellow/red based on value)
+  - Real-time updates when profiler running
+  - HTML report export with timestamp
+- **Test Coverage**:
+  - `composables/`: 96.8% coverage (11 tests)
+  - `components/`: 99.5% coverage (15 tests)
+- **Zero Bubbletea**: All BubblyUI framework, no raw tea.Model implementation
+- **README.md**: Comprehensive documentation with architecture, patterns, controls
 
 ---
 
