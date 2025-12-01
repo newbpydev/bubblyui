@@ -931,14 +931,59 @@ Comprehensive verification of all alias packages confirms no import cycles exist
 
 ---
 
-### Task 2.3: Update Example Imports
+### Task 2.3: Update Example Imports ✅ COMPLETED
 **Description**: Create or update at least one example using root package imports
 
-**Prerequisites**: Task 2.1
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Created comprehensive quickstart example demonstrating clean import paths and best practices.
+
+**Files Created**:
+- `cmd/examples/00-quickstart/main.go` - Entry point with DevTools & Profiler setup
+- `cmd/examples/00-quickstart/app.go` - Root component with key bindings
+- `cmd/examples/00-quickstart/composables/use_tasks.go` - Task management composable
+- `cmd/examples/00-quickstart/composables/use_focus.go` - Focus management composable
+- `cmd/examples/00-quickstart/components/task_list.go` - Task list display
+- `cmd/examples/00-quickstart/components/task_input.go` - New task input
+- `cmd/examples/00-quickstart/components/task_stats.go` - Statistics display
+- `cmd/examples/00-quickstart/components/help_panel.go` - Keyboard shortcuts
+
+**Key Features Demonstrated**:
+1. **Clean Import Paths**: Uses new alias packages (`github.com/newbpydev/bubblyui`, `github.com/newbpydev/bubblyui/devtools`, `github.com/newbpydev/bubblyui/profiler`, `github.com/newbpydev/bubblyui/components`)
+2. **Zero Boilerplate**: Uses `bubbly.Run()` instead of `tea.NewProgram`
+3. **Type-Safe Refs**: Uses `bubblyui.NewRef[T]()` and `GetTyped()` for type safety
+4. **Component Architecture**: Proper separation into components/ and composables/ directories
+5. **DevTools Integration**: Full devtools setup with F12 toggle
+6. **Profiler Integration**: Optional profiler with --profiler flag
+7. **Built-in Components**: Uses Card and Text components from components package
+8. **Lifecycle Hooks**: OnMounted hooks in all components
+9. **Event Handling**: Key bindings for task management (add, delete, toggle, filter, navigate)
+10. **Reactive State**: Tasks, selection, filter, focus management all reactive
+
+**Application Structure**:
+```
+cmd/examples/00-quickstart/
+├── main.go           # Entry point: bubbly.Run() + DevTools + Profiler
+├── app.go            # Root component with 14 key bindings
+├── composables/      # Reusable reactive logic
+│   ├── use_tasks.go  # Task CRUD operations
+│   └── use_focus.go  # Focus pane management
+└── components/       # UI components
+    ├── task_list.go  # Displays filtered tasks with selection
+    ├── task_input.go # Input field for new tasks
+    ├── task_stats.go # Active/Done/Total statistics
+    └── help_panel.go # Keyboard shortcut reference
+```
+
+**Verification**:
+- `go build ./cmd/examples/00-quickstart/...` ✅ PASSES
+- `golangci-lint run ./cmd/examples/00-quickstart/...` ✅ PASSES (only expected gocyclo warning for root component)
+
+**Prerequisites**: Task 2.1 ✅
 **Unlocks**: Task 4.3
 
 **Files**:
-- `cmd/examples/00-quickstart/main.go` (NEW or UPDATE)
+- `cmd/examples/00-quickstart/main.go` (NEW)
 
 **Implementation**:
 ```go
