@@ -79,6 +79,10 @@ type Profiler struct {
 	// detector handles bottleneck detection (implemented in Task 4.1)
 	detector *BottleneckDetector
 
+	// hookAdapter is the ProfilerHookAdapter that collects component metrics
+	// This is set when the profiler is integrated with the framework hook system
+	hookAdapter *ProfilerHookAdapter
+
 	// config holds profiler configuration
 	config *Config
 
@@ -541,6 +545,18 @@ func (p *Profiler) GenerateReport() *Report {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
+	// Initialize with empty slice (never nil)
+	components := make([]*ComponentMetrics, 0)
+
+	// If we have a hook adapter, get component metrics from it
+	if p.hookAdapter != nil && p.hookAdapter.componentTracker != nil {
+		tracker := p.hookAdapter.componentTracker
+		allMetrics := tracker.GetAllMetrics()
+		for _, metrics := range allMetrics {
+			components = append(components, metrics)
+		}
+	}
+
 	return &Report{
 		Summary: &Summary{
 			Duration:        0,
@@ -549,13 +565,30 @@ func (p *Profiler) GenerateReport() *Report {
 			MemoryUsage:     0,
 			GoroutineCount:  0,
 		},
-		Components:      make([]*ComponentMetrics, 0),
+		Components:      components,
 		Bottlenecks:     make([]*BottleneckInfo, 0),
 		CPUProfile:      &CPUProfileData{},
 		MemProfile:      &MemProfileData{},
 		Recommendations: make([]*Recommendation, 0),
 		Timestamp:       time.Now(),
 	}
+}
+
+// SetHookAdapter sets the hook adapter for this profiler.
+// This is called when integrating the profiler with the framework hook system.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	hookAdapter := profiler.NewProfilerHookAdapter(prof)
+//	prof.SetHookAdapter(hookAdapter)
+func (p *Profiler) SetHookAdapter(adapter *ProfilerHookAdapter) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.hookAdapter = adapter
 }
 
 // WithEnabled sets the initial enabled state.

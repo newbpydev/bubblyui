@@ -562,3 +562,40 @@ type CounterStats = profiler.CounterStats
 
 // AllocationStats contains allocation statistics.
 type AllocationStats = profiler.AllocationStats
+
+// =============================================================================
+// Hook Integration
+// =============================================================================
+
+// ProfilerHookAdapter implements bubbly.FrameworkHook to collect profiling data.
+// It tracks component render times and other metrics via the framework hook system.
+type ProfilerHookAdapter = profiler.ProfilerHookAdapter
+
+// NewProfilerHookAdapter creates a new profiler hook adapter.
+// Use this to integrate the profiler with the framework's hook system.
+//
+// Example:
+//
+//	prof := profiler.New(profiler.WithEnabled(true))
+//	hookAdapter := profiler.NewProfilerHookAdapter(prof)
+//	prof.SetHookAdapter(hookAdapter)
+var NewProfilerHookAdapter = profiler.NewProfilerHookAdapter
+
+// CompositeHook multiplexes framework events to multiple hook implementations.
+// This allows both DevTools and Profiler to receive events simultaneously.
+//
+// Example:
+//
+//	// Get existing DevTools hook
+//	devtoolsHook := bubbly.GetRegisteredHook()
+//
+//	// Create profiler hook
+//	profilerHook := profiler.NewProfilerHookAdapter(prof)
+//
+//	// Combine them
+//	composite := profiler.NewCompositeHook(devtoolsHook, profilerHook)
+//	bubbly.RegisterHook(composite)
+type CompositeHook = profiler.CompositeHook
+
+// NewCompositeHook creates a new composite hook that forwards to multiple hooks.
+var NewCompositeHook = profiler.NewCompositeHook

@@ -494,23 +494,36 @@ func TestCounter(t *testing.T) {
 
 ### Essential Import
 ```go
-import "github.com/newbpydev/bubblyui/pkg/bubbly/profiler"
+import "github.com/newbpydev/bubblyui/profiler"
 ```
 
-### Quick Start
+### Quick Start (With DevTools Integration)
 ```go
+// Enable DevTools first
+devtools.Enable()
+
 // Create and start profiler
 prof := profiler.New(
     profiler.WithEnabled(true),
-    profiler.WithSamplingRate(0.1),  // 10% sampling
+    profiler.WithSamplingRate(1.0),  // 100% sampling
 )
 prof.Start()
-defer prof.Stop()
 
-// Run app, then generate report
-report := prof.GenerateReport()
-exporter := profiler.NewExporter()
-exporter.ExportHTML(report, "report.html")
+// CRITICAL: Use Composite Hook for both DevTools and Profiler
+devtoolsHook := bubbly.GetRegisteredHook()
+profilerHook := profiler.NewProfilerHookAdapter(prof)
+prof.SetHookAdapter(profilerHook)
+
+composite := profiler.NewCompositeHook(devtoolsHook, profilerHook)
+bubbly.RegisterHook(composite)
+
+// Run app
+defer func() {
+    prof.Stop()
+    report := prof.GenerateReport()
+    exporter := profiler.NewExporter()
+    exporter.ExportHTML(report, "report.html")
+}()
 ```
 
 ### Core Components

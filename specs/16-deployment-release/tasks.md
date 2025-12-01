@@ -939,26 +939,68 @@ Comprehensive verification of all alias packages confirms no import cycles exist
 Created comprehensive quickstart example demonstrating clean import paths and best practices.
 
 **Files Created**:
-- `cmd/examples/00-quickstart/main.go` - Entry point with DevTools & Profiler setup
-- `cmd/examples/00-quickstart/app.go` - Root component with key bindings
+- `cmd/examples/00-quickstart/main.go` - Entry point with DevTools & Profiler setup + Composite Hook pattern
+- `cmd/examples/00-quickstart/app.go` - Root component with conditional key bindings & WithMessageHandler for text input
 - `cmd/examples/00-quickstart/composables/use_tasks.go` - Task management composable
 - `cmd/examples/00-quickstart/composables/use_focus.go` - Focus management composable
 - `cmd/examples/00-quickstart/components/task_list.go` - Task list display
-- `cmd/examples/00-quickstart/components/task_input.go` - New task input
-- `cmd/examples/00-quickstart/components/task_stats.go` - Statistics display
+- `cmd/examples/00-quickstart/components/task_input.go` - New task input with visual feedback (emoji, color, hints)
+- `cmd/examples/00-quickstart/components/task_stats.go` - Statistics with prominent filter chip bar
 - `cmd/examples/00-quickstart/components/help_panel.go` - Keyboard shortcuts
+- `pkg/bubbly/profiler/hook_adapter.go` - ProfilerHookAdapter + CompositeHook for hook multiplexing
+- `pkg/bubbly/profiler/hook_adapter_test.go` - Tests for hook integration (93.5% coverage)
+- `pkg/bubbly/profiler/devtools_integration_test.go` - Tests for DevTools+Profiler coexistence
+- `profiler/profiler.go` - Added exports for NewProfilerHookAdapter, NewCompositeHook
 
 **Key Features Demonstrated**:
-1. **Clean Import Paths**: Uses new alias packages (`github.com/newbpydev/bubblyui`, `github.com/newbpydev/bubblyui/devtools`, `github.com/newbpydev/bubblyui/profiler`, `github.com/newbpydev/bubblyui/components`)
+1. **Clean Import Paths**: Uses new alias packages (`github.com/newbpydev/bubblyui`, `/devtools`, `/profiler`, `/components`)
 2. **Zero Boilerplate**: Uses `bubbly.Run()` instead of `tea.NewProgram`
 3. **Type-Safe Refs**: Uses `bubblyui.NewRef[T]()` and `GetTyped()` for type safety
 4. **Component Architecture**: Proper separation into components/ and composables/ directories
-5. **DevTools Integration**: Full devtools setup with F12 toggle
-6. **Profiler Integration**: Optional profiler with --profiler flag
+5. **DevTools Integration**: Full devtools setup with F12 toggle via `devtools.Enable()`
+6. **Profiler Integration**: Composite hook pattern allows both DevTools and Profiler simultaneously
 7. **Built-in Components**: Uses Card and Text components from components package
 8. **Lifecycle Hooks**: OnMounted hooks in all components
-9. **Event Handling**: Key bindings for task management (add, delete, toggle, filter, navigate)
-10. **Reactive State**: Tasks, selection, filter, focus management all reactive
+9. **Conditional Key Bindings**: Disable navigation keys during input mode
+10. **WithMessageHandler**: Captures raw keyboard input for text entry (backspace, chars, space)
+11. **Refs Outside Setup**: Pattern for accessing refs in both Setup and MessageHandler
+12. **Visual Feedback**: Input mode shows emoji + color; filter shows highlighted chip bar
+13. **Filter Chips**: Prominent ALL | ACTIVE | DONE with active filter highlighted
+14. **Reactive State**: Tasks, selection, filter, focus management all reactive
+
+**Critical Patterns for Text Input**:
+```go
+// Pattern 1: Refs outside Setup
+selectedIndex := bubblyui.NewRef(0)
+inputMode := bubblyui.NewRef(false)
+
+// Pattern 2: Conditional Key Bindings
+.WithConditionalKeyBinding(bubbly.KeyBinding{
+    Key: "j", Event: "moveDown", Description: "Move down",
+    Condition: func() bool { return !inputMode.GetTyped() },
+})
+
+// Pattern 3: WithMessageHandler for text input
+.WithMessageHandler(func(_ bubbly.Component, msg tea.Msg) tea.Cmd {
+    if !inputMode.GetTyped() { return nil }
+    keyMsg, ok := msg.(tea.KeyMsg)
+    // Handle KeyBackspace, KeyRunes, KeySpace
+})
+```
+
+**Critical Pattern for Profiler+DevTools Coexistence**:
+```go
+// Get existing DevTools hook
+devtoolsHook := bubbly.GetRegisteredHook()
+
+// Create profiler hook
+profilerHook := profiler.NewProfilerHookAdapter(prof)
+prof.SetHookAdapter(profilerHook)
+
+// Combine with composite
+composite := profiler.NewCompositeHook(devtoolsHook, profilerHook)
+bubbly.RegisterHook(composite)
+```
 
 **Application Structure**:
 ```

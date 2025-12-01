@@ -16,20 +16,30 @@
 //
 //	00-quickstart/
 //	├── main.go           # Entry point with DevTools & Profiler setup
-//	├── app.go            # Root component with key bindings
+//	├── app.go            # Root component with key bindings & WithMessageHandler
 //	├── composables/      # Reusable reactive logic
 //	│   ├── use_tasks.go  # Task management composable
 //	│   └── use_focus.go  # Focus management composable
 //	└── components/       # UI components
 //	    ├── task_list.go  # Task list display
-//	    ├── task_input.go # New task input
-//	    ├── task_stats.go # Statistics display
+//	    ├── task_input.go # New task input with visual feedback
+//	    ├── task_stats.go # Statistics with filter chips
 //	    └── help_panel.go # Keyboard shortcuts
+//
+// # Key Patterns Demonstrated
+//
+//	1. WithMessageHandler for text input capture
+//	2. Conditional key bindings (disable during input mode)
+//	3. Composite hook pattern (DevTools + Profiler integration)
+//	4. Refs created outside Setup for MessageHandler access
+//	5. Visual feedback for active states (input mode, filter selection)
 //
 // # Running the Example
 //
 //	cd cmd/examples/00-quickstart
-//	go run .
+//	go run .                    # With DevTools
+//	go run . --profiler         # With Profiler + DevTools
+//	go run . --devtools=false   # Without DevTools
 //
 // Press F12 or Ctrl+T to toggle DevTools during runtime.
 package main
@@ -83,6 +93,32 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error starting profiler: %v\n", err)
 		}
 		fmt.Println("Profiler: ENABLED")
+
+		// =============================================================================
+		// CRITICAL: Composite Hook Pattern
+		// The framework only supports ONE hook, but we need both DevTools and Profiler.
+		// Solution: Use CompositeHook to multiplex events to both hooks.
+		// =============================================================================
+
+		// Get the existing DevTools hook (if registered)
+		devtoolsHook := bubbly.GetRegisteredHook()
+
+		// Create profiler hook adapter
+		profilerHook := profiler.NewProfilerHookAdapter(prof)
+
+		// Link the profiler to the hook adapter
+		prof.SetHookAdapter(profilerHook)
+
+		// Create composite hook that forwards to both
+		compositeHook := profiler.NewCompositeHook(devtoolsHook, profilerHook)
+
+		// Register the composite hook (replaces the DevTools hook)
+		if err := bubbly.RegisterHook(compositeHook); err != nil {
+			fmt.Fprintf(os.Stderr, "Error registering composite hook: %v\n", err)
+		}
+
+		fmt.Println("Profiler: Integrated with framework hooks")
+
 		defer func() {
 			if err := prof.Stop(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error stopping profiler: %v\n", err)
