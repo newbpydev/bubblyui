@@ -44,6 +44,16 @@ import (
 // Global Functions
 // =============================================================================
 
+// Enable creates and enables the devtools singleton.
+// This is the REQUIRED way to enable devtools - it sets up the F12/Ctrl+T
+// toggle handler automatically. Just calling NewDataCollector/SetCollector
+// does NOT set up the keyboard toggle!
+//
+// Example:
+//
+//	devtools.Enable() // Now F12 toggles devtools visibility
+var Enable = devtools.Enable
+
 // Toggle enables or disables the devtools overlay.
 var Toggle = devtools.Toggle
 

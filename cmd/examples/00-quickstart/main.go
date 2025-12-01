@@ -60,9 +60,9 @@ func main() {
 	// DevTools Integration (using clean import path)
 	// =============================================================================
 	if *enableDevTools {
-		// Initialize DevTools data collector
-		collector := devtools.NewDataCollector()
-		devtools.SetCollector(collector)
+		// Enable DevTools - this sets up F12/Ctrl+T toggle automatically!
+		// CRITICAL: Use devtools.Enable() NOT NewDataCollector() for F12 to work
+		devtools.Enable()
 
 		fmt.Println("DevTools: ENABLED (press F12 or Ctrl+T to toggle)")
 	} else {

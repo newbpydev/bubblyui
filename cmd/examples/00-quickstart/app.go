@@ -6,7 +6,9 @@ package main
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	// Clean import paths using alias packages
@@ -25,42 +27,120 @@ import (
 // - Component composition (TaskList, TaskInput, TaskStats, HelpPanel)
 // - Key bindings with multi-key support
 // - Reactive state management
+// - WithMessageHandler for text input capture
 // - Exposing state for DevTools inspection
 func CreateApp() (bubbly.Component, error) {
+	// =============================================================================
+	// Create refs OUTSIDE Setup so they're accessible in both Setup and MessageHandler
+	// This is the pattern for handling text input in BubblyUI
+	// =============================================================================
+	selectedIndex := bubblyui.NewRef(0)
+	filter := bubblyui.NewRef("all") // "all", "active", "done"
+	inputText := bubblyui.NewRef("")
+	inputMode := bubblyui.NewRef(false) // Whether we're typing in input
+
+	// Initialize composables (these don't need Context)
+	taskManager := composables.UseTasks([]composables.Task{
+		{ID: 1, Text: "Learn BubblyUI basics", Done: true},
+		{ID: 2, Text: "Build a task manager", Done: false},
+		{ID: 3, Text: "Add DevTools support", Done: false},
+	})
+	focusManager := composables.UseFocusManager(composables.FocusList)
+
 	return bubbly.NewComponent("TaskManager").
 		// Auto-commands for automatic UI updates on Ref.Set()
 		WithAutoCommands(true).
-		// Navigation and interaction key bindings
-		WithKeyBinding("tab", "cycleFocus", "Switch focus").
-		WithKeyBinding("j", "moveDown", "Move down").
-		WithKeyBinding("k", "moveUp", "Move up").
+		// =============================================================================
+		// CRITICAL: Use Conditional Key Bindings to disable when in input mode
+		// This prevents "j", "k", etc. from firing when typing text
+		// =============================================================================
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "tab", Event: "cycleFocus", Description: "Switch focus",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "j", Event: "moveDown", Description: "Move down",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "k", Event: "moveUp", Description: "Move up",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
 		WithKeyBinding("down", "moveDown", "Move down").
 		WithKeyBinding("up", "moveUp", "Move up").
-		WithKeyBinding("enter", "toggleTask", "Toggle task").
-		WithKeyBinding(" ", "toggleTask", "Toggle task").
-		WithKeyBinding("a", "addMode", "Add task").
-		WithKeyBinding("d", "deleteTask", "Delete task").
-		WithKeyBinding("f", "cycleFilter", "Cycle filter").
-		WithKeyBinding("c", "clearDone", "Clear done").
-		WithKeyBinding("q", "quit", "Quit").
+		WithKeyBinding("enter", "submitOrToggle", "Submit/Toggle").
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: " ", Event: "toggleTask", Description: "Toggle task",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "a", Event: "addMode", Description: "Add task",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "d", Event: "deleteTask", Description: "Delete task",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "f", Event: "cycleFilter", Description: "Cycle filter",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "c", Event: "clearDone", Description: "Clear done",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
+		WithConditionalKeyBinding(bubbly.KeyBinding{
+			Key: "q", Event: "quit", Description: "Quit",
+			Condition: func() bool { return !inputMode.GetTyped() },
+		}).
 		WithKeyBinding("ctrl+c", "quit", "Quit").
 		WithKeyBinding("esc", "cancelInput", "Cancel input").
+		// =============================================================================
+		// WithMessageHandler: Capture text input when in input mode
+		// This is how BubblyUI handles raw keyboard input for text fields
+		// =============================================================================
+		WithMessageHandler(func(_ bubbly.Component, msg tea.Msg) tea.Cmd {
+			// Only process key messages when in input mode
+			if !inputMode.GetTyped() {
+				return nil
+			}
+
+			keyMsg, ok := msg.(tea.KeyMsg)
+			if !ok {
+				return nil
+			}
+
+			currentText := inputText.GetTyped()
+
+			switch keyMsg.Type {
+			case tea.KeyBackspace:
+				// Delete last character
+				if len(currentText) > 0 {
+					// Handle UTF-8 properly
+					runes := []rune(currentText)
+					inputText.Set(string(runes[:len(runes)-1]))
+				}
+				return nil
+
+			case tea.KeyRunes:
+				// Append typed characters
+				for _, r := range keyMsg.Runes {
+					if unicode.IsPrint(r) {
+						currentText += string(r)
+					}
+				}
+				inputText.Set(currentText)
+				return nil
+
+			case tea.KeySpace:
+				// Space key in input mode adds a space
+				inputText.Set(currentText + " ")
+				return nil
+			}
+
+			return nil
+		}).
 		Setup(func(ctx *bubbly.Context) {
-			// Initialize composables for task management and focus
-			taskManager := composables.UseTasks([]composables.Task{
-				{ID: 1, Text: "Learn BubblyUI basics", Done: true},
-				{ID: 2, Text: "Build a task manager", Done: false},
-				{ID: 3, Text: "Add DevTools support", Done: false},
-			})
-
-			focusManager := composables.UseFocusManager(composables.FocusList)
-
-			// Additional TYPE-SAFE reactive state (PREFERRED pattern)
-			selectedIndex := bubblyui.NewRef(0)
-			filter := bubblyui.NewRef("all") // "all", "active", "done"
-			inputText := bubblyui.NewRef("")
-			inputMode := bubblyui.NewRef(false) // Whether we're typing in input
-
 			// Create child components
 			taskList, err := components.CreateTaskList(components.TaskListProps{
 				Tasks:         taskManager.Tasks,
@@ -78,6 +158,7 @@ func CreateApp() (bubbly.Component, error) {
 
 			taskInput, err := components.CreateTaskInput(components.TaskInputProps{
 				InputText: inputText,
+				InputMode: inputMode, // Pass inputMode so component knows when focused
 				IsFocused: focusManager.IsInputFocused,
 				OnSubmit: func(text string) {
 					taskManager.AddTask(text)
@@ -94,6 +175,7 @@ func CreateApp() (bubbly.Component, error) {
 				ActiveCount: taskManager.ActiveCount,
 				DoneCount:   taskManager.DoneCount,
 				TotalCount:  taskManager.TotalCount,
+				Filter:      filter, // Pass filter for display
 			})
 			if err != nil {
 				ctx.Expose("error", fmt.Sprintf("Failed to create TaskStats: %v", err))
@@ -106,15 +188,17 @@ func CreateApp() (bubbly.Component, error) {
 				return
 			}
 
-			// Register event handlers
+			// =============================================================================
+			// Event Handlers - These are triggered by key bindings
+			// Note: Conditional key bindings already check inputMode, so handlers are simpler
+			// =============================================================================
+
 			ctx.On("cycleFocus", func(_ interface{}) {
-				if !inputMode.GetTyped() {
-					focusManager.Next()
-				}
+				focusManager.Next()
 			})
 
 			ctx.On("moveDown", func(_ interface{}) {
-				if focusManager.IsListFocused() && !inputMode.GetTyped() {
+				if focusManager.IsListFocused() {
 					filteredTasks := taskManager.GetFiltered(filter.GetTyped())
 					if len(filteredTasks) > 0 {
 						idx := selectedIndex.GetTyped()
@@ -126,7 +210,7 @@ func CreateApp() (bubbly.Component, error) {
 			})
 
 			ctx.On("moveUp", func(_ interface{}) {
-				if focusManager.IsListFocused() && !inputMode.GetTyped() {
+				if focusManager.IsListFocused() {
 					idx := selectedIndex.GetTyped()
 					if idx > 0 {
 						selectedIndex.Set(idx - 1)
@@ -134,8 +218,9 @@ func CreateApp() (bubbly.Component, error) {
 				}
 			})
 
+			// Toggle task (when space is pressed in list mode - conditional binding handles mode check)
 			ctx.On("toggleTask", func(_ interface{}) {
-				if focusManager.IsListFocused() && !inputMode.GetTyped() {
+				if focusManager.IsListFocused() {
 					filteredTasks := taskManager.GetFiltered(filter.GetTyped())
 					if len(filteredTasks) > 0 {
 						idx := selectedIndex.GetTyped()
@@ -143,7 +228,12 @@ func CreateApp() (bubbly.Component, error) {
 							taskManager.ToggleTask(filteredTasks[idx].ID)
 						}
 					}
-				} else if focusManager.IsInputFocused() || inputMode.GetTyped() {
+				}
+			})
+
+			// Submit or toggle - Enter key works in both modes
+			ctx.On("submitOrToggle", func(_ interface{}) {
+				if inputMode.GetTyped() {
 					// Submit input
 					text := inputText.GetTyped()
 					if text != "" {
@@ -152,18 +242,25 @@ func CreateApp() (bubbly.Component, error) {
 						focusManager.SetFocus(composables.FocusList)
 						inputMode.Set(false)
 					}
+				} else if focusManager.IsListFocused() {
+					// Toggle task
+					filteredTasks := taskManager.GetFiltered(filter.GetTyped())
+					if len(filteredTasks) > 0 {
+						idx := selectedIndex.GetTyped()
+						if idx >= 0 && idx < len(filteredTasks) {
+							taskManager.ToggleTask(filteredTasks[idx].ID)
+						}
+					}
 				}
 			})
 
 			ctx.On("addMode", func(_ interface{}) {
-				if !inputMode.GetTyped() {
-					focusManager.SetFocus(composables.FocusInput)
-					inputMode.Set(true)
-				}
+				focusManager.SetFocus(composables.FocusInput)
+				inputMode.Set(true)
 			})
 
 			ctx.On("deleteTask", func(_ interface{}) {
-				if focusManager.IsListFocused() && !inputMode.GetTyped() {
+				if focusManager.IsListFocused() {
 					filteredTasks := taskManager.GetFiltered(filter.GetTyped())
 					if len(filteredTasks) > 0 {
 						idx := selectedIndex.GetTyped()
@@ -179,25 +276,21 @@ func CreateApp() (bubbly.Component, error) {
 			})
 
 			ctx.On("cycleFilter", func(_ interface{}) {
-				if !inputMode.GetTyped() {
-					currentFilter := filter.GetTyped()
-					filters := []string{"all", "active", "done"}
-					for i, f := range filters {
-						if f == currentFilter {
-							nextIdx := (i + 1) % len(filters)
-							filter.Set(filters[nextIdx])
-							selectedIndex.Set(0) // Reset selection
-							break
-						}
+				currentFilter := filter.GetTyped()
+				filters := []string{"all", "active", "done"}
+				for i, f := range filters {
+					if f == currentFilter {
+						nextIdx := (i + 1) % len(filters)
+						filter.Set(filters[nextIdx])
+						selectedIndex.Set(0) // Reset selection
+						break
 					}
 				}
 			})
 
 			ctx.On("clearDone", func(_ interface{}) {
-				if !inputMode.GetTyped() {
-					taskManager.ClearDone()
-					selectedIndex.Set(0)
-				}
+				taskManager.ClearDone()
+				selectedIndex.Set(0)
 			})
 
 			ctx.On("cancelInput", func(_ interface{}) {

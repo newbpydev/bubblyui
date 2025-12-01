@@ -15,6 +15,7 @@ import (
 // TaskInputProps defines the props for TaskInput component.
 type TaskInputProps struct {
 	InputText *bubblyui.Ref[string]
+	InputMode *bubblyui.Ref[bool] // Whether input mode is active
 	IsFocused func() bool
 	OnSubmit  func(text string)
 }
@@ -49,34 +50,61 @@ func CreateTaskInput(props TaskInputProps) (bubbly.Component, error) {
 		Template(func(_ bubbly.RenderContext) string {
 			// Use GetTyped() for type-safe access
 			inputText := props.InputText.GetTyped()
+			isInputMode := props.InputMode != nil && props.InputMode.GetTyped()
 
 			// Build input display
 			var content string
-			if props.IsFocused() {
-				// Show cursor when focused
-				content = inputText + "_"
+			var title string
+
+			if isInputMode {
+				// Active input mode - show blinking cursor effect
+				title = "✏️  New Task (typing...)"
 				if inputText == "" {
-					content = "Type task and press Enter..._"
+					content = "│"
+				} else {
+					content = inputText + "│"
 				}
-			} else {
+			} else if props.IsFocused() {
+				// Focused but not in input mode
+				title = "New Task"
 				content = inputText
 				if inputText == "" {
-					content = "(Press Tab to focus input)"
+					content = "(Press 'a' to add a task)"
+				}
+			} else {
+				// Not focused
+				title = "New Task"
+				content = inputText
+				if inputText == "" {
+					content = "(Press 'a' to add a task)"
 				}
 			}
 
 			// Style the input content
 			inputStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("252"))
-			if !props.IsFocused() && inputText == "" {
+			if isInputMode {
+				// Highlight when typing
+				inputStyle = inputStyle.
+					Foreground(lipgloss.Color("229")). // Yellow for active input
+					Bold(true)
+			} else if !props.IsFocused() && inputText == "" {
 				inputStyle = inputStyle.Foreground(lipgloss.Color("240"))
 			}
 
 			styledContent := inputStyle.Render(content)
 
-			// Wrap in a Card component (simple props - no BorderStyle/BorderColor)
+			// Add hint when in input mode
+			if isInputMode {
+				hintStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("240")).
+					Italic(true)
+				styledContent += "\n" + hintStyle.Render("Enter: submit | Esc: cancel")
+			}
+
+			// Wrap in a Card component
 			card := components.Card(components.CardProps{
-				Title:   "New Task",
+				Title:   title,
 				Content: styledContent,
 			})
 			card.Init() // REQUIRED before View()!
