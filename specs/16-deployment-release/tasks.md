@@ -369,8 +369,30 @@ go doc ./pkg/bubbly/... | grep -E "^func|^type|^var|^const" | head -50
 
 ## Phase 2: Root Package Creation (Est. 1.5 hours)
 
-### Task 2.1: Create Root Package
+### Task 2.1: Create Root Package ✅ COMPLETED
 **Description**: Create `bubblyui.go` with re-exported types
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Created `bubblyui.go` with comprehensive re-exports from `pkg/bubbly`
+- Re-exported types: `Component`, `ComponentBuilder`, `Context`, `RenderContext`, `Ref[T]`, `Computed[T]`, `RunOption`
+- Generic functions (`NewRef`, `NewComputed`, `Watch`) implemented as wrapper functions (Go doesn't allow assigning generic functions to `var`)
+- Non-generic functions (`NewComponent`, `WatchEffect`, `Run`) assigned via `var` declarations
+- Re-exported 14 run options: `WithAltScreen`, `WithFPS`, `WithReportFocus`, `WithMouseAllMotion`, `WithMouseCellMotion`, `WithInput`, `WithOutput`, `WithInputTTY`, `WithEnvironment`, `WithContext`, `WithoutBracketedPaste`, `WithoutSignalHandler`, `WithoutCatchPanics`, `WithAsyncRefresh`, `WithoutAsyncAutoDetect`
+- Note: Design spec mentioned `WithTitle` and `WithMouseSupport` but these don't exist in the actual codebase - used actual options instead
+- Created `bubblyui_test.go` with 11 test cases covering:
+  - Type accessibility verification
+  - Function accessibility and nil-checks
+  - Run options verification (9 options)
+  - Component creation from root package
+  - Ref operations (Get, Set) with table-driven tests
+  - Computed values with dependency tracking
+  - Watch callback execution
+  - WatchEffect side-effect tracking
+  - Generic types with different types (string, struct, float64)
+- All tests pass with race detector
+- No import cycles detected (`go build ./...` succeeds)
+- Linter passes cleanly
 
 **Prerequisites**: Task 1.3
 **Unlocks**: Task 2.2, Task 3.2
@@ -542,6 +564,297 @@ func TestNewComputedFromRoot(t *testing.T) {
 ```
 
 **Estimated effort**: 45 minutes
+
+---
+
+### Task 2.1b: Create Subpackage Alias Packages ✅ COMPLETED
+**Description**: Create cleaner import paths for subpackages (composables, directives, router, components)
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Following an audit of the framework, created alias packages to provide cleaner import paths:
+
+**Root-Level Alias Packages Created:**
+1. `composables/composables.go` - Re-exports from `pkg/bubbly/composables`
+   - 15+ composables: UseState, UseEffect, UseDebounce, UseThrottle, UseEventListener, UseList, UseHistory, UseForm, UseLocalStorage, UseFocus, UseWindowSize, UseCounter, UseInterval, UseLogger, UseAsync, CreateShared
+   - All generic functions wrapped properly (UseState[T], UseDebounce[T], UseList[T], UseHistory[T], UseForm[T], UseLocalStorage[T], UseFocus[T], UseAsync[T], CreateShared[T])
+   - 20+ types re-exported for convenience
+   - Counter options, Breakpoint constants, Storage types, Log level constants
+
+2. `directives/directives.go` - Re-exports from `pkg/bubbly/directives`
+   - Conditional: If, Show
+   - Iteration: ForEach (generic wrapper)
+   - Data Binding: Bind (generic wrapper), BindCheckbox, BindSelect (generic wrapper)
+   - Events: On
+   - All directive types re-exported
+
+3. `router/router.go` - Re-exports from `pkg/bubbly/router`
+   - Builder: NewRouterBuilder
+   - Route Options: WithComponent, WithName, WithGuard, WithMeta, WithChildren
+   - Core Types: Router, Route, RouteRecord, RouteMatch
+   - Navigation: NavigationTarget, NavigationGuard, NextFunc, AfterNavigationHook
+   - History: History, HistoryEntry
+   - Matching: RouteMatcher, NewRouteMatcher, RoutePattern, QueryParser, NewQueryParser
+   - View: View, NewRouterView
+   - Composables: ProvideRouter, UseRoute
+   - Messages: NavigationMsg, RouteChangedMsg, NavigationErrorMsg
+   - Errors: All error codes and constructors
+
+4. `components/components.go` - Re-exports from `pkg/components`
+   - Atoms (6): Button, Badge, Icon, Spinner, Text, Toggle
+   - Molecules (10): Input, TextArea, Checkbox, Radio (generic), Select (generic), Card, List (generic), Menu, Tabs, Accordion
+   - Organisms (3): Table (generic), Form (generic), Modal
+   - Templates (4): PageLayout, AppLayout, PanelLayout, GridLayout
+   - Layout (8): Flex, HStack, VStack, Box, Center, Container, Spacer, Divider
+   - Themes (4): DefaultTheme, DarkTheme, LightTheme, HighContrastTheme
+   - Alignment Types and Constants
+   - All Props types re-exported
+
+**Key Technical Decisions:**
+- Generic functions MUST be wrapped as functions (Go doesn't allow `var X = genericFunc`)
+- Non-generic functions can use `var X = pkg.X` pattern
+- All packages include comprehensive godoc comments with examples
+- Tests pass for underlying packages (alias packages have no tests - they're pure re-exports)
+
+**Import Path Improvements:**
+```go
+// BEFORE (verbose paths)
+import "github.com/newbpydev/bubblyui/pkg/bubbly/composables"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/directives"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/router"
+import "github.com/newbpydev/bubblyui/pkg/components"
+
+// AFTER (clean paths)
+import "github.com/newbpydev/bubblyui/composables"
+import "github.com/newbpydev/bubblyui/directives"
+import "github.com/newbpydev/bubblyui/router"
+import "github.com/newbpydev/bubblyui/components"
+```
+
+**Files Created:**
+- `composables/composables.go` (251 lines)
+- `directives/directives.go` (184 lines)
+- `router/router.go` (218 lines)
+- `components/components.go` (333 lines)
+
+**Verification:**
+- All packages build: `go build ./composables/... ./directives/... ./router/... ./components/...` ✅
+- Linter passes: `golangci-lint run` ✅
+- All underlying package tests pass: `go test -race ./pkg/...` ✅
+
+---
+
+### Task 2.1c: Complete Framework Alias Packages ✅ COMPLETED
+**Description**: Full systematic audit and alias creation for complete framework accessibility
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Following a thorough probabilistic reasoning analysis, identified and created alias packages for ALL remaining user-facing subpackages.
+
+**Complete Package Coverage Audit:**
+
+| Package | Path | User-Facing | Alias Path | Status |
+|---------|------|-------------|------------|--------|
+| bubbly (core) | `pkg/bubbly` | ✅ | `bubblyui.go` | ✅ |
+| commands | `pkg/bubbly/commands` | ✅ | `commands/` | ✅ |
+| composables | `pkg/bubbly/composables` | ✅ | `composables/` | ✅ |
+| devtools | `pkg/bubbly/devtools` | ✅ | `devtools/` | ✅ |
+| devtools/mcp | `pkg/bubbly/devtools/mcp` | ✅ | `devtools/mcp/` | ✅ |
+| directives | `pkg/bubbly/directives` | ✅ | `directives/` | ✅ |
+| monitoring | `pkg/bubbly/monitoring` | ✅ | `monitoring/` | ✅ |
+| observability | `pkg/bubbly/observability` | ✅ | `observability/` | ✅ |
+| profiler | `pkg/bubbly/profiler` | ✅ | `profiler/` | ✅ |
+| router | `pkg/bubbly/router` | ✅ | `router/` | ✅ |
+| testing | `pkg/bubbly/testing` | ✅ | `testing/btesting/` | ✅ |
+| testutil | `pkg/bubbly/testutil` | ✅ | `testing/testutil/` | ✅ |
+| components | `pkg/components` | ✅ | `components/` | ✅ |
+
+**Internal packages (no alias needed - implementation details):**
+- `pkg/bubbly/composables/reflectcache`
+- `pkg/bubbly/composables/timerpool`
+- `pkg/bubbly/devtools/migrations`
+
+**Additional Alias Packages Created:**
+
+5. `commands/commands.go` - Re-exports from `pkg/bubbly/commands`
+   - Core types: CommandGenerator, StateChangedMsg, CommandQueue, NewCommandQueue
+   - Command generation: DefaultCommandGenerator, CommandRef[T]
+   - Batching: CoalescingStrategy, CommandBatcher, NewCommandBatcher, StateChangedBatchMsg
+   - Debug logging: CommandLogger, NewCommandLogger, NewNopLogger, GetDefaultLogger, SetDefaultLogger, FormatValue
+   - Inspection: CommandInspector, NewCommandInspector, CommandInfo
+   - Loop detection: LoopDetector, NewLoopDetector, CommandLoopError
+
+6. `devtools/devtools.go` - Re-exports from `pkg/bubbly/devtools`
+   - Global functions: Toggle, IsEnabled, Disable, RenderView, HandleUpdate, SetCollector
+   - Notifications: NotifyComponentCreated/Mounted/Unmounted/Updated, NotifyEvent, NotifyRefChanged, NotifyRenderComplete
+   - Configuration: Config, DefaultConfig, LoadConfig
+   - Data collection: DataCollector, NewDataCollector, GetCollector
+   - Component inspection: ComponentSnapshot, CaptureComponent, ComponentInspector, ComponentFilter, FilterFunc
+   - Event tracking: EventRecord, EventTracker, EventLog, EventFilter, EventReplayer
+   - Command timeline: CommandRecord, CommandTimeline, TimelineControls
+   - State management: StateChange, StateHistory, StateViewer, Store
+   - Performance: PerformanceData, PerformanceMonitor
+   - Router debugging: RouteRecord, RouterDebugger, GuardExecution, GuardResult
+   - UI components: UI, TreeView, DetailPanel, SearchWidget, TabController, LayoutManager, KeyboardHandler
+   - Data export: ExportData, ExportOptions, ExportFormat (JSON/YAML/MessagePack), FormatRegistry
+   - Sanitization: Sanitizer, SanitizePattern, StreamSanitizer, DefaultPatterns
+   - Visualization: FlameGraphRenderer, FlameNode
+   - Migration: VersionMigration, RegisterMigration, ValidateMigrationChain
+   - Hooks: ComponentHook, EventHook, StateHook, PerformanceHook
+
+7. `devtools/mcp/mcp.go` - Re-exports from `pkg/bubbly/devtools/mcp`
+   - Initialization: EnableWithMCP
+   - Configuration: Config, DefaultMCPConfig, TransportType
+   - Server: Server, NewMCPServer
+   - Authentication: AuthHandler, NewAuthHandler
+   - Rate limiting: RateLimiter, NewRateLimiter, Throttler, NewThrottler
+   - Update batching: UpdateBatcher, NewUpdateBatcher, UpdateNotification, FlushHandler, NotificationSender
+   - Subscriptions: SubscriptionManager, NewSubscriptionManager, Subscription, StateChangeDetector
+   - Validation: ValidateResourceURI, ValidateToolParams, SanitizeInput
+   - Resources: ComponentsResource, StateResource, EventsResource, PerformanceResource
+   - Tool parameters: SearchComponentsParams/Result, FilterEventsParams/Result, ExportParams/Result, etc.
+
+8. `monitoring/monitoring.go` - Re-exports from `pkg/bubbly/monitoring`
+   - Global metrics: ComposableMetrics, GetGlobalMetrics, SetGlobalMetrics, NoOpMetrics
+   - Prometheus: PrometheusMetrics, NewPrometheusMetrics
+   - Profiling: ProfileComposables, ComposableProfile, CallStats
+   - pprof endpoints: EnableProfiling, StopProfiling, IsProfilingEnabled, GetProfilingAddress
+
+9. `observability/observability.go` - Re-exports from `pkg/bubbly/observability`
+   - Constants: MaxBreadcrumbs
+   - Error reporting: ErrorReporter, GetErrorReporter, SetErrorReporter, ErrorContext
+   - Console reporter: ConsoleReporter, NewConsoleReporter
+   - Sentry reporter: SentryReporter, NewSentryReporter, SentryOption, WithEnvironment, WithRelease, WithDebug, WithBeforeSend
+   - Breadcrumbs: Breadcrumb, RecordBreadcrumb, GetBreadcrumbs, ClearBreadcrumbs
+   - Error types: HandlerPanicError, CommandGenerationError
+
+10. `profiler/profiler.go` - Re-exports from `pkg/bubbly/profiler` (~80+ exports)
+    - Core profiler: Profiler, New, Option, WithEnabled, WithSamplingRate, WithMaxSamples, WithMinimalMetrics, WithThreshold
+    - Configuration: Config, DefaultConfig, ConfigFromEnv
+    - CPU profiling: CPUProfiler, NewCPUProfiler, CPUProfileData, HotFunction
+    - Memory profiling: MemoryProfiler, NewMemoryProfiler, MemoryTracker, MemProfileData
+    - Leak detection: LeakDetector, NewLeakDetector, LeakThresholds, LeakInfo
+    - Render profiling: RenderProfiler, FPSCalculator, FrameInfo, RenderConfig
+    - Component tracking: ComponentTracker, ComponentMetrics
+    - Timing and metrics: TimingTracker, TimingStats, MetricCollector, MetricsSnapshot
+    - Bottleneck detection: BottleneckDetector, BottleneckThresholds, BottleneckInfo
+    - Recommendations: RecommendationEngine, Recommendation, RecommendationRule
+    - Threshold monitoring: ThresholdMonitor, ThresholdConfig, Alert, AlertHandler
+    - Pattern analysis: PatternAnalyzer, Pattern
+    - Stack analysis: StackAnalyzer, CallNode
+    - Visualization: FlameGraphGenerator, TimelineGenerator, TimelineData
+    - Reports: Report, ReportGenerator, Summary, Exporter, ExportFormat
+    - Data aggregation: DataAggregator, AggregatedData
+    - Baseline comparison: Baseline, LoadBaseline, RegressionInfo
+    - Benchmark integration: BenchmarkProfiler, NewBenchmarkProfiler, BenchmarkStats
+    - HTTP handlers: HTTPHandler, NewHTTPHandler, RegisterHandlers, ServeCPUProfile, ServeHeapProfile
+    - DevTools integration: DevToolsIntegration, NewDevToolsIntegration
+    - Instrumentation: Instrumentor, NewInstrumentor
+
+11. `testing/btesting/btesting.go` - Re-exports from `pkg/bubbly/testing`
+    - Context creation: NewTestContext, SetParent
+    - Lifecycle triggers: TriggerMount, TriggerUpdate, TriggerUnmount
+    - Mock composables: MockComposable[T]
+    - Assertions: AssertComposableCleanup
+
+12. `testing/testutil/testutil.go` - Re-exports from `pkg/bubbly/testutil` (~100+ exports)
+    - Test harness: TestHarness, NewHarness, HarnessOption
+    - Test setup: TestSetup, NewTestSetup, TestIsolation, NewTestIsolation
+    - Fixtures: FixtureBuilder, NewFixture
+    - Mock ref: MockRef[T], NewMockRef, CreateMockRef, GetMockRef, MockFactory
+    - Mock components: MockComponent, NewMockComponent
+    - Mock router: MockRouter, NewMockRouter
+    - Mock storage: MockStorage, NewMockStorage
+    - Mock commands: MockCommand, MockCommandGenerator, MockErrorReporter
+    - Snapshot testing: MatchSnapshot, MatchNamedSnapshot, MatchComponentSnapshot, SnapshotManager, Normalizer
+    - Event tracking: EventTracker, EventInspector, Event, EmittedEvent
+    - Time simulation: TimeSimulator, SimulatedTimer
+    - Wait utilities: WaitFor, WaitOptions
+    - Command testing: CommandQueueInspector, AssertCommandEnqueued, LoopDetectionVerifier, AssertNoCommandLoop
+    - Component testers: AutoCommandTester, BatcherTester, ChildrenManagementTester, PropsVerifier, KeyBindingsTester
+    - Directive testers: IfTester, ForEachTester, ShowTester, BindTester, OnTester, BoolRefTester
+    - Composable testers: UseStateTester[T], UseEffectTester, UseDebounceTester, UseThrottleTester, UseAsyncTester, UseFormTester[T], UseLocalStorageTester[T]
+    - Watch testers: WatchEffectTester, DeepWatchTester, CustomComparatorTester, ComputedCacheVerifier, FlushModeController
+    - Provide/Inject: ProvideInjectTester
+    - Router testers: PathMatchingTester, NamedRoutesTester, NestedRoutesTester, QueryParamsTester, RouteGuardTester, HistoryTester, NavigationSimulator
+    - Dependency tracking: DependencyTrackingInspector, DependencyGraph
+    - Data factories: DataFactory[T], NewFactory, IntFactory, StringFactory
+    - Error testing: ErrorTesting, NewErrorTesting
+    - Template safety: TemplateSafetyTester, SafetyViolation
+    - Observability: ObservabilityAssertions
+    - Test hooks: TestHooks
+    - Matchers: Matcher, BeNil, BeEmpty, HaveLength
+
+**Final Directory Structure:**
+```
+bubblyui/
+├── bubblyui.go           ✅ (core types and functions)
+├── bubblyui_test.go      ✅ (core tests)
+├── commands/             ✅ NEW
+│   └── commands.go       (138 lines)
+├── components/           ✅
+│   └── components.go     (333 lines)
+├── composables/          ✅
+│   └── composables.go    (251 lines)
+├── devtools/             ✅ NEW
+│   ├── devtools.go       (428 lines)
+│   └── mcp/              ✅ NEW
+│       └── mcp.go        (174 lines)
+├── directives/           ✅
+│   └── directives.go     (184 lines)
+├── monitoring/           ✅ NEW
+│   └── monitoring.go     (77 lines)
+├── observability/        ✅ NEW
+│   └── observability.go  (114 lines)
+├── profiler/             ✅ NEW
+│   └── profiler.go       (531 lines)
+├── router/               ✅
+│   └── router.go         (218 lines)
+└── testing/              ✅ NEW
+    ├── btesting/         ✅ NEW
+    │   └── btesting.go   (73 lines)
+    └── testutil/         ✅ NEW
+        └── testutil.go   (568 lines)
+```
+
+**Import Path Improvements (Complete Framework):**
+```go
+// BEFORE (verbose paths)
+import "github.com/newbpydev/bubblyui/pkg/bubbly"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/commands"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/composables"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/directives"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/observability"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/profiler"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/router"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/testing"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
+import "github.com/newbpydev/bubblyui/pkg/components"
+
+// AFTER (clean paths)
+import "github.com/newbpydev/bubblyui"
+import "github.com/newbpydev/bubblyui/commands"
+import "github.com/newbpydev/bubblyui/composables"
+import "github.com/newbpydev/bubblyui/devtools"
+import "github.com/newbpydev/bubblyui/devtools/mcp"
+import "github.com/newbpydev/bubblyui/directives"
+import "github.com/newbpydev/bubblyui/monitoring"
+import "github.com/newbpydev/bubblyui/observability"
+import "github.com/newbpydev/bubblyui/profiler"
+import "github.com/newbpydev/bubblyui/router"
+import "github.com/newbpydev/bubblyui/testing/btesting"
+import "github.com/newbpydev/bubblyui/testing/testutil"
+import "github.com/newbpydev/bubblyui/components"
+```
+
+**Verification:**
+- All 13 alias packages build: `go build ./...` ✅
+- Linter passes: `golangci-lint run` ✅
+- Full test suite passes: `go test -race ./...` ✅
+- Framework coverage: 13/13 user-facing packages = **100%** ✅
 
 ---
 
