@@ -688,15 +688,13 @@ func (p *Profiler) GenerateReport() *Report {
 	// =============================================================================
 	// 8. Generate Recommendations
 	// =============================================================================
-	recommendations := make([]*Recommendation, 0)
-
 	// Create recommendation engine and generate
 	recommender := NewRecommendationEngine()
 	report := &Report{
 		Components:  components,
 		Bottlenecks: bottlenecks,
 	}
-	recommendations = recommender.Generate(report)
+	recommendations := recommender.Generate(report)
 
 	// =============================================================================
 	// 9. Build Final Report

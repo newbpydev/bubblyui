@@ -139,7 +139,7 @@ func TestUseTimeout_IsExpiredSetAfterExecution(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&callbackDone), "callback should have executed")
 }
 
-// TestUseTimeout_CleanupOnUnmount verifies that the timeout is cancelled on component unmount.
+// TestUseTimeout_CleanupOnUnmount verifies that the timeout is canceled on component unmount.
 func TestUseTimeout_CleanupOnUnmount(t *testing.T) {
 	var called int32
 	var timeout *TimeoutReturn

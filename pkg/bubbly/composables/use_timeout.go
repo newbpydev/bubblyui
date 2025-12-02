@@ -71,7 +71,7 @@ func (t *TimeoutReturn) Start() {
 
 	t.timer = time.AfterFunc(t.duration, func() {
 		t.mu.Lock()
-		// Check if still pending (might have been cancelled)
+		// Check if still pending (might have been canceled)
 		if !t.pending {
 			t.mu.Unlock()
 			return
@@ -199,7 +199,7 @@ func (t *TimeoutReturn) Reset() {
 //
 // Cleanup:
 //
-// The timeout is automatically cancelled when the component unmounts.
+// The timeout is automatically canceled when the component unmounts.
 // You can also manually cancel it by calling Cancel().
 func UseTimeout(ctx *bubbly.Context, callback func(), duration time.Duration) *TimeoutReturn {
 	// Record metrics if monitoring is enabled

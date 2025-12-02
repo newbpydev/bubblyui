@@ -83,7 +83,7 @@ func TestAsyncWrapperModel_GlobalHooksIntegration(t *testing.T) {
 	updateHookCalled = false
 
 	// Send F12 key (should be intercepted)
-	m, cmd := model.Update(tea.KeyMsg{Type: tea.KeyF12})
+	m, _ := model.Update(tea.KeyMsg{Type: tea.KeyF12})
 	require.NotNil(t, m)
 
 	// Verify key interceptor was called
@@ -98,7 +98,7 @@ func TestAsyncWrapperModel_GlobalHooksIntegration(t *testing.T) {
 	updateHookCalled = false
 
 	// Send regular message
-	m, cmd = model.Update(tea.KeyMsg{Type: tea.KeySpace})
+	m, _ = model.Update(tea.KeyMsg{Type: tea.KeySpace})
 	require.NotNil(t, m)
 
 	// Verify update hook was called

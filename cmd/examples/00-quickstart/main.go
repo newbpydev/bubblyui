@@ -28,11 +28,11 @@
 //
 // # Key Patterns Demonstrated
 //
-//	1. WithMessageHandler for text input capture
-//	2. Conditional key bindings (disable during input mode)
-//	3. Composite hook pattern (DevTools + Profiler integration)
-//	4. Refs created outside Setup for MessageHandler access
-//	5. Visual feedback for active states (input mode, filter selection)
+//  1. WithMessageHandler for text input capture
+//  2. Conditional key bindings (disable during input mode)
+//  3. Composite hook pattern (DevTools + Profiler integration)
+//  4. Refs created outside Setup for MessageHandler access
+//  5. Visual feedback for active states (input mode, filter selection)
 //
 // # Running the Example
 //

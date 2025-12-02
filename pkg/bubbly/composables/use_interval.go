@@ -76,7 +76,16 @@ func (i *IntervalReturn) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				callback()
+				// Check if we're still running before executing callback
+				// This prevents race condition where Stop() is called but
+				// callback is already scheduled to execute
+				i.mu.Lock()
+				stillRunning := i.running
+				i.mu.Unlock()
+
+				if stillRunning {
+					callback()
+				}
 			case <-stopChan:
 				return
 			}
@@ -101,17 +110,21 @@ func (i *IntervalReturn) Stop() {
 		return // Already stopped
 	}
 
+	// Set running to false first to prevent new callbacks
 	i.running = false
 	i.IsRunning.Set(false)
 
-	if i.ticker != nil {
-		i.ticker.Stop()
-		i.ticker = nil
-	}
-
+	// Close stopChan to signal goroutine to exit
+	// Do this before stopping ticker to ensure goroutine exits cleanly
 	if i.stopChan != nil {
 		close(i.stopChan)
 		i.stopChan = nil
+	}
+
+	// Now stop the ticker
+	if i.ticker != nil {
+		i.ticker.Stop()
+		i.ticker = nil
 	}
 }
 

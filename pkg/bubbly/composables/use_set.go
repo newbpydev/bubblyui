@@ -250,12 +250,11 @@ func UseSet[T comparable](ctx *bubbly.Context, initial []T) *SetReturn[T] {
 		monitoring.GetGlobalMetrics().RecordComposableCreation("UseSet", time.Since(start))
 	}()
 
-	// Convert slice to map (set), handling nil and duplicates
+	// Convert slice to map (set), handling duplicates
+	// Note: ranging over nil slice is safe in Go (no iteration occurs)
 	setData := make(map[T]struct{})
-	if initial != nil {
-		for _, v := range initial {
-			setData[v] = struct{}{}
-		}
+	for _, v := range initial {
+		setData[v] = struct{}{}
 	}
 
 	// Create Values ref

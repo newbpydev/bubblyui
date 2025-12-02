@@ -74,7 +74,7 @@ func TestUseThrottle_VeryShortDelay(t *testing.T) {
 		callCount++
 	}
 
-	throttled := UseThrottle(ctx, fn, 1*time.Millisecond)
+	throttled := UseThrottle(ctx, fn, 10*time.Millisecond)
 
 	// Act
 	throttled() // First call
@@ -83,7 +83,7 @@ func TestUseThrottle_VeryShortDelay(t *testing.T) {
 	throttled() // Throttled
 	assert.Equal(t, 1, callCount)
 
-	time.Sleep(2 * time.Millisecond) // Wait slightly longer than delay
+	time.Sleep(20 * time.Millisecond) // Wait significantly longer than delay for reliability
 
 	throttled() // Should execute
 	assert.Equal(t, 2, callCount, "Call after short delay should execute")

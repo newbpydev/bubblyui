@@ -206,7 +206,7 @@ func (n *NotificationReturn) Error(title, message string) {
 }
 
 // Dismiss removes a specific notification by ID.
-// If the notification has an auto-dismiss timer, it is cancelled.
+// If the notification has an auto-dismiss timer, it is canceled.
 // If the ID does not exist, this is a no-op.
 //
 // Example:
@@ -245,7 +245,7 @@ func (n *NotificationReturn) Dismiss(id int) {
 }
 
 // DismissAll removes all notifications.
-// All auto-dismiss timers are cancelled.
+// All auto-dismiss timers are canceled.
 //
 // Example:
 //
@@ -338,7 +338,7 @@ func (n *NotificationReturn) DismissAll() {
 //
 // Cleanup:
 //
-// All auto-dismiss timers are automatically cancelled when the component unmounts.
+// All auto-dismiss timers are automatically canceled when the component unmounts.
 func UseNotification(ctx *bubbly.Context, opts ...NotificationOption) *NotificationReturn {
 	// Record metrics if monitoring is enabled
 	start := time.Now()
