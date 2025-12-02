@@ -1,0 +1,90 @@
+# GoReleaser configuration for BubblyUI library release
+# Reference: https://goreleaser.com/cookbooks/release-a-library/
+
+version: 2
+
+# Skip binary builds - this is a library, not an executable
+builds:
+  - skip: true
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Documentation
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+
+# Release configuration
+release:
+  github:
+    owner: newbpydev
+    name: bubblyui
+  prerelease: auto
+  mode: replace
+  name_template: "v{{.Version}}"
+  header: |
+    ## BubblyUI v{{.Version}}
+
+    Vue-inspired TUI framework for Go with type-safe reactivity and component-based architecture.
+
+    ### Installation
+
+    ```bash
+    go get github.com/newbpydev/bubblyui@v{{.Version}}
+    ```
+
+    ### Quick Start
+
+    ```go
+    import "github.com/newbpydev/bubblyui"
+
+    func main() {
+        component, _ := bubblyui.NewComponent("App").
+            Template(func(ctx bubblyui.RenderContext) string {
+                return "Hello, BubblyUI!"
+            }).
+            Build()
+
+        bubblyui.Run(component)
+    }
+    ```
+  footer: |
+    ---
+
+    **Full Changelog**: https://github.com/newbpydev/bubblyui/compare/{{.PreviousTag}}...{{.Tag}}
+
+    **Documentation**: https://pkg.go.dev/github.com/newbpydev/bubblyui
+
+# Go module proxy configuration
+gomod:
+  proxy: true
+  env:
+    - GOPROXY=https://proxy.golang.org,direct
+    - GOSUMDB=sum.golang.org
+
+# Announce (disabled by default)
+announce:
+  skip: true

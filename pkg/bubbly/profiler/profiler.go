@@ -37,6 +37,8 @@ package profiler
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -64,6 +66,12 @@ type Profiler struct {
 	// enabled indicates whether profiling is active
 	enabled bool
 
+	// startTime is when profiling started
+	startTime time.Time
+
+	// stopTime is when profiling stopped
+	stopTime time.Time
+
 	// collector handles metric collection (implemented in Task 1.2)
 	collector *MetricCollector
 
@@ -78,6 +86,10 @@ type Profiler struct {
 
 	// detector handles bottleneck detection (implemented in Task 4.1)
 	detector *BottleneckDetector
+
+	// hookAdapter is the ProfilerHookAdapter that collects component metrics
+	// This is set when the profiler is integrated with the framework hook system
+	hookAdapter *ProfilerHookAdapter
 
 	// config holds profiler configuration
 	config *Config
@@ -474,7 +486,13 @@ func (p *Profiler) Start() error {
 	}
 
 	p.enabled = true
+	p.startTime = time.Now()
 	p.collector.Enable()
+
+	// Take initial memory snapshot
+	if p.memProf != nil {
+		p.memProf.TakeSnapshot()
+	}
 
 	return nil
 }
@@ -496,7 +514,13 @@ func (p *Profiler) Stop() error {
 	}
 
 	p.enabled = false
+	p.stopTime = time.Now()
 	p.collector.Disable()
+
+	// Take final memory snapshot
+	if p.memProf != nil {
+		p.memProf.TakeSnapshot()
+	}
 
 	return nil
 }
@@ -541,21 +565,174 @@ func (p *Profiler) GenerateReport() *Report {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
+	// =============================================================================
+	// 1. Calculate Duration
+	// =============================================================================
+	var duration time.Duration
+	if !p.startTime.IsZero() {
+		endTime := p.stopTime
+		if endTime.IsZero() {
+			endTime = time.Now() // Still running
+		}
+		duration = endTime.Sub(p.startTime)
+	}
+
+	// =============================================================================
+	// 2. Get Component Metrics from Hook Adapter
+	// =============================================================================
+	components := make([]*ComponentMetrics, 0)
+	var totalOperations int64
+
+	if p.hookAdapter != nil && p.hookAdapter.componentTracker != nil {
+		tracker := p.hookAdapter.componentTracker
+		allMetrics := tracker.GetAllMetrics()
+		for _, metrics := range allMetrics {
+			components = append(components, metrics)
+		}
+		totalOperations = tracker.TotalRenderCount()
+	}
+
+	// =============================================================================
+	// 3. Get FPS from RenderProfiler
+	// =============================================================================
+	var averageFPS float64
+	if p.renderProf != nil {
+		averageFPS = p.renderProf.GetFPS()
+	}
+
+	// =============================================================================
+	// 4. Get Memory Usage from MemoryProfiler
+	// =============================================================================
+	var memoryUsage uint64
+	var memProfileData *MemProfileData
+
+	if p.memProf != nil {
+		latest := p.memProf.GetLatestSnapshot()
+		if latest != nil {
+			memoryUsage = latest.HeapAlloc
+
+			// Build memory profile data
+			memProfileData = &MemProfileData{
+				HeapAlloc:   latest.HeapAlloc,
+				HeapObjects: latest.HeapObjects,
+				GCPauses:    make([]time.Duration, 0),
+			}
+
+			// Get memory growth
+			growth := p.memProf.GetMemoryGrowth()
+			if growth > 0 {
+				memProfileData.HeapAlloc = uint64(growth)
+			}
+		}
+	}
+
+	if memProfileData == nil {
+		// Fallback: Get current memory stats
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		memoryUsage = m.HeapAlloc
+
+		memProfileData = &MemProfileData{
+			HeapAlloc:   m.HeapAlloc,
+			HeapObjects: m.HeapObjects,
+			GCPauses:    make([]time.Duration, 0),
+		}
+	}
+
+	// =============================================================================
+	// 5. Get Goroutine Count
+	// =============================================================================
+	goroutineCount := runtime.NumGoroutine()
+
+	// =============================================================================
+	// 6. Detect Bottlenecks
+	// =============================================================================
+	bottlenecks := make([]*BottleneckInfo, 0)
+
+	if p.detector != nil {
+		// Check each component for slow renders
+		for _, comp := range components {
+			if comp.AvgRenderTime > 16*time.Millisecond {
+				bottlenecks = append(bottlenecks, &BottleneckInfo{
+					Type:        BottleneckTypeSlow,
+					Location:    comp.ComponentName,
+					Severity:    SeverityHigh,
+					Impact:      0.8,
+					Description: fmt.Sprintf("Component '%s' has slow average render time: %v", comp.ComponentName, comp.AvgRenderTime),
+					Suggestion:  "Optimize rendering logic or add memoization",
+				})
+			}
+
+			if comp.MaxRenderTime > 50*time.Millisecond {
+				bottlenecks = append(bottlenecks, &BottleneckInfo{
+					Type:        BottleneckTypeSlow,
+					Location:    comp.ComponentName,
+					Severity:    SeverityCritical,
+					Impact:      0.95,
+					Description: fmt.Sprintf("Component '%s' has extremely slow max render time: %v", comp.ComponentName, comp.MaxRenderTime),
+					Suggestion:  "Critical optimization needed - profile this component's View() method",
+				})
+			}
+		}
+	}
+
+	// =============================================================================
+	// 7. CPU Profile Data
+	// =============================================================================
+	cpuProfileData := &CPUProfileData{
+		HotFunctions: make([]*HotFunction, 0),
+		CallGraph:    make(map[string][]string),
+		TotalSamples: 0,
+	}
+
+	// =============================================================================
+	// 8. Generate Recommendations
+	// =============================================================================
+	recommendations := make([]*Recommendation, 0)
+
+	// Create recommendation engine and generate
+	recommender := NewRecommendationEngine()
+	report := &Report{
+		Components:  components,
+		Bottlenecks: bottlenecks,
+	}
+	recommendations = recommender.Generate(report)
+
+	// =============================================================================
+	// 9. Build Final Report
+	// =============================================================================
 	return &Report{
 		Summary: &Summary{
-			Duration:        0,
-			TotalOperations: 0,
-			AverageFPS:      0,
-			MemoryUsage:     0,
-			GoroutineCount:  0,
+			Duration:        duration,
+			TotalOperations: totalOperations,
+			AverageFPS:      averageFPS,
+			MemoryUsage:     memoryUsage,
+			GoroutineCount:  goroutineCount,
 		},
-		Components:      make([]*ComponentMetrics, 0),
-		Bottlenecks:     make([]*BottleneckInfo, 0),
-		CPUProfile:      &CPUProfileData{},
-		MemProfile:      &MemProfileData{},
-		Recommendations: make([]*Recommendation, 0),
+		Components:      components,
+		Bottlenecks:     bottlenecks,
+		CPUProfile:      cpuProfileData,
+		MemProfile:      memProfileData,
+		Recommendations: recommendations,
 		Timestamp:       time.Now(),
 	}
+}
+
+// SetHookAdapter sets the hook adapter for this profiler.
+// This is called when integrating the profiler with the framework hook system.
+//
+// Thread Safety:
+//
+//	Safe to call concurrently from multiple goroutines.
+//
+// Example:
+//
+//	hookAdapter := profiler.NewProfilerHookAdapter(prof)
+//	prof.SetHookAdapter(hookAdapter)
+func (p *Profiler) SetHookAdapter(adapter *ProfilerHookAdapter) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.hookAdapter = adapter
 }
 
 // WithEnabled sets the initial enabled state.

@@ -153,6 +153,29 @@ func (m *asyncWrapperModel) Init() tea.Cmd {
 func (m *asyncWrapperModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Call global update hook first (e.g., DevTools UI updates)
+	// This runs in parallel with component updates
+	if globalUpdateHook != nil {
+		if hookCmd := globalUpdateHook(msg); hookCmd != nil {
+			cmds = append(cmds, hookCmd)
+		}
+	}
+
+	// Check global key interceptor (e.g., DevTools F12)
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if globalKeyInterceptor != nil && globalKeyInterceptor(keyMsg) {
+			// Key was handled by interceptor, don't forward to component
+			// But still handle tick messages and return accumulated cmds
+			if _, isTick := msg.(tickMsg); isTick {
+				cmds = append(cmds, m.tickCmd())
+			}
+			if len(cmds) > 0 {
+				return m, tea.Batch(cmds...)
+			}
+			return m, nil
+		}
+	}
+
 	// Handle tick message - schedule next tick
 	if _, ok := msg.(tickMsg); ok {
 		cmds = append(cmds, m.tickCmd())
@@ -174,9 +197,18 @@ func (m *asyncWrapperModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.View().
-// It forwards the View() call to the wrapped component.
+// It forwards the View() call to the wrapped component and applies
+// any global view renderer (e.g., DevTools overlay).
 func (m *asyncWrapperModel) View() string {
-	return m.component.View()
+	// Get component view
+	appView := m.component.View()
+
+	// Apply global view renderer if set (e.g., DevTools)
+	if globalViewRenderer != nil {
+		return globalViewRenderer(appView)
+	}
+
+	return appView
 }
 
 // tickCmd creates a command that sends a tick message after the configured interval.

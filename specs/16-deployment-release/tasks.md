@@ -14,8 +14,17 @@
 
 ## Phase 1: Documentation Foundation (Est. 2 hours)
 
-### Task 1.1: Comprehensive CHANGELOG Update
+### Task 1.1: Comprehensive CHANGELOG Update ✅ COMPLETED
 **Description**: Document all implemented features with version assignments
+
+**Status**: ✅ COMPLETED (2025-11-30)
+**Implementation Notes**:
+- CHANGELOG.md updated with all 17 features (00-16)
+- Follows Keep a Changelog 1.1.0 format with Semantic Versioning
+- All 12 versions (v0.1.0 - v0.12.0) have proper dates
+- Each version section uses Added/Changed/Documentation/Performance categories as appropriate
+- Version comparison links added at bottom for all releases
+- Feature documentation links included where applicable
 
 **Prerequisites**: None
 **Unlocks**: Task 1.2, Task 3.1
@@ -245,17 +254,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ```
 
 **Tests**:
-- [ ] CHANGELOG follows Keep a Changelog format
-- [ ] All versions have dates
-- [ ] Links are valid
-- [ ] No broken markdown
+- [x] CHANGELOG follows Keep a Changelog format
+- [x] All versions have dates
+- [x] Links are valid
+- [x] No broken markdown
 
 **Estimated effort**: 45 minutes
 
 ---
 
-### Task 1.2: README Accuracy Audit
+### Task 1.2: README Accuracy Audit ✅ COMPLETED
 **Description**: Verify README reflects current features and examples
+
+**Status**: ✅ COMPLETED (2025-11-30)
+**Implementation Notes**:
+- Fixed duplicate Development section (lines 200-252 were duplicated)
+- Updated feature list to include all 17 features (00-16):
+  - Added Router (SPA-Style Navigation) section
+  - Added Advanced Layout System section (with specific components: Flex, HStack, VStack, Center, Container, Box, Spacer, Divider)
+  - Added Development & Testing Tools section
+  - Updated Built-in Components to show 30+ components with categories
+  - Added Automation Patterns section (Theme System, Multi-Key Bindings, Shared Composables)
+- Updated Component System section:
+  - Added all 6 lifecycle hooks (onMounted, onUpdated, onUnmounted, onBeforeUpdate, onBeforeUnmount, onCleanup)
+  - Added 30 composables with 6 category names (Standard, TUI-Specific, State, Timing, Collections, Development)
+- Updated Template System section:
+  - Added all 5 directives (If, ForEach, Bind, On, Show)
+- Updated Core Concepts documentation links to include all specs (01-14)
+- Fixed project structure to reflect actual codebase:
+  - Updated cmd/examples/ to show feature-organized structure including 11-profiler, 14-advanced-layouts, 16-ai-chat-demo
+  - Updated pkg/ to show actual subpackages (composables, devtools, directives, monitoring, profiler, router, testing)
+  - Changed specs/ reference from (00-06) to (00-16)
+- Fixed broken links:
+  - Changed `./examples/` to `./cmd/examples/`
+  - Changed `./docs/migration.md` to `./docs/migration-from-bubbletea.md`
+- Verified all 21 documentation links are valid
+- Verified all 13 example directories exist
+- Quick start example verified to compile successfully
+- Installation command (`go get github.com/newbpydev/bubblyui`) is correct
+- All badges point to correct URLs
+- All feature descriptions verified against BUBBLY_AI_MANUAL_SYSTEMATIC.md (3,793 lines)
 
 **Prerequisites**: Task 1.1
 **Unlocks**: Task 4.1
@@ -264,12 +302,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md`
 
 **Verification Checklist**:
-- [ ] Feature list matches implemented features
-- [ ] Version badges correct
-- [ ] Quick start example compiles
-- [ ] Import paths accurate
-- [ ] Links to documentation work
-- [ ] Installation command correct
+- [x] Feature list matches implemented features
+- [x] Version badges correct
+- [x] Quick start example compiles
+- [x] Import paths accurate
+- [x] Links to documentation work
+- [x] Installation command correct
 
 **Updates Required**:
 1. Update "Quick Start" to use root package import (after Task 2.1)
@@ -277,7 +315,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 3. Update version references
 4. Ensure examples are tested
 
-**Estimated effort**: 30 minutes
+**Estimated effort**: 30 minutes (actual: ~25 minutes)
 
 ---
 
@@ -301,10 +339,29 @@ go doc ./pkg/bubbly/... | grep -E "^func|^type|^var|^const" | head -50
 ```
 
 **Checklist**:
-- [ ] `pkg/bubbly/doc.go` exists and is comprehensive
-- [ ] All exported types have doc comments
-- [ ] All exported functions have doc comments
-- [ ] Examples exist in `example_test.go`
+- [x] `pkg/bubbly/doc.go` exists and is comprehensive
+- [x] All exported types have doc comments
+- [x] All exported functions have doc comments
+- [x] Examples exist in `example_test.go`
+
+**Implementation Notes** (Completed 2025-11-30):
+- Verified comprehensive `pkg/bubbly/doc.go` (350+ lines) covering reactivity, components, lifecycle
+- Verified comprehensive `pkg/bubbly/example_test.go` (900+ lines) with 50+ runnable examples
+- Created `pkg/bubbly/observability/doc.go` - was missing package documentation
+- Verified all 12 subpackages have package doc comments:
+  - `pkg/bubbly` (doc.go)
+  - `pkg/bubbly/composables` (doc.go)
+  - `pkg/bubbly/directives` (doc.go)
+  - `pkg/bubbly/devtools` (doc.go)
+  - `pkg/bubbly/profiler` (doc.go)
+  - `pkg/bubbly/router` (matcher.go)
+  - `pkg/bubbly/commands` (generator.go, debug.go)
+  - `pkg/bubbly/monitoring` (metrics.go)
+  - `pkg/bubbly/observability` (doc.go - NEW)
+  - `pkg/bubbly/testing` (btesting package)
+  - `pkg/bubbly/testutil` (mock_ref.go)
+  - `pkg/components` (doc.go)
+- All packages build and tests pass
 
 **Estimated effort**: 45 minutes
 
@@ -312,8 +369,30 @@ go doc ./pkg/bubbly/... | grep -E "^func|^type|^var|^const" | head -50
 
 ## Phase 2: Root Package Creation (Est. 1.5 hours)
 
-### Task 2.1: Create Root Package
+### Task 2.1: Create Root Package ✅ COMPLETED
 **Description**: Create `bubblyui.go` with re-exported types
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Created `bubblyui.go` with comprehensive re-exports from `pkg/bubbly`
+- Re-exported types: `Component`, `ComponentBuilder`, `Context`, `RenderContext`, `Ref[T]`, `Computed[T]`, `RunOption`
+- Generic functions (`NewRef`, `NewComputed`, `Watch`) implemented as wrapper functions (Go doesn't allow assigning generic functions to `var`)
+- Non-generic functions (`NewComponent`, `WatchEffect`, `Run`) assigned via `var` declarations
+- Re-exported 14 run options: `WithAltScreen`, `WithFPS`, `WithReportFocus`, `WithMouseAllMotion`, `WithMouseCellMotion`, `WithInput`, `WithOutput`, `WithInputTTY`, `WithEnvironment`, `WithContext`, `WithoutBracketedPaste`, `WithoutSignalHandler`, `WithoutCatchPanics`, `WithAsyncRefresh`, `WithoutAsyncAutoDetect`
+- Note: Design spec mentioned `WithTitle` and `WithMouseSupport` but these don't exist in the actual codebase - used actual options instead
+- Created `bubblyui_test.go` with 11 test cases covering:
+  - Type accessibility verification
+  - Function accessibility and nil-checks
+  - Run options verification (9 options)
+  - Component creation from root package
+  - Ref operations (Get, Set) with table-driven tests
+  - Computed values with dependency tracking
+  - Watch callback execution
+  - WatchEffect side-effect tracking
+  - Generic types with different types (string, struct, float64)
+- All tests pass with race detector
+- No import cycles detected (`go build ./...` succeeds)
+- Linter passes cleanly
 
 **Prerequisites**: Task 1.3
 **Unlocks**: Task 2.2, Task 3.2
@@ -488,35 +567,465 @@ func TestNewComputedFromRoot(t *testing.T) {
 
 ---
 
-### Task 2.2: Verify No Import Cycles
-**Description**: Ensure root package doesn't create circular dependencies
+### Task 2.1b: Create Subpackage Alias Packages ✅ COMPLETED
+**Description**: Create cleaner import paths for subpackages (composables, directives, router, components)
 
-**Prerequisites**: Task 2.1
-**Unlocks**: Task 4.2
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Following an audit of the framework, created alias packages to provide cleaner import paths:
 
-**Verification**:
-```bash
-# Build all packages to verify no import cycles
-go build ./...
+**Root-Level Alias Packages Created:**
+1. `composables/composables.go` - Re-exports from `pkg/bubbly/composables`
+   - 15+ composables: UseState, UseEffect, UseDebounce, UseThrottle, UseEventListener, UseList, UseHistory, UseForm, UseLocalStorage, UseFocus, UseWindowSize, UseCounter, UseInterval, UseLogger, UseAsync, CreateShared
+   - All generic functions wrapped properly (UseState[T], UseDebounce[T], UseList[T], UseHistory[T], UseForm[T], UseLocalStorage[T], UseFocus[T], UseAsync[T], CreateShared[T])
+   - 20+ types re-exported for convenience
+   - Counter options, Breakpoint constants, Storage types, Log level constants
 
-# Specifically test root package
-go build github.com/newbpydev/bubblyui
+2. `directives/directives.go` - Re-exports from `pkg/bubbly/directives`
+   - Conditional: If, Show
+   - Iteration: ForEach (generic wrapper)
+   - Data Binding: Bind (generic wrapper), BindCheckbox, BindSelect (generic wrapper)
+   - Events: On
+   - All directive types re-exported
+
+3. `router/router.go` - Re-exports from `pkg/bubbly/router`
+   - Builder: NewRouterBuilder
+   - Route Options: WithComponent, WithName, WithGuard, WithMeta, WithChildren
+   - Core Types: Router, Route, RouteRecord, RouteMatch
+   - Navigation: NavigationTarget, NavigationGuard, NextFunc, AfterNavigationHook
+   - History: History, HistoryEntry
+   - Matching: RouteMatcher, NewRouteMatcher, RoutePattern, QueryParser, NewQueryParser
+   - View: View, NewRouterView
+   - Composables: ProvideRouter, UseRoute
+   - Messages: NavigationMsg, RouteChangedMsg, NavigationErrorMsg
+   - Errors: All error codes and constructors
+
+4. `components/components.go` - Re-exports from `pkg/components`
+   - Atoms (6): Button, Badge, Icon, Spinner, Text, Toggle
+   - Molecules (10): Input, TextArea, Checkbox, Radio (generic), Select (generic), Card, List (generic), Menu, Tabs, Accordion
+   - Organisms (3): Table (generic), Form (generic), Modal
+   - Templates (4): PageLayout, AppLayout, PanelLayout, GridLayout
+   - Layout (8): Flex, HStack, VStack, Box, Center, Container, Spacer, Divider
+   - Themes (4): DefaultTheme, DarkTheme, LightTheme, HighContrastTheme
+   - Alignment Types and Constants
+   - All Props types re-exported
+
+**Key Technical Decisions:**
+- Generic functions MUST be wrapped as functions (Go doesn't allow `var X = genericFunc`)
+- Non-generic functions can use `var X = pkg.X` pattern
+- All packages include comprehensive godoc comments with examples
+- Tests pass for underlying packages (alias packages have no tests - they're pure re-exports)
+
+**Import Path Improvements:**
+```go
+// BEFORE (verbose paths)
+import "github.com/newbpydev/bubblyui/pkg/bubbly/composables"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/directives"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/router"
+import "github.com/newbpydev/bubblyui/pkg/components"
+
+// AFTER (clean paths)
+import "github.com/newbpydev/bubblyui/composables"
+import "github.com/newbpydev/bubblyui/directives"
+import "github.com/newbpydev/bubblyui/router"
+import "github.com/newbpydev/bubblyui/components"
 ```
 
-**Expected**: Build succeeds with no errors
+**Files Created:**
+- `composables/composables.go` (251 lines)
+- `directives/directives.go` (184 lines)
+- `router/router.go` (218 lines)
+- `components/components.go` (333 lines)
 
-**Estimated effort**: 15 minutes
+**Verification:**
+- All packages build: `go build ./composables/... ./directives/... ./router/... ./components/...` ✅
+- Linter passes: `golangci-lint run` ✅
+- All underlying package tests pass: `go test -race ./pkg/...` ✅
 
 ---
 
-### Task 2.3: Update Example Imports
+### Task 2.1c: Complete Framework Alias Packages ✅ COMPLETED
+**Description**: Full systematic audit and alias creation for complete framework accessibility
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Following a thorough probabilistic reasoning analysis, identified and created alias packages for ALL remaining user-facing subpackages.
+
+**Complete Package Coverage Audit:**
+
+| Package | Path | User-Facing | Alias Path | Status |
+|---------|------|-------------|------------|--------|
+| bubbly (core) | `pkg/bubbly` | ✅ | `bubblyui.go` | ✅ |
+| commands | `pkg/bubbly/commands` | ✅ | `commands/` | ✅ |
+| composables | `pkg/bubbly/composables` | ✅ | `composables/` | ✅ |
+| devtools | `pkg/bubbly/devtools` | ✅ | `devtools/` | ✅ |
+| devtools/mcp | `pkg/bubbly/devtools/mcp` | ✅ | `devtools/mcp/` | ✅ |
+| directives | `pkg/bubbly/directives` | ✅ | `directives/` | ✅ |
+| monitoring | `pkg/bubbly/monitoring` | ✅ | `monitoring/` | ✅ |
+| observability | `pkg/bubbly/observability` | ✅ | `observability/` | ✅ |
+| profiler | `pkg/bubbly/profiler` | ✅ | `profiler/` | ✅ |
+| router | `pkg/bubbly/router` | ✅ | `router/` | ✅ |
+| testing | `pkg/bubbly/testing` | ✅ | `testing/btesting/` | ✅ |
+| testutil | `pkg/bubbly/testutil` | ✅ | `testing/testutil/` | ✅ |
+| components | `pkg/components` | ✅ | `components/` | ✅ |
+
+**Internal packages (no alias needed - implementation details):**
+- `pkg/bubbly/composables/reflectcache`
+- `pkg/bubbly/composables/timerpool`
+- `pkg/bubbly/devtools/migrations`
+
+**Additional Alias Packages Created:**
+
+5. `commands/commands.go` - Re-exports from `pkg/bubbly/commands`
+   - Core types: CommandGenerator, StateChangedMsg, CommandQueue, NewCommandQueue
+   - Command generation: DefaultCommandGenerator, CommandRef[T]
+   - Batching: CoalescingStrategy, CommandBatcher, NewCommandBatcher, StateChangedBatchMsg
+   - Debug logging: CommandLogger, NewCommandLogger, NewNopLogger, GetDefaultLogger, SetDefaultLogger, FormatValue
+   - Inspection: CommandInspector, NewCommandInspector, CommandInfo
+   - Loop detection: LoopDetector, NewLoopDetector, CommandLoopError
+
+6. `devtools/devtools.go` - Re-exports from `pkg/bubbly/devtools`
+   - Global functions: Toggle, IsEnabled, Disable, RenderView, HandleUpdate, SetCollector
+   - Notifications: NotifyComponentCreated/Mounted/Unmounted/Updated, NotifyEvent, NotifyRefChanged, NotifyRenderComplete
+   - Configuration: Config, DefaultConfig, LoadConfig
+   - Data collection: DataCollector, NewDataCollector, GetCollector
+   - Component inspection: ComponentSnapshot, CaptureComponent, ComponentInspector, ComponentFilter, FilterFunc
+   - Event tracking: EventRecord, EventTracker, EventLog, EventFilter, EventReplayer
+   - Command timeline: CommandRecord, CommandTimeline, TimelineControls
+   - State management: StateChange, StateHistory, StateViewer, Store
+   - Performance: PerformanceData, PerformanceMonitor
+   - Router debugging: RouteRecord, RouterDebugger, GuardExecution, GuardResult
+   - UI components: UI, TreeView, DetailPanel, SearchWidget, TabController, LayoutManager, KeyboardHandler
+   - Data export: ExportData, ExportOptions, ExportFormat (JSON/YAML/MessagePack), FormatRegistry
+   - Sanitization: Sanitizer, SanitizePattern, StreamSanitizer, DefaultPatterns
+   - Visualization: FlameGraphRenderer, FlameNode
+   - Migration: VersionMigration, RegisterMigration, ValidateMigrationChain
+   - Hooks: ComponentHook, EventHook, StateHook, PerformanceHook
+
+7. `devtools/mcp/mcp.go` - Re-exports from `pkg/bubbly/devtools/mcp`
+   - Initialization: EnableWithMCP
+   - Configuration: Config, DefaultMCPConfig, TransportType
+   - Server: Server, NewMCPServer
+   - Authentication: AuthHandler, NewAuthHandler
+   - Rate limiting: RateLimiter, NewRateLimiter, Throttler, NewThrottler
+   - Update batching: UpdateBatcher, NewUpdateBatcher, UpdateNotification, FlushHandler, NotificationSender
+   - Subscriptions: SubscriptionManager, NewSubscriptionManager, Subscription, StateChangeDetector
+   - Validation: ValidateResourceURI, ValidateToolParams, SanitizeInput
+   - Resources: ComponentsResource, StateResource, EventsResource, PerformanceResource
+   - Tool parameters: SearchComponentsParams/Result, FilterEventsParams/Result, ExportParams/Result, etc.
+
+8. `monitoring/monitoring.go` - Re-exports from `pkg/bubbly/monitoring`
+   - Global metrics: ComposableMetrics, GetGlobalMetrics, SetGlobalMetrics, NoOpMetrics
+   - Prometheus: PrometheusMetrics, NewPrometheusMetrics
+   - Profiling: ProfileComposables, ComposableProfile, CallStats
+   - pprof endpoints: EnableProfiling, StopProfiling, IsProfilingEnabled, GetProfilingAddress
+
+9. `observability/observability.go` - Re-exports from `pkg/bubbly/observability`
+   - Constants: MaxBreadcrumbs
+   - Error reporting: ErrorReporter, GetErrorReporter, SetErrorReporter, ErrorContext
+   - Console reporter: ConsoleReporter, NewConsoleReporter
+   - Sentry reporter: SentryReporter, NewSentryReporter, SentryOption, WithEnvironment, WithRelease, WithDebug, WithBeforeSend
+   - Breadcrumbs: Breadcrumb, RecordBreadcrumb, GetBreadcrumbs, ClearBreadcrumbs
+   - Error types: HandlerPanicError, CommandGenerationError
+
+10. `profiler/profiler.go` - Re-exports from `pkg/bubbly/profiler` (~80+ exports)
+    - Core profiler: Profiler, New, Option, WithEnabled, WithSamplingRate, WithMaxSamples, WithMinimalMetrics, WithThreshold
+    - Configuration: Config, DefaultConfig, ConfigFromEnv
+    - CPU profiling: CPUProfiler, NewCPUProfiler, CPUProfileData, HotFunction
+    - Memory profiling: MemoryProfiler, NewMemoryProfiler, MemoryTracker, MemProfileData
+    - Leak detection: LeakDetector, NewLeakDetector, LeakThresholds, LeakInfo
+    - Render profiling: RenderProfiler, FPSCalculator, FrameInfo, RenderConfig
+    - Component tracking: ComponentTracker, ComponentMetrics
+    - Timing and metrics: TimingTracker, TimingStats, MetricCollector, MetricsSnapshot
+    - Bottleneck detection: BottleneckDetector, BottleneckThresholds, BottleneckInfo
+    - Recommendations: RecommendationEngine, Recommendation, RecommendationRule
+    - Threshold monitoring: ThresholdMonitor, ThresholdConfig, Alert, AlertHandler
+    - Pattern analysis: PatternAnalyzer, Pattern
+    - Stack analysis: StackAnalyzer, CallNode
+    - Visualization: FlameGraphGenerator, TimelineGenerator, TimelineData
+    - Reports: Report, ReportGenerator, Summary, Exporter, ExportFormat
+    - Data aggregation: DataAggregator, AggregatedData
+    - Baseline comparison: Baseline, LoadBaseline, RegressionInfo
+    - Benchmark integration: BenchmarkProfiler, NewBenchmarkProfiler, BenchmarkStats
+    - HTTP handlers: HTTPHandler, NewHTTPHandler, RegisterHandlers, ServeCPUProfile, ServeHeapProfile
+    - DevTools integration: DevToolsIntegration, NewDevToolsIntegration
+    - Instrumentation: Instrumentor, NewInstrumentor
+
+11. `testing/btesting/btesting.go` - Re-exports from `pkg/bubbly/testing`
+    - Context creation: NewTestContext, SetParent
+    - Lifecycle triggers: TriggerMount, TriggerUpdate, TriggerUnmount
+    - Mock composables: MockComposable[T]
+    - Assertions: AssertComposableCleanup
+
+12. `testing/testutil/testutil.go` - Re-exports from `pkg/bubbly/testutil` (~100+ exports)
+    - Test harness: TestHarness, NewHarness, HarnessOption
+    - Test setup: TestSetup, NewTestSetup, TestIsolation, NewTestIsolation
+    - Fixtures: FixtureBuilder, NewFixture
+    - Mock ref: MockRef[T], NewMockRef, CreateMockRef, GetMockRef, MockFactory
+    - Mock components: MockComponent, NewMockComponent
+    - Mock router: MockRouter, NewMockRouter
+    - Mock storage: MockStorage, NewMockStorage
+    - Mock commands: MockCommand, MockCommandGenerator, MockErrorReporter
+    - Snapshot testing: MatchSnapshot, MatchNamedSnapshot, MatchComponentSnapshot, SnapshotManager, Normalizer
+    - Event tracking: EventTracker, EventInspector, Event, EmittedEvent
+    - Time simulation: TimeSimulator, SimulatedTimer
+    - Wait utilities: WaitFor, WaitOptions
+    - Command testing: CommandQueueInspector, AssertCommandEnqueued, LoopDetectionVerifier, AssertNoCommandLoop
+    - Component testers: AutoCommandTester, BatcherTester, ChildrenManagementTester, PropsVerifier, KeyBindingsTester
+    - Directive testers: IfTester, ForEachTester, ShowTester, BindTester, OnTester, BoolRefTester
+    - Composable testers: UseStateTester[T], UseEffectTester, UseDebounceTester, UseThrottleTester, UseAsyncTester, UseFormTester[T], UseLocalStorageTester[T]
+    - Watch testers: WatchEffectTester, DeepWatchTester, CustomComparatorTester, ComputedCacheVerifier, FlushModeController
+    - Provide/Inject: ProvideInjectTester
+    - Router testers: PathMatchingTester, NamedRoutesTester, NestedRoutesTester, QueryParamsTester, RouteGuardTester, HistoryTester, NavigationSimulator
+    - Dependency tracking: DependencyTrackingInspector, DependencyGraph
+    - Data factories: DataFactory[T], NewFactory, IntFactory, StringFactory
+    - Error testing: ErrorTesting, NewErrorTesting
+    - Template safety: TemplateSafetyTester, SafetyViolation
+    - Observability: ObservabilityAssertions
+    - Test hooks: TestHooks
+    - Matchers: Matcher, BeNil, BeEmpty, HaveLength
+
+**Final Directory Structure:**
+```
+bubblyui/
+├── bubblyui.go           ✅ (core types and functions)
+├── bubblyui_test.go      ✅ (core tests)
+├── commands/             ✅ NEW
+│   └── commands.go       (138 lines)
+├── components/           ✅
+│   └── components.go     (333 lines)
+├── composables/          ✅
+│   └── composables.go    (251 lines)
+├── devtools/             ✅ NEW
+│   ├── devtools.go       (428 lines)
+│   └── mcp/              ✅ NEW
+│       └── mcp.go        (174 lines)
+├── directives/           ✅
+│   └── directives.go     (184 lines)
+├── monitoring/           ✅ NEW
+│   └── monitoring.go     (77 lines)
+├── observability/        ✅ NEW
+│   └── observability.go  (114 lines)
+├── profiler/             ✅ NEW
+│   └── profiler.go       (531 lines)
+├── router/               ✅
+│   └── router.go         (218 lines)
+└── testing/              ✅ NEW
+    ├── btesting/         ✅ NEW
+    │   └── btesting.go   (73 lines)
+    └── testutil/         ✅ NEW
+        └── testutil.go   (568 lines)
+```
+
+**Import Path Improvements (Complete Framework):**
+```go
+// BEFORE (verbose paths)
+import "github.com/newbpydev/bubblyui/pkg/bubbly"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/commands"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/composables"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/devtools"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/devtools/mcp"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/directives"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/monitoring"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/observability"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/profiler"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/router"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/testing"
+import "github.com/newbpydev/bubblyui/pkg/bubbly/testutil"
+import "github.com/newbpydev/bubblyui/pkg/components"
+
+// AFTER (clean paths)
+import "github.com/newbpydev/bubblyui"
+import "github.com/newbpydev/bubblyui/commands"
+import "github.com/newbpydev/bubblyui/composables"
+import "github.com/newbpydev/bubblyui/devtools"
+import "github.com/newbpydev/bubblyui/devtools/mcp"
+import "github.com/newbpydev/bubblyui/directives"
+import "github.com/newbpydev/bubblyui/monitoring"
+import "github.com/newbpydev/bubblyui/observability"
+import "github.com/newbpydev/bubblyui/profiler"
+import "github.com/newbpydev/bubblyui/router"
+import "github.com/newbpydev/bubblyui/testing/btesting"
+import "github.com/newbpydev/bubblyui/testing/testutil"
+import "github.com/newbpydev/bubblyui/components"
+```
+
+**Verification:**
+- All 13 alias packages build: `go build ./...` ✅
+- Linter passes: `golangci-lint run` ✅
+- Full test suite passes: `go test -race ./...` ✅
+- Framework coverage: 13/13 user-facing packages = **100%** ✅
+
+---
+
+### Task 2.2: Verify No Import Cycles ✅ COMPLETED
+**Description**: Ensure root package doesn't create circular dependencies
+
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Comprehensive verification of all alias packages confirms no import cycles exist.
+
+**Verification Results**:
+
+1. **Full Build Test**:
+   ```bash
+   go build ./...
+   ```
+   ✅ **PASSED** - All packages build successfully
+
+2. **Root Package Build**:
+   ```bash
+   go build github.com/newbpydev/bubblyui
+   ```
+   ✅ **PASSED** - No circular dependencies
+
+3. **Individual Alias Package Builds**:
+   | Package | Status |
+   |---------|--------|
+   | `github.com/newbpydev/bubblyui` | ✅ |
+   | `github.com/newbpydev/bubblyui/commands` | ✅ |
+   | `github.com/newbpydev/bubblyui/composables` | ✅ |
+   | `github.com/newbpydev/bubblyui/components` | ✅ |
+   | `github.com/newbpydev/bubblyui/devtools` | ✅ |
+   | `github.com/newbpydev/bubblyui/devtools/mcp` | ✅ |
+   | `github.com/newbpydev/bubblyui/directives` | ✅ |
+   | `github.com/newbpydev/bubblyui/monitoring` | ✅ |
+   | `github.com/newbpydev/bubblyui/observability` | ✅ |
+   | `github.com/newbpydev/bubblyui/profiler` | ✅ |
+   | `github.com/newbpydev/bubblyui/router` | ✅ |
+   | `github.com/newbpydev/bubblyui/testing/btesting` | ✅ |
+   | `github.com/newbpydev/bubblyui/testing/testutil` | ✅ |
+
+4. **Linter Check**:
+   ```bash
+   golangci-lint run
+   ```
+   ✅ **PASSED** - No import cycle warnings
+
+5. **Root Package Tests**:
+   ```bash
+   go test -race ./bubblyui_test.go -v
+   ```
+   ✅ **PASSED** - All 11 test cases pass:
+   - TestRootPackageTypes
+   - TestRootPackageFunctions
+   - TestRootPackageRunOptions (9 options)
+   - TestNewComponentFromRoot
+   - TestNewRefFromRoot (3 cases)
+   - TestNewRefSetFromRoot
+   - TestNewComputedFromRoot
+   - TestWatchFromRoot
+   - TestWatchEffectFromRoot
+   - TestGenericTypesWithDifferentTypes (3 cases)
+
+6. **Full Test Suite**:
+   ```bash
+   go test -race ./...
+   ```
+   ✅ **PASSED** - All tests pass with race detector
+
+**Prerequisites**: Task 2.1 ✅
+**Unlocks**: Task 4.2
+
+**Estimated effort**: 15 minutes (actual: ~10 minutes)
+
+---
+
+### Task 2.3: Update Example Imports ✅ COMPLETED
 **Description**: Create or update at least one example using root package imports
 
-**Prerequisites**: Task 2.1
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+Created comprehensive quickstart example demonstrating clean import paths and best practices.
+
+**Files Created**:
+- `cmd/examples/00-quickstart/main.go` - Entry point with DevTools & Profiler setup + Composite Hook pattern
+- `cmd/examples/00-quickstart/app.go` - Root component with conditional key bindings & WithMessageHandler for text input
+- `cmd/examples/00-quickstart/composables/use_tasks.go` - Task management composable
+- `cmd/examples/00-quickstart/composables/use_focus.go` - Focus management composable
+- `cmd/examples/00-quickstart/components/task_list.go` - Task list display
+- `cmd/examples/00-quickstart/components/task_input.go` - New task input with visual feedback (emoji, color, hints)
+- `cmd/examples/00-quickstart/components/task_stats.go` - Statistics with prominent filter chip bar
+- `cmd/examples/00-quickstart/components/help_panel.go` - Keyboard shortcuts
+- `pkg/bubbly/profiler/hook_adapter.go` - ProfilerHookAdapter + CompositeHook for hook multiplexing
+- `pkg/bubbly/profiler/hook_adapter_test.go` - Tests for hook integration (93.5% coverage)
+- `pkg/bubbly/profiler/devtools_integration_test.go` - Tests for DevTools+Profiler coexistence
+- `profiler/profiler.go` - Added exports for NewProfilerHookAdapter, NewCompositeHook
+
+**Key Features Demonstrated**:
+1. **Clean Import Paths**: Uses new alias packages (`github.com/newbpydev/bubblyui`, `/devtools`, `/profiler`, `/components`)
+2. **Zero Boilerplate**: Uses `bubbly.Run()` instead of `tea.NewProgram`
+3. **Type-Safe Refs**: Uses `bubblyui.NewRef[T]()` and `GetTyped()` for type safety
+4. **Component Architecture**: Proper separation into components/ and composables/ directories
+5. **DevTools Integration**: Full devtools setup with F12 toggle via `devtools.Enable()`
+6. **Profiler Integration**: Composite hook pattern allows both DevTools and Profiler simultaneously
+7. **Built-in Components**: Uses Card and Text components from components package
+8. **Lifecycle Hooks**: OnMounted hooks in all components
+9. **Conditional Key Bindings**: Disable navigation keys during input mode
+10. **WithMessageHandler**: Captures raw keyboard input for text entry (backspace, chars, space)
+11. **Refs Outside Setup**: Pattern for accessing refs in both Setup and MessageHandler
+12. **Visual Feedback**: Input mode shows emoji + color; filter shows highlighted chip bar
+13. **Filter Chips**: Prominent ALL | ACTIVE | DONE with active filter highlighted
+14. **Reactive State**: Tasks, selection, filter, focus management all reactive
+
+**Critical Patterns for Text Input**:
+```go
+// Pattern 1: Refs outside Setup
+selectedIndex := bubblyui.NewRef(0)
+inputMode := bubblyui.NewRef(false)
+
+// Pattern 2: Conditional Key Bindings
+.WithConditionalKeyBinding(bubbly.KeyBinding{
+    Key: "j", Event: "moveDown", Description: "Move down",
+    Condition: func() bool { return !inputMode.GetTyped() },
+})
+
+// Pattern 3: WithMessageHandler for text input
+.WithMessageHandler(func(_ bubbly.Component, msg tea.Msg) tea.Cmd {
+    if !inputMode.GetTyped() { return nil }
+    keyMsg, ok := msg.(tea.KeyMsg)
+    // Handle KeyBackspace, KeyRunes, KeySpace
+})
+```
+
+**Critical Pattern for Profiler+DevTools Coexistence**:
+```go
+// Get existing DevTools hook
+devtoolsHook := bubbly.GetRegisteredHook()
+
+// Create profiler hook
+profilerHook := profiler.NewProfilerHookAdapter(prof)
+prof.SetHookAdapter(profilerHook)
+
+// Combine with composite
+composite := profiler.NewCompositeHook(devtoolsHook, profilerHook)
+bubbly.RegisterHook(composite)
+```
+
+**Application Structure**:
+```
+cmd/examples/00-quickstart/
+├── main.go           # Entry point: bubbly.Run() + DevTools + Profiler
+├── app.go            # Root component with 14 key bindings
+├── composables/      # Reusable reactive logic
+│   ├── use_tasks.go  # Task CRUD operations
+│   └── use_focus.go  # Focus pane management
+└── components/       # UI components
+    ├── task_list.go  # Displays filtered tasks with selection
+    ├── task_input.go # Input field for new tasks
+    ├── task_stats.go # Active/Done/Total statistics
+    └── help_panel.go # Keyboard shortcut reference
+```
+
+**Verification**:
+- `go build ./cmd/examples/00-quickstart/...` ✅ PASSES
+- `golangci-lint run ./cmd/examples/00-quickstart/...` ✅ PASSES (only expected gocyclo warning for root component)
+
+**Prerequisites**: Task 2.1 ✅
 **Unlocks**: Task 4.3
 
 **Files**:
-- `cmd/examples/00-quickstart/main.go` (NEW or UPDATE)
+- `cmd/examples/00-quickstart/main.go` (NEW)
 
 **Implementation**:
 ```go
@@ -567,14 +1076,30 @@ func main() {
 
 ## Phase 3: Release Automation (Est. 1.5 hours)
 
-### Task 3.1: Create GoReleaser Configuration
+### Task 3.1: Create GoReleaser Configuration ✅ COMPLETED
 **Description**: Configure GoReleaser for library releases
 
-**Prerequisites**: Task 1.1
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Created `.goreleaser.yml` with library-specific configuration
+- Configured to skip binary builds (`builds: [skip: true]`) - appropriate for Go libraries
+- Set up changelog generation with 5 groups: Features, Bug Fixes, Documentation, Performance, Refactoring, Others
+- Conventional commits regex patterns for automatic categorization (feat:, fix:, docs:, perf:, refactor:)
+- Excluded test, chore, ci commits and merge messages from changelog
+- GitHub release configuration: owner=newbpydev, name=bubblyui, prerelease=auto, mode=replace
+- Release notes header includes installation command and quick start example with version templating
+- Release notes footer includes full changelog comparison link and pkg.go.dev documentation link
+- Go module proxy enabled for verifiable builds (proxy: true, GOPROXY=https://proxy.golang.org,direct, GOSUMDB=sum.golang.org)
+- Announce feature disabled (skip: true)
+- Configuration follows GoReleaser v2 format and library release best practices from official cookbook
+- YAML syntax validated (91 lines)
+- Note: GoReleaser validation will occur in GitHub Actions workflow (Task 3.2) - local installation not required
+
+**Prerequisites**: Task 1.1 ✅
 **Unlocks**: Task 3.2
 
 **Files**:
-- `.goreleaser.yml` (NEW)
+- `.goreleaser.yml` (NEW - 91 lines)
 
 **Implementation**:
 ```yaml
@@ -681,14 +1206,42 @@ goreleaser release --snapshot --skip-publish --clean
 
 ---
 
-### Task 3.2: Create GitHub Actions Release Workflow
+### Task 3.2: Create GitHub Actions Release Workflow ✅ COMPLETED
 **Description**: Automate releases on tag push
 
-**Prerequisites**: Task 3.1, Task 2.1
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Created `.github/workflows/release.yml` with automated release workflow
+- Trigger: Tag push matching pattern `v*.*.*` (semantic versioning)
+- Two-job architecture with dependency chain:
+  - **validate** job: Pre-release validation checks
+  - **release** job: GoReleaser execution (depends on validate success)
+- **Validate job** includes:
+  - Checkout with `fetch-depth: 0` (required for changelog generation)
+  - Go 1.24 setup with caching enabled
+  - Tag format validation (regex: `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$`)
+  - Tests with race detector (`go test -race -coverprofile=coverage.txt ./...`)
+  - Coverage check with 80% threshold enforcement
+  - Linter execution using `golangci/golangci-lint-action@v4`
+- **Release job** includes:
+  - Checkout with full history (`fetch-depth: 0`)
+  - Go 1.24 setup with caching
+  - GoReleaser execution using `goreleaser/goreleaser-action@v6`
+  - GoReleaser version: `~> v2` (max satisfying SemVer for v2.x)
+  - Arguments: `release --clean` (cleans dist folder before release)
+  - GitHub token: Uses built-in `GITHUB_TOKEN` secret
+  - pkg.go.dev indexing trigger via `proxy.golang.org` curl
+- Permissions: `contents: write` (required for creating GitHub releases)
+- Follows best practices from [GoReleaser GitHub Actions guide](https://goreleaser.com/ci/actions/)
+- Consistent with existing `ci.yml` workflow patterns (actions versions, Go setup)
+- YAML syntax validated (82 lines)
+- Workflow will execute automatically on next tag push (e.g., `git push origin v0.12.0`)
+
+**Prerequisites**: Task 3.1 ✅, Task 2.1 ✅
 **Unlocks**: Task 4.4
 
 **Files**:
-- `.github/workflows/release.yml` (NEW)
+- `.github/workflows/release.yml` (NEW - 82 lines)
 
 **Implementation**:
 ```yaml
@@ -779,16 +1332,38 @@ jobs:
 
 ---
 
-### Task 3.3: Test Release Workflow (Dry Run)
+### Task 3.3: Test Release Workflow (Dry Run) ✅ COMPLETED
 **Description**: Verify release process without publishing
 
-**Prerequisites**: Task 3.1, Task 3.2
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Installed GoReleaser v2.13.0 via `go install github.com/goreleaser/goreleaser/v2@latest`
+- Validated configuration: `goreleaser check` ✅ PASSED (1 configuration file validated)
+- Executed snapshot release: `goreleaser release --snapshot --clean`
+  - Note: In GoReleaser v2, `--snapshot` flag automatically skips announce, publish, and validate
+  - Flag `--skip-publish` was removed in v2.x (replaced by `--snapshot`)
+- Snapshot release succeeded: v0.0.0-SNAPSHOT-13cb2b6 (commit: 13cb2b623478a06dbdb54a6ba4998741a53f2f69)
+- Verified dist/ directory contents:
+  - `artifacts.json` - Build artifacts metadata
+  - `config.yaml` - Resolved GoReleaser configuration
+  - `metadata.json` - Release metadata (project_name, tag, version, commit, date, runtime)
+  - No binary artifacts generated (correct behavior for library release with `builds: [skip: true]`)
+- Release process validated successfully:
+  - Configuration parsing ✅
+  - Git state detection ✅
+  - Metadata generation ✅
+  - Build skip logic ✅
+  - Checksums calculation ✅
+- Cleaned up dist/ directory after verification
+- Confirmed workflow is ready for production use when version tags are pushed
+
+**Prerequisites**: Task 3.1 ✅, Task 3.2 ✅
 **Unlocks**: Task 4.4
 
 **Steps**:
-1. Install GoReleaser locally
-2. Run dry-run release
-3. Verify output
+1. Install GoReleaser locally ✅
+2. Run dry-run release ✅
+3. Verify output ✅
 
 ```bash
 # Install GoReleaser
@@ -797,41 +1372,65 @@ go install github.com/goreleaser/goreleaser/v2@latest
 # Run validation
 goreleaser check
 
-# Run dry-run
-goreleaser release --snapshot --skip-publish --clean
+# Run dry-run (NOTE: v2 changed flags)
+goreleaser release --snapshot --clean
 
-# Verify release artifacts (should be empty for library)
+# Verify release artifacts (should contain only metadata for library)
 ls -la dist/
 ```
 
-**Estimated effort**: 30 minutes
+**Estimated effort**: 30 minutes (actual: ~20 minutes)
 
 ---
 
 ## Phase 4: Version Tagging (Est. 1 hour)
 
-### Task 4.1: Identify Historical Commits
+### Task 4.1: Identify Historical Commits ✅ COMPLETED
 **Description**: Find commits corresponding to each feature completion
 
-**Prerequisites**: Task 1.1, Task 1.2
-**Unlocks**: Task 4.2
+**Status**: ✅ COMPLETED (2025-12-02)
+**Implementation Notes**:
+Comprehensive git history analysis identified the completion commits for all features based on merge commits, completion documentation, and feature validation commits.
 
-**Process**:
-```bash
-# Find feature completion commits
-git log --oneline --all --grep="feature" | head -30
-git log --oneline --all --grep="feat:" | head -50
+**Historical Commit Mapping**:
 
-# For each feature, identify the merge/completion commit
-# Document in this format:
-# Feature 01: <commit-sha> - "feat: complete reactivity system"
-# Feature 02: <commit-sha> - "feat: complete component model"
-# etc.
-```
+| Version | Feature | Commit SHA | Date | Description |
+|---------|---------|------------|------|-------------|
+| v0.1.0 | 00: Project Setup | `9cd18c7` | 2025-10-25 | docs: complete project setup documentation with validation results |
+| v0.2.0 | 01: Reactivity System | `84d7630` | 2025-10-26 | feat: add example apps demonstrating BubblyUI reactivity |
+| v0.3.0 | 02: Component Model | `378ceb5` | 2025-10-27 | docs: add component model documentation and examples |
+| v0.4.0 | 03: Lifecycle Hooks | `b4fc519` | 2025-10-30 | feat: merge lifecycle hooks feature (Feature 03) |
+| v0.5.0 | 04: Composition API | `7d8f9f3` | 2025-11-01 | feat: merge composition API feature (Feature 04) |
+| v0.6.0 | 05: Directives | `c04e968` | 2025-11-01 | feat: merge directives feature (Feature 05) |
+| v0.7.0 | 06: Built-in Components | `0cd6410` | 2025-11-03 | feat: merge built-in components feature (Feature 06) |
+| v0.8.0 | 07: Router | `e7fdfa5` | 2025-11-04 | feat: merge router feature (Feature 07) |
+| v0.9.0 | 08-10: Bridge, DevTools, Testing | `56391aa` | 2025-11-21 | Merge feat/10-testing-utilities: Add testing utilities |
+| v0.10.0 | 11-13: Profiler, MCP, Automation | `c7d2291` | 2025-11-26 | docs: mark Feature 13 complete in master tasks checklist |
+| v0.11.0 | 14-15: Layout, Composables | `ec71bee` | 2025-11-28 | feat: merge enhanced composables library (Feature 15) |
+| v0.12.0 | 16: Deployment Release | (current) | 2025-12-02 | After Task 4.3 completion |
 
-**Output**: List of commit SHAs for tagging
+**Analysis Methodology**:
+1. Searched for explicit "feat: merge" commits for features with formal merge messages
+2. For features without merge commits, identified completion markers:
+   - Feature 00: Documentation completion commit (9cd18c7)
+   - Feature 01: Example apps demonstrating reactivity (84d7630)
+   - Feature 02: Component model documentation completion (378ceb5)
+3. Features 08-10 grouped as v0.9.0 (Bridge, DevTools, Testing utilities merged together)
+4. Features 11-13 grouped as v0.10.0 (Profiler, MCP, Automation completed in sequence)
+5. Features 14-15 grouped as v0.11.0 (Layout system and enhanced composables)
 
-**Estimated effort**: 20 minutes
+**Recommendation for Task 4.2**:
+⚠️ **IMPORTANT DECISION REQUIRED**: Retroactive tagging has risks:
+- **Risk**: Go module proxy caches can cause checksum mismatches if anyone has already fetched the module
+- **Safe**: Only create retroactive tags if this is the first public release (no prior downloads)
+- **Alternative**: Start version history at v0.12.0 and document historical features in CHANGELOG only
+
+**Recommended Approach**: Skip Task 4.2 (retroactive tags) and proceed directly to Task 4.3 (v0.12.0 tag) to avoid potential Go module proxy issues. The CHANGELOG.md already documents all historical versions adequately.
+
+**Prerequisites**: Task 1.1 ✅, Task 1.2 ✅
+**Unlocks**: Task 4.2, Task 4.3
+
+**Estimated effort**: 20 minutes (actual: ~15 minutes)
 
 ---
 
