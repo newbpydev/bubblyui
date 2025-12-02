@@ -1206,14 +1206,42 @@ goreleaser release --snapshot --skip-publish --clean
 
 ---
 
-### Task 3.2: Create GitHub Actions Release Workflow
+### Task 3.2: Create GitHub Actions Release Workflow ✅ COMPLETED
 **Description**: Automate releases on tag push
 
-**Prerequisites**: Task 3.1, Task 2.1
+**Status**: ✅ COMPLETED (2025-12-01)
+**Implementation Notes**:
+- Created `.github/workflows/release.yml` with automated release workflow
+- Trigger: Tag push matching pattern `v*.*.*` (semantic versioning)
+- Two-job architecture with dependency chain:
+  - **validate** job: Pre-release validation checks
+  - **release** job: GoReleaser execution (depends on validate success)
+- **Validate job** includes:
+  - Checkout with `fetch-depth: 0` (required for changelog generation)
+  - Go 1.24 setup with caching enabled
+  - Tag format validation (regex: `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$`)
+  - Tests with race detector (`go test -race -coverprofile=coverage.txt ./...`)
+  - Coverage check with 80% threshold enforcement
+  - Linter execution using `golangci/golangci-lint-action@v4`
+- **Release job** includes:
+  - Checkout with full history (`fetch-depth: 0`)
+  - Go 1.24 setup with caching
+  - GoReleaser execution using `goreleaser/goreleaser-action@v6`
+  - GoReleaser version: `~> v2` (max satisfying SemVer for v2.x)
+  - Arguments: `release --clean` (cleans dist folder before release)
+  - GitHub token: Uses built-in `GITHUB_TOKEN` secret
+  - pkg.go.dev indexing trigger via `proxy.golang.org` curl
+- Permissions: `contents: write` (required for creating GitHub releases)
+- Follows best practices from [GoReleaser GitHub Actions guide](https://goreleaser.com/ci/actions/)
+- Consistent with existing `ci.yml` workflow patterns (actions versions, Go setup)
+- YAML syntax validated (82 lines)
+- Workflow will execute automatically on next tag push (e.g., `git push origin v0.12.0`)
+
+**Prerequisites**: Task 3.1 ✅, Task 2.1 ✅
 **Unlocks**: Task 4.4
 
 **Files**:
-- `.github/workflows/release.yml` (NEW)
+- `.github/workflows/release.yml` (NEW - 82 lines)
 
 **Implementation**:
 ```yaml
