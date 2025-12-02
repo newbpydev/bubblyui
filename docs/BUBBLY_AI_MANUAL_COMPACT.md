@@ -526,6 +526,24 @@ defer func() {
 }()
 ```
 
+### CRITICAL: DevTools F12 Toggle with Auto Commands
+
+**Important**: If your app uses `WithAutoCommands(true)`, DevTools F12/Ctrl+T toggle works automatically! The `asyncWrapperModel` (used for auto-commands apps) fully integrates with global key interceptor, update hook, and view renderer.
+
+**Why This Matters**:
+- Apps with `WithAutoCommands(true)` use `asyncWrapperModel` (auto-detected by `bubbly.Run()`)
+- Without integration, F12/Ctrl+T wouldn't toggle DevTools
+- Fixed in Feature 16 - Task 2.3
+
+**Verification**:
+```bash
+# Build and run quickstart (has WithAutoCommands)
+cd cmd/examples/00-quickstart
+go run . --devtools
+
+# Press F12 or Ctrl+T - DevTools should toggle!
+```
+
 ### Core Components
 | Component | Purpose |
 |-----------|---------|
