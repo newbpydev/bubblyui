@@ -10,9 +10,9 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-func TestProfilerHookAdapter_OnComponentMount(t *testing.T) {
+func TestHookAdapter_OnComponentMount(t *testing.T) {
 	prof := New(WithEnabled(true))
-	adapter := NewProfilerHookAdapter(prof)
+	adapter := NewHookAdapter(prof)
 
 	adapter.OnComponentMount("comp-1", "TestComponent")
 
@@ -20,9 +20,9 @@ func TestProfilerHookAdapter_OnComponentMount(t *testing.T) {
 	assert.Equal(t, "TestComponent", adapter.componentNames["comp-1"])
 }
 
-func TestProfilerHookAdapter_OnRenderComplete(t *testing.T) {
+func TestHookAdapter_OnRenderComplete(t *testing.T) {
 	prof := New(WithEnabled(true))
-	adapter := NewProfilerHookAdapter(prof)
+	adapter := NewHookAdapter(prof)
 
 	// Mount component first
 	adapter.OnComponentMount("comp-1", "TestComponent")
@@ -41,9 +41,9 @@ func TestProfilerHookAdapter_OnRenderComplete(t *testing.T) {
 	assert.Equal(t, 10*time.Millisecond, metrics.TotalRenderTime)
 }
 
-func TestProfilerHookAdapter_OnRenderComplete_UnknownComponent(t *testing.T) {
+func TestHookAdapter_OnRenderComplete_UnknownComponent(t *testing.T) {
 	prof := New(WithEnabled(true))
-	adapter := NewProfilerHookAdapter(prof)
+	adapter := NewHookAdapter(prof)
 
 	// Record render without mounting first
 	adapter.OnRenderComplete("comp-unknown", 5*time.Millisecond)
@@ -91,7 +91,7 @@ func TestCompositeHook_HandlesNilHooks(t *testing.T) {
 
 func TestProfiler_SetHookAdapter(t *testing.T) {
 	prof := New(WithEnabled(true))
-	adapter := NewProfilerHookAdapter(prof)
+	adapter := NewHookAdapter(prof)
 
 	prof.SetHookAdapter(adapter)
 
@@ -101,7 +101,7 @@ func TestProfiler_SetHookAdapter(t *testing.T) {
 
 func TestProfiler_GenerateReport_WithHookAdapter(t *testing.T) {
 	prof := New(WithEnabled(true))
-	adapter := NewProfilerHookAdapter(prof)
+	adapter := NewHookAdapter(prof)
 	prof.SetHookAdapter(adapter)
 
 	// Simulate component renders

@@ -82,6 +82,26 @@ func (h *HistoryReturn[T]) Push(value T) {
 	h.Current.Set(value)
 }
 
+// moveState transfers state between stacks (past/future).
+// This helper eliminates code duplication between Undo/Redo operations.
+// It pops a value from sourceStack, pushes current to destStack, and returns the popped value.
+func (h *HistoryReturn[T]) moveState(sourceStack *[]T, destStack *[]T) T {
+	// Get current value and push to destination
+	current := h.Current.GetTyped()
+	*destStack = append(*destStack, current)
+
+	// Pop from source
+	lastIdx := len(*sourceStack) - 1
+	value := (*sourceStack)[lastIdx]
+	*sourceStack = (*sourceStack)[:lastIdx]
+
+	// Update reactive refs for computed values
+	h.pastLen.Set(len(h.past))
+	h.futureLen.Set(len(h.future))
+
+	return value
+}
+
 // Undo reverts to previous state.
 // The current state is pushed to the future stack (for redo), and the most recent
 // past state becomes current. If there is no past state, this is a no-op.
@@ -97,25 +117,11 @@ func (h *HistoryReturn[T]) Undo() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Check if we can undo
 	if len(h.past) == 0 {
 		return // No-op
 	}
 
-	// Get current value and push to future
-	current := h.Current.GetTyped()
-	h.future = append(h.future, current)
-
-	// Pop from past and set as current
-	lastIdx := len(h.past) - 1
-	prev := h.past[lastIdx]
-	h.past = h.past[:lastIdx]
-
-	// Update reactive refs for computed values
-	h.pastLen.Set(len(h.past))
-	h.futureLen.Set(len(h.future))
-
-	// Set previous value as current
+	prev := h.moveState(&h.past, &h.future)
 	h.Current.Set(prev)
 }
 
@@ -134,25 +140,11 @@ func (h *HistoryReturn[T]) Redo() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Check if we can redo
 	if len(h.future) == 0 {
 		return // No-op
 	}
 
-	// Get current value and push to past
-	current := h.Current.GetTyped()
-	h.past = append(h.past, current)
-
-	// Pop from future and set as current
-	lastIdx := len(h.future) - 1
-	next := h.future[lastIdx]
-	h.future = h.future[:lastIdx]
-
-	// Update reactive refs for computed values
-	h.pastLen.Set(len(h.past))
-	h.futureLen.Set(len(h.future))
-
-	// Set next value as current
+	next := h.moveState(&h.future, &h.past)
 	h.Current.Set(next)
 }
 

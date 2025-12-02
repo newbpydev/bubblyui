@@ -16,7 +16,7 @@ func TestGenerateReport_AllMetricsPopulated(t *testing.T) {
 	prof := New()
 
 	// Create and set hook adapter
-	hookAdapter := NewProfilerHookAdapter(prof)
+	hookAdapter := NewHookAdapter(prof)
 	prof.SetHookAdapter(hookAdapter)
 
 	// Start profiler (this sets enabled=true and startTime)
@@ -118,7 +118,7 @@ func TestGenerateReport_AllMetricsPopulated(t *testing.T) {
 // TestGenerateReport_MetricsAccuracy verifies the accuracy of calculated metrics.
 func TestGenerateReport_MetricsAccuracy(t *testing.T) {
 	prof := New()
-	hookAdapter := NewProfilerHookAdapter(prof)
+	hookAdapter := NewHookAdapter(prof)
 	prof.SetHookAdapter(hookAdapter)
 
 	err := prof.Start()

@@ -87,9 +87,9 @@ type Profiler struct {
 	// detector handles bottleneck detection (implemented in Task 4.1)
 	detector *BottleneckDetector
 
-	// hookAdapter is the ProfilerHookAdapter that collects component metrics
+	// hookAdapter is the HookAdapter that collects component metrics
 	// This is set when the profiler is integrated with the framework hook system
-	hookAdapter *ProfilerHookAdapter
+	hookAdapter *HookAdapter
 
 	// config holds profiler configuration
 	config *Config
@@ -725,9 +725,9 @@ func (p *Profiler) GenerateReport() *Report {
 //
 // Example:
 //
-//	hookAdapter := profiler.NewProfilerHookAdapter(prof)
+//	hookAdapter := profiler.NewHookAdapter(prof)
 //	prof.SetHookAdapter(hookAdapter)
-func (p *Profiler) SetHookAdapter(adapter *ProfilerHookAdapter) {
+func (p *Profiler) SetHookAdapter(adapter *HookAdapter) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.hookAdapter = adapter

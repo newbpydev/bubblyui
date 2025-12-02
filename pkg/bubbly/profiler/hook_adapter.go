@@ -8,7 +8,7 @@ import (
 	"github.com/newbpydev/bubblyui/pkg/bubbly"
 )
 
-// ProfilerHookAdapter implements bubbly.FrameworkHook to collect profiling data.
+// HookAdapter implements bubbly.FrameworkHook to collect profiling data.
 //
 // It tracks component render times, memory usage, and other metrics
 // for the profiler's ComponentTracker.
@@ -20,19 +20,19 @@ import (
 // Example:
 //
 //	prof := profiler.New(profiler.WithEnabled(true))
-//	hook := profiler.NewProfilerHookAdapter(prof)
+//	hook := profiler.NewHookAdapter(prof)
 //	bubbly.RegisterHook(hook)
-type ProfilerHookAdapter struct {
+type HookAdapter struct {
 	profiler         *Profiler
 	componentTracker *ComponentTracker
 	componentNames   map[string]string // Maps component IDs to names
 	mu               sync.RWMutex
 }
 
-// Ensure ProfilerHookAdapter implements bubbly.FrameworkHook
-var _ bubbly.FrameworkHook = (*ProfilerHookAdapter)(nil)
+// Ensure HookAdapter implements bubbly.FrameworkHook
+var _ bubbly.FrameworkHook = (*HookAdapter)(nil)
 
-// NewProfilerHookAdapter creates a new profiler hook adapter.
+// NewHookAdapter creates a new profiler hook adapter.
 //
 // The adapter integrates with the framework's hook system to automatically
 // collect render timing and other metrics for the profiler.
@@ -40,9 +40,9 @@ var _ bubbly.FrameworkHook = (*ProfilerHookAdapter)(nil)
 // Example:
 //
 //	prof := profiler.New(profiler.WithEnabled(true))
-//	hook := profiler.NewProfilerHookAdapter(prof)
-func NewProfilerHookAdapter(prof *Profiler) *ProfilerHookAdapter {
-	return &ProfilerHookAdapter{
+//	hook := profiler.NewHookAdapter(prof)
+func NewHookAdapter(prof *Profiler) *HookAdapter {
+	return &HookAdapter{
 		profiler:         prof,
 		componentTracker: NewComponentTracker(),
 		componentNames:   make(map[string]string),
@@ -50,42 +50,42 @@ func NewProfilerHookAdapter(prof *Profiler) *ProfilerHookAdapter {
 }
 
 // GetComponentTracker returns the component tracker used by this adapter.
-func (h *ProfilerHookAdapter) GetComponentTracker() *ComponentTracker {
+func (h *HookAdapter) GetComponentTracker() *ComponentTracker {
 	return h.componentTracker
 }
 
 // OnComponentMount tracks when a component is mounted.
-func (h *ProfilerHookAdapter) OnComponentMount(id, name string) {
+func (h *HookAdapter) OnComponentMount(id, name string) {
 	h.mu.Lock()
 	h.componentNames[id] = name
 	h.mu.Unlock()
 }
 
 // OnComponentUpdate is called when a component receives an update.
-func (h *ProfilerHookAdapter) OnComponentUpdate(id string, msg interface{}) {
+func (h *HookAdapter) OnComponentUpdate(id string, msg interface{}) {
 	// Track update count if needed
 }
 
 // OnComponentUnmount tracks when a component is unmounted.
-func (h *ProfilerHookAdapter) OnComponentUnmount(id string) {
+func (h *HookAdapter) OnComponentUnmount(id string) {
 	h.mu.Lock()
 	delete(h.componentNames, id)
 	h.mu.Unlock()
 }
 
 // OnRefChange is called when a ref value changes.
-func (h *ProfilerHookAdapter) OnRefChange(id string, oldValue, newValue interface{}) {
+func (h *HookAdapter) OnRefChange(id string, oldValue, newValue interface{}) {
 	// Can track state change frequency if needed
 }
 
 // OnEvent is called when an event is emitted.
-func (h *ProfilerHookAdapter) OnEvent(componentID, eventName string, data interface{}) {
+func (h *HookAdapter) OnEvent(componentID, eventName string, data interface{}) {
 	// Can track event frequency if needed
 }
 
 // OnRenderComplete records render timing for components.
 // This is the CRITICAL method for profiler data collection.
-func (h *ProfilerHookAdapter) OnRenderComplete(componentID string, duration time.Duration) {
+func (h *HookAdapter) OnRenderComplete(componentID string, duration time.Duration) {
 	h.mu.RLock()
 	name := h.componentNames[componentID]
 	h.mu.RUnlock()
@@ -100,22 +100,22 @@ func (h *ProfilerHookAdapter) OnRenderComplete(componentID string, duration time
 }
 
 // OnComputedChange is called when a computed value changes.
-func (h *ProfilerHookAdapter) OnComputedChange(id string, oldValue, newValue interface{}) {}
+func (h *HookAdapter) OnComputedChange(id string, oldValue, newValue interface{}) {}
 
 // OnWatchCallback is called when a watch callback executes.
-func (h *ProfilerHookAdapter) OnWatchCallback(watcherID string, newValue, oldValue interface{}) {}
+func (h *HookAdapter) OnWatchCallback(watcherID string, newValue, oldValue interface{}) {}
 
 // OnEffectRun is called when an effect runs.
-func (h *ProfilerHookAdapter) OnEffectRun(effectID string) {}
+func (h *HookAdapter) OnEffectRun(effectID string) {}
 
 // OnChildAdded is called when a child component is added.
-func (h *ProfilerHookAdapter) OnChildAdded(parentID, childID string) {}
+func (h *HookAdapter) OnChildAdded(parentID, childID string) {}
 
 // OnChildRemoved is called when a child component is removed.
-func (h *ProfilerHookAdapter) OnChildRemoved(parentID, childID string) {}
+func (h *HookAdapter) OnChildRemoved(parentID, childID string) {}
 
 // OnRefExposed is called when a ref is exposed.
-func (h *ProfilerHookAdapter) OnRefExposed(componentID, refID, refName string) {}
+func (h *HookAdapter) OnRefExposed(componentID, refID, refName string) {}
 
 // =============================================================================
 // CompositeHook - Multiplexes events to multiple hooks
@@ -134,7 +134,7 @@ func (h *ProfilerHookAdapter) OnRefExposed(componentID, refID, refName string) {
 //
 //	// Create individual hooks
 //	devtoolsHook := bubbly.GetRegisteredHook() // Get DevTools hook
-//	profilerHook := profiler.NewProfilerHookAdapter(prof)
+//	profilerHook := profiler.NewHookAdapter(prof)
 //
 //	// Combine them
 //	composite := profiler.NewCompositeHook(devtoolsHook, profilerHook)

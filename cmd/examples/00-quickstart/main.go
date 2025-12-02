@@ -104,7 +104,7 @@ func main() {
 		devtoolsHook := bubbly.GetRegisteredHook()
 
 		// Create profiler hook adapter
-		profilerHook := profiler.NewProfilerHookAdapter(prof)
+		profilerHook := profiler.NewHookAdapter(prof)
 
 		// Link the profiler to the hook adapter
 		prof.SetHookAdapter(profilerHook)

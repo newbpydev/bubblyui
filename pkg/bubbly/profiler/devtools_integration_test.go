@@ -24,7 +24,7 @@ func TestCompositeHook_DevToolsAndProfilerCoexist(t *testing.T) {
 	}
 
 	prof := New(WithEnabled(true))
-	profilerHook := NewProfilerHookAdapter(prof)
+	profilerHook := NewHookAdapter(prof)
 	prof.SetHookAdapter(profilerHook)
 
 	// Create composite
@@ -49,7 +49,7 @@ func TestCompositeHook_DevToolsAndProfilerCoexist(t *testing.T) {
 // compatibility with the real bubbly.FrameworkHook interface.
 func TestCompositeHook_WorksWithActualBubblyFrameworkHook(t *testing.T) {
 	prof := New(WithEnabled(true))
-	profilerHook := NewProfilerHookAdapter(prof)
+	profilerHook := NewHookAdapter(prof)
 	prof.SetHookAdapter(profilerHook)
 
 	composite := NewCompositeHook(profilerHook)
