@@ -350,7 +350,7 @@ func TestUseNotification_ConcurrentAccess(t *testing.T) {
 	// Run concurrent notifications
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
-		go func(n int) {
+		go func(_ int) {
 			for j := 0; j < 10; j++ {
 				notif.Info("Test", "Message")
 			}
