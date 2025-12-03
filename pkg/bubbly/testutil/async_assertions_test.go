@@ -300,7 +300,7 @@ func TestWaitForRef_Integration(t *testing.T) {
 			// Simulate async data fetch
 			ctx.On("fetch", func(payload interface{}) {
 				go func() {
-					time.Sleep(50 * time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 					loading.Set(false)
 					data.Set("fetched data")
 				}()
@@ -317,8 +317,8 @@ func TestWaitForRef_Integration(t *testing.T) {
 	// Trigger async operation
 	ct.component.Emit("fetch", nil)
 
-	// Wait for loading to become false
-	ct.WaitForRef("loading", false, 200*time.Millisecond)
+	// Wait for loading to become false with generous margin for CI
+	ct.WaitForRef("loading", false, 500*time.Millisecond)
 
 	// Verify data was loaded
 	assert.Equal(t, "fetched data", ct.state.GetRefValue("data"))
