@@ -81,6 +81,9 @@ go.work
 .windsurf/
 .serena/
 
+# Social Media
+.xoomby/
+
 # OS
 .DS_Store
 Thumbs.db
