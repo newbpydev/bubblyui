@@ -79,15 +79,15 @@ package main
 
 import (
     "fmt"
-    "github.com/newbpydev/bubblyui/pkg/bubbly"
+    "github.com/newbpydev/bubblyui"
 )
 
 func main() {
-    counter, _ := bubbly.NewComponent("Counter").
+    counter, _ := bubblyui.NewComponent("Counter").
         WithKeyBinding("up", "increment", "Increment").
         WithKeyBinding("down", "decrement", "Decrement").
         WithKeyBinding("q", "quit", "Quit").
-        Setup(func(ctx *bubbly.Context) {
+        Setup(func(ctx *bubblyui.Context) {
             count := ctx.Ref(0)
             ctx.Expose("count", count)
 
@@ -99,8 +99,8 @@ func main() {
                 count.Set(count.GetTyped().(int) - 1)
             })
         }).
-        Template(func(ctx bubbly.RenderContext) string {
-            count := ctx.Get("count").(*bubbly.Ref[interface{}])
+        Template(func(ctx bubblyui.RenderContext) string {
+            count := ctx.Get("count").(*bubblyui.Ref[interface{}])
             comp := ctx.Component()
             return fmt.Sprintf("Count: %d\n\n%s",
                 count.GetTyped().(int),
@@ -109,7 +109,7 @@ func main() {
         Build()
 
     // Clean, simple, zero boilerplate! 🎉
-    bubbly.Run(counter, bubbly.WithAltScreen())
+    bubblyui.Run(counter, bubblyui.WithAltScreen())
 }
 ```
 
