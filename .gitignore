@@ -76,6 +76,11 @@ go.work
 *.swo
 *~
 
+# AI Assistant Workflow Directories (Personal - Do Not Commit)
+.claude/
+.windsurf/
+.serena/
+
 # OS
 .DS_Store
 Thumbs.db
