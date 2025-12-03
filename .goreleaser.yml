@@ -79,11 +79,10 @@ release:
     **Documentation**: https://pkg.go.dev/github.com/newbpydev/bubblyui
 
 # Go module proxy configuration
+# Note: Disabled proxy for library releases to avoid chicken-and-egg problem
+# The release creates the tag, which needs to exist before proxy can fetch it
 gomod:
-  proxy: true
-  env:
-    - GOPROXY=https://proxy.golang.org,direct
-    - GOSUMDB=sum.golang.org
+  proxy: false
 
 # Announce (disabled by default)
 announce:
