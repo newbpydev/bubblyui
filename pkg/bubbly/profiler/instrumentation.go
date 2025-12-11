@@ -62,6 +62,10 @@ type Component interface {
 	IsInitialized() bool
 }
 
+// noopStop is a shared no-op function to avoid allocating new closures
+// when instrumentation is disabled or component is nil.
+var noopStop = func() {}
+
 // Instrumentor provides component instrumentation for performance profiling.
 //
 // It wraps BubblyUI components to automatically track render and update timing,
@@ -173,14 +177,14 @@ func (i *Instrumentor) IsEnabled() bool {
 //	output := component.View()
 //	stop()
 func (i *Instrumentor) InstrumentRender(component Component) func() {
-	// Fast path when disabled
+	// Fast path when disabled - return shared no-op to avoid allocation
 	if !i.enabled.Load() {
-		return func() {}
+		return noopStop
 	}
 
 	// Handle nil component
 	if component == nil {
-		return func() {}
+		return noopStop
 	}
 
 	id := component.ID()
@@ -210,14 +214,14 @@ func (i *Instrumentor) InstrumentRender(component Component) func() {
 //	model, cmd := component.Update(msg)
 //	stop()
 func (i *Instrumentor) InstrumentUpdate(component Component) func() {
-	// Fast path when disabled
+	// Fast path when disabled - return shared no-op to avoid allocation
 	if !i.enabled.Load() {
-		return func() {}
+		return noopStop
 	}
 
 	// Handle nil component
 	if component == nil {
-		return func() {}
+		return noopStop
 	}
 
 	id := component.ID()
