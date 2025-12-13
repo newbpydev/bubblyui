@@ -117,7 +117,10 @@ func CreateApp() (bubbly.Component, error) {
 		WithKeyBinding("shift+tab", "prevField", "Previous field").
 		WithConditionalKeyBinding(bubbly.KeyBinding{
 			Key: "p", Event: "cyclePriority", Description: "Cycle priority",
-			Condition: func() bool { return mode.GetTyped() == ModeInput },
+			Condition: func() bool {
+				// Only trigger when in input mode AND focused on priority field (field 2)
+				return mode.GetTyped() == ModeInput && addPageState.FocusedField.GetTyped() == 2
+			},
 		}).
 		// Message handler for text input
 		WithMessageHandler(func(comp bubbly.Component, msg tea.Msg) tea.Cmd {
@@ -144,6 +147,10 @@ func CreateApp() (bubbly.Component, error) {
 				return nil
 			case tea.KeySpace:
 				comp.Emit("addChar", " ")
+				return nil
+			case tea.KeyEnter:
+				// Submit form in input mode
+				comp.Emit("submitForm", nil)
 				return nil
 			}
 
@@ -407,6 +414,51 @@ func CreateApp() (bubbly.Component, error) {
 						addPageState.Priority.Set(p[:len(p)-1])
 					}
 				}
+			})
+
+			// Handle form submission from Enter key in input mode
+			ctx.On("submitForm", func(_ interface{}) {
+				if mode.GetTyped() != ModeInput {
+					return
+				}
+				route := r.CurrentRoute()
+				if route == nil || route.Path != "/add" {
+					return
+				}
+
+				// Validate and submit
+				t := strings.TrimSpace(addPageState.Title.GetTyped())
+				if t == "" {
+					addPageState.ErrorMsg.Set("Title is required")
+					return
+				}
+				if len(t) < 3 {
+					addPageState.ErrorMsg.Set("Title must be at least 3 characters")
+					return
+				}
+
+				p := strings.TrimSpace(addPageState.Priority.GetTyped())
+				if p != "" && p != "low" && p != "medium" && p != "high" {
+					addPageState.ErrorMsg.Set("Priority must be: low, medium, or high")
+					return
+				}
+				if p == "" {
+					p = "medium"
+				}
+
+				// Add the todo
+				composables.UseTodos().AddTodo(t, strings.TrimSpace(addPageState.Description.GetTyped()), p)
+
+				// Reset form
+				addPageState.Title.Set("")
+				addPageState.Description.Set("")
+				addPageState.Priority.Set("medium")
+				addPageState.FocusedField.Set(0)
+				addPageState.ErrorMsg.Set("")
+
+				// Navigate back to home
+				mode.Set(ModeNavigation)
+				navigate(r, "/")
 			})
 
 			// Watch for route changes to update mode
