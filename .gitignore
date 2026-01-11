@@ -112,3 +112,4 @@ CHANGELOG_*.md
 
 # Build artifacts
 *.a
+01-basic-stdio

@@ -38,7 +38,7 @@ jobs:
       - name: Run tests
         run: |
           set +e
-          output=$(go test -race -coverprofile=coverage.out -covermode=atomic ./... 2>&1)
+          output=$(go test -p 1 -race -coverprofile=coverage.out -covermode=atomic ./... 2>&1)
           exit_code=$?
           echo "$output"
           if [ $exit_code -ne 0 ] && echo "$output" | grep -q "no packages to test"; then
